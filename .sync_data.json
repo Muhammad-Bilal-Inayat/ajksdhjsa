@@ -123,20 +123,20 @@
   ],
   "appUsers": [
     {
-      "id": "u_1790667685875",
-      "name": "bbb",
-      "username": "u_1790667685875",
+      "id": "usr_1790657838970_58h9p",
+      "name": "aaaaaa",
+      "username": "usr_1790657838970_58h9p",
       "role": "Primary Admin",
       "status": "Active",
-      "createdAt": "2026-09-29T07:41:25.900Z",
-      "emailOrPhone": "03281302636@inventra.local",
+      "createdAt": "2026-09-29T09:21:05.801Z",
+      "emailOrPhone": "030000",
       "passcode": "1234",
-      "storeName": "MUHAMMAD",
+      "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T08:01:10.994Z",
+      "boundHwid": "HW-4ADF2030-MAJTWM",
+      "lastSyncTime": "2026-09-29T10:11:00.955Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T08:01:11.006Z"
+      "updatedAt": "2026-09-29T10:11:20.329Z"
     },
     {
       "id": "admin-master",
@@ -150,9 +150,9 @@
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T07:39:01.231Z",
+      "lastSyncTime": "2026-09-29T10:06:24.628Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T07:39:01.236Z",
+      "updatedAt": "2026-09-29T10:06:24.633Z",
       "allowedModules": {
         "sales": true,
         "purchases": true,
@@ -190,6 +190,22 @@
         "canAccessBankAccounts": true,
         "canChangePaymentTerms": true
       }
+    },
+    {
+      "id": "u_1790667685875",
+      "name": "bbb",
+      "username": "u_1790667685875",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T07:41:25.900Z",
+      "emailOrPhone": "03281302636@inventra.local",
+      "passcode": "1234",
+      "storeName": "MUHAMMAD",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-528EB66D-MAJTWM",
+      "lastSyncTime": "2026-09-29T09:25:13.624Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T09:25:13.634Z"
     },
     {
       "id": "u_1790657839031",

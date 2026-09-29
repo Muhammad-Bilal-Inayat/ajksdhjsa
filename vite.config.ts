@@ -694,7 +694,8 @@ export default defineConfig(() => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'react-router', 'react-router-dom'],
             'vendor-icons': ['lucide-react'],
-            'vendor-charts': ['recharts']
+            'vendor-charts': ['recharts'],
+            'vendor-pdf': ['html2canvas', 'jspdf'],
           },
         },
       },

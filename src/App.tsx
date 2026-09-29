@@ -29,11 +29,6 @@ import { ShieldAlert, ArrowLeft, RefreshCw, RotateCcw, Lock } from 'lucide-react
 import { Toaster } from 'react-hot-toast';
 
 import { PendingApproval } from './components/PendingApproval';
-import { AuthPage } from './pages/AuthPage';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import SetupBusiness from './pages/SetupBusiness';
-import { LandingPage } from './pages/LandingPage';
 
 // Resilient code-splitting wrapper with automatic cache-clearing retry and offline fallback
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -56,46 +51,19 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
       return { default: (() => null) as unknown as T };
     } catch (error: any) {
       console.warn('[MBI Dynamic Import Chunk Notice]', error?.message);
-      // Safe resilient fallback: return clean null or fallback view with zero auto-reload
       return {
         default: (() => null) as unknown as T
-      };
-
-      // Safe offline fallback: never throw unhandled chunk error or crash the app
-      return {
-        default: (() => (
-          <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center space-y-3 select-none">
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 rounded-2xl flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800">
-              <RefreshCw className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="space-y-1 max-w-sm">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Module Ready for Offline Use</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                This screen is available once loaded. Core billing, POS, inventory, and ledgers work 100% offline with zero internet required.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => window.location.href = '/user'}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
-              >
-                Go to Dashboard
-              </button>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer"
-              >
-                Reload
-              </button>
-            </div>
-          </div>
-        )) as any
       };
     }
   });
 }
+
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const AuthPage = lazyWithRetry(() => import('./pages/AuthPage').then(m => ({ default: m.AuthPage })));
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const SetupBusiness = lazyWithRetry(() => import('./pages/SetupBusiness'));
+const MasterServerHub = lazyWithRetry(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
 
 // Core POS/ERP pages imported directly for instant zero-latency navigation between side menus
 import { Dashboard } from './pages/Dashboard';
@@ -108,22 +76,20 @@ import { Expenses } from './pages/Expenses';
 import { Bank } from './pages/Bank';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
-import { ShortageRegistry } from './pages/ShortageRegistry';
-import { TopProducts } from './pages/TopProducts';
-import { CashInHand } from './pages/CashInHand';
-import { ShiftManagement } from './pages/ShiftManagement';
-import { DailyNotes } from './pages/DailyNotes';
-import { OnlineStoreManagement } from './pages/OnlineStoreManagement';
-import { Utilities } from './pages/Utilities';
-import { SyncAndShare } from './pages/SyncAndShare';
-import { BookersManagement } from './pages/BookersManagement';
-import { CustomerKhataPage } from './pages/CustomerKhataPage';
-import { SupplierKhataPage } from './pages/SupplierKhataPage';
-import { LedgersStatementsPage } from './pages/LedgersStatementsPage';
-import { PurchaseInvoicePage } from './pages/PurchaseInvoicePage';
-import { SaleInvoicePage } from './pages/SaleInvoicePage';
-import { PartiesManagementPage } from './pages/PartiesManagementPage';
-import { MasterServerHub } from './pages/MasterServerHub';
+const ShortageRegistry = lazyWithRetry(() => import('./pages/ShortageRegistry').then(m => ({ default: m.ShortageRegistry })));
+const TopProducts = lazyWithRetry(() => import('./pages/TopProducts').then(m => ({ default: m.TopProducts })));
+const CashInHand = lazyWithRetry(() => import('./pages/CashInHand').then(m => ({ default: m.CashInHand })));
+const ShiftManagement = lazyWithRetry(() => import('./pages/ShiftManagement').then(m => ({ default: m.ShiftManagement })));
+const DailyNotes = lazyWithRetry(() => import('./pages/DailyNotes').then(m => ({ default: m.DailyNotes })));
+const OnlineStoreManagement = lazyWithRetry(() => import('./pages/OnlineStoreManagement').then(m => ({ default: m.OnlineStoreManagement })));
+const Utilities = lazyWithRetry(() => import('./pages/Utilities').then(m => ({ default: m.Utilities })));
+const SyncAndShare = lazyWithRetry(() => import('./pages/SyncAndShare').then(m => ({ default: m.SyncAndShare })));
+const BookersManagement = lazyWithRetry(() => import('./pages/BookersManagement').then(m => ({ default: m.BookersManagement })));
+const CustomerKhataPage = lazyWithRetry(() => import('./pages/CustomerKhataPage').then(m => ({ default: m.CustomerKhataPage })));
+const SupplierKhataPage = lazyWithRetry(() => import('./pages/SupplierKhataPage').then(m => ({ default: m.SupplierKhataPage })));
+const LedgersStatementsPage = lazyWithRetry(() => import('./pages/LedgersStatementsPage').then(m => ({ default: m.LedgersStatementsPage })));
+const PurchaseInvoicePage = lazyWithRetry(() => import('./pages/PurchaseInvoicePage').then(m => ({ default: m.PurchaseInvoicePage })));
+const PartiesManagementPage = lazyWithRetry(() => import('./pages/PartiesManagementPage').then(m => ({ default: m.PartiesManagementPage })));
 
 // Marketing, Public Storefront & Master Admin Portals
 const Pricing = lazyWithRetry(() => import('./pages/Pricing').then(m => ({ default: m.Pricing })));

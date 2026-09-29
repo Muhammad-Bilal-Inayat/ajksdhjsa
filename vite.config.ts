@@ -722,7 +722,18 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {
-        ignored: ['**/.sync_data.json', '**/.server_error_logs.json', '**/*.tmp'],
+        ignored: [
+          '**/.sync_data.json*',
+          '**/.master_users.json*',
+          '**/.master_*.json*',
+          '**/.server_error_logs.json*',
+          '**/*.tmp',
+          '**/.master_client_backups/**',
+          '**/server/db/**',
+          '**/*.sql',
+          '**/*.json',
+          '**/*.db'
+        ],
       },
     },
   };

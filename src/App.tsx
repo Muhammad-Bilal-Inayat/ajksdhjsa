@@ -56,30 +56,10 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
       return { default: (() => null) as unknown as T };
     } catch (error: any) {
       console.warn('[MBI Dynamic Import Chunk Notice]', error?.message);
-      const isChunkError =
-        error?.name === 'ChunkLoadError' ||
-        /Failed to fetch dynamically imported module/i.test(error?.message || '') ||
-        /error loading dynamically imported module/i.test(error?.message || '') ||
-        /Importing a module script failed/i.test(error?.message || '');
-
-      if (isChunkError && typeof window !== 'undefined') {
-        const isOnline = navigator.onLine;
-        const retryKey = 'mbi_chunk_retry_' + window.location.pathname;
-        const alreadyRetried = sessionStorage.getItem(retryKey);
-
-        // If online and haven't retried yet, clear chunk caches and reload once
-        if (isOnline && !alreadyRetried) {
-          sessionStorage.setItem(retryKey, 'true');
-          if ('caches' in window) {
-            try {
-              const keys = await caches.keys();
-              await Promise.all(keys.map(k => caches.delete(k)));
-            } catch (e) {}
-          }
-          window.location.reload();
-          return new Promise<{ default: T }>(() => {});
-        }
-      }
+      // Safe resilient fallback: return clean null or fallback view with zero auto-reload
+      return {
+        default: (() => null) as unknown as T
+      };
 
       // Safe offline fallback: never throw unhandled chunk error or crash the app
       return {

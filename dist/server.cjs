@@ -9670,8 +9670,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.2.5";
-var RELEASE_NOTES = "Fixed Network Icon Reference in Master Server Hub, Instant Zero-Wait Boot & Fleet Station Direct Access";
+var APP_VERSION2 = "4.2.7";
+var RELEASE_NOTES = "Completely Removed All Auto-Reload Listeners for 100% Stable Persistent POS Session";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

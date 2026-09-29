@@ -13,18 +13,10 @@ initWebSecurityGuard();
 // Initialize Progressive Web App Service Worker and Persistent Storage
 registerPWA();
 
-// Global listener for dynamic import / chunk load failures (new deployment hash change or offline)
+// Global listener for dynamic import notices (safe no-op, never auto-reload)
 window.addEventListener('vite:preloadError', (event: any) => {
-  console.warn('[MBI Inventra] Chunk preload notice (offline or new version deployed):', event);
+  console.warn('[MBI Inventra] Chunk preload notice:', event);
   event?.preventDefault?.();
-  if (typeof navigator !== 'undefined' && navigator.onLine) {
-    const lastReload = sessionStorage.getItem('mbi_chunk_reload_ts');
-    const now = Date.now();
-    if (!lastReload || now - parseInt(lastReload, 10) > 15000) {
-      sessionStorage.setItem('mbi_chunk_reload_ts', String(now));
-      window.location.reload();
-    }
-  }
 });
 
 // Comprehensive bootstrap tracking & diagnostic logger

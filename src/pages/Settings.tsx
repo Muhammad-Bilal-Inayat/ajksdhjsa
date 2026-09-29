@@ -23,6 +23,8 @@ import { AdminSettingsTab } from '../components/settings/AdminSettingsTab';
 import { DocumentationTab } from '../components/settings/DocumentationTab';
 import { BackupRestoreTab } from '../components/settings/BackupRestoreTab';
 import { BarcodeGeneratorTab } from '../components/settings/BarcodeGeneratorTab';
+import { WhatsAppAutomationSettingsTab } from '../components/settings/WhatsAppAutomationSettingsTab';
+import { MessageSquare } from 'lucide-react';
 import { APP_VERSION } from '../config/appVersion';
 import { ManualPatchTab } from '../components/settings/ManualPatchTab';
 import { useSettings } from '../contexts/SettingsContext';
@@ -33,6 +35,7 @@ export type TabKey =
   | 'MANUAL PATCH'
   | 'BACKUP & RESTORE'
   | 'QR CODE GENERATOR'
+  | 'WHATSAPP AUTOMATION'
   | 'GENERAL' 
   | 'DOCUMENTATION'
   | 'UPDATES'
@@ -61,6 +64,7 @@ export interface TabItem {
 
 export const SETTINGS_TABS: TabItem[] = [
   { key: 'GENERAL', label: 'GENERAL', icon: Sliders },
+  { key: 'WHATSAPP AUTOMATION', label: 'WHATSAPP AUTOMATION', icon: MessageSquare, badge: 'AUTO' },
   { key: 'NAVIGATION & MENU PREFERENCES', label: 'MENU & NAVIGATION', icon: Sliders, badge: 'PRIMARY' },
   { key: 'BACKUP & RESTORE', label: 'BACKUP & RESTORE', icon: ShieldCheck, badge: 'VERIFIED' },
   { key: 'DOCUMENTATION', label: 'USER MANUAL & GUIDES', icon: BookOpen },
@@ -233,6 +237,7 @@ export const Settings: React.FC = () => {
           {activeTab === 'QR CODE GENERATOR' && <BarcodeGeneratorTab />}
           {(activeTab === 'DOCUMENTATION' || activeTab === 'UPDATES') && <DocumentationTab />}
           {activeTab === 'GENERAL' && <GeneralTab />}
+          {activeTab === 'WHATSAPP AUTOMATION' && <WhatsAppAutomationSettingsTab />}
           {activeTab === 'NAVIGATION & MENU PREFERENCES' && <MenuCustomizerSettings />}
           {activeTab === 'ADMIN SETTINGS' && <AdminSettingsTab />}
           {activeTab === 'CONTROLLED & GENERIC' && <ControlledAndGenericTab />}

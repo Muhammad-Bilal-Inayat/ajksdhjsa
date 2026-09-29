@@ -151,7 +151,9 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'audit-logs': 'platinum',
   'journal-vouchers': 'platinum',
   'mesh-sync': 'platinum',
-  'ai-reorder-velocity': 'platinum'
+  'ai-reorder-velocity': 'platinum',
+  'auto_whatsapp_gateway': 'platinum',
+  'whatsapp_automation': 'platinum'
 };
 
 /**

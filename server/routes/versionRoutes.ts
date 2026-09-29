@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.3.3';
-export const RELEASE_NOTES = 'Strict Master PIN Security Lockdown (Ami7788!@ & 03082003) and 100% Multi-Tenant Isolation (v4.3.3)';
+export const APP_VERSION = '4.3.4';
+export const RELEASE_NOTES = 'Company WhatsApp Automation Hub (Enterprise Auto-Gateway & 1-Click Direct wa.me) + Live Fleet Control (v4.3.4)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

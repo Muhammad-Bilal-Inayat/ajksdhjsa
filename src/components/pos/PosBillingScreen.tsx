@@ -12,6 +12,7 @@ import { emitToast } from '../../contexts/ToastContext';
 import { PosInvoiceRowItem } from './PosItemRow';
 import { PosItemsTable } from './PosItemsTable';
 import { PosTotalsBar } from './PosTotalsBar';
+import { dispatchWhatsAppInvoice } from '../../lib/whatsappAutomationService';
 
 export interface PosBillingScreenProps {
   isOpen?: boolean;
@@ -153,6 +154,31 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
       };
 
       await dbInvoices.save(invoiceRecord);
+
+      // Automated / 1-Click WhatsApp Invoice Dispatch
+      if (customerPhone && customerPhone.trim()) {
+        try {
+          const tenantId = localStorage.getItem('mbi_tenant_id') || 'default';
+          dispatchWhatsAppInvoice({
+            invoiceNumber,
+            customerName: customerName || 'Valued Customer',
+            customerPhone: customerPhone,
+            date: invoiceDate,
+            items: validItems.map(it => ({ name: it.name, quantity: it.quantity, total: it.total })),
+            subTotal,
+            discountAmount,
+            taxAmount,
+            grandTotal,
+            paidAmount: paidAmount > 0 ? paidAmount : grandTotal,
+            balanceDue: paymentMethod === 'Credit' ? grandTotal : 0,
+            businessName: business?.name || 'Inventra Pharmacy'
+          }, tenantId).then(waRes => {
+            if (waRes.success && waRes.mode === 'auto_background') {
+              emitToast(waRes.message, 'success');
+            }
+          }).catch(() => {});
+        } catch {}
+      }
 
       // Audit Log
       await dbAuditLogs.save({

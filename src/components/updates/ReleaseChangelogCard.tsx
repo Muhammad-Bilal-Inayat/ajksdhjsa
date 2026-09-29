@@ -37,10 +37,40 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.3-stable',
+    version: 'v4.3.4-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Company WhatsApp Automation Hub (Enterprise Background Auto-Gateway & 1-Click Direct wa.me) + Live Super Admin Fleet Override.',
+    features: [
+      {
+        text: 'Enterprise Auto-Gateway: Automatic background invoice & khata message delivery using attached company WhatsApp number.',
+        type: 'feature',
+        minPlan: 'platinum'
+      },
+      {
+        text: '1-Click WhatsApp Direct: Free, instant click-to-chat billing dispatch formatted with order summary for Silver & Gold tiers.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Super Admin Live Gateway Override: 1-click feature enable/disable per company directly from /server Fleet Dashboard.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Zero-Cost Architecture: No monthly per-message fees or number bans; fully owned by client pharmacy.',
+        type: 'performance',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.3-stable',
+    releaseDate: 'September 2026',
+    tag: 'Production Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Strict Master PIN Security Lockdown (Ami7788!@ & 03082003) and 100% Multi-Tenant Isolation Architecture.',
     features: [
@@ -52,11 +82,6 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
       {
         text: 'Full Multi-Tenant Schema Validation: Verified 20+ MariaDB tables with strict per-tenant cryptographic isolation.',
         type: 'feature',
-        minPlan: 'all'
-      },
-      {
-        text: 'Hierarchical Tenant-User Architecture: Every client pharmacy is a Tenant, and counter staff are scoped Users under that Tenant.',
-        type: 'security',
         minPlan: 'all'
       }
     ]

@@ -18,6 +18,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { deductStockFromMedicine } from '../lib/stockRotationEngine';
 import { v4 as uuidv4 } from 'uuid';
 import { emitToast } from '../contexts/ToastContext';
+import { dispatchWhatsAppInvoice } from '../lib/whatsappAutomationService';
 
 export const SaleInvoicePage: React.FC = () => {
   const navigate = useNavigate();
@@ -300,6 +301,31 @@ export const SaleInvoicePage: React.FC = () => {
           details: `Sale Invoice ${invoiceNumber} for ${customerName} of Rs ${finalGrandTotal.toLocaleString()}`
         });
       } catch {}
+
+      // Automated / 1-Click WhatsApp Invoice Dispatch
+      if (customerPhone && customerPhone.trim()) {
+        try {
+          const tenantId = localStorage.getItem('mbi_tenant_id') || 'default';
+          dispatchWhatsAppInvoice({
+            invoiceNumber,
+            customerName: customerName || 'Valued Customer',
+            customerPhone: customerPhone,
+            date: new Date(invoiceDate).toISOString(),
+            items: validItems.map(it => ({ name: it.name, quantity: it.quantity, total: it.total })),
+            subTotal: subtotal,
+            discountAmount: totalItemDiscount,
+            taxAmount: totalItemTax,
+            grandTotal: finalGrandTotal,
+            paidAmount: Number(paidAmount) || 0,
+            balanceDue: balanceDue,
+            businessName: business?.name || 'Inventra Pharmacy'
+          }, tenantId).then(waRes => {
+            if (waRes.success && waRes.mode === 'auto_background') {
+              emitToast(waRes.message, 'success');
+            }
+          }).catch(() => {});
+        } catch {}
+      }
 
       emitToast(`Invoice ${invoiceNumber} saved successfully!`, 'success');
 

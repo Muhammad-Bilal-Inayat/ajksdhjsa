@@ -3,7 +3,8 @@ import {
   Building2, Users, ShieldCheck, Search, Plus, 
   RefreshCw, CheckCircle2, Clock, MapPin, Phone, 
   ExternalLink, Trash2, Edit3, Award, Sparkles, Filter, 
-  Database, AlertTriangle, Play, ShieldAlert, GitBranch 
+  Database, AlertTriangle, Play, ShieldAlert, GitBranch,
+  MessageSquare, Check
 } from 'lucide-react';
 
 interface TenantItem {
@@ -22,6 +23,7 @@ interface TenantItem {
   user_count?: number;
   invoice_count?: number;
   created_at?: string;
+  auto_whatsapp_override?: boolean;
 }
 
 export function FleetDashboardModule({ onImpersonate }: { onImpersonate: (tenantId: string) => void }) {
@@ -31,6 +33,8 @@ export function FleetDashboardModule({ onImpersonate }: { onImpersonate: (tenant
   const [selectedPlan, setSelectedPlan] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [waTogglingId, setWaTogglingId] = useState<string | null>(null);
+  const [tenantWaOverrides, setTenantWaOverrides] = useState<Record<string, boolean>>({});
 
   // Global Catalog Sync state
   const [syncingTenantId, setSyncingTenantId] = useState<string | null>(null);
@@ -135,6 +139,32 @@ export function FleetDashboardModule({ onImpersonate }: { onImpersonate: (tenant
       setSyncResult('Sync failed: ' + err?.message);
     } finally {
       setSyncingTenantId(null);
+    }
+  };
+
+  // Toggle WhatsApp Auto-Gateway for Tenant
+  const handleToggleWhatsAppGateway = async (tenantId: string, currentStatus: boolean) => {
+    setWaTogglingId(tenantId);
+    try {
+      const newStatus = !currentStatus;
+      const res = await fetch('/api/whatsapp/admin/toggle-gateway', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-master-pin': 'Ami7788!@'
+        },
+        body: JSON.stringify({ tenantId, enabled: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTenantWaOverrides(prev => ({ ...prev, [tenantId]: newStatus }));
+        setSyncResult(`WhatsApp Auto-Gateway ${newStatus ? 'ENABLED' : 'DISABLED'} for ${tenantId}`);
+      }
+    } catch (e: any) {
+      console.error(e);
+      setSyncResult('Failed to toggle WhatsApp gateway: ' + e?.message);
+    } finally {
+      setWaTogglingId(null);
     }
   };
 
@@ -288,9 +318,37 @@ export function FleetDashboardModule({ onImpersonate }: { onImpersonate: (tenant
                   <span className="text-slate-400">Phone:</span>
                   <span className="font-mono text-slate-700 dark:text-slate-300">{t.owner_phone || 'N/A'}</span>
                 </div>
-                <div className="flex justify-between text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-800/60">
-                  <span className="text-slate-400">Branches (Firms):</span>
-                  <span className="font-semibold text-blue-600">Main + 1 Branch</span>
+                <div className="flex justify-between items-center text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-800/60">
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3 text-emerald-500" />
+                    WhatsApp Gateway:
+                  </span>
+                  <button
+                    type="button"
+                    disabled={waTogglingId === t.tenant_id}
+                    onClick={() => {
+                      const isAuto = tenantWaOverrides[t.tenant_id] !== undefined 
+                        ? tenantWaOverrides[t.tenant_id] 
+                        : (t.plan === 'Enterprise' || t.plan === 'Platinum' || t.auto_whatsapp_override);
+                      handleToggleWhatsAppGateway(t.tenant_id, isAuto);
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                      (tenantWaOverrides[t.tenant_id] !== undefined 
+                        ? tenantWaOverrides[t.tenant_id] 
+                        : (t.plan === 'Enterprise' || t.plan === 'Platinum' || t.auto_whatsapp_override))
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-slate-300 dark:hover:bg-slate-700'
+                    }`}
+                    title="Click to toggle Background WhatsApp Gateway on/off for this tenant"
+                  >
+                    {waTogglingId === t.tenant_id ? 'Saving...' : (
+                      (tenantWaOverrides[t.tenant_id] !== undefined 
+                        ? tenantWaOverrides[t.tenant_id] 
+                        : (t.plan === 'Enterprise' || t.plan === 'Platinum' || t.auto_whatsapp_override))
+                        ? '⚡ Auto Background'
+                        : '🖱️ 1-Click Direct'
+                    )}
+                  </button>
                 </div>
               </div>
             </div>

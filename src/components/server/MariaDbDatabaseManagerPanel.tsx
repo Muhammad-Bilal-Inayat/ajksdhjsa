@@ -125,10 +125,10 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-teal-950/60 via-slate-900 to-indigo-950/60 border border-teal-500/30 rounded-2xl p-6 text-white shadow-sm">
+      <div className="bg-gradient-to-r from-teal-900/40 via-slate-900 to-indigo-900/40 dark:from-teal-950/60 dark:via-slate-900 dark:to-indigo-950/60 border border-teal-500/30 rounded-2xl p-6 text-white shadow-sm">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-teal-500/20 border border-teal-500/40 text-teal-300 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-teal-500/20 border border-teal-500/40 text-teal-300 flex items-center justify-center shrink-0 shadow-sm">
               <Database className="w-6 h-6" />
             </div>
             <div>
@@ -148,7 +148,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
             <button
               onClick={fetchStatus}
               disabled={loading}
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
+              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700 shadow-sm"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               <span>Refresh Status</span>
@@ -178,60 +178,60 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
       {/* Connection & Health Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Status Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
             <span>MariaDB Service</span>
-            <Server className="w-4 h-4 text-teal-400" />
+            <Server className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
           <div className="mt-2 flex items-center gap-2">
             <span className={`w-3 h-3 rounded-full ${dbStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <span className="text-xl font-black text-white">
+            <span className="text-xl font-black text-slate-900 dark:text-white">
               {dbStatus?.connected ? 'Online & Synced' : 'Offline / Standby'}
             </span>
           </div>
-          <div className="mt-1 text-[11px] text-slate-400 font-mono">
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
             {dbStatus?.connected ? `Ping Latency: ${dbStatus.pingMs}ms` : 'Fallback local cache active'}
           </div>
         </div>
 
         {/* Database Info */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
             <span>Database Name</span>
-            <Database className="w-4 h-4 text-indigo-400" />
+            <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <div className="mt-2 text-xl font-black text-indigo-300 font-mono">
+          <div className="mt-2 text-xl font-black text-indigo-600 dark:text-indigo-300 font-mono">
             {dbStatus?.database || 'mbi_inventra'}
           </div>
-          <div className="mt-1 text-[11px] text-slate-400 font-mono">
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
             Host: {dbStatus?.host || 'localhost'}:{dbStatus?.port || 3306}
           </div>
         </div>
 
         {/* Total Synced Records */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
             <span>Relational Tables</span>
-            <Table className="w-4 h-4 text-emerald-400" />
+            <Table className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="mt-2 text-xl font-black text-emerald-400 font-mono">
+          <div className="mt-2 text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
             {tableDefinitions.length} Tables
           </div>
-          <div className="mt-1 text-[11px] text-slate-400">
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
             InnoDB Engine • utf8mb4_unicode_ci
           </div>
         </div>
 
         {/* Synced Records Count */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4.5 text-white">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
             <span>Auto Sync Pipeline</span>
-            <HardDrive className="w-4 h-4 text-cyan-400" />
+            <HardDrive className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
           </div>
-          <div className="mt-2 text-xl font-black text-cyan-300 font-mono">
+          <div className="mt-2 text-xl font-black text-cyan-600 dark:text-cyan-300 font-mono">
             {totalRecords > 0 ? `${totalRecords.toLocaleString()} Records` : 'Auto-Syncing'}
           </div>
-          <div className="mt-1 text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+          <div className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
             <span>IndexedDB ⇄ MariaDB 2-Way</span>
           </div>
@@ -239,13 +239,13 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-3 flex-wrap">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
         <button
           onClick={() => setActiveTab('assignments')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
             activeTab === 'assignments' 
-              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40' 
-              : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              ? 'bg-indigo-600 text-white dark:bg-indigo-500/20 dark:text-indigo-300 dark:border dark:border-indigo-500/40' 
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -254,10 +254,10 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
         <button
           onClick={() => setActiveTab('tables')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
             activeTab === 'tables' 
-              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' 
-              : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
           }`}
         >
           <Table className="w-4 h-4" />
@@ -266,10 +266,10 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
         <button
           onClick={() => setActiveTab('connection')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
             activeTab === 'connection' 
-              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' 
-              : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
           }`}
         >
           <Server className="w-4 h-4" />
@@ -278,10 +278,10 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
         <button
           onClick={() => setActiveTab('schema_cli')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
             activeTab === 'schema_cli' 
-              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40' 
-              : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
           }`}
         >
           <Terminal className="w-4 h-4" />
@@ -296,17 +296,17 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
       {/* TAB 1: RELATIONAL TABLES EXPLORER */}
       {activeTab === 'tables' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-4 shadow-sm">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Database Schema & Row Counters</span>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Database Schema &amp; Row Counters</span>
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Live row statistics from MariaDB server. When client adds invoices, batches, or users, records auto-insert via ON DUPLICATE KEY UPDATE.
               </p>
             </div>
-            <span className="text-xs font-mono text-teal-400 font-bold bg-teal-500/10 px-2.5 py-1 rounded-lg border border-teal-500/20">
+            <span className="text-xs font-mono text-teal-600 dark:text-teal-400 font-bold bg-teal-50 dark:bg-teal-500/10 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-teal-500/20">
               InnoDB Fast Engine
             </span>
           </div>
@@ -317,27 +317,27 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
               return (
                 <div 
                   key={tbl.name}
-                  className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:border-teal-500/40 transition flex flex-col justify-between"
+                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 hover:border-teal-500/40 transition flex flex-col justify-between shadow-xs"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="font-mono font-black text-sm text-teal-300">
+                      <span className="font-mono font-black text-sm text-teal-700 dark:text-teal-300">
                         {tbl.name}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-900 text-emerald-400 border border-emerald-500/30">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
                         {rowCount > 0 ? `${rowCount.toLocaleString()} rows` : '0 rows / ready'}
                       </span>
                     </div>
-                    <div className="font-bold text-xs text-slate-200 mt-1">
+                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-1">
                       {tbl.label}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
                       {tbl.desc}
                     </p>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[10.5px] text-slate-400 font-mono">
+                  <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
                     <span>PRIMARY KEY (`id`)</span>
-                    <span className="text-emerald-400">AUTO-SYNC ON</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">AUTO-SYNC ON</span>
                   </div>
                 </div>
               );
@@ -348,12 +348,12 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
       {/* TAB 2: CONNECTION & .ENV CONFIG */}
       {activeTab === 'connection' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white space-y-5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-5 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>Environment Variables (.env) for MariaDB</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Add these environment variables to your VPS / Hostinger / cPanel Node.js environment to bind to your MariaDB instance:
             </p>
           </div>
@@ -374,9 +374,9 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
             <div>DB_NAME=mbi_inventra</div>
           </div>
 
-          <div className="p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/30 text-xs text-indigo-200 space-y-2">
-            <div className="font-bold flex items-center gap-1.5 text-indigo-300">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" />
+          <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 text-xs text-indigo-900 dark:text-indigo-200 space-y-2">
+            <div className="font-bold flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+              <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <span>Driver Details</span>
             </div>
             <p>
@@ -388,20 +388,20 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
       {/* TAB 3: CPANEL, PHPMYADMIN & CLI MIGRATION */}
       {activeTab === 'schema_cli' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white space-y-5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-5 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>Database Migration & Terminal Commands</span>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <span>Database Migration &amp; Terminal Commands</span>
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Instructions for importing the <strong>mbi_inventra_mariadb.sql</strong> file into MariaDB via CLI or phpMyAdmin:
             </p>
           </div>
 
           {/* CLI Step */}
           <div className="space-y-2">
-            <div className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
-              <span>Step 1: Create Database & User (Linux Terminal / MariaDB Prompt)</span>
+            <div className="text-xs font-bold text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
+              <span>Step 1: Create Database &amp; User (Linux Terminal / MariaDB Prompt)</span>
             </div>
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 relative">
               <button
@@ -420,7 +420,7 @@ FLUSH PRIVILEGES;`}
 
           {/* Import Step */}
           <div className="space-y-2">
-            <div className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
+            <div className="text-xs font-bold text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
               <span>Step 2: Import Schema File (SSH CLI)</span>
             </div>
             <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 relative">
@@ -437,12 +437,12 @@ FLUSH PRIVILEGES;`}
           </div>
 
           {/* phpMyAdmin Step */}
-          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs space-y-2">
-            <div className="font-bold text-slate-200 flex items-center gap-1.5">
-              <ExternalLink className="w-4 h-4 text-teal-400" />
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2">
+            <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <ExternalLink className="w-4 h-4 text-teal-600 dark:text-teal-400" />
               <span>phpMyAdmin / cPanel Import Guide</span>
             </div>
-            <ol className="list-decimal pl-4 space-y-1 text-slate-300 text-[11.5px]">
+            <ol className="list-decimal pl-4 space-y-1 text-slate-700 dark:text-slate-300 text-[11.5px]">
               <li>Log in to your cPanel / phpMyAdmin dashboard.</li>
               <li>Click <strong>New</strong> in the left sidebar and create a database named <code>mbi_inventra</code> with <code>utf8mb4_unicode_ci</code> collation.</li>
               <li>Click the <strong>Import</strong> tab at the top.</li>

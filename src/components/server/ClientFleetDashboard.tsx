@@ -387,7 +387,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     try {
       onNotify(`Initiating Silent Shadow Switch into "${tenant.name}"...`);
       const targetId = tenant.tenantId || tenant.id;
-      const ownerName = tenant.ownerName || tenant.primaryAdminName || 'M Bilal Inayat';
+      const ownerName = (tenant as any).ownerName || (tenant as any).primaryAdminName || 'M Bilal Inayat';
       
       let shadowToken = `shadow_${Date.now()}`;
       try {
@@ -427,8 +427,8 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         name: tenant.name,
         ownerUid: `owner_${targetId}`,
         members: [`owner_${targetId}`],
-        phone: tenant.phone || tenant.ownerPhone || '03364585863',
-        mobile: tenant.phone || tenant.ownerPhone || '03364585863',
+        phone: (tenant as any).phone || (tenant as any).ownerPhone || '03364585863',
+        mobile: (tenant as any).phone || (tenant as any).ownerPhone || '03364585863',
         email: tenant.ownerEmail || 'support@mbiinventra.com',
         address: tenant.address || `${tenant.city || 'Lahore'}, Pakistan`,
         city: tenant.city || 'Lahore',

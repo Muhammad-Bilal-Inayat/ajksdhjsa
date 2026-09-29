@@ -32,9 +32,9 @@ import { Toaster } from 'react-hot-toast';
 import { PendingApproval } from './components/PendingApproval';
 
 // Resilient code-splitting wrapper with automatic cache-clearing retry and offline fallback
-function lazyWithRetry<T extends React.ComponentType<any>>(
+function lazyWithRetry<T extends React.ComponentType<any> = React.ComponentType<any>>(
   componentImport: () => Promise<{ default?: T; [key: string]: any }>
-) {
+): React.LazyExoticComponent<T> {
   return lazy(async () => {
     try {
       const module: any = await componentImport();
@@ -56,7 +56,7 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
         default: (() => null) as unknown as T
       };
     }
-  });
+  }) as React.LazyExoticComponent<T>;
 }
 
 const LandingPage = lazyWithRetry(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -64,7 +64,7 @@ const AuthPage = lazyWithRetry(() => import('./pages/AuthPage').then(m => ({ def
 const Login = lazyWithRetry(() => import('./pages/Login').then(m => ({ default: m.default || m.Login || m.LoginPage })));
 const Register = lazyWithRetry(() => import('./pages/Register').then(m => ({ default: m.default || m.Register || m.RegisterPage })));
 const SetupBusiness = lazyWithRetry(() => import('./pages/SetupBusiness'));
-const MasterServerHub = lazyWithRetry(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
+const MasterServerHub = lazyWithRetry<React.FC<{ initialTab?: string }>>(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
 
 // Core POS/ERP pages imported directly for instant zero-latency navigation between side menus
 import { Dashboard } from './pages/Dashboard';

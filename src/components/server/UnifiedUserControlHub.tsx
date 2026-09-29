@@ -143,8 +143,9 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
   // Helper to get owner name for any user based on their company
   const getOwnerForUser = (user: MasterActiveUser) => {
-    const targetTenant = tenants.find(t => t.id === user.tenantId || t.tenantId === user.tenantId || t.name === user.storeName);
-    return targetTenant?.ownerName || targetTenant?.primaryAdminName || 'M Bilal Inayat';
+    const uTenant = (user as any).tenantId;
+    const targetTenant = tenants.find(t => t.id === uTenant || t.tenantId === uTenant || t.name === user.storeName);
+    return targetTenant?.ownerName || (targetTenant as any)?.primaryAdminName || 'M Bilal Inayat';
   };
 
   // Effective search combines internal and external search bar

@@ -262,17 +262,17 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
         {DB_NODES.map((node) => {
           const userCount = assignments.filter(a => a.dbNodeId === node.id).length;
           return (
-            <div key={node.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white space-y-2 shadow-xs">
+            <div key={node.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-slate-900 dark:text-white space-y-2 shadow-sm transition">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300 truncate">{node.name.split('(')[0]}</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate">{node.name.split('(')[0]}</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Online" />
               </div>
-              <div className="text-xl font-black text-indigo-400 font-mono">
+              <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono">
                 {userCount} User{userCount !== 1 ? 's' : ''}
               </div>
-              <div className="text-[11px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800/80">
-                <span className="font-mono text-[10px] text-slate-500">{node.host}</span>
-                <span className="font-bold text-emerald-400 text-[10px]">READY</span>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">{node.host}</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[10px]">READY</span>
               </div>
             </div>
           );
@@ -280,7 +280,7 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-white">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-slate-900 dark:text-white shadow-sm">
         <div className="flex items-center gap-2.5 w-full sm:w-auto flex-1">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -289,14 +289,14 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search user, store, role, or database node..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <select
             value={selectedNodeFilter}
             onChange={(e) => setSelectedNodeFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+            className="px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
           >
             <option value="ALL">All Database Nodes</option>
             {DB_NODES.map(n => (
@@ -305,17 +305,17 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
           </select>
         </div>
 
-        <span className="text-xs font-semibold text-slate-400">
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
           Showing {filteredAssignments.length} assignment{filteredAssignments.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Main Table of Assignments */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white shadow-xs">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <th className="py-3 px-3">Assigned User</th>
                 <th className="py-3 px-3">Role</th>
                 <th className="py-3 px-3">Pharmacy / Tenant</th>
@@ -325,55 +325,55 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/80 text-xs">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
               {filteredAssignments.map((a) => (
-                <tr key={a.id} className="hover:bg-slate-800/40 transition">
+                <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                   <td className="py-3.5 px-3">
-                    <div className="font-bold text-white flex items-center gap-1.5">
+                    <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                       <span>{a.userName}</span>
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     </div>
-                    <div className="text-[11px] text-slate-400 font-mono">{a.userEmail || a.userId}</div>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{a.userEmail || a.userId}</div>
                   </td>
 
                   <td className="py-3.5 px-3">
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-950 text-indigo-300 text-[11px] font-bold border border-indigo-800/60">
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold border border-indigo-200 dark:border-indigo-800/60">
                       {a.userRole}
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-3 font-medium text-slate-300">
+                  <td className="py-3.5 px-3 font-medium text-slate-700 dark:text-slate-300">
                     {a.tenantName}
                   </td>
 
                   <td className="py-3.5 px-3">
-                    <div className="font-bold text-indigo-300 flex items-center gap-1.5">
-                      <Database className="w-3.5 h-3.5 text-indigo-400" />
+                    <div className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                      <Database className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                       <span>{a.dbNodeName.split('(')[0]}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">{a.dbNodeId}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{a.dbNodeId}</span>
                   </td>
 
                   <td className="py-3.5 px-3">
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                       a.accessPrivilege === 'FULL_ADMIN' 
-                        ? 'bg-purple-950 text-purple-300 border border-purple-800' 
+                        ? 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800' 
                         : a.accessPrivilege === 'READ_WRITE'
-                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                        : 'bg-blue-950 text-blue-300 border border-blue-800'
+                        ? 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                     }`}>
                       {a.accessPrivilege}
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-3 text-slate-400 font-mono text-[11px]">
+                  <td className="py-3.5 px-3 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
                     {new Date(a.assignedAt).toLocaleDateString()}
                   </td>
 
                   <td className="py-3.5 px-3 text-right">
                     <button
                       onClick={() => handleDeleteAssignment(a.id, a.userName, a.dbNodeName)}
-                      className="px-2.5 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-bold transition flex items-center gap-1 ml-auto cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-600/20 hover:bg-rose-100 dark:hover:bg-rose-600/30 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 text-xs font-bold transition flex items-center gap-1 ml-auto cursor-pointer"
                       title="Delete assignment and unassign user"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -385,7 +385,7 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
 
               {filteredAssignments.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-xs text-slate-500">
                     No database user assignments match the selected filter. Click "Assign User to Database" above to add one.
                   </td>
                 </tr>

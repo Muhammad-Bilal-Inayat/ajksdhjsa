@@ -335,38 +335,57 @@ const ADDITIONAL_MAPPING: {
     'PharmEvo', 'Reckitt Benckiser', 'OBS Pakistan', 'Macter', 'Atco', 'Genetics', 'Wilsons',
     'Nabiqasim', 'Sante', 'Medisure', 'Shaigan', 'ICI Pakistan', 'Horizon', 'Brookes Pharma',
     'Zafa Pharmaceuticals', 'Remington', 'Scotmann', 'Pharmatec', 'Standpharm', 'Surge Laboratories',
-    'Indus Pharma', 'Pharmalink', 'Global Pharmaceuticals', 'Macter Labs', 'Mediceena', 'Wilshire'
+    'Indus Pharma', 'Pharmalink', 'Global Pharmaceuticals', 'Macter Labs', 'Mediceena', 'Wilshire',
+    'Becton Dickinson (BD)', 'Tynor Orthotics', 'Flamingo Ortho', 'Johnson & Johnson Ethicon',
+    'Vissco Rehabilitation', 'Medline Healthcare', '3M Healthcare', 'SurgiCare Medical', 'Romsons Healthcare'
   ],
   generics: [
-    // Pain & NSAIDs
-    { generic: 'Paracetamol', category: 'Analgesics & Antipyretics', brandPrefix: 'Para', variants: ['500mg Tablet', '650mg Tablet', '1000mg Infusion', '120mg/5ml Syrup', '250mg/5ml DS Syrup', '100mg/ml Drops', '125mg Suppository', '250mg Suppository'] },
-    { generic: 'Ibuprofen', category: 'Analgesics & NSAIDs', brandPrefix: 'Ibu', variants: ['200mg Tablet', '400mg Tablet', '600mg Tablet', '800mg SR Tablet', '100mg/5ml Syrup', '200mg/5ml DS Syrup'] },
-    { generic: 'Diclofenac Sodium', category: 'Analgesics & NSAIDs', brandPrefix: 'Diclo', variants: ['25mg Tablet', '50mg Tablet', '75mg Injection', '100mg SR Tablet', '1% Gel 20g', '1% Gel 50g'] },
-    { generic: 'Diclofenac Potassium', category: 'Analgesics & NSAIDs', brandPrefix: 'Potas-Diclo', variants: ['25mg Tablet', '50mg Tablet', '75mg Injection', '50mg Sachet'] },
-    { generic: 'Mefenamic Acid', category: 'Analgesics & NSAIDs', brandPrefix: 'Mefe', variants: ['250mg Capsule', '500mg Tablet', 'Forte 500mg Tablet', '50mg/5ml Suspension'] },
+    // Pain, NSAIDs & Muscle Relaxants
+    { generic: 'Paracetamol', category: 'Analgesics & Antipyretics', brandPrefix: 'Para', variants: ['500mg Tablet', '650mg Fast Tablet', 'Extra 500/65mg Tablet', '1000mg Infusion 100ml', '120mg/5ml Syrup 60ml', '250mg/5ml DS Syrup 60ml', '100mg/ml Drops 15ml', '125mg Suppository', '250mg Suppository'] },
+    { generic: 'Ibuprofen', category: 'Analgesics & NSAIDs', brandPrefix: 'Ibu', variants: ['200mg Tablet', '400mg Tablet', '600mg Tablet', '800mg SR Tablet', '100mg/5ml Syrup 60ml', '200mg/5ml DS Syrup 60ml', '5% Gel 30g'] },
+    { generic: 'Diclofenac Sodium', category: 'Analgesics & NSAIDs', brandPrefix: 'Diclo', variants: ['25mg Tablet', '50mg Tablet', '75mg Injection', '100mg SR Tablet', '75mg/3ml Injection', '1% Gel 20g', '1% Gel 50g', '50mg Suppository', '100mg Suppository'] },
+    { generic: 'Diclofenac Potassium', category: 'Analgesics & NSAIDs', brandPrefix: 'Potas-Diclo', variants: ['25mg Tablet', '50mg Instant Tablet', '75mg Rapid Tablet', '50mg Sachet Granules'] },
+    { generic: 'Mefenamic Acid', category: 'Analgesics & NSAIDs', brandPrefix: 'Mefe', variants: ['250mg Capsule', '500mg Tablet', 'Forte 500mg Tablet', '50mg/5ml Suspension 60ml'] },
     { generic: 'Tramadol Hydrochloride', category: 'Analgesics & Pain Relief', brandPrefix: 'Trama', variants: ['50mg Capsule', '100mg SR Tablet', '50mg/ml Injection', '100mg/2ml Injection'] },
     { generic: 'Tramadol + Paracetamol', category: 'Analgesics & Pain Relief', brandPrefix: 'Tra-Para', variants: ['37.5/325mg Tablet', '75/650mg Tablet'] },
     { generic: 'Celecoxib', category: 'Analgesics & NSAIDs', brandPrefix: 'Cele', variants: ['100mg Capsule', '200mg Capsule', '400mg Capsule'] },
-    { generic: 'Ketorolac Tromethamine', category: 'Analgesics & NSAIDs', brandPrefix: 'Keto', variants: ['10mg Tablet', '30mg/ml Injection', '0.5% Eye Drops 5ml'] },
+    { generic: 'Etoricoxib', category: 'Analgesics & NSAIDs', brandPrefix: 'Etori', variants: ['60mg Tablet', '90mg Tablet', '120mg Tablet'] },
+    { generic: 'Meloxicam', category: 'Analgesics & NSAIDs', brandPrefix: 'Melo', variants: ['7.5mg Tablet', '15mg Tablet', '15mg/1.5ml Injection'] },
+    { generic: 'Ketorolac Tromethamine', category: 'Analgesics & NSAIDs', brandPrefix: 'Keto', variants: ['10mg Tablet', '20mg Tablet', '30mg/ml Injection', '0.5% Eye Drops 5ml'] },
     { generic: 'Naproxen Sodium', category: 'Analgesics & NSAIDs', brandPrefix: 'Napro', variants: ['250mg Tablet', '500mg Tablet', '500mg SR Tablet', '125mg/5ml Suspension'] },
     { generic: 'Piroxicam', category: 'Analgesics & NSAIDs', brandPrefix: 'Piro', variants: ['10mg Capsule', '20mg Capsule', '20mg Fast Dissolve Tablet', '20mg/ml Injection', '0.5% Gel 30g'] },
     { generic: 'Aceclofenac', category: 'Analgesics & NSAIDs', brandPrefix: 'Aceclo', variants: ['100mg Tablet', '200mg SR Tablet', 'Plus Paracetamol 100/500mg Tablet'] },
+    { generic: 'Paracetamol + Orphenadrine', category: 'Muscle Relaxants & Analgesics', brandPrefix: 'Orphe-Para', variants: ['450/35mg Tablet', 'Forte 650/50mg Tablet'] },
+    { generic: 'Tizanidine Hydrochloride', category: 'Muscle Relaxants', brandPrefix: 'Tizan', variants: ['2mg Tablet', '4mg Tablet', '6mg MR Capsule'] },
 
     // Antibiotics & Anti-Infectives
-    { generic: 'Amoxicillin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Amoxi', variants: ['250mg Capsule', '500mg Capsule', '125mg/5ml Suspension', '250mg/5ml Suspension', '500mg Injection'] },
+    { generic: 'Amoxicillin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Amoxi', variants: ['250mg Capsule', '500mg Capsule', '1g Dispersible Tablet', '125mg/5ml Suspension', '250mg/5ml Suspension', '500mg Injection'] },
     { generic: 'Amoxicillin + Clavulanic Acid', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Clav-Amox', variants: ['375mg Tablet', '625mg Tablet', '1g Tablet', '156mg/5ml Suspension', '312mg/5ml Suspension', '457mg/5ml DS Suspension', '600mg ES Suspension', '1.2g IV Injection'] },
     { generic: 'Cefixime', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cefi', variants: ['200mg Capsule', '400mg Capsule', '100mg/5ml Suspension 30ml', '100mg/5ml Suspension 60ml', '200mg/5ml DS Suspension 30ml'] },
+    { generic: 'Cefuroxime Axetil', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cefu', variants: ['125mg Tablet', '250mg Tablet', '500mg Tablet', '125mg/5ml Suspension 50ml', '750mg Injection', '1.5g IV Infusion'] },
     { generic: 'Ceftriaxone Sodium', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Ceftri', variants: ['250mg IV/IM Injection', '500mg IV/IM Injection', '1g IV/IM Injection', '2g IV Infusion'] },
+    { generic: 'Ceftazidime', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cefta', variants: ['500mg Injection', '1g IV/IM Injection', '2g IV Infusion'] },
     { generic: 'Ciprofloxacin Hydrochloride', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cipro', variants: ['250mg Tablet', '500mg Tablet', '750mg Tablet', '200mg/100ml Infusion', '0.3% Eye/Ear Drops 5ml'] },
     { generic: 'Levofloxacin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Levo', variants: ['250mg Tablet', '500mg Tablet', '750mg Tablet', '500mg/100ml Infusion', '0.5% Eye Drops 5ml'] },
     { generic: 'Moxifloxacin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Moxi', variants: ['400mg Tablet', '400mg/250ml Infusion', '0.5% Eye Drops 5ml'] },
     { generic: 'Azithromycin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Azithro', variants: ['250mg Capsule', '500mg Tablet', '200mg/5ml Suspension 15ml', '200mg/5ml Suspension 22.5ml', '500mg IV Infusion'] },
-    { generic: 'Clarithromycin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Clari', variants: ['250mg Tablet', '500mg Tablet', '500mg XL Tablet', '125mg/5ml Suspension', '250mg/5ml Suspension'] },
+    { generic: 'Clarithromycin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Clari', variants: ['250mg Tablet', '500mg Tablet', '500mg XL Tablet', '125mg/5ml Suspension', '250mg/5ml Suspension', '500mg IV'] },
     { generic: 'Cefoperazone + Sulbactam', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cefo-Sulb', variants: ['1g IV/IM Injection', '2g IV/IM Injection'] },
     { generic: 'Meropenem', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Mero', variants: ['500mg IV Injection', '1g IV Injection'] },
+    { generic: 'Imipenem + Cilastatin', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Imi-Cil', variants: ['500mg IV Infusion'] },
+    { generic: 'Vancomycin Hydrochloride', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Vanco', variants: ['500mg IV Infusion', '1g IV Infusion'] },
+    { generic: 'Linezolid', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Linezo', variants: ['600mg Tablet', '600mg/300ml IV Infusion', '100mg/5ml Suspension'] },
     { generic: 'Metronidazole', category: 'Antibiotics & Antiprotozoal', brandPrefix: 'Metro', variants: ['200mg Tablet', '400mg Tablet', '200mg/5ml Suspension', '500mg/100ml Infusion'] },
     { generic: 'Doxycycline Hyclate', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Doxy', variants: ['100mg Capsule', '100mg Tablet'] },
     { generic: 'Cephradine', category: 'Antibiotics & Anti-Infectives', brandPrefix: 'Cephra', variants: ['250mg Capsule', '500mg Capsule', '1g Capsule', '125mg/5ml Suspension', '250mg/5ml Suspension', '500mg Injection', '1g Injection'] },
+    { generic: 'Fosfomycin Trometamol', category: 'Antibiotics & Urological', brandPrefix: 'Fosfo', variants: ['3g Sachet Single Dose'] },
+    { generic: 'Nitrofurantoin', category: 'Antibiotics & Urological', brandPrefix: 'Nitrofur', variants: ['50mg Tablet', '100mg SR Capsule'] },
+
+    // Antifungal & Antiviral
+    { generic: 'Fluconazole', category: 'Antifungal', brandPrefix: 'Fluco', variants: ['50mg Capsule', '150mg Capsule', '200mg Capsule', '50mg/5ml Suspension', '2mg/ml Infusion 100ml'] },
+    { generic: 'Itraconazole', category: 'Antifungal', brandPrefix: 'Itra', variants: ['100mg Capsule', '200mg Capsule'] },
+    { generic: 'Terbinafine Hydrochloride', category: 'Antifungal', brandPrefix: 'Terbi', variants: ['125mg Tablet', '250mg Tablet', '1% Cream 15g', '1% Spray 30ml'] },
+    { generic: 'Acyclovir', category: 'Antiviral', brandPrefix: 'Acyclo', variants: ['200mg Tablet', '400mg Tablet', '800mg Tablet', '5% Ointment 10g', '250mg IV Injection'] },
 
     // Gastrointestinal & Anti-Ulcerants
     { generic: 'Omeprazole', category: 'Gastrointestinal & Anti-Ulcerants', brandPrefix: 'Ome', variants: ['20mg Capsule', '40mg Capsule', '40mg IV Injection', 'Insta 20mg Sachet', 'Insta 40mg Sachet'] },
@@ -380,6 +399,8 @@ const ADDITIONAL_MAPPING: {
     { generic: 'Ondansetron', category: 'Gastrointestinal & Antiemetic', brandPrefix: 'Ondan', variants: ['4mg Tablet', '8mg Tablet', '4mg/2ml Injection', '8mg/4ml Injection', '4mg/5ml Syrup 60ml'] },
     { generic: 'Hyoscine Butylbromide', category: 'Gastrointestinal & Antispasmodic', brandPrefix: 'Hyos', variants: ['10mg Tablet', '20mg/ml Injection', 'Plus Paracetamol Tablet'] },
     { generic: 'Mebeverine Hydrochloride', category: 'Gastrointestinal & Antispasmodic', brandPrefix: 'Mebe', variants: ['135mg Tablet', '200mg Retard Capsule'] },
+    { generic: 'Drotaverine Hydrochloride', category: 'Gastrointestinal & Antispasmodic', brandPrefix: 'Drotav', variants: ['40mg Tablet', '80mg Forte Tablet', '40mg/2ml Injection'] },
+    { generic: 'Rifaximin', category: 'Gastrointestinal & Antibiotics', brandPrefix: 'Rifaxi', variants: ['200mg Tablet', '400mg Tablet', '550mg Tablet'] },
 
     // Cardiovascular & Antihypertensive
     { generic: 'Amlodipine Besylate', category: 'Cardiovascular & Antihypertensive', brandPrefix: 'Amlo', variants: ['2.5mg Tablet', '5mg Tablet', '10mg Tablet'] },
@@ -389,35 +410,63 @@ const ADDITIONAL_MAPPING: {
     { generic: 'Bisoprolol Fumarate', category: 'Cardiovascular & Beta Blocker', brandPrefix: 'Biso', variants: ['1.25mg Tablet', '2.5mg Tablet', '5mg Tablet', '10mg Tablet', 'Plus 5/6.25mg Tablet'] },
     { generic: 'Carvedilol', category: 'Cardiovascular & Beta Blocker', brandPrefix: 'Carve', variants: ['3.125mg Tablet', '6.25mg Tablet', '12.5mg Tablet', '25mg Tablet'] },
     { generic: 'Metoprolol Tartrate', category: 'Cardiovascular & Beta Blocker', brandPrefix: 'Meto', variants: ['25mg Tablet', '50mg Tablet', '100mg Tablet', 'ZOK 25mg CR', 'ZOK 50mg CR', 'ZOK 100mg CR'] },
+    { generic: 'Nebivolol Hydrochloride', category: 'Cardiovascular & Beta Blocker', brandPrefix: 'Nebi', variants: ['2.5mg Tablet', '5mg Tablet', '10mg Tablet', 'Plus 5/12.5mg Tablet'] },
     { generic: 'Atorvastatin Calcium', category: 'Cardiovascular & Lipid Lowering', brandPrefix: 'Atorva', variants: ['10mg Tablet', '20mg Tablet', '40mg Tablet', '80mg Tablet'] },
     { generic: 'Rosuvastatin Calcium', category: 'Cardiovascular & Lipid Lowering', brandPrefix: 'Rosuva', variants: ['5mg Tablet', '10mg Tablet', '20mg Tablet', '40mg Tablet'] },
     { generic: 'Clopidogrel Bisulfate', category: 'Cardiovascular & Antiplatelet', brandPrefix: 'Clopi', variants: ['75mg Tablet', '300mg Tablet', 'Plus Aspirin 75/75mg Tablet', 'Plus Aspirin 75/100mg Tablet'] },
     { generic: 'Rivaroxaban', category: 'Cardiovascular & Anticoagulant', brandPrefix: 'Rivaro', variants: ['2.5mg Tablet', '10mg Tablet', '15mg Tablet', '20mg Tablet'] },
+    { generic: 'Furosemide', category: 'Cardiovascular & Diuretics', brandPrefix: 'Furo', variants: ['20mg Tablet', '40mg Tablet', '20mg/2ml Injection', '250mg/25ml Infusion'] },
+    { generic: 'Spironolactone', category: 'Cardiovascular & Diuretics', brandPrefix: 'Spirono', variants: ['25mg Tablet', '50mg Tablet', '100mg Tablet', 'Plus Furosemide 50/20mg Tablet'] },
 
     // Antidiabetic & Endocrinology
     { generic: 'Metformin Hydrochloride', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Metfor', variants: ['500mg Tablet', '850mg Tablet', '1000mg Tablet', '500mg XR Tablet', '750mg XR Tablet', '1000mg XR Tablet'] },
     { generic: 'Glimepiride', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Glime', variants: ['1mg Tablet', '2mg Tablet', '3mg Tablet', '4mg Tablet', 'Plus 1/500mg Tablet', 'Plus 2/500mg Tablet', 'Plus 4/500mg Tablet'] },
+    { generic: 'Gliclazide', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Glicla', variants: ['30mg MR Tablet', '60mg MR Tablet', '80mg Tablet'] },
     { generic: 'Vildagliptin', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Vilda', variants: ['50mg Tablet', 'Met 50/500mg Tablet', 'Met 50/850mg Tablet', 'Met 50/1000mg Tablet'] },
     { generic: 'Sitagliptin', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Sita', variants: ['25mg Tablet', '50mg Tablet', '100mg Tablet', 'Met 50/500mg Tablet', 'Met 50/850mg Tablet', 'Met 50/1000mg Tablet'] },
     { generic: 'Linagliptin', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Lina', variants: ['5mg Tablet', 'Met 2.5/500mg Tablet', 'Met 2.5/850mg Tablet', 'Met 2.5/1000mg Tablet'] },
     { generic: 'Empagliflozin', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Empa', variants: ['10mg Tablet', '25mg Tablet', 'Met 5/500mg Tablet', 'Met 5/1000mg Tablet', 'Met 12.5/500mg Tablet', 'Met 12.5/1000mg Tablet'] },
     { generic: 'Dapagliflozin', category: 'Antidiabetic & Endocrinology', brandPrefix: 'Dapa', variants: ['5mg Tablet', '10mg Tablet', 'Met 5/500mg Tablet', 'Met 5/1000mg Tablet', 'Met 10/1000mg Tablet'] },
+    { generic: 'Levothyroxine Sodium', category: 'Endocrinology & Thyroid', brandPrefix: 'Thyro', variants: ['25mcg Tablet', '50mcg Tablet', '75mcg Tablet', '100mcg Tablet', '150mcg Tablet'] },
 
-    // Respiratory, Allergy & Cough
+    // Respiratory, Allergy & ENT
     { generic: 'Montelukast Sodium', category: 'Respiratory & Anti-Asthma', brandPrefix: 'Montelu', variants: ['4mg Chewable Tablet', '5mg Chewable Tablet', '10mg Tablet', '4mg Sachet Granules', 'Plus Levocetirizine 10/5mg Tablet'] },
     { generic: 'Cetirizine Hydrochloride', category: 'Antiallergic & Antihistamines', brandPrefix: 'Cetiri', variants: ['10mg Tablet', '5mg/5ml Syrup 60ml', '10mg/ml Drops 15ml'] },
     { generic: 'Levocetirizine Dihydrochloride', category: 'Antiallergic & Antihistamines', brandPrefix: 'Levocet', variants: ['5mg Tablet', '2.5mg/5ml Syrup 60ml', '5mg/ml Drops 15ml'] },
     { generic: 'Fexofenadine Hydrochloride', category: 'Antiallergic & Antihistamines', brandPrefix: 'Fexo', variants: ['60mg Tablet', '120mg Tablet', '180mg Tablet', '30mg/5ml Suspension 60ml'] },
-    { generic: 'Loratadine', category: 'Antiallergic & Antihistamines', brandPrefix: 'Lora', variants: ['10mg Tablet', '5mg/5ml Syrup 60ml'] },
+    { generic: 'Bilastine', category: 'Antiallergic & Antihistamines', brandPrefix: 'Bilas', variants: ['10mg ODT Tablet', '20mg Tablet', '2.5mg/ml Oral Solution 120ml'] },
     { generic: 'Salbutamol', category: 'Respiratory & Anti-Asthma', brandPrefix: 'Salbu', variants: ['2mg Tablet', '4mg Tablet', '2mg/5ml Syrup', 'Inhaler 100mcg', 'Nebulizer Solution 5mg/ml'] },
     { generic: 'Salmeterol + Fluticasone Propionate', category: 'Respiratory & Anti-Asthma', brandPrefix: 'Salm-Fluti', variants: ['50/100mcg Diskus', '50/250mcg Diskus', '50/500mcg Diskus', '125/25mcg Inhaler', '250/25mcg Inhaler'] },
+    { generic: 'Fluticasone Furoate / Propionate', category: 'Respiratory & ENT', brandPrefix: 'Fluti-Nasal', variants: ['50mcg Nasal Spray 120 Sprays', '27.5mcg Nasal Spray'] },
+    { generic: 'Xylometazoline Hydrochloride', category: 'Respiratory & ENT', brandPrefix: 'Xylo-Nasal', variants: ['0.05% Pediatric Drops 10ml', '0.1% Adult Nasal Spray 15ml'] },
 
-    // Vitamins, Minerals & Supplements
+    // Neurology & Psychiatry
+    { generic: 'Pregabalin', category: 'Neurology & Neuropathic Pain', brandPrefix: 'Prega', variants: ['25mg Capsule', '50mg Capsule', '75mg Capsule', '150mg Capsule', '300mg Capsule'] },
+    { generic: 'Gabapentin', category: 'Neurology & Neuropathic Pain', brandPrefix: 'Gaba', variants: ['100mg Capsule', '300mg Capsule', '400mg Capsule', '600mg Tablet'] },
+    { generic: 'Citicoline Sodium', category: 'Neurology & Cognitive', brandPrefix: 'Citi', variants: ['250mg Tablet', '500mg Tablet', '1000mg Sachet', '500mg/2ml Injection', '1000mg/4ml Injection', '500mg/5ml Syrup'] },
+    { generic: 'Escitalopram Oxalate', category: 'Psychiatry & Antidepressant', brandPrefix: 'Escita', variants: ['5mg Tablet', '10mg Tablet', '20mg Tablet'] },
+    { generic: 'Sertraline Hydrochloride', category: 'Psychiatry & Antidepressant', brandPrefix: 'Sertra', variants: ['25mg Tablet', '50mg Tablet', '100mg Tablet'] },
+    { generic: 'Alprazolam', category: 'Psychiatry & Anxiolytic', brandPrefix: 'Alpra', variants: ['0.25mg Tablet', '0.5mg Tablet', '1mg Tablet', '2mg Tablet', '0.5mg XR Tablet', '1mg XR Tablet'] },
+    { generic: 'Clonazepam', category: 'Psychiatry & Antiepileptic', brandPrefix: 'Clona', variants: ['0.5mg Tablet', '1mg Tablet', '2mg Tablet', '2.5mg/ml Drops'] },
+
+    // Vitamins, Minerals & Calcium Supplements
     { generic: 'Calcium Carbonate + Vitamin D3', category: 'Vitamins & Calcium Supplements', brandPrefix: 'Calci-D', variants: ['500mg/400IU Tablet 30s', '600mg/400IU Tablet 30s', 'Effervescent Tablet 10s', 'Syrup 120ml'] },
     { generic: 'Vitamin D3 (Cholecalciferol)', category: 'Vitamins & Minerals', brandPrefix: 'D-Vit', variants: ['5,000 IU Capsule', '10,000 IU Capsule', '50,000 IU Softgel', '200,000 IU Oral Ampoule', '200,000 IU/ml Injection', '400 IU/ml Drops'] },
     { generic: 'Ferrous Sulfate + Folic Acid', category: 'Vitamins & Hematological', brandPrefix: 'Fero-Folic', variants: ['Capsule 30s', 'Tablet 30s', 'Syrup 120ml', 'Drops 15ml'] },
+    { generic: 'Iron Polymaltose Complex', category: 'Vitamins & Hematological', brandPrefix: 'Iron-Poly', variants: ['100mg Chewable Tablet 30s', '50mg/5ml Syrup 120ml', 'Drops 30ml', '100mg/2ml IV/IM Ampoule'] },
     { generic: 'Vitamin B-Complex + Vitamin C + Zinc', category: 'Vitamins & Minerals', brandPrefix: 'B-Zinc', variants: ['Tablet 30s', 'Tablet 60s', 'Effervescent Tablet', 'Syrup 120ml'] },
-    { generic: 'Vitamin E (Tocopheryl Acetate)', category: 'Vitamins & Minerals', brandPrefix: 'E-Vit', variants: ['200 IU Capsule', '400 IU Capsule', '600 IU Softgel', '1000 IU Softgel'] }
+    { generic: 'Vitamin E (Tocopheryl Acetate)', category: 'Vitamins & Minerals', brandPrefix: 'E-Vit', variants: ['200 IU Capsule', '400 IU Capsule', '600 IU Softgel', '1000 IU Softgel'] },
+    { generic: 'Methylcobalamin (Mecobalamin)', category: 'Vitamins & Neuropathy', brandPrefix: 'Meco-B12', variants: ['500mcg Tablet', '1000mcg Sublingual Tablet', '500mcg/ml Injection'] },
+
+    // Urology & Nephrology
+    { generic: 'Tamsulosin Hydrochloride', category: 'Urology & Prostate Care', brandPrefix: 'Tamsu', variants: ['0.4mg PR Capsule', 'Plus Dutasteride 0.4/0.5mg Capsule'] },
+    { generic: 'Finasteride', category: 'Urology & Prostate Care', brandPrefix: 'Finas', variants: ['1mg Tablet', '5mg Tablet'] },
+    { generic: 'Febuxostat', category: 'Urology & Anti-Gout', brandPrefix: 'Febuxo', variants: ['40mg Tablet', '80mg Tablet', '120mg Tablet'] },
+
+    // Dermatological
+    { generic: 'Fusidic Acid', category: 'Dermatologicals', brandPrefix: 'Fusi-Derma', variants: ['2% Cream 15g', '2% Ointment 15g', 'Plus Betamethasone Cream 15g', 'Plus Hydrocortisone Cream 15g'] },
+    { generic: 'Clobetasol Propionate', category: 'Dermatologicals', brandPrefix: 'Clobet', variants: ['0.05% Cream 20g', '0.05% Ointment 20g', '0.05% Scalp Application 30ml'] },
+    { generic: 'Silver Sulfadiazine', category: 'Dermatologicals & Burn Care', brandPrefix: 'Silv-Burn', variants: ['1% Cream 50g', '1% Cream 250g Jar', '1% Cream 500g Jar'] }
   ]
 };
 

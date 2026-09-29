@@ -102,6 +102,7 @@ export interface MasterActiveUser {
   status: 'Active' | 'Suspended' | 'Disconnected';
   passcode: string;
   storeName: string;
+  tenantId?: string;
   installationId?: string;
   boundHwid?: string;
   lastSyncTime: string;

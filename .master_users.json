@@ -9,9 +9,9 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T15:36:24.622Z",
+    "lastSyncTime": "2026-09-29T15:37:22.320Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T15:36:24.622Z"
+    "updatedAt": "2026-09-29T15:37:22.320Z"
   },
   {
     "id": "usr_1790690918346_a2wt",
@@ -37,9 +37,9 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T15:36:39.401Z",
+    "lastSyncTime": "2026-09-29T15:44:40.676Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T15:36:39.401Z"
+    "updatedAt": "2026-09-29T15:44:40.676Z"
   },
   {
     "id": "usr_1790685492027_n5tb",
@@ -120,10 +120,10 @@
     "updatedAt": "2026-09-29T12:33:55.202Z"
   },
   {
-    "id": "u1",
+    "id": "usr_shadow_1790696242278",
     "tenantId": "tenant_u1_inayat",
     "tenant_id": "tenant_u1_inayat",
-    "name": "M Bilal Inayat (Admin)",
+    "name": "M Bilal Inayat",
     "emailOrPhone": "m.bilalinayat786@gmail.com",
     "role": "Primary Admin",
     "status": "Active",
@@ -131,9 +131,9 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-27T12:15:53.324Z",
+    "lastSyncTime": "2026-09-29T15:44:24.626Z",
     "isOnline": true,
-    "updatedAt": "2026-09-27T12:15:53.324Z"
+    "updatedAt": "2026-09-29T15:44:24.626Z"
   },
   {
     "id": "usr_1790657838970_58h9p",

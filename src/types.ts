@@ -77,11 +77,13 @@ export interface Tenant {
   ownerName: string;
   ownerEmail: string;
   ownerPhone: string;
+  phone?: string;
   city?: string;
   address?: string;
   plan: 'Basic' | 'Business' | 'Premium' | '3-Day Free Trial' | 'Trial (3 Days)' | 'Trial (15 Days)' | 'Standard POS' | 'Pharmacy Pro' | 'Enterprise Multi-Branch' | 'Lifetime Perpetual';
   status: 'Active' | 'Suspended' | 'Expired' | 'Trial';
   primaryAdminId: string;
+  primaryAdminName?: string;
   primaryAdminEmail: string;
   userId?: string;
   trialPlan?: 'Basic' | 'BASIC' | 'Business' | 'Premium';

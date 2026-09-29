@@ -277,26 +277,26 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
 
   return (
     <div className="space-y-6">
-      {/* Top Master Header Banner (Graphite + Steel Blue) */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Top Master Header Banner (Light / Dark Mode Adaptive) */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden transition-colors">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/5 dark:bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-1.5">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-inner">
+              <div className="p-2.5 rounded-xl bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20 shadow-inner">
                 <Database className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-white tracking-tight">
+                  <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                     Medicine Database Initialization Mode
                   </h2>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/20">
                     Master Protected
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Centralized /server master catalog management, tenant medicine allocation, and automated client synchronization
                 </p>
               </div>
@@ -315,10 +315,10 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
             <button
               onClick={handleWipeAllExceptMedicines}
               disabled={isWiping}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/15 hover:bg-rose-100 dark:hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
               title="Wipe all transaction & store data while preserving A-Z medicine catalog database"
             >
-              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />
               {isWiping ? 'Wiping...' : 'Wipe All Data (Keep Medicines Only)'}
             </button>
             <button
@@ -330,7 +330,7 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
             </button>
             <button
               onClick={loadCentralData}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
               title="Refresh Central Database"
             >
               <RefreshCw className="w-4 h-4" />
@@ -339,53 +339,53 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
         </div>
 
         {/* Real-time KPI Stats Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6 pt-5 border-t border-slate-800/80">
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-              <Pill className="w-3.5 h-3.5 text-sky-400" />
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6 pt-5 border-t border-slate-200 dark:border-slate-800/80">
+          <div className="bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Pill className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               Central Medicines
             </div>
-            <div className="text-lg font-bold text-white font-mono mt-0.5">
+            <div className="text-lg font-bold text-slate-900 dark:text-white font-mono mt-0.5">
               {stats.totalMeds}
             </div>
           </div>
 
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               Categories
             </div>
-            <div className="text-lg font-bold text-white font-mono mt-0.5">
+            <div className="text-lg font-bold text-slate-900 dark:text-white font-mono mt-0.5">
               {stats.totalCats}
             </div>
           </div>
 
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               Customer Tenants
             </div>
-            <div className="text-lg font-bold text-white font-mono mt-0.5">
+            <div className="text-lg font-bold text-slate-900 dark:text-white font-mono mt-0.5">
               {stats.totalCustomers}
             </div>
           </div>
 
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-            <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-              <Send className="w-3.5 h-3.5 text-sky-400" />
+          <div className="bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Send className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
               Active Allocations
             </div>
-            <div className="text-lg font-bold text-white font-mono mt-0.5">
+            <div className="text-lg font-bold text-slate-900 dark:text-white font-mono mt-0.5">
               {stats.totalAssignmentsCount}
             </div>
           </div>
 
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+          <div className="bg-slate-50 dark:bg-slate-950/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 col-span-2 sm:col-span-1">
+            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
               Client Synced Items
             </div>
-            <div className="text-lg font-bold text-teal-300 font-mono mt-0.5">
+            <div className="text-lg font-bold text-teal-600 dark:text-teal-300 font-mono mt-0.5">
               {stats.syncedCount}
             </div>
           </div>
@@ -393,30 +393,30 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
       </div>
 
       {/* MariaDB Engine Live Diagnostics & Schema Deployment Banner */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-slate-900 dark:text-white shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 text-teal-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-teal-500/10 dark:bg-teal-500/20 border border-teal-500/30 dark:border-teal-500/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
             <Database className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-xs font-black uppercase tracking-wider text-white">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 Database Engine: MariaDB 10.x / 11.x
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/30 dark:border-teal-500/40">
                 Port 3306 • UTF8MB4
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
                 mariaStatus.connected
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  ? 'bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 dark:border-emerald-500/40'
+                  : 'bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30 dark:border-amber-500/40'
               }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${mariaStatus.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${mariaStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                 {mariaStatus.connected ? 'Live Sync Active (14 Tables)' : 'Local Sync Active (Offline Mode)'}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              All transactions, 5,000+ medicines, batches, invoices, and khata records automatically synchronize with MariaDB.
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              All transactions, 10,000+ medicines, surgical supplies, orthocare devices, batches, invoices, and khata records automatically synchronize with MariaDB.
             </p>
           </div>
         </div>
@@ -425,7 +425,7 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
           <button
             onClick={checkMariaDbStatus}
             disabled={isCheckingMaria}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             title="Ping MariaDB Database Port"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isCheckingMaria ? 'animate-spin' : ''}`} />
@@ -444,7 +444,7 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
       </div>
 
       {/* Tab Navigation (8 Tabs) */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-800">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
         {[
           { id: 'database', label: 'Database', icon: Database, badge: stats.totalMeds },
           { id: 'categories', label: 'Categories', icon: Layers, badge: stats.totalCats },
@@ -465,7 +465,7 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
               className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                 isActive
                   ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -473,7 +473,7 @@ export const MedicineDatabaseInitializationPanel: React.FC<MedicineDatabaseIniti
               {tab.badge !== undefined && (
                 <span
                   className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                    isActive ? 'bg-sky-800 text-white' : 'bg-slate-800 text-slate-400'
+                    isActive ? 'bg-sky-800 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-400'
                   }`}
                 >
                   {tab.badge}

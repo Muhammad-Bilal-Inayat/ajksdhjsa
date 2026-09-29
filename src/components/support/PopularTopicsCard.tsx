@@ -99,55 +99,50 @@ export const PopularTopicsCard: React.FC<PopularTopicsCardProps> = ({
   className = ''
 }) => {
   return (
-    <div className={`space-y-3.5 ${className}`}>
-      <div className="flex items-center justify-between px-1">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+    <div className={`space-y-2.5 ${className}`}>
+      <div className="flex items-center justify-between px-0.5 pb-1 border-b border-slate-100 dark:border-slate-800">
+        <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-          <span>Popular Topics & Guided Solutions</span>
+          <span>Quick Guided Solutions</span>
         </h3>
-        <span className="text-[11px] font-semibold text-slate-400">Click any prompt to ask</span>
+        <span className="text-[10px] font-semibold text-slate-400">Click to ask</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="space-y-2">
         {POPULAR_TOPICS.map((topic, i) => {
           const IconComp = topic.icon;
           return (
             <div
               key={i}
-              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all duration-200 shadow-sm space-y-3 group"
+              className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-150 shadow-2xs space-y-1.5 group"
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-slate-700/60 shadow-xs group-hover:scale-105 transition-transform">
-                    <IconComp className="w-4.5 h-4.5" />
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-lg bg-blue-100/70 dark:bg-slate-700 text-blue-600 dark:text-blue-400 shrink-0">
+                    <IconComp className="w-3.5 h-3.5" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                      {topic.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
-                      {topic.description}
-                    </p>
-                  </div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                    {topic.title}
+                  </h4>
                 </div>
 
                 {topic.badge && (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
                     {topic.badge}
                   </span>
                 )}
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="space-y-1 pt-1 border-t border-slate-200/50 dark:border-slate-700/40">
                 {topic.questions.map((q, qIdx) => (
                   <button
                     key={qIdx}
                     type="button"
                     onClick={() => onSelectQuestion(q)}
-                    className="w-full text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 py-1.5 px-2.5 rounded-xl hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition-colors flex items-center justify-between group/btn cursor-pointer"
+                    className="w-full text-left text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 py-1 px-2 rounded-lg hover:bg-white dark:hover:bg-slate-800 transition-colors flex items-center justify-between group/btn cursor-pointer"
                   >
-                    <span className="truncate pr-2">• {q}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-blue-500 opacity-0 group-hover/btn:opacity-100 group-hover/btn:translate-x-0.5 transition-all shrink-0" />
+                    <span className="truncate pr-1.5">• {q}</span>
+                    <ArrowRight className="w-3 h-3 text-blue-500 opacity-0 group-hover/btn:opacity-100 group-hover/btn:translate-x-0.5 transition-all shrink-0" />
                   </button>
                 ))}
               </div>

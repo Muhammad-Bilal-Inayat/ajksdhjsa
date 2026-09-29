@@ -140,16 +140,20 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
         }
 
         if (serverSession.messages && serverSession.messages.length > 0) {
-          const formatted: ChatMessage[] = serverSession.messages.map(m => ({
-            id: m.id,
-            role: m.sender === 'user' ? 'user' : m.sender === 'human_agent' ? 'human_agent' : 'assistant',
-            senderName: m.senderName,
-            text: m.text,
-            timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isHumanEscalation: m.isEscalation,
-            requiresUpgrade: m.requiresUpgrade
-          }));
-          setChatHistory(formatted);
+          const formatted: ChatMessage[] = serverSession.messages
+            .filter(m => !m.text.includes('exclusive to Business and Enterprise plans'))
+            .map(m => ({
+              id: m.id,
+              role: m.sender === 'user' ? 'user' : m.sender === 'human_agent' ? 'human_agent' : 'assistant',
+              senderName: m.senderName,
+              text: m.text,
+              timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              isHumanEscalation: m.isEscalation,
+              requiresUpgrade: m.requiresUpgrade
+            }));
+          if (formatted.length > 0) {
+            setChatHistory(formatted);
+          }
         }
       }
     };
@@ -294,7 +298,7 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-[560px] overflow-hidden transition-colors duration-200 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-full min-h-0 overflow-hidden transition-colors duration-200 ${className}`}>
       
       {/* 1. Header Bar: Polished Dual Theme */}
       <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 transition-colors">

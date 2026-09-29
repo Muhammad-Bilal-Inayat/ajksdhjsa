@@ -126,9 +126,9 @@ export function getAssistantPlanLimits(plan?: string, userId?: string, tenantId?
 
   // 3. Basic (Silver) & Trial / Free: 20 daily messages
   return {
-    planName: normalized.includes('basic') || normalized.includes('silver') ? 'Basic (Silver)' : 'Trial / Guest',
+    planName: normalized.includes('basic') || normalized.includes('silver') ? 'Basic (Silver)' : 'Free Trial',
     dailyMessageLimit: 20,
-    hasAdvancedModules: false
+    hasAdvancedModules: true
   };
 }
 
@@ -391,32 +391,19 @@ export function generateMbiAssistantResponse(prompt: string, plan: string): {
     };
   }
 
-  // Tier Gating: Shift Management & Cloud Inventory Sync checks
+  // Shift Management & Cashier Closing guidance
   if (p.includes('shift') || p.includes('cashier closing') || p.includes('drawer') || p.includes('reconciliation')) {
-    if (!limits.hasAdvancedModules) {
-      return {
-        text: `🔒 **Shift Management & Cashier Closing (Business & Enterprise Feature)**\n\nYeh feature Cashier Shifts, Opening Cash, Cash in Hand reconciliation aur anti-theft counter balancing manage karta hai.\n\n⚠️ **Upgrade to access**: Aapka current plan **${limits.planName}** hai. Shift Management aur Cash Reconciliation access karne ke liye **Business Plan (Rs 3,999/mo)** ya **Enterprise Plan** par upgrade karein. Dashboard par Pricing modal se 1-click upgrade karein!`,
-        isHumanEscalation: false,
-        requiresUpgrade: true
-      };
-    }
     return {
-      text: `✅ **Shift Management Guide (Active on your ${limits.planName} Plan)**:\n\n1. Left sidebar se **Shift Management** par jayein ya Alt+M press karein.\n2. **Open Shift**: Shift shuru karne ke waqt drawer mein mojood initial cash darj karein.\n3. **Active Billing**: Cashier ki har transaction auto-record hoti rahegi.\n4. **Close Shift**: Day-end par physical cash count likhein. System auto-calculate karega agar koi cash short ya surplus ho!`,
+      text: `✅ **Shift Management & Cashier Closing Guide**:\n\n1. Left sidebar se **Shift Management** par jayein ya Alt+M press karein.\n2. **Open Shift**: Shift shuru karne ke waqt drawer mein mojood initial cash darj karein.\n3. **Active Billing**: Cashier ki har transaction auto-record hoti rahegi.\n4. **Close Shift**: Day-end par physical cash count likhein. System auto-calculate karega agar koi cash short ya surplus ho!`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };
   }
 
+  // Cloud Sync & Multi-branch guidance
   if (p.includes('cloud sync') || p.includes('multi branch') || p.includes('inter store') || p.includes('inventory sync')) {
-    if (!limits.hasAdvancedModules) {
-      return {
-        text: `🔒 **Multi-Branch Real-Time Inventory Sync (Business & Enterprise Feature)**\n\nReal-time inter-branch stock sync aur live multi-store inventory transfer sirf Business aur Enterprise tiers par active hai.\n\n⚠️ **Upgrade to access**: Aapke current **${limits.planName}** plan mein local offline sync mojood hai lekin full multi-branch cloud sync ke liye **Business Plan (Rs 3,999/mo)** par upgrade karein.`,
-        isHumanEscalation: false,
-        requiresUpgrade: true
-      };
-    }
     return {
-      text: `✅ **Inventory Sync Guide (Active on your ${limits.planName} Plan)**:\n\n1. MBI Inventra **0-latency high-speed cloud sync** har 4 second baad background mein chalta hai.\n2. Ek branch se stock transfer hone par doosri branch par auto-update ho jata hai.\n3. Sync status dekhne ke liye top navigation bar par **Sync Indicator** check karein.`,
+      text: `✅ **Inventory Cloud Sync & Multi-Branch Guide**:\n\n1. MBI Inventra **0-latency high-speed cloud sync** har 4 second baad background mein chalta hai.\n2. Ek branch se stock transfer hone par doosri branch par auto-update ho jata hai.\n3. Sync status dekhne ke liye top navigation bar par **Sync Indicator** check karein.`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };

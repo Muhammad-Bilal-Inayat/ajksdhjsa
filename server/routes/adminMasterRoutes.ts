@@ -1267,6 +1267,78 @@ adminMasterRouter.get('/lan/active-broadcasts', async (req: TenantRequest, res: 
   }
 });
 
+// 28. GET /print-config (Retrieve Centrally Enforced Print & Template Configuration)
+adminMasterRouter.get('/print-config', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const configPath = path.join(process.cwd(), '.master_print_config.json');
+    if (fs.existsSync(configPath)) {
+      const data = JSON.parse(fs.readFileSync(configPath, 'utf8') || '{}');
+      res.json({ success: true, config: data });
+      return;
+    }
+    // Default config if not yet saved on disk
+    res.json({
+      success: true,
+      config: {
+        thermalBrandName: 'MBI INVENTRA',
+        thermalSubtitle: 'PHARMACY POS & ERP',
+        thermalPhones: '03364585863 • 03281302636',
+        thermalCountry: 'Pakistan',
+        thermalCashierDefault: 'Bilal Inayat',
+        thermalFooterTitle: 'THANK YOU FOR SHOPPING!',
+        thermalFooterContact: 'Contact us : 03281302636',
+        thermalFooterWebsite: 'Pharmacy POS & ERP    www.mbiinventra.com',
+        thermalCompactFooter: true,
+        thermalDefaultTheme: 'THERMAL_MBI_STANDARD',
+        thermalPaperWidth: '80mm',
+        a4DefaultTheme: 'A4_PHARMA_WHOLESALE',
+        a4HeaderTitle: 'TAX & DRUG WARRANTY INVOICE',
+        a4DrugWarrantyText: 'FORM 2-A: (Under Section 23 of Drug Act 1976). We hereby warrant that medicines sold do not contravene any section of Drug Act 1976.',
+        a4ShowDrugWarranty: true,
+        a4ShowBankDetails: true,
+        a4BankDetailsText: 'Bank: Meezan Bank Ltd\nAccount: 0102-0105829102\nTitle: MBI INVENTRA PHARMA\nIBAN: PK64MEZN0001020105829102',
+        a4ShowQrCode: true,
+        a4MasterFooterText: 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com',
+        isClientEditingLocked: true,
+        lockReason: 'Protected by Master Server. Official branding & receipt layout is centrally managed.',
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to fetch print config' });
+  }
+});
+
+// 29. POST /print-config (Update and Broadcast Master Print & A4 Template Configuration)
+adminMasterRouter.post('/print-config', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const config = req.body || {};
+    config.lastUpdated = new Date().toISOString();
+    
+    const configPath = path.join(process.cwd(), '.master_print_config.json');
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+
+    // Broadcast live event to all connected clients & tenant terminals
+    try {
+      broadcastGlobalEvent('PRINT_CONFIG_UPDATED', {
+        config,
+        timestamp: config.lastUpdated,
+        source: 'MASTER_CONTROL'
+      });
+    } catch (e) {
+      console.warn('[MASTER PRINT BROADCAST WARNING]:', e);
+    }
+
+    res.json({
+      success: true,
+      message: 'Master Print & Invoice Template Hub configuration saved and broadcasted to all terminals!',
+      config
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save print config' });
+  }
+});
+
 export default adminMasterRouter;
 
 

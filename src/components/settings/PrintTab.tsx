@@ -11,6 +11,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { printHtmlElement, captureElementAsPDF, triggerFileDownload } from '../../lib/invoiceExport';
 import { PageSetupDialog } from './PageSetupDialog';
 import { PrintPreviewModal } from '../sales/PrintPreviewModal';
+import { getMasterPrintConfig, MasterPrintConfig } from '../server/MasterPrinterTemplatesPanel';
 
 const A4_TEMPLATES = [
   { 
@@ -405,6 +406,15 @@ export const PrintTab: React.FC = () => {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [guardNotice, setGuardNotice] = useState<string | null>(null);
+  const [masterConfig, setMasterConfig] = useState<MasterPrintConfig>(() => getMasterPrintConfig());
+
+  useEffect(() => {
+    const handleMasterUpdate = (e: any) => {
+      if (e.detail) setMasterConfig(e.detail);
+    };
+    window.addEventListener('mbi-master-print-updated', handleMasterUpdate);
+    return () => window.removeEventListener('mbi-master-print-updated', handleMasterUpdate);
+  }, []);
 
   const MANDATORY_CREDIT = "DEVELOPED BY MBI INVENTRA - M BILAL INAYAT 0328-1302636";
 
@@ -1761,10 +1771,10 @@ export const PrintTab: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Locked Official Clean Footer (A4 / A5 1-Line Format) */}
+                      {/* Locked Official Clean Permanent Footer (A4 / A5 1-Line Format - Master Enforced) */}
                       <div className="col-span-2 mt-4 pt-2.5 border-t border-slate-300 text-center select-text">
                         <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                          Thank You for Your Business! &bull; Powered by <span className="font-bold text-slate-900">MBI INVENTRA</span> &bull; mbiinventra.com &bull; Contact Us: 0328-1302636
+                          {masterConfig.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
                         </p>
                       </div>
 

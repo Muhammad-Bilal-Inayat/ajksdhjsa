@@ -4,6 +4,7 @@ import {
   Sparkles, ZoomIn, ZoomOut, RotateCcw, Sliders, Shield, Download, FileText
 } from 'lucide-react';
 import { printHtmlElement } from '../../lib/invoiceExport';
+import { getMasterPrintConfig, MasterPrintConfig } from '../server/MasterPrinterTemplatesPanel';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -55,6 +56,15 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
   const [autoScale, setAutoScale] = useState<boolean>(
     printConf?.scaleToFitEnabled ?? true
   );
+  const [masterConfig, setMasterConfig] = useState<MasterPrintConfig>(() => getMasterPrintConfig());
+
+  useEffect(() => {
+    const handleMasterUpdate = (e: any) => {
+      if (e.detail) setMasterConfig(e.detail);
+    };
+    window.addEventListener('mbi-master-print-updated', handleMasterUpdate);
+    return () => window.removeEventListener('mbi-master-print-updated', handleMasterUpdate);
+  }, []);
 
   const a4PageRef = useRef<HTMLDivElement>(null);
 
@@ -375,10 +385,10 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
                 {sectionOrder.map(secId => renderSectionById(secId))}
               </div>
 
-              {/* Clean Official Footer (A4 / A5 1-Line Format) */}
+              {/* Clean Official Permanent Footer (A4 / A5 1-Line Format - Master Enforced) */}
               <div className="mt-auto pt-2.5 border-t border-slate-300 text-center select-text">
                 <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                  Thank You for Your Business! &bull; Powered by <span className="font-bold text-slate-900">MBI INVENTRA</span> &bull; mbiinventra.com &bull; Contact Us: 0328-1302636
+                  {masterConfig.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
                 </p>
               </div>
 

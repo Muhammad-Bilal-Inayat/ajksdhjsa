@@ -9979,6 +9979,69 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
     res.json({ success: true, count: 0, broadcasts: [] });
   }
 });
+adminMasterRouter.get("/print-config", async (req, res) => {
+  try {
+    const configPath = import_path10.default.join(process.cwd(), ".master_print_config.json");
+    if (import_fs10.default.existsSync(configPath)) {
+      const data = JSON.parse(import_fs10.default.readFileSync(configPath, "utf8") || "{}");
+      res.json({ success: true, config: data });
+      return;
+    }
+    res.json({
+      success: true,
+      config: {
+        thermalBrandName: "MBI INVENTRA",
+        thermalSubtitle: "PHARMACY POS & ERP",
+        thermalPhones: "03364585863 \u2022 03281302636",
+        thermalCountry: "Pakistan",
+        thermalCashierDefault: "Bilal Inayat",
+        thermalFooterTitle: "THANK YOU FOR SHOPPING!",
+        thermalFooterContact: "Contact us : 03281302636",
+        thermalFooterWebsite: "Pharmacy POS & ERP    www.mbiinventra.com",
+        thermalCompactFooter: true,
+        thermalDefaultTheme: "THERMAL_MBI_STANDARD",
+        thermalPaperWidth: "80mm",
+        a4DefaultTheme: "A4_PHARMA_WHOLESALE",
+        a4HeaderTitle: "TAX & DRUG WARRANTY INVOICE",
+        a4DrugWarrantyText: "FORM 2-A: (Under Section 23 of Drug Act 1976). We hereby warrant that medicines sold do not contravene any section of Drug Act 1976.",
+        a4ShowDrugWarranty: true,
+        a4ShowBankDetails: true,
+        a4BankDetailsText: "Bank: Meezan Bank Ltd\nAccount: 0102-0105829102\nTitle: MBI INVENTRA PHARMA\nIBAN: PK64MEZN0001020105829102",
+        a4ShowQrCode: true,
+        a4MasterFooterText: "Thank You for Your Business! \u2022 Powered by MBI INVENTRA Cloud POS & ERP \u2022 Master System Verified \u2022 24/7 Helpline: 0328-1302636 \u2022 www.mbiinventra.com",
+        isClientEditingLocked: true,
+        lockReason: "Protected by Master Server. Official branding & receipt layout is centrally managed.",
+        lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to fetch print config" });
+  }
+});
+adminMasterRouter.post("/print-config", async (req, res) => {
+  try {
+    const config = req.body || {};
+    config.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
+    const configPath = import_path10.default.join(process.cwd(), ".master_print_config.json");
+    import_fs10.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    try {
+      broadcastGlobalEvent("PRINT_CONFIG_UPDATED", {
+        config,
+        timestamp: config.lastUpdated,
+        source: "MASTER_CONTROL"
+      });
+    } catch (e) {
+      console.warn("[MASTER PRINT BROADCAST WARNING]:", e);
+    }
+    res.json({
+      success: true,
+      message: "Master Print & Invoice Template Hub configuration saved and broadcasted to all terminals!",
+      config
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to save print config" });
+  }
+});
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));

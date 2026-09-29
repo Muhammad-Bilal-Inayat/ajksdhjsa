@@ -32,8 +32,8 @@ export const QuickPrivateTransactionModal: React.FC<QuickPrivateTransactionModal
   const { tenantId, activeRole, currentUser, activeUser, business, canPerform } = useAuth();
   const currentTenantId = tenantId || 'default';
 
-  // PIN Unlock Security Gate State
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  // PIN Unlock Security Gate State (Bypassed for instant direct access on Alt+P)
+  const [isUnlocked, setIsUnlocked] = useState(true);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const pinInputRef = useRef<HTMLInputElement>(null);
@@ -99,14 +99,8 @@ export const QuickPrivateTransactionModal: React.FC<QuickPrivateTransactionModal
   useEffect(() => {
     if (isOpen) {
       dbMedicines.getAll().then(setMedicines).catch(() => {});
-      if (!isUnlocked) {
-        setTimeout(() => pinInputRef.current?.focus(), 100);
-      }
+      setIsUnlocked(true);
     } else {
-      // Reset PIN on close for strict security
-      setIsUnlocked(false);
-      setPinInput('');
-      setPinError(null);
       setLastSavedTxn(null);
     }
   }, [isOpen]);

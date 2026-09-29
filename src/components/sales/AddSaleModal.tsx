@@ -2438,11 +2438,12 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 )}
               </div>
 
-              {/* Order Booker / Biller (Enterprise & Platinum Feature Only) */}
+              {/* Order Booker / Biller (Enterprise & Platinum Feature Only - Excluded on Basic & Trial) */}
               {(() => {
-                const userPlan = ((tenant as any)?.planTier || tenant?.plan || tenant?.trialPlan || (business as any)?.plan || 'Basic').toString().toUpperCase();
-                const isEnterpriseOrPlatinum = userPlan.includes('ENTERPRISE') || userPlan.includes('PLATINUM');
-                if (!isEnterpriseOrPlatinum || settings.transaction?.enableBookerBiller === false || settings.transaction?.showBookerInSales === false) {
+                const rawPlan = ((tenant as any)?.planTier || tenant?.plan || (business as any)?.plan || 'Basic').toString().toUpperCase();
+                const isBasicOrTrial = rawPlan.includes('BASIC') || rawPlan.includes('TRIAL') || rawPlan.includes('STARTER') || rawPlan === 'FREE';
+                const isBookerPlan = (rawPlan.includes('ENTERPRISE') || rawPlan.includes('PLATINUM') || rawPlan.includes('DIAMOND')) && !isBasicOrTrial;
+                if (!isBookerPlan || isBasicOrTrial || settings.transaction?.enableBookerBiller === false || settings.transaction?.showBookerInSales === false) {
                   return null;
                 }
                 return (

@@ -2950,8 +2950,10 @@ export const Dashboard: React.FC = () => {
           return renderSalesExpensesSection();
         case 'receivables_payables':
           return renderReceivablesPayablesSection();
-        case 'top_products':
-          return renderTopProductsSection();
+        case 'top_products': {
+          const isTopAllowed = isRouteAllowedInPlan('/top-products', (tenant as any)?.plan || (business as any)?.plan, authTenantId || tenant?.id).isAllowed;
+          return isTopAllowed ? renderTopProductsSection() : null;
+        }
         case 'stock_inventory':
           return renderStockInventoryWidget();
         case 'bank_accounts':

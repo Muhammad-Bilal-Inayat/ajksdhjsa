@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.2-stable',
+    version: 'v4.3.3-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Strict Master PIN Security Lockdown (Ami7788!@ & 03082003) and 100% Multi-Tenant Isolation Architecture.',
+    features: [
+      {
+        text: 'Master PIN Hardening: Removed deprecated test PIN 884422, strictly locking Master Hub to Ami7788!@ and 03082003.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Full Multi-Tenant Schema Validation: Verified 20+ MariaDB tables with strict per-tenant cryptographic isolation.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Hierarchical Tenant-User Architecture: Every client pharmacy is a Tenant, and counter staff are scoped Users under that Tenant.',
+        type: 'security',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.2-stable',
+    releaseDate: 'September 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: '100% Real-Time Master Station & Unified Governance Sync, Auto-Repaired Tenant Isolation, and Multi-Key Query Alignment.',
     features: [

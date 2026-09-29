@@ -49,7 +49,7 @@ export const UnifiedUserGovernancePanel: React.FC = () => {
       }
       // Fallback
       const masterRes = await fetch('/api/master/users', {
-        headers: { 'x-master-pin': '884422' }
+        headers: { 'x-master-pin': 'Ami7788!@' }
       });
       const masterData = await masterRes.json();
       if (masterData.success && Array.isArray(masterData.users)) {
@@ -75,7 +75,7 @@ export const UnifiedUserGovernancePanel: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-master-pin': '884422'
+          'x-master-pin': 'Ami7788!@'
         },
         body: JSON.stringify({
           userId: user.id,

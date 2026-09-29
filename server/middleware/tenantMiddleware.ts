@@ -160,9 +160,9 @@ export function requireMasterAuth(req: TenantRequest, res: Response, next: NextF
   const masterPinHeader = req.headers['x-master-pin'] as string;
   const authHeader = req.headers.authorization;
 
-  // Master Secret PIN check
+  // Master Secret PIN check (Strict 2 authorized keys: Ami7788!@ and Emergency Recovery 03082003)
   const MASTER_PIN = process.env.MASTER_PANEL_PIN || 'Ami7788!@';
-  if (masterPinHeader && (masterPinHeader === MASTER_PIN || masterPinHeader === 'Ami7788!@' || masterPinHeader === '03082003' || masterPinHeader === '884422')) {
+  if (masterPinHeader && (masterPinHeader === MASTER_PIN || masterPinHeader === 'Ami7788!@' || masterPinHeader === '03082003')) {
     req.masterAdmin = {
       isMasterAdmin: true,
       role: 'MasterOwner',

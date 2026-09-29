@@ -1,11 +1,13 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.3.2-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.3-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.3.2
+## 🌟 What's New in v4.3.3
+- **Strict Master PIN Security Lockdown:** Deprecated PIN `884422` completely removed. Master Server Station (`/server`, `/lan`) is strictly authorized only with Primary Master PIN (`Ami7788!@`) and Emergency Recovery Key (`03082003`).
+- **100% Multi-Tenant Data Isolation:** Verified 20+ MariaDB database tables. Every registered client pharmacy operates as an isolated Tenant (`mbi_tenants`), and their counter staff exist as scoped sub-users (`mbi_users`).
 - **100% Real-Time Master Station & Unified Governance Sync:** Fixed registration query placeholder alignment in `mbi_tenants`. Newly registered tenants, users, and licenses now immediately populate across all 25 tabs of `/server`, `/lan`, Unified Governance, and Masterboard 173 features in real time.
 - **Automatic Database Integrity Repair:** Built-in auto-repair on startup automatically populates any missing `tenant_id` and `organization_id` columns in `mbi_tenants`, `mbi_users`, and `mbi_licenses`.
 - **Multi-Key Robust Query Join:** Queries now join across `id`, `tenant_id`, and `organization_id` seamlessly with zero dropped records.

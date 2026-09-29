@@ -32,7 +32,7 @@ export function UserGovernanceModule() {
     setLoading(true);
     try {
       const res = await fetch('/api/master/users', {
-        headers: { 'x-master-pin': '884422' }
+        headers: { 'x-master-pin': 'Ami7788!@' }
       });
       const data = await res.json();
       if (data.success && Array.isArray(data.users)) {
@@ -58,7 +58,7 @@ export function UserGovernanceModule() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-master-pin': '884422'
+          'x-master-pin': 'Ami7788!@'
         },
         body: JSON.stringify({
           userId: user.id,

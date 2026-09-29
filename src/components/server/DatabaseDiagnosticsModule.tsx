@@ -21,7 +21,7 @@ export function DatabaseDiagnosticsModule() {
     setLoading(true);
     try {
       const res = await fetch('/api/master/database/diagnostics', {
-        headers: { 'x-master-pin': '884422' }
+        headers: { 'x-master-pin': 'Ami7788!@' }
       });
       const data = await res.json();
       if (data.success) {

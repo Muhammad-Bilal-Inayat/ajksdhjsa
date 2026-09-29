@@ -24,6 +24,7 @@ import { syncEngine } from './lib/syncEngine';
 import { LicenseActivationModal } from './components/modals/LicenseActivationModal';
 import { DeviceUnauthorizedModal } from './components/common/DeviceUnauthorizedModal';
 import { LicenseMilestoneAlert } from './components/common/LicenseMilestoneAlert';
+import { GlobalBroadcastPopupModal } from './components/common/GlobalBroadcastPopupModal';
 import { ShieldAlert, ArrowLeft, RefreshCw, RotateCcw, Lock } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 
@@ -422,6 +423,8 @@ function AppRoutes() {
         <Route path="/workspace" element={<AuthPage />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/server" element={<MasterServerHub />} />
+        <Route path="/server/lan" element={<MasterServerHub initialTab="lan_hub" />} />
+        <Route path="/lan" element={<MasterServerHub initialTab="lan_hub" />} />
         <Route path="/server/command-center" element={<MasterCommandCenter />} />
         <Route path="/setup" element={<ProtectedRoute><SetupBusiness /></ProtectedRoute>} />
 
@@ -661,6 +664,7 @@ export default function App() {
                   <UpdateNotificationBanner />
                   <MbiAiWidget />
                   <LicenseMilestoneAlert />
+                  <GlobalBroadcastPopupModal />
                   <TrialExpiryHardLockOverlay />
                   <DeviceAuthorizationOverlay />
                   <AppRoutes />

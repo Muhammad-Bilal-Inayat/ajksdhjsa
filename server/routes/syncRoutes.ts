@@ -18,7 +18,7 @@ const tenantClients = new Map<string, Set<SseClient>>();
  */
 export function broadcastTenantEvent(
   tenantId: string, 
-  event: { type: string; entity: string; payload?: any; timestamp?: string }
+  event: { type: string; entity?: string; payload?: any; timestamp?: string }
 ) {
   if (!tenantId) return;
   const clients = tenantClients.get(tenantId);
@@ -37,6 +37,27 @@ export function broadcastTenantEvent(
     } catch (err) {
       console.warn(`[SSE BROADCAST ERROR] Failed for client ${client.id}:`, err);
       clients.delete(client);
+    }
+  }
+}
+
+/**
+ * Broadcast an event to ALL active SSE subscribers across all tenants (Master Global Broadcast).
+ */
+export function broadcastGlobalEvent(event: { type: string; entity?: string; payload?: any; timestamp?: string }) {
+  const payload = {
+    ...event,
+    timestamp: event.timestamp || new Date().toISOString()
+  };
+  const sseData = `event: message\ndata: ${JSON.stringify(payload)}\n\n`;
+
+  for (const [, clients] of tenantClients.entries()) {
+    for (const client of clients) {
+      try {
+        client.res.write(sseData);
+      } catch (err) {
+        clients.delete(client);
+      }
     }
   }
 }

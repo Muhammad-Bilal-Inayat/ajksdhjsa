@@ -1,7 +1,11 @@
 import express, { Response } from 'express';
+import os from 'os';
+import fs from 'fs';
+import path from 'path';
 import { getMariaDbPool, getMariaDbTableStats, testMariaDbConnection } from '../db/mariaClient';
 import { signJwt } from '../auth/jwt';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
+import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
 
 export const adminMasterRouter = express.Router();
 
@@ -916,6 +920,269 @@ const handleUpdateSupportTicketStatus = async (req: TenantRequest, res: Response
 
 adminMasterRouter.patch('/support/tickets/:id', handleUpdateSupportTicketStatus);
 adminMasterRouter.patch('/tickets/:id', handleUpdateSupportTicketStatus);
+
+// In-memory connected LAN counter terminals registry
+interface LanTerminal {
+  terminalId: string;
+  terminalName: string;
+  tenantId: string;
+  ipAddress: string;
+  boundHwid?: string;
+  role: string;
+  lastHeartbeat: number;
+  latencyMs: number;
+  status: 'online' | 'syncing' | 'idle' | 'offline';
+  localQueueLength: number;
+}
+
+const activeLanTerminals = new Map<string, LanTerminal>();
+
+// Helper to get local IPv4 addresses (Ethernet, Wi-Fi, LAN)
+function getLocalNetworkAddresses(): { interfaceName: string; address: string; family: string; isInternal: boolean }[] {
+  const interfaces = os.networkInterfaces();
+  const addresses: { interfaceName: string; address: string; family: string; isInternal: boolean }[] = [];
+
+  for (const name of Object.keys(interfaces)) {
+    const netList = interfaces[name];
+    if (netList) {
+      for (const net of netList) {
+        if (net.family === 'IPv4') {
+          addresses.push({
+            interfaceName: name,
+            address: net.address,
+            family: net.family,
+            isInternal: net.internal
+          });
+        }
+      }
+    }
+  }
+  return addresses;
+}
+
+// 24. GET /lan/status (Local Host IP, Network Interfaces, Connected LAN Nodes)
+adminMasterRouter.get('/lan/status', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const addresses = getLocalNetworkAddresses();
+    const primaryIp = addresses.find(a => !a.isInternal && !a.address.startsWith('127.'))?.address || '127.0.0.1';
+    const port = process.env.PORT || 3001;
+
+    // Prune stale terminals (> 90s inactive)
+    const now = Date.now();
+    const terminalsList: LanTerminal[] = [];
+    for (const [id, t] of activeLanTerminals.entries()) {
+      if (now - t.lastHeartbeat > 90000) {
+        t.status = 'offline';
+      }
+      terminalsList.push(t);
+    }
+
+    // Read active companies / stores
+    let companies: any[] = [];
+    try {
+      const pool = getMariaDbPool();
+      const [rows]: any = await pool.query(`SELECT id, tenant_id, name, city, plan, status FROM mbi_tenants LIMIT 50`);
+      if (Array.isArray(rows) && rows.length > 0) {
+        companies = rows;
+      }
+    } catch (e) {
+      // Fallback from master users
+      try {
+        const usersPath = path.join(process.cwd(), '.master_users.json');
+        if (fs.existsSync(usersPath)) {
+          const uList = JSON.parse(fs.readFileSync(usersPath, 'utf8') || '[]');
+          const storeMap = new Map<string, any>();
+          for (const u of uList) {
+            const sName = u.storeName || 'MBI INVENTRA';
+            if (!storeMap.has(sName)) {
+              storeMap.set(sName, {
+                id: u.installationId || 'store_main',
+                tenant_id: u.installationId || 'store_main',
+                name: sName,
+                city: 'Local Host',
+                plan: 'Enterprise',
+                status: 'active'
+              });
+            }
+          }
+          companies = Array.from(storeMap.values());
+        }
+      } catch (err2) {}
+    }
+
+    if (companies.length === 0) {
+      companies = [{ id: 'tenant_main', tenant_id: 'tenant_main', name: 'MBI INVENTRA Main Pharmacy', city: 'Primary Hub', plan: 'Enterprise', status: 'active' }];
+    }
+
+    res.json({
+      success: true,
+      hostname: os.hostname(),
+      platform: os.platform(),
+      primaryHostIp: primaryIp,
+      port: Number(port),
+      connectionUrls: {
+        lanUrl: `http://${primaryIp}:${port}`,
+        localhostUrl: `http://localhost:${port}`
+      },
+      interfaces: addresses,
+      connectedTerminals: terminalsList,
+      connectedCount: terminalsList.filter(t => t.status !== 'offline').length,
+      companies,
+      systemMode: {
+        isMasterHost: true,
+        offlineSyncEnabled: true,
+        dialupAdaptiveMode: true,
+        lanMeshSyncActive: true
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching LAN status' });
+  }
+});
+
+// 25. POST /lan/heartbeat (Counter Terminal Ping over LAN)
+adminMasterRouter.post('/lan/heartbeat', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { terminalId, terminalName, tenantId, boundHwid, role, latencyMs, localQueueLength } = req.body;
+    const clientIp = req.headers['x-forwarded-for']?.toString() || req.socket.remoteAddress || '127.0.0.1';
+
+    const tId = terminalId || `counter_${clientIp.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const entry: LanTerminal = {
+      terminalId: tId,
+      terminalName: terminalName || `Counter Terminal (${clientIp})`,
+      tenantId: tenantId || 'default',
+      ipAddress: clientIp,
+      boundHwid,
+      role: role || 'Cashier Counter',
+      lastHeartbeat: Date.now(),
+      latencyMs: Number(latencyMs || 1.2),
+      status: 'online',
+      localQueueLength: Number(localQueueLength || 0)
+    };
+
+    activeLanTerminals.set(tId, entry);
+
+    res.json({
+      success: true,
+      message: 'LAN Heartbeat acknowledged',
+      serverTime: new Date().toISOString(),
+      activeTerminalsCount: activeLanTerminals.size
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Heartbeat error' });
+  }
+});
+
+// 26. POST /lan/broadcast (Universal Instant Broadcast Dispatcher with Popups)
+adminMasterRouter.post('/lan/broadcast', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { title, message, priority, targetTenantId, targetUserId, senderName, requireAck, playChime } = req.body;
+
+    if (!message || !message.trim()) {
+      res.status(400).json({ success: false, error: 'Broadcast message content is required' });
+      return;
+    }
+
+    const broadcastId = `bcast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const broadcastRecord = {
+      id: broadcastId,
+      title: title?.trim() || 'Official System Broadcast Notice',
+      message: message.trim(),
+      priority: priority || 'urgent', // 'urgent' | 'alert' | 'notice' | 'info'
+      targetTenantId: targetTenantId || 'all',
+      targetUserId: targetUserId || 'all',
+      senderName: senderName || 'Master Command / Server Admin',
+      requireAck: requireAck !== false,
+      playChime: playChime !== false,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 86400000 * 7).toISOString()
+    };
+
+    // Save into local .broadcast_history.json
+    try {
+      const bcastHistoryPath = path.join(process.cwd(), '.broadcast_history.json');
+      let history: any[] = [];
+      if (fs.existsSync(bcastHistoryPath)) {
+        try {
+          history = JSON.parse(fs.readFileSync(bcastHistoryPath, 'utf8') || '[]');
+        } catch (e) {}
+      }
+      history.unshift(broadcastRecord);
+      if (history.length > 50) history = history.slice(0, 50);
+      fs.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), 'utf8');
+    } catch (fsErr) {}
+
+    // Dispatch via SSE to all or targeted tenants
+    if (targetTenantId && targetTenantId !== 'all') {
+      broadcastTenantEvent(targetTenantId, {
+        type: 'NEW_BROADCAST_ANNOUNCEMENT',
+        payload: broadcastRecord
+      });
+    } else {
+      broadcastGlobalEvent({
+        type: 'NEW_BROADCAST_ANNOUNCEMENT',
+        payload: broadcastRecord
+      });
+    }
+
+    // Save audit log entry
+    try {
+      const pool = getMariaDbPool();
+      await pool.query(
+        `INSERT INTO mbi_audit_logs (tenant_id, action, details, ip_address, created_at)
+         VALUES (?, ?, ?, ?, NOW());`,
+        [
+          targetTenantId || 'global',
+          'BROADCAST_DISPATCHED',
+          `Dispatched [${broadcastRecord.priority.toUpperCase()}] broadcast: "${broadcastRecord.title}" - ${broadcastRecord.message.substring(0, 100)}`,
+          req.socket.remoteAddress || '127.0.0.1'
+        ]
+      );
+    } catch (dbLogErr) {}
+
+    res.json({
+      success: true,
+      message: '✅ Broadcast successfully pushed to all active client counters!',
+      broadcast: broadcastRecord
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error dispatching broadcast' });
+  }
+});
+
+// 27. GET /lan/active-broadcasts (Retrieve active pending broadcasts for client)
+adminMasterRouter.get('/lan/active-broadcasts', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const tenantId = (req.query.tenantId as string) || req.headers['x-tenant-id']?.toString() || 'all';
+    const userId = (req.query.userId as string) || 'all';
+
+    let history: any[] = [];
+    try {
+      const bcastHistoryPath = path.join(process.cwd(), '.broadcast_history.json');
+      if (fs.existsSync(bcastHistoryPath)) {
+        history = JSON.parse(fs.readFileSync(bcastHistoryPath, 'utf8') || '[]');
+      }
+    } catch (e) {}
+
+    // Filter relevant unexpired broadcasts
+    const now = new Date().toISOString();
+    const relevant = history.filter(b => {
+      if (b.expiresAt && b.expiresAt < now) return false;
+      const tenantMatch = b.targetTenantId === 'all' || b.targetTenantId === tenantId;
+      const userMatch = b.targetUserId === 'all' || b.targetUserId === userId;
+      return tenantMatch && userMatch;
+    });
+
+    res.json({
+      success: true,
+      count: relevant.length,
+      broadcasts: relevant
+    });
+  } catch (err: any) {
+    res.json({ success: true, count: 0, broadcasts: [] });
+  }
+});
 
 export default adminMasterRouter;
 

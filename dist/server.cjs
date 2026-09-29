@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_config = require("dotenv/config");
 var import_express15 = __toESM(require("express"));
-var import_path14 = __toESM(require("path"));
-var import_fs14 = __toESM(require("fs"));
+var import_path15 = __toESM(require("path"));
+var import_fs15 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -1365,6 +1365,25 @@ data: ${JSON.stringify(payload)}
     } catch (err) {
       console.warn(`[SSE BROADCAST ERROR] Failed for client ${client.id}:`, err);
       clients.delete(client);
+    }
+  }
+}
+function broadcastGlobalEvent(event) {
+  const payload = {
+    ...event,
+    timestamp: event.timestamp || (/* @__PURE__ */ new Date()).toISOString()
+  };
+  const sseData = `event: message
+data: ${JSON.stringify(payload)}
+
+`;
+  for (const [, clients] of tenantClients.entries()) {
+    for (const client of clients) {
+      try {
+        client.res.write(sseData);
+      } catch (err) {
+        clients.delete(client);
+      }
     }
   }
 }
@@ -6122,12 +6141,12 @@ activeDevicesRegistry.set("dev_03", {
 });
 async function loginController(req, res) {
   try {
-    const { email, phone, email_or_phone, passcode, password, pinCode, deviceId, hwid, deviceModel, os, firmId } = req.body;
+    const { email, phone, email_or_phone, passcode, password, pinCode, deviceId, hwid, deviceModel, os: os2, firmId } = req.body;
     const inputEmailOrPhone = (email_or_phone || email || phone || "").trim();
     const inputPasscode = (passcode || pinCode || password || "0000").trim();
     const clientHwid = (hwid || deviceId || `HWID-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${(req.ip || "127").slice(-3)}`).toUpperCase();
     const clientDeviceModel = deviceModel || (req.headers["user-agent"]?.includes("Mobile") ? "Android Terminal" : "POS Workstation");
-    const clientOs = os || (req.headers["user-agent"]?.includes("Windows") ? "Windows 11" : req.headers["user-agent"]?.includes("Mac") ? "macOS" : "Linux / Android");
+    const clientOs = os2 || (req.headers["user-agent"]?.includes("Windows") ? "Windows 11" : req.headers["user-agent"]?.includes("Mac") ? "macOS" : "Linux / Android");
     const clientIp = req.ip || req.headers["x-forwarded-for"] || "182.185.24.11";
     if (!inputEmailOrPhone) {
       res.status(400).json({ success: false, error: "Email or phone number is required" });
@@ -6338,7 +6357,7 @@ async function loginController(req, res) {
 }
 async function registerTrialController(req, res) {
   try {
-    const { storeName, ownerName, username, city, phone, email, password, plan, hwid, deviceId, deviceModel, os } = req.body;
+    const { storeName, ownerName, username, city, phone, email, password, plan, hwid, deviceId, deviceModel, os: os2 } = req.body;
     const cleanStoreName = (storeName || "").trim();
     const cleanOwnerName = (ownerName || cleanStoreName || "Store Owner").trim();
     const cleanUsername = (username || cleanOwnerName.replace(/\s+/g, "").toLowerCase()).trim();
@@ -6348,7 +6367,7 @@ async function registerTrialController(req, res) {
     const cleanPassword = (password || "1234").trim();
     const clientHwid = (hwid || deviceId || `HWID-DEV1-${Math.random().toString(36).substring(2, 8).toUpperCase()}`).toUpperCase();
     const clientDeviceModel = deviceModel || (req.headers["user-agent"]?.includes("Mobile") ? "Android Terminal" : "Primary POS Station");
-    const clientOs = os || (req.headers["user-agent"]?.includes("Windows") ? "Windows 11" : "Linux / Android / Web");
+    const clientOs = os2 || (req.headers["user-agent"]?.includes("Windows") ? "Windows 11" : "Linux / Android / Web");
     const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
     if (!cleanStoreName) {
       res.status(400).json({ success: false, error: "Pharmacy / Store Name is required" });
@@ -8094,6 +8113,9 @@ fleetRouter.post("/tenants/register", async (req, res) => {
 
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));
+var import_os = __toESM(require("os"));
+var import_fs10 = __toESM(require("fs"));
+var import_path10 = __toESM(require("path"));
 var adminMasterRouter = import_express7.default.Router();
 var MASTER_PIN = process.env.MASTER_PANEL_PIN || "Ami7788!@";
 adminMasterRouter.post("/verify-pin", async (req, res) => {
@@ -8185,9 +8207,9 @@ adminMasterRouter.get("/search", async (req, res) => {
     } catch (dbErr) {
     }
     try {
-      const masterUsersPath = path.join(process.cwd(), ".master_users.json");
-      if (fs.existsSync(masterUsersPath)) {
-        const localUsers = JSON.parse(fs.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path10.default.join(process.cwd(), ".master_users.json");
+      if (import_fs10.default.existsSync(masterUsersPath)) {
+        const localUsers = JSON.parse(import_fs10.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localUsers)) {
           for (const u of localUsers) {
             const match = u.name && u.name.toLowerCase().includes(qLower) || u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower) || u.storeName && u.storeName.toLowerCase().includes(qLower) || u.boundHwid && u.boundHwid.toLowerCase().includes(qLower);
@@ -8878,13 +8900,233 @@ var handleUpdateSupportTicketStatus = async (req, res) => {
 };
 adminMasterRouter.patch("/support/tickets/:id", handleUpdateSupportTicketStatus);
 adminMasterRouter.patch("/tickets/:id", handleUpdateSupportTicketStatus);
+var activeLanTerminals = /* @__PURE__ */ new Map();
+function getLocalNetworkAddresses() {
+  const interfaces = import_os.default.networkInterfaces();
+  const addresses = [];
+  for (const name of Object.keys(interfaces)) {
+    const netList = interfaces[name];
+    if (netList) {
+      for (const net of netList) {
+        if (net.family === "IPv4") {
+          addresses.push({
+            interfaceName: name,
+            address: net.address,
+            family: net.family,
+            isInternal: net.internal
+          });
+        }
+      }
+    }
+  }
+  return addresses;
+}
+adminMasterRouter.get("/lan/status", async (req, res) => {
+  try {
+    const addresses = getLocalNetworkAddresses();
+    const primaryIp = addresses.find((a) => !a.isInternal && !a.address.startsWith("127."))?.address || "127.0.0.1";
+    const port = process.env.PORT || 3001;
+    const now = Date.now();
+    const terminalsList = [];
+    for (const [id, t] of activeLanTerminals.entries()) {
+      if (now - t.lastHeartbeat > 9e4) {
+        t.status = "offline";
+      }
+      terminalsList.push(t);
+    }
+    let companies = [];
+    try {
+      const pool2 = getMariaDbPool();
+      const [rows] = await pool2.query(`SELECT id, tenant_id, name, city, plan, status FROM mbi_tenants LIMIT 50`);
+      if (Array.isArray(rows) && rows.length > 0) {
+        companies = rows;
+      }
+    } catch (e) {
+      try {
+        const usersPath = import_path10.default.join(process.cwd(), ".master_users.json");
+        if (import_fs10.default.existsSync(usersPath)) {
+          const uList = JSON.parse(import_fs10.default.readFileSync(usersPath, "utf8") || "[]");
+          const storeMap = /* @__PURE__ */ new Map();
+          for (const u of uList) {
+            const sName = u.storeName || "MBI INVENTRA";
+            if (!storeMap.has(sName)) {
+              storeMap.set(sName, {
+                id: u.installationId || "store_main",
+                tenant_id: u.installationId || "store_main",
+                name: sName,
+                city: "Local Host",
+                plan: "Enterprise",
+                status: "active"
+              });
+            }
+          }
+          companies = Array.from(storeMap.values());
+        }
+      } catch (err2) {
+      }
+    }
+    if (companies.length === 0) {
+      companies = [{ id: "tenant_main", tenant_id: "tenant_main", name: "MBI INVENTRA Main Pharmacy", city: "Primary Hub", plan: "Enterprise", status: "active" }];
+    }
+    res.json({
+      success: true,
+      hostname: import_os.default.hostname(),
+      platform: import_os.default.platform(),
+      primaryHostIp: primaryIp,
+      port: Number(port),
+      connectionUrls: {
+        lanUrl: `http://${primaryIp}:${port}`,
+        localhostUrl: `http://localhost:${port}`
+      },
+      interfaces: addresses,
+      connectedTerminals: terminalsList,
+      connectedCount: terminalsList.filter((t) => t.status !== "offline").length,
+      companies,
+      systemMode: {
+        isMasterHost: true,
+        offlineSyncEnabled: true,
+        dialupAdaptiveMode: true,
+        lanMeshSyncActive: true
+      },
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error fetching LAN status" });
+  }
+});
+adminMasterRouter.post("/lan/heartbeat", async (req, res) => {
+  try {
+    const { terminalId, terminalName, tenantId, boundHwid, role, latencyMs, localQueueLength } = req.body;
+    const clientIp = req.headers["x-forwarded-for"]?.toString() || req.socket.remoteAddress || "127.0.0.1";
+    const tId = terminalId || `counter_${clientIp.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    const entry = {
+      terminalId: tId,
+      terminalName: terminalName || `Counter Terminal (${clientIp})`,
+      tenantId: tenantId || "default",
+      ipAddress: clientIp,
+      boundHwid,
+      role: role || "Cashier Counter",
+      lastHeartbeat: Date.now(),
+      latencyMs: Number(latencyMs || 1.2),
+      status: "online",
+      localQueueLength: Number(localQueueLength || 0)
+    };
+    activeLanTerminals.set(tId, entry);
+    res.json({
+      success: true,
+      message: "LAN Heartbeat acknowledged",
+      serverTime: (/* @__PURE__ */ new Date()).toISOString(),
+      activeTerminalsCount: activeLanTerminals.size
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Heartbeat error" });
+  }
+});
+adminMasterRouter.post("/lan/broadcast", async (req, res) => {
+  try {
+    const { title, message, priority, targetTenantId, targetUserId, senderName, requireAck, playChime } = req.body;
+    if (!message || !message.trim()) {
+      res.status(400).json({ success: false, error: "Broadcast message content is required" });
+      return;
+    }
+    const broadcastId = `bcast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const broadcastRecord = {
+      id: broadcastId,
+      title: title?.trim() || "Official System Broadcast Notice",
+      message: message.trim(),
+      priority: priority || "urgent",
+      // 'urgent' | 'alert' | 'notice' | 'info'
+      targetTenantId: targetTenantId || "all",
+      targetUserId: targetUserId || "all",
+      senderName: senderName || "Master Command / Server Admin",
+      requireAck: requireAck !== false,
+      playChime: playChime !== false,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      expiresAt: new Date(Date.now() + 864e5 * 7).toISOString()
+    };
+    try {
+      const bcastHistoryPath = import_path10.default.join(process.cwd(), ".broadcast_history.json");
+      let history = [];
+      if (import_fs10.default.existsSync(bcastHistoryPath)) {
+        try {
+          history = JSON.parse(import_fs10.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+        } catch (e) {
+        }
+      }
+      history.unshift(broadcastRecord);
+      if (history.length > 50) history = history.slice(0, 50);
+      import_fs10.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
+    } catch (fsErr) {
+    }
+    if (targetTenantId && targetTenantId !== "all") {
+      broadcastTenantEvent(targetTenantId, {
+        type: "NEW_BROADCAST_ANNOUNCEMENT",
+        payload: broadcastRecord
+      });
+    } else {
+      broadcastGlobalEvent({
+        type: "NEW_BROADCAST_ANNOUNCEMENT",
+        payload: broadcastRecord
+      });
+    }
+    try {
+      const pool2 = getMariaDbPool();
+      await pool2.query(
+        `INSERT INTO mbi_audit_logs (tenant_id, action, details, ip_address, created_at)
+         VALUES (?, ?, ?, ?, NOW());`,
+        [
+          targetTenantId || "global",
+          "BROADCAST_DISPATCHED",
+          `Dispatched [${broadcastRecord.priority.toUpperCase()}] broadcast: "${broadcastRecord.title}" - ${broadcastRecord.message.substring(0, 100)}`,
+          req.socket.remoteAddress || "127.0.0.1"
+        ]
+      );
+    } catch (dbLogErr) {
+    }
+    res.json({
+      success: true,
+      message: "\u2705 Broadcast successfully pushed to all active client counters!",
+      broadcast: broadcastRecord
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error dispatching broadcast" });
+  }
+});
+adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
+  try {
+    const tenantId = req.query.tenantId || req.headers["x-tenant-id"]?.toString() || "all";
+    const userId = req.query.userId || "all";
+    let history = [];
+    try {
+      const bcastHistoryPath = import_path10.default.join(process.cwd(), ".broadcast_history.json");
+      if (import_fs10.default.existsSync(bcastHistoryPath)) {
+        history = JSON.parse(import_fs10.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+      }
+    } catch (e) {
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const relevant = history.filter((b) => {
+      if (b.expiresAt && b.expiresAt < now) return false;
+      const tenantMatch = b.targetTenantId === "all" || b.targetTenantId === tenantId;
+      const userMatch = b.targetUserId === "all" || b.targetUserId === userId;
+      return tenantMatch && userMatch;
+    });
+    res.json({
+      success: true,
+      count: relevant.length,
+      broadcasts: relevant
+    });
+  } catch (err) {
+    res.json({ success: true, count: 0, broadcasts: [] });
+  }
+});
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));
-var import_fs10 = __toESM(require("fs"));
-var import_path10 = __toESM(require("path"));
+var import_fs11 = __toESM(require("fs"));
+var import_path11 = __toESM(require("path"));
 var blogRouter = import_express8.default.Router();
-var BLOGS_FILE = import_path10.default.resolve(process.cwd(), ".blogs_store.json");
+var BLOGS_FILE = import_path11.default.resolve(process.cwd(), ".blogs_store.json");
 var SEED_BLOGS = [
   {
     id: "blog-inventra-expiry-conquest",
@@ -9047,8 +9289,8 @@ Experience the speed and security of MBI INVENTRA 4 with full feature access and
 ];
 function loadBlogs() {
   try {
-    if (import_fs10.default.existsSync(BLOGS_FILE)) {
-      const data = JSON.parse(import_fs10.default.readFileSync(BLOGS_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(BLOGS_FILE)) {
+      const data = JSON.parse(import_fs11.default.readFileSync(BLOGS_FILE, "utf-8"));
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (err) {
@@ -9059,7 +9301,7 @@ function loadBlogs() {
 }
 function saveBlogs(blogs) {
   try {
-    import_fs10.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving blogs store:", err);
   }
@@ -9199,10 +9441,10 @@ versionRouter.get("/", (req, res) => {
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
-var import_fs11 = __toESM(require("fs"));
-var import_path11 = __toESM(require("path"));
+var import_fs12 = __toESM(require("fs"));
+var import_path12 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
-var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile8 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
 licenseRouter.post("/register-trial", async (req, res) => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
@@ -9255,8 +9497,8 @@ licenseRouter.post("/register-trial", async (req, res) => {
     }
     try {
       let syncData = {};
-      if (import_fs11.default.existsSync(syncFile8)) {
-        syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+      if (import_fs12.default.existsSync(syncFile8)) {
+        syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
@@ -9277,7 +9519,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
       };
       syncData.mbi_licenses.push(licObj);
       syncData.client_licenses.push(licObj);
-      import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -9301,7 +9543,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
 });
 licenseRouter.post("/verify-device", async (req, res) => {
   try {
-    const { tenantId, hwid, deviceId, deviceModel, os } = req.body;
+    const { tenantId, hwid, deviceId, deviceModel, os: os2 } = req.body;
     const clientHwid = (hwid || deviceId || "HWID-DEVICE-1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
@@ -9336,9 +9578,9 @@ licenseRouter.post("/verify-device", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (!licenseFound && import_fs11.default.existsSync(syncFile8)) {
+    if (!licenseFound && import_fs12.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant || l.clientName === activeTenant);
         if (found) {
@@ -9539,8 +9781,8 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
       }
     }
     try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+      if (import_fs12.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant);
         if (found) {
@@ -9548,7 +9790,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!existingBound.includes(clientHwid)) {
             existingBound.push(clientHwid);
             found.boundHardwareIds = existingBound;
-            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           }
         }
       }
@@ -9759,14 +10001,14 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
-var import_fs12 = __toESM(require("fs"));
-var import_path12 = __toESM(require("path"));
+var import_fs13 = __toESM(require("fs"));
+var import_path13 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
-var syncFile9 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile9 = import_path13.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalSyncData() {
   try {
-    if (import_fs12.default.existsSync(syncFile9)) {
-      return JSON.parse(import_fs12.default.readFileSync(syncFile9, "utf-8"));
+    if (import_fs13.default.existsSync(syncFile9)) {
+      return JSON.parse(import_fs13.default.readFileSync(syncFile9, "utf-8"));
     }
   } catch (e) {
   }
@@ -9774,7 +10016,7 @@ function getLocalSyncData() {
 }
 function saveLocalSyncData(data) {
   try {
-    import_fs12.default.writeFileSync(syncFile9, JSON.stringify(data, null, 2), "utf-8");
+    import_fs13.default.writeFileSync(syncFile9, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save sync file:", e);
   }
@@ -10059,14 +10301,14 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
-var import_fs13 = __toESM(require("fs"));
-var import_path13 = __toESM(require("path"));
-var syncFile10 = import_path13.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs14 = __toESM(require("fs"));
+var import_path14 = __toESM(require("path"));
+var syncFile10 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
 function getFallbackAuditLogs(tenantId) {
   let logs = [];
   try {
-    if (import_fs13.default.existsSync(syncFile10)) {
-      const fileData = JSON.parse(import_fs13.default.readFileSync(syncFile10, "utf-8"));
+    if (import_fs14.default.existsSync(syncFile10)) {
+      const fileData = JSON.parse(import_fs14.default.readFileSync(syncFile10, "utf-8"));
       if (Array.isArray(fileData.mbi_audit_logs)) {
         logs = fileData.mbi_audit_logs;
       }
@@ -10081,8 +10323,8 @@ function getFallbackAuditLogs(tenantId) {
 function saveFallbackAuditLog(log) {
   try {
     let data = {};
-    if (import_fs13.default.existsSync(syncFile10)) {
-      data = JSON.parse(import_fs13.default.readFileSync(syncFile10, "utf-8"));
+    if (import_fs14.default.existsSync(syncFile10)) {
+      data = JSON.parse(import_fs14.default.readFileSync(syncFile10, "utf-8"));
     }
     if (!Array.isArray(data.mbi_audit_logs)) {
       data.mbi_audit_logs = [];
@@ -10091,7 +10333,7 @@ function saveFallbackAuditLog(log) {
     if (data.mbi_audit_logs.length > 5e3) {
       data.mbi_audit_logs = data.mbi_audit_logs.slice(0, 5e3);
     }
-    import_fs13.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2));
+    import_fs14.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2));
   } catch (e) {
     console.warn("[Audit Log Local Fallback Save Warning]:", e);
   }
@@ -10581,7 +10823,7 @@ async function startServer() {
   const app = (0, import_express15.default)();
   const PORT = Number(process.env.PORT) || 3e3;
   const HOST = "0.0.0.0";
-  const syncFile11 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile11 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -10652,8 +10894,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path14.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs14.default.existsSync(ddlPath)) {
+    const ddlPath = import_path15.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs15.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -10725,8 +10967,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs14.default.existsSync(syncFile11)) {
-        memorySyncData = JSON.parse(import_fs14.default.readFileSync(syncFile11, "utf-8"));
+      if (import_fs15.default.existsSync(syncFile11)) {
+        memorySyncData = JSON.parse(import_fs15.default.readFileSync(syncFile11, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -10742,8 +10984,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile11}.tmp`;
-      import_fs14.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs14.default.renameSync(tmpFile, syncFile11);
+      import_fs15.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs15.default.renameSync(tmpFile, syncFile11);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile11 }, "/api/sync/flush");
@@ -10833,8 +11075,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs14.default.existsSync(syncFile11)) {
-        const stat = import_fs14.default.statSync(syncFile11);
+      if (import_fs15.default.existsSync(syncFile11)) {
+        const stat = import_fs15.default.statSync(syncFile11);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -11734,29 +11976,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path14.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path14.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path14.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path14.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path14.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path14.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path14.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path14.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path14.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path14.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path14.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path14.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path14.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs14.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path15.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path15.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path15.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path15.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path15.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path15.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path15.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path15.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path15.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path15.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path15.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path15.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path15.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs15.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs14.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs15.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs14.default.existsSync(filePath)) {
-        return JSON.parse(import_fs14.default.readFileSync(filePath, "utf-8"));
+      if (import_fs15.default.existsSync(filePath)) {
+        return JSON.parse(import_fs15.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -11764,7 +12006,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs14.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs15.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -11782,7 +12024,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs14.default.existsSync(masterConfigFile)) {
+    if (!import_fs15.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -12117,7 +12359,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path14.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path15.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -12906,14 +13148,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs14.default.readdirSync(masterBackupsDir);
+      let files = import_fs15.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs14.default.readFileSync(import_path14.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs15.default.readFileSync(import_path15.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -12937,9 +13179,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs14.default.existsSync(masterLicensesFile)) {
+      if (import_fs15.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs14.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs15.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -12987,9 +13229,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs14.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs15.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs14.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs15.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -13005,7 +13247,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs14.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs15.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -13023,7 +13265,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path14.default.join(masterBackupsDir, fileName);
+      const filePath = import_path15.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -13043,15 +13285,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs14.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs15.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs14.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs15.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs14.default.statSync(import_path14.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs15.default.statSync(import_path15.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs14.default.unlinkSync(import_path14.default.join(masterBackupsDir, oldFile.name));
+              import_fs15.default.unlinkSync(import_path15.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -13106,11 +13348,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path14.default.join(masterBackupsDir, fileName);
-      if (!import_fs14.default.existsSync(filePath)) {
+      const filePath = import_path15.default.join(masterBackupsDir, fileName);
+      if (!import_fs15.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs14.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs15.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -13122,9 +13364,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path14.default.join(masterBackupsDir, fileName);
-      if (import_fs14.default.existsSync(filePath)) {
-        import_fs14.default.unlinkSync(filePath);
+      const filePath = import_path15.default.join(masterBackupsDir, fileName);
+      if (import_fs15.default.existsSync(filePath)) {
+        import_fs15.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -13136,14 +13378,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs14.default.readdirSync(masterBackupsDir);
+      let files = import_fs15.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs14.default.readFileSync(import_path14.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs15.default.readFileSync(import_path15.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -13192,7 +13434,7 @@ async function startServer() {
       });
     }
   });
-  const isProdDistAvailable = import_fs14.default.existsSync(import_path14.default.join(process.cwd(), "dist", "index.html"));
+  const isProdDistAvailable = import_fs15.default.existsSync(import_path15.default.join(process.cwd(), "dist", "index.html"));
   if (process.env.NODE_ENV !== "production" || !isProdDistAvailable) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
@@ -13204,13 +13446,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = import_fs14.default.existsSync(import_path14.default.join(process.cwd(), "dist", "index.html")) ? import_path14.default.join(process.cwd(), "dist") : import_fs14.default.existsSync(import_path14.default.join(__dirname, "index.html")) ? __dirname : import_path14.default.resolve(__dirname, "..", "dist");
-    app.use("/assets", import_express15.default.static(import_path14.default.join(distPath, "assets"), {
+    const distPath = import_fs15.default.existsSync(import_path15.default.join(process.cwd(), "dist", "index.html")) ? import_path15.default.join(process.cwd(), "dist") : import_fs15.default.existsSync(import_path15.default.join(__dirname, "index.html")) ? __dirname : import_path15.default.resolve(__dirname, "..", "dist");
+    app.use("/assets", import_express15.default.static(import_path15.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
       fallthrough: true
     }));
-    app.use("*/assets", import_express15.default.static(import_path14.default.join(distPath, "assets"), {
+    app.use("*/assets", import_express15.default.static(import_path15.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
     }));
@@ -13226,7 +13468,7 @@ async function startServer() {
       if (req.path.startsWith("/api/")) {
         return res.status(404).json({ error: "Endpoint not found" });
       }
-      res.sendFile(import_path14.default.join(distPath, "index.html"));
+      res.sendFile(import_path15.default.join(distPath, "index.html"));
     });
   }
   const server = app.listen(PORT, HOST, () => {

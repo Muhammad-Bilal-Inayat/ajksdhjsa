@@ -37,11 +37,13 @@ import { LicenseVaultModule } from '../components/server/LicenseVaultModule';
 import { DatabaseDiagnosticsModule } from '../components/server/DatabaseDiagnosticsModule';
 import { StealthShadowModule } from '../components/server/StealthShadowModule';
 import { ServerGlobalSearch } from '../components/server/ServerGlobalSearch';
+import { LanMultiTerminalHub } from '../components/server/LanMultiTerminalHub';
 import { Master2faSettingsModal } from '../components/admin/Master2faSettingsModal';
 import { verifyTotpToken } from '../services/totpService';
 
 export type ServerTabKey = 
   | 'master_super'
+  | 'lan_hub'
   | 'users_control'
   | 'ai_support'
   | 'clients'
@@ -78,6 +80,7 @@ interface TabDefinition {
 const ALL_25_TABS: TabDefinition[] = [
   // 1. Core Fleet
   { id: 'master_super', label: 'Master Super Control', category: 'Core Fleet', icon: ShieldCheck, description: 'Global tenant controls & emergency remote lock' },
+  { id: 'lan_hub', label: 'LAN Multi-PC & Broadcast Hub', category: 'Core Fleet', icon: Network, description: 'Connect counter laptops via LAN cable/switch & dispatch user popup announcements' },
   { id: 'clients', label: 'Client Fleet Dashboard', category: 'Core Fleet', icon: Building2, description: 'Multi-company isolation & active pharmacy stores' },
   { id: 'whatsapp_leads', label: 'WhatsApp Trial Leads', category: 'Core Fleet', icon: Smartphone, description: 'Registration leads & 1-click WhatsApp dispatch' },
   { id: 'sales_revenue', label: 'Software Revenue & GMV', category: 'Core Fleet', icon: BarChart3, description: 'Software license subscriptions & transaction volume' },
@@ -112,7 +115,7 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'docs', label: 'Architecture Docs & SOPs', category: 'Dev & Tools', icon: BookOpen, description: 'Complete system manuals, shortcuts & protocols' }
 ];
 
-export function MasterServerHub() {
+export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = {}) {
   const [unlocked, setUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem('mbi_master_session_unlocked') === 'true';
   });
@@ -120,7 +123,7 @@ export function MasterServerHub() {
   const [pinInput, setPinInput] = useState('');
   const [totpInput, setTotpInput] = useState('');
   const [pinError, setPinError] = useState('');
-  const [activeTab, setActiveTab] = useState<ServerTabKey>('master_super');
+  const [activeTab, setActiveTab] = useState<ServerTabKey>(initialTab || 'master_super');
   const [tabSearch, setTabSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   
@@ -505,6 +508,8 @@ export function MasterServerHub() {
             <MasterControlSection />
           </div>
         );
+      case 'lan_hub':
+        return <LanMultiTerminalHub onNotify={handleNotify} />;
       case 'users_control':
         return <UnifiedUserControlHub onNotify={handleNotify} />;
       case 'ai_support':

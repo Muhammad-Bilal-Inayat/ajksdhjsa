@@ -23,14 +23,14 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
            FROM mbi_tenants t
            ORDER BY t.created_at DESC;`
         );
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           tenants = rows;
         }
       } catch (dbErr) {}
     }
 
-    // Merge with fallback storage
-    if (fs.existsSync(syncFile)) {
+    // Only if MariaDB returned 0 records, check fallback storage
+    if (tenants.length === 0 && fs.existsSync(syncFile)) {
       try {
         const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
         const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
@@ -55,6 +55,24 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
         }
       } catch (e) {}
     }
+
+    // Strict deduplication by normalized name and ID
+    const seenNames = new Set<string>();
+    const seenIds = new Set<string>();
+    const deduplicatedTenants: any[] = [];
+
+    for (const t of tenants) {
+      if (!t) continue;
+      const cleanName = (t.name || '').toLowerCase().trim();
+      const cleanId = (t.tenant_id || t.id || '').toLowerCase().trim();
+      if ((cleanName && seenNames.has(cleanName)) || (cleanId && seenIds.has(cleanId))) {
+        continue;
+      }
+      if (cleanName) seenNames.add(cleanName);
+      if (cleanId) seenIds.add(cleanId);
+      deduplicatedTenants.push(t);
+    }
+    tenants = deduplicatedTenants;
 
     res.json({
       success: true,

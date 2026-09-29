@@ -8275,13 +8275,13 @@ fleetRouter.get("/tenants", async (req, res) => {
            FROM mbi_tenants t
            ORDER BY t.created_at DESC;`
         );
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           tenants = rows;
         }
       } catch (dbErr) {
       }
     }
-    if (import_fs9.default.existsSync(syncFile7)) {
+    if (tenants.length === 0 && import_fs9.default.existsSync(syncFile7)) {
       try {
         const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
         const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
@@ -8307,6 +8307,21 @@ fleetRouter.get("/tenants", async (req, res) => {
       } catch (e) {
       }
     }
+    const seenNames = /* @__PURE__ */ new Set();
+    const seenIds = /* @__PURE__ */ new Set();
+    const deduplicatedTenants = [];
+    for (const t of tenants) {
+      if (!t) continue;
+      const cleanName = (t.name || "").toLowerCase().trim();
+      const cleanId = (t.tenant_id || t.id || "").toLowerCase().trim();
+      if (cleanName && seenNames.has(cleanName) || cleanId && seenIds.has(cleanId)) {
+        continue;
+      }
+      if (cleanName) seenNames.add(cleanName);
+      if (cleanId) seenIds.add(cleanId);
+      deduplicatedTenants.push(t);
+    }
+    tenants = deduplicatedTenants;
     res.json({
       success: true,
       count: tenants.length,

@@ -313,7 +313,7 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
 
     setCompanyTerminals(generated);
     localStorage.setItem(storageKey, JSON.stringify(generated));
-  }, [selectedCompanyId, data?.companies]);
+  }, [selectedCompanyId]);
 
   // Save modified terminals
   const saveTerminals = (updated: ConfiguredTerminal[]) => {

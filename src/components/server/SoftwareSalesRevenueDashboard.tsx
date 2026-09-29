@@ -522,20 +522,6 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
 
   useEffect(() => {
     refreshAllData();
-
-    const handleTenantsUpdate = () => refreshAllData();
-    const handleLicensesUpdate = () => refreshAllData();
-    const handleUsersUpdate = () => refreshAllData();
-
-    window.addEventListener('mbi-tenants-updated', handleTenantsUpdate);
-    window.addEventListener('mbi-licenses-updated', handleLicensesUpdate);
-    window.addEventListener('mbi-users-updated', handleUsersUpdate);
-
-    return () => {
-      window.removeEventListener('mbi-tenants-updated', handleTenantsUpdate);
-      window.removeEventListener('mbi-licenses-updated', handleLicensesUpdate);
-      window.removeEventListener('mbi-users-updated', handleUsersUpdate);
-    };
   }, [refreshAllData]);
 
   const formatPkr = (num: number) => {

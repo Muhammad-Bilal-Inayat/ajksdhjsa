@@ -2156,17 +2156,19 @@ let hasTriggeredTenantSync = false;
  * Retrieve all registered tenants
  */
 export function getAllTenants(): Tenant[] {
-  if (!hasTriggeredTenantSync && typeof window !== 'undefined') {
-    hasTriggeredTenantSync = true;
-    syncTenantsFromServer().catch(() => {});
-  }
-
   try {
     const stored = localStorage.getItem(MASTER_TENANTS_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const seen = new Set<string>();
+        return parsed.filter(t => {
+          if (!t) return false;
+          const k = (t.name || t.tenantId || t.id || '').toLowerCase().trim();
+          if (!k || seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
       }
     }
   } catch (e) {
@@ -2180,22 +2182,56 @@ export function getAllTenants(): Tenant[] {
 
 export async function syncTenantsFromServer(): Promise<Tenant[]> {
   try {
-    const res = await fetch('/api/fleet/tenants');
+    const res = await fetch('/api/fleet/tenants', { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json?.tenants) && json.tenants.length > 0) {
-        const local = getAllTenants();
-        const map = new Map<string, Tenant>();
-        for (const t of local) map.set(t.tenantId || t.id, t);
-        for (const t of json.tenants) {
-          if (t && (t.tenantId || t.id)) {
-            map.set(t.tenantId || t.id, t);
-          }
+        const seen = new Set<string>();
+        const sanitized: Tenant[] = [];
+
+        for (const rt of json.tenants) {
+          if (!rt) continue;
+          const cleanName = (rt.name || '').toLowerCase().trim();
+          const cleanId = (rt.tenant_id || rt.id || '').toLowerCase().trim();
+          if ((cleanName && seen.has(cleanName)) || (cleanId && seen.has(cleanId))) continue;
+          if (cleanName) seen.add(cleanName);
+          if (cleanId) seen.add(cleanId);
+
+          const tid = rt.tenant_id || rt.id;
+          sanitized.push({
+            id: rt.id || tid,
+            tenantId: tid,
+            organizationId: rt.organization_id || tid,
+            name: rt.name,
+            ownerName: rt.owner_name || rt.ownerName || 'Store Admin',
+            ownerEmail: rt.owner_email || rt.ownerEmail || '',
+            ownerPhone: rt.owner_phone || rt.ownerPhone || rt.phone || '',
+            city: rt.city || 'Lahore',
+            address: rt.address || '',
+            plan: rt.plan || 'Pharmacy Pro',
+            status: rt.status || 'Active',
+            primaryAdminId: rt.primary_admin_id || `usr_${tid}`,
+            primaryAdminEmail: rt.owner_email || rt.ownerEmail || '',
+            trialStartDate: rt.created_at || new Date().toISOString(),
+            trialExpiryDate: rt.trial_expiry_date || rt.trial_ends_at || 'Never (Lifetime)',
+            isTrialActive: rt.status === 'Trial',
+            trialExpired: false,
+            paidLicenseActive: rt.status === 'Active',
+            maxDevices: rt.max_devices || 3,
+            apiKey: rt.api_key || rt.apiKey || `mbi_live_key_${tid.slice(-6)}_${Date.now().toString(36).toUpperCase()}`,
+            totalInvoicesCount: Number(rt.invoice_count) || Number(rt.total_invoices_count) || 0,
+            totalProductsCount: 0,
+            totalPartiesCount: 0,
+            lastSyncAt: rt.updated_at || new Date().toISOString(),
+            createdAt: rt.created_at || new Date().toISOString(),
+            updatedAt: rt.updated_at || new Date().toISOString(),
+          });
         }
-        const merged = Array.from(map.values());
-        localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(merged));
-        window.dispatchEvent(new CustomEvent('mbi-tenants-updated', { detail: merged }));
-        return merged;
+
+        if (sanitized.length > 0) {
+          localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(sanitized));
+          return sanitized;
+        }
       }
     }
   } catch {}

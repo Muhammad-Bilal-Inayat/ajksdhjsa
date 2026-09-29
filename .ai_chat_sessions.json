@@ -11,14 +11,14 @@
     "pageContext": "user",
     "status": "active_ai",
     "isHumanAssigned": false,
-    "totalClicks": 5,
-    "unreadCountForServer": 2,
-    "unreadCountForUser": 2,
+    "totalClicks": 13,
+    "unreadCountForServer": 6,
+    "unreadCountForUser": 6,
     "lastMessage": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
     "lastMessageSender": "ai",
-    "lastMessageAt": "2026-09-29T07:07:01.881Z",
+    "lastMessageAt": "2026-09-29T07:38:56.378Z",
     "createdAt": "2026-09-29T07:06:50.210Z",
-    "updatedAt": "2026-09-29T07:07:01.881Z",
+    "updatedAt": "2026-09-29T07:38:56.378Z",
     "messages": [
       {
         "id": "msg_init_1790665610210",
@@ -61,6 +61,78 @@
         "senderName": "MBI AI Guide",
         "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
         "timestamp": "2026-09-29T07:07:01.881Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667387313_6fuf",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "hi",
+        "timestamp": "2026-09-29T07:36:27.313Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667387320_2p4g",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:36:27.320Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667531146_jvdj",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "hi",
+        "timestamp": "2026-09-29T07:38:51.146Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667531150_ujas",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:38:51.150Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667535134_h2y5",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "WhatsApp par customer ko account summary kaise bhejein?",
+        "timestamp": "2026-09-29T07:38:55.134Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667535137_osu7",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:38:55.137Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667536376_7zuz",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "Customer ka udhaar (ledger balance) kaise update karein?",
+        "timestamp": "2026-09-29T07:38:56.376Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790667536378_zdw7",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:38:56.378Z",
         "isEscalation": false,
         "status": "delivered"
       }

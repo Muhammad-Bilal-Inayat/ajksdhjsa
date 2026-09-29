@@ -9,20 +9,20 @@
   "auditLogs": [],
   "appUsers": [
     {
-      "id": "u_1790657839031",
-      "name": "aaaaaa",
-      "username": "u_1790657839031",
+      "id": "u_1790667685875",
+      "name": "bbb",
+      "username": "u_1790667685875",
       "role": "Primary Admin",
       "status": "Active",
-      "createdAt": "2026-09-29T04:57:19.072Z",
-      "emailOrPhone": "030000@inventra.local",
+      "createdAt": "2026-09-29T07:41:25.900Z",
+      "emailOrPhone": "03281302636@inventra.local",
       "passcode": "1234",
-      "storeName": "aaaaaa",
+      "storeName": "MUHAMMAD",
       "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-29T07:04:24.619Z",
+      "boundHwid": "HW-528EB66D-MAJTWM",
+      "lastSyncTime": "2026-09-29T07:41:55.632Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T07:04:51.425Z"
+      "updatedAt": "2026-09-29T07:41:55.634Z"
     },
     {
       "id": "admin-master",
@@ -35,10 +35,10 @@
       "passcode": "1234",
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-29T04:28:05.403Z",
+      "boundHwid": "HW-528EB66D-MAJTWM",
+      "lastSyncTime": "2026-09-29T07:39:01.231Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T04:28:05.406Z",
+      "updatedAt": "2026-09-29T07:39:01.236Z",
       "allowedModules": {
         "sales": true,
         "purchases": true,
@@ -76,6 +76,22 @@
         "canAccessBankAccounts": true,
         "canChangePaymentTerms": true
       }
+    },
+    {
+      "id": "u_1790657839031",
+      "name": "aaaaaa",
+      "username": "u_1790657839031",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T04:57:19.072Z",
+      "emailOrPhone": "030000@inventra.local",
+      "passcode": "1234",
+      "storeName": "aaaaaa",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-4ADF2030-MAJTWM",
+      "lastSyncTime": "2026-09-29T07:04:53.442Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T07:04:53.816Z"
     },
     {
       "id": "u_1790441675980",
@@ -119,6 +135,21 @@
   "users": [],
   "userActivities": [
     {
+      "id": "l_1790667685905",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user bbb (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790667685905,
+      "tenantId": "tenant-cf964f20",
+      "firmId": "firm-main",
+      "createdById": "u_1790667685875",
+      "lastUpdatedById": "u_1790667685875",
+      "lastUpdatedAt": "2026-09-29T07:41:25.905Z",
+      "createdAt": "2026-09-29T07:41:25.905Z",
+      "updatedAt": "2026-09-29T07:41:25.905Z",
+      "syncStatus": "pending"
+    },
+    {
       "id": "l_1790657839088",
       "userName": "Admin",
       "userRole": "Primary Admin",
@@ -145,7 +176,26 @@
   "chronicRefills": [],
   "supplierReturns": [],
   "loyaltyCustomers": [],
-  "notes": [],
+  "notes": [
+    {
+      "id": "note-1790667715044-jy4px2",
+      "title": "Bhabra",
+      "content": "ye neciae",
+      "category": "General",
+      "priority": "Urgent",
+      "isPinned": false,
+      "isCompleted": false,
+      "date": "2026-09-29",
+      "createdAt": "2026-09-29T07:41:55.044Z",
+      "updatedAt": "2026-09-29T07:42:04.421Z",
+      "tenantId": "tenant-cf964f20",
+      "firmId": "firm-main",
+      "createdById": "u_1790667685875",
+      "lastUpdatedById": "u_1790667685875",
+      "lastUpdatedAt": "2026-09-29T07:42:04.421Z",
+      "syncStatus": "pending"
+    }
+  ],
   "bookers": [],
   "bookerTransactions": [],
   "registration_leads": [],

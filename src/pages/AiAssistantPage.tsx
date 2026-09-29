@@ -61,24 +61,24 @@ export const AiAssistantPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main 2-Column Responsive Workspace */}
+      {/* 2. Interactive AI Guide Chat - Full Width Hero Workspace */}
+      <div className="w-full">
+        <InteractiveAiGuide 
+          externalPrompt={activeQuestion}
+          onClearExternalPrompt={() => setActiveQuestion('')}
+        />
+      </div>
+
+      {/* 3. Support & Quick Guided Topics Placed Below Chat */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Column (8 cols): Interactive AI Guide Chat */}
-        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
-          <InteractiveAiGuide 
-            externalPrompt={activeQuestion}
-            onClearExternalPrompt={() => setActiveQuestion('')}
-          />
+        {/* Left (7 cols): Popular Topics & Guided Solutions */}
+        <div className="lg:col-span-7 xl:col-span-8">
+          <PopularTopicsCard onSelectQuestion={(q) => setActiveQuestion(q)} />
         </div>
 
-        {/* Right Column (4 cols): Human Call Request & Topic Shortcuts */}
-        <div className="lg:col-span-5 xl:col-span-4 space-y-6">
-          {/* Direct Callback Card */}
+        {/* Right (5 cols): Human Call / Team Callback Request */}
+        <div className="lg:col-span-5 xl:col-span-4">
           <CallRequestCard source="AI Guide Page" />
-
-          {/* Popular Topics Quick Prompts */}
-          <PopularTopicsCard onSelectQuestion={(q) => setActiveQuestion(q)} />
         </div>
       </div>
     </div>

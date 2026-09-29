@@ -130,7 +130,7 @@ export function loadSettings(): AiSettings {
       const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
       return {
         isAiEnabledGlobally: data.isAiEnabledGlobally ?? true,
-        allowedPlans: data.allowedPlans ?? { basic: false, business: true, enterprise: true },
+        allowedPlans: data.allowedPlans ?? { basic: true, business: true, enterprise: true },
         customKeys: Array.isArray(data.customKeys) && data.customKeys.length > 0 ? data.customKeys : INITIAL_KEYS,
         homePageEnabled: data.homePageEnabled ?? true,
         autoGreeting: data.autoGreeting || 'Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?',
@@ -143,7 +143,7 @@ export function loadSettings(): AiSettings {
 
   return {
     isAiEnabledGlobally: true,
-    allowedPlans: { basic: false, business: true, enterprise: true },
+    allowedPlans: { basic: true, business: true, enterprise: true },
     customKeys: INITIAL_KEYS,
     homePageEnabled: true,
     autoGreeting: 'Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?',
@@ -661,11 +661,16 @@ export async function generateAiResponse(
 
   // Check plan permission if in user workspace
   if (context === 'user') {
-    const planKey = (userPlan.toLowerCase() || 'business') as 'basic' | 'business' | 'enterprise';
-    const isAllowed = settings.allowedPlans[planKey] ?? (planKey === 'business' || planKey === 'enterprise');
+    const planKey = (userPlan.toLowerCase() || 'basic').includes('enterprise') || (userPlan.toLowerCase() || 'basic').includes('platinum')
+      ? 'enterprise'
+      : (userPlan.toLowerCase() || 'basic').includes('business') || (userPlan.toLowerCase() || 'basic').includes('gold')
+      ? 'business'
+      : 'basic';
+
+    const isAllowed = settings.allowedPlans[planKey] ?? true;
     if (!isAllowed) {
       return {
-        text: `MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.`,
+        text: `MBI AI Assistant is currently paused for ${planKey.toUpperCase()} tier by Server Administrator. Please upgrade your subscription in Settings > Subscription or contact Admin.`,
         humanLeadTriggered: false,
         keyIndexUsed: 0
       };

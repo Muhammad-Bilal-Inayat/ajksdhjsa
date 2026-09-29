@@ -1,5 +1,19 @@
 [
   {
+    "id": "u_1790667685875",
+    "name": "bbb",
+    "emailOrPhone": "03281302636@inventra.local",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "MUHAMMAD",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-528EB66D-MAJTWM",
+    "lastSyncTime": "2026-09-29T07:42:35.636Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T07:42:35.636Z"
+  },
+  {
     "id": "u_1790657839031",
     "name": "aaaaaa",
     "emailOrPhone": "030000@inventra.local",
@@ -23,9 +37,9 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T07:32:37.635Z",
+    "lastSyncTime": "2026-09-29T07:39:01.240Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T07:32:37.635Z"
+    "updatedAt": "2026-09-29T07:39:01.240Z"
   },
   {
     "id": "u1",
@@ -50,6 +64,25 @@
     "emailOrPhone": "030000",
     "email": "aaaaaa@inventra.local",
     "phone": "030000",
+    "passcode": "aaaaaa",
+    "role": "Owner",
+    "status": "Active",
+    "isPrimaryOwner": 1,
+    "is_primary_owner": 1,
+    "isPrimaryAdmin": 1,
+    "is_primary_admin": 1,
+    "isOnline": true,
+    "is_online": 1
+  },
+  {
+    "id": "usr_1790667685851_zj83k",
+    "tenantId": "tenant_1790667685851_zgdst",
+    "tenant_id": "tenant_1790667685851_zgdst",
+    "name": "bbb",
+    "username": "aaaaaa",
+    "emailOrPhone": "03281302636",
+    "email": "aaaaaa@inventra.local",
+    "phone": "03281302636",
     "passcode": "aaaaaa",
     "role": "Owner",
     "status": "Active",

@@ -294,7 +294,7 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-[650px] overflow-hidden transition-colors duration-200 ${className}`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-[560px] overflow-hidden transition-colors duration-200 ${className}`}>
       
       {/* 1. Header Bar: Polished Dual Theme */}
       <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 transition-colors">

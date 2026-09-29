@@ -215,7 +215,6 @@ export function updateOrderStatus(id: string, status: 'approved' | 'rejected'): 
         reports: true,
         cloudSync: true,
         multiBranch: true,
-        aiVoice: true,
         cashierShifts: true,
         customPrint: true,
         accountsLedger: true,

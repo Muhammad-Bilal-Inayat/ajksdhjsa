@@ -43,7 +43,6 @@ export interface TenantFeatureToggles {
   multipleWarehouses: boolean;
   dataExport: boolean;
   backupAndRestore: boolean;
-  aiVoice: boolean;
 }
 
 export const DEFAULT_TENANT_FEATURE_TOGGLES: TenantFeatureToggles = {
@@ -67,7 +66,6 @@ export const DEFAULT_TENANT_FEATURE_TOGGLES: TenantFeatureToggles = {
   multipleWarehouses: true,
   dataExport: true,
   backupAndRestore: true,
-  aiVoice: true,
 };
 
 export interface Tenant {
@@ -1302,12 +1300,21 @@ export interface SaaSPlanDefinition {
   tagline: string;
   description: string;
   pricing: SaaSPlanPricing;
+  effectiveMonthly?: number;
+  savings?: {
+    '1year'?: string;
+    '3years'?: string;
+    '5years'?: string;
+  };
   trialDurationDays: number;
   maxFirms: number;
   maxUsers: number;
   allowedRoles: UserRole[];
   features: TenantFeatureToggles;
+  coreFeatures?: string[];
+  advancedSpecs?: string[];
   isPopular?: boolean;
+  isVip?: boolean;
   isVisible: boolean;
   order: number;
   notes?: string;
@@ -1536,7 +1543,6 @@ export interface AccountUsageRecord {
 export interface PlatformFeatureSettings {
   // Sales & POS
   onlineStore: boolean;
-  aiVoiceAssistant: boolean;
   barcodeScanner: boolean;
   controlledDrugsSchedule: boolean;
   bulkExcelImportExport: boolean;
@@ -1572,7 +1578,6 @@ export interface PlatformSettingsDocument {
 
 export const DEFAULT_PLATFORM_FEATURES: PlatformFeatureSettings = {
   onlineStore: true,
-  aiVoiceAssistant: true,
   barcodeScanner: true,
   controlledDrugsSchedule: true,
   bulkExcelImportExport: true,

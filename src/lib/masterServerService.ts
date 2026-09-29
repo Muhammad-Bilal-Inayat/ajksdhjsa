@@ -15,7 +15,6 @@ export interface ModulePermissions {
   reports: boolean;
   cloudSync: boolean;
   multiBranch: boolean;
-  aiVoice: boolean;
   cashierShifts: boolean;
   customPrint: boolean;
   accountsLedger: boolean;
@@ -274,7 +273,6 @@ export const DEFAULT_MODULES: ModulePermissions = {
   reports: true,
   cloudSync: true,
   multiBranch: true,
-  aiVoice: true,
   cashierShifts: true,
   customPrint: true,
   accountsLedger: true,

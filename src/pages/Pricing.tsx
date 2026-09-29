@@ -96,81 +96,83 @@ export const Pricing: React.FC = () => {
     if (sp.isPopular || isBusiness) savingsText += ' • Most Popular';
     if (isPremium) savingsText += ' • Best Enterprise Value';
 
-    let primaryFeatures: string[] = [];
-    let detailedFeatures: string[] = [];
+    let primaryFeatures: string[] = sp.coreFeatures && sp.coreFeatures.length > 0 ? sp.coreFeatures : [];
+    let detailedFeatures: string[] = sp.advancedSpecs && sp.advancedSpecs.length > 0 ? sp.advancedSpecs : [];
 
-    if (isPremium) {
-      primaryFeatures = [
-        `Up to ${sp.maxUsers || 15} Concurrent Staff Accounts (Full RBAC)`,
-        `Up to ${sp.maxFirms || 10} Pharmacy Branches & Warehouses`,
-        'Automated Background WhatsApp Gateway (Auto-Send Invoices & Khatas)',
-        'FBR POS Digital Invoicing, Fiscal Stamps & Tax Compliance',
-        'Multi-Branch Stock Transfer Delivery Challans & Central Rebalancing',
-        'Digital Pharmacy Online Storefront (E-Commerce Web POS & WhatsApp Orders)',
-        'Immutable Cashier Anti-Theft Audit Trail Logs & 2FA Staff Access',
-      ];
-      detailedFeatures = [
-        'Everything in Gold Business +',
-        'Multi-Node Mesh Sync (Up to 15 Billing Counters)',
-        'Predictive AI Re-Order Velocity & Shortage Forecasting',
-        'Double-Entry Journal Vouchers & Complete Chart of Accounts',
-        'Patient Prescription Medical History & Dosage Printouts',
-        'High-Volume Wholesale Distribution Billing & Route Consignments',
-        'Granular Role-Based Access Control (RBAC) with 40+ Permissions',
-        'Anti-Clock Tampering Engine with Network Time Verification',
-        'Automated Scheduled Database Backups & Disaster Recovery',
-        'Custom Feature Patch Engine (.mbipatch manual addon compatibility)',
-        'Direct Excel & CSV Tax Audit Exports for FBR & Auditors',
-        'Multi-Register Cash Drawer Lock & Shift Reconciliation Logs',
-        'Dedicated VIP Account Manager & Priority 24/7 SLA Support',
-      ];
-    } else if (isBusiness) {
-      primaryFeatures = [
-        `Up to ${sp.maxUsers || 5} Concurrent Staff Accounts (Admin & Cashier)`,
-        `Up to ${sp.maxFirms || 5} Registered Pharmacy Branches / Firms`,
-        'FEFO Expiry Radar (30 / 60 / 90 / 180 Days Early Warning Alerts)',
-        'Multi-Godown Storage & Shelf / Bin Rack Mapping',
-        'Live Real-Time Gross Profit & Net Margin (P&L) Analytics',
-        'Wholesale Dual Pricing Matrix (TP, MRP, Box, Strip & Retail Rates)',
-        'Sales & Purchase Return Credit Management (Debit/Credit Notes)',
-        'Multi-Terminal Local Hardware Sync (5 Counter Nodes)',
-      ];
-      detailedFeatures = [
-        'Everything in Silver Basic +',
-        'Real-time Local Network Sync across Counter PCs & Tablets',
-        'Customer & Supplier Khata Ledgers with Automated WhatsApp Balance Reminders',
-        'Purchase Orders, Delivery Challans & Supplier Credit Notes (Dr. Note)',
-        'Cashier Drawer Shift Reconciliation & Handover with Difference Audits',
-        'Multi-Packing Wholesale Formulas (Carton, Box, Strip, Unit Packing)',
-        'Doctor Referral Commission Tracking & Patient Prescriptions',
-        'Local Database JSON Backup & 1-Click Instant Offline Restore',
-        'Anti-Clock Tampering Verification to Protect License Integrity',
-        'Direct Excel / CSV Spreadsheet Export for Accountant Review',
-        'Narcotics & DRAP Form-7 Registry Books',
-        'Priority 24/7 WhatsApp VIP Technical Support',
-      ];
-    } else {
-      primaryFeatures = [
-        `Up to ${sp.maxUsers || 2} Staff Accounts (Admin & Cashier)`,
-        `Up to ${sp.maxFirms || 2} Registered Pharmacy Firm / Branch Locations`,
-        '0.2s Ultra-Fast Barcode POS Billing & Thermal Printing (80mm/58mm)',
-        'Pakistan 100k+ Preloaded Medicine Catalog (Formulas & Generics)',
-        'Real-Time Inventory Tracking & Low Stock Alerts',
-        '1-Click WhatsApp Direct Instant Share (wa.me Formatted Bills)',
-        'Customer & Supplier Khata Ledgers with Balance Due Tracking',
-        'Daily Cashier Drawer Handover & Shift Closing',
-        '100% Offline-First Engine (Zero Internet Required)',
-      ];
-      detailedFeatures = [
-        'Thermal Barcode Label & Sticker Generator (Custom Label Dimensions)',
-        'Daily Cashier Drawer Closing & Cash in Hand Register',
-        'Supplier Inward Purchase Invoices with Cost Margin Verification',
-        'Fast Instant Search by Brand Name, Formula, Generic, or Barcode',
-        'Complete Local Database JSON Backup & 1-Click Offline Restore',
-        'Expense Tracking by Category (Rent, Utilities, Staff Wages)',
-        'Zero Cloud Dependency — All Data Remains 100% On Your Local Computer',
-        'Standard Phone & WhatsApp Technical Assistance',
-      ];
+    if (primaryFeatures.length === 0) {
+      if (isPremium) {
+        primaryFeatures = [
+          `Up to ${sp.maxUsers || 15} Concurrent Staff Accounts (Full RBAC)`,
+          `Up to ${sp.maxFirms || 10} Pharmacy Branches & Warehouses`,
+          'Automated Background WhatsApp Gateway (Auto-Send Invoices & Khatas)',
+          'FBR POS Digital Invoicing, Fiscal Stamps & Tax Compliance',
+          'Multi-Branch Stock Transfer Delivery Challans & Central Rebalancing',
+          'Digital Pharmacy Online Storefront (E-Commerce Web POS & WhatsApp Orders)',
+          'Immutable Cashier Anti-Theft Audit Trail Logs & 2FA Staff Access',
+        ];
+        detailedFeatures = [
+          'Everything in Gold Business +',
+          'Multi-Node Mesh Sync (Up to 15 Billing Counters)',
+          'Predictive AI Re-Order Velocity & Shortage Forecasting',
+          'Double-Entry Journal Vouchers & Complete Chart of Accounts',
+          'Patient Prescription Medical History & Dosage Printouts',
+          'High-Volume Wholesale Distribution Billing & Route Consignments',
+          'Granular Role-Based Access Control (RBAC) with 40+ Permissions',
+          'Anti-Clock Tampering Engine with Network Time Verification',
+          'Automated Scheduled Database Backups & Disaster Recovery',
+          'Custom Feature Patch Engine (.mbipatch manual addon compatibility)',
+          'Direct Excel & CSV Tax Audit Exports for FBR & Auditors',
+          'Multi-Register Cash Drawer Lock & Shift Reconciliation Logs',
+          'Dedicated VIP Account Manager & Priority 24/7 SLA Support',
+        ];
+      } else if (isBusiness) {
+        primaryFeatures = [
+          `Up to ${sp.maxUsers || 5} Concurrent Staff Accounts (Admin & Cashier)`,
+          `Up to ${sp.maxFirms || 5} Registered Pharmacy Branches / Firms`,
+          'FEFO Expiry Radar (30 / 60 / 90 / 180 Days Early Warning Alerts)',
+          'Multi-Godown Storage & Shelf / Bin Rack Mapping',
+          'Live Real-Time Gross Profit & Net Margin (P&L) Analytics',
+          'Wholesale Dual Pricing Matrix (TP, MRP, Box, Strip & Retail Rates)',
+          'Sales & Purchase Return Credit Management (Debit/Credit Notes)',
+          'Multi-Terminal Local Hardware Sync (5 Counter Nodes)',
+        ];
+        detailedFeatures = [
+          'Everything in Silver Basic +',
+          'Real-time Local Network Sync across Counter PCs & Tablets',
+          'Customer & Supplier Khata Ledgers with Automated WhatsApp Balance Reminders',
+          'Purchase Orders, Delivery Challans & Supplier Credit Notes (Dr. Note)',
+          'Cashier Drawer Shift Reconciliation & Handover with Difference Audits',
+          'Multi-Packing Wholesale Formulas (Carton, Box, Strip, Unit Packing)',
+          'Doctor Referral Commission Tracking & Patient Prescriptions',
+          'Local Database JSON Backup & 1-Click Instant Offline Restore',
+          'Anti-Clock Tampering Verification to Protect License Integrity',
+          'Direct Excel / CSV Spreadsheet Export for Accountant Review',
+          'Narcotics & DRAP Form-7 Registry Books',
+          'Priority 24/7 WhatsApp VIP Technical Support',
+        ];
+      } else {
+        primaryFeatures = [
+          `Up to ${sp.maxUsers || 2} Staff Accounts (Admin & Cashier)`,
+          `Up to ${sp.maxFirms || 2} Registered Pharmacy Firm / Branch Locations`,
+          '0.2s Ultra-Fast Barcode POS Billing & Thermal Printing (80mm/58mm)',
+          'Pakistan 100k+ Preloaded Medicine Catalog (Formulas & Generics)',
+          'Real-Time Inventory Tracking & Low Stock Alerts',
+          '1-Click WhatsApp Direct Instant Share (wa.me Formatted Bills)',
+          'Customer & Supplier Khata Ledgers with Balance Due Tracking',
+          'Daily Cashier Drawer Handover & Shift Closing',
+          '100% Offline-First Engine (Zero Internet Required)',
+        ];
+        detailedFeatures = [
+          'Thermal Barcode Label & Sticker Generator (Custom Label Dimensions)',
+          'Daily Cashier Drawer Closing & Cash in Hand Register',
+          'Supplier Inward Purchase Invoices with Cost Margin Verification',
+          'Fast Instant Search by Brand Name, Formula, Generic, or Barcode',
+          'Complete Local Database JSON Backup & 1-Click Offline Restore',
+          'Expense Tracking by Category (Rent, Utilities, Staff Wages)',
+          'Zero Cloud Dependency — All Data Remains 100% On Your Local Computer',
+          'Standard Phone & WhatsApp Technical Assistance',
+        ];
+      }
     }
 
     return {

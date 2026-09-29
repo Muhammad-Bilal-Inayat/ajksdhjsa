@@ -89,8 +89,7 @@ export async function runTrialSystemVerification(): Promise<TrialSuiteSummary> {
       advancedReports: false,
       multipleWarehouses: false,
       dataExport: false,
-      backupAndRestore: true,
-      aiVoice: false
+      backupAndRestore: true
     }
   };
 

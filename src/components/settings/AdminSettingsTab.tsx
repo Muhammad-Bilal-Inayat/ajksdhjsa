@@ -16,7 +16,7 @@ export interface BusinessAdminSettings {
   allowShiftManagement: boolean;
   advancedReporting: boolean;
   controlledSubstancesRegister: boolean;
-  aiVoiceAssistant: boolean;
+  aiAssistant: boolean;
   multiBranchFleet: boolean;
   universalDataImport: boolean;
   strictNegativeStock: boolean;
@@ -31,7 +31,7 @@ export const DEFAULT_BUSINESS_ADMIN_SETTINGS: BusinessAdminSettings = {
   allowShiftManagement: true,
   advancedReporting: true,
   controlledSubstancesRegister: true,
-  aiVoiceAssistant: true,
+  aiAssistant: true,
   multiBranchFleet: false,
   universalDataImport: true,
   strictNegativeStock: false,
@@ -104,7 +104,7 @@ export const AdminSettingsTab: React.FC = () => {
       // Save locally
       localStorage.setItem(`mbi_admin_settings_${business.id}`, JSON.stringify(settings));
       localStorage.setItem('mbi_admin_settings', JSON.stringify(settings));
-      localStorage.setItem('mbi_ai_assistant_enabled', String(settings.aiVoiceAssistant));
+      localStorage.setItem('mbi_ai_assistant_enabled', String(settings.aiAssistant));
       window.dispatchEvent(new Event('mbi-ai-settings-changed'));
 
       // Sync with global SettingsContext feature flags
@@ -310,17 +310,17 @@ export const AdminSettingsTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  handleToggle('aiVoiceAssistant');
-                  const nextVal = !settings.aiVoiceAssistant;
+                  handleToggle('aiAssistant');
+                  const nextVal = !settings.aiAssistant;
                   localStorage.setItem('mbi_ai_assistant_enabled', String(nextVal));
                   window.dispatchEvent(new Event('mbi-ai-settings-changed'));
                 }}
                 className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
-                  settings.aiVoiceAssistant ? 'bg-cyan-600' : 'bg-slate-300'
+                  settings.aiAssistant ? 'bg-cyan-600' : 'bg-slate-300'
                 }`}
               >
                 <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
-                  settings.aiVoiceAssistant ? 'translate-x-5' : ''
+                  settings.aiAssistant ? 'translate-x-5' : ''
                 }`} />
               </button>
             </div>

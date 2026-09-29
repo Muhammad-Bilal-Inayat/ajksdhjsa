@@ -146,7 +146,6 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
         reports: true,
         cloudSync: selectedPlanTier !== 'Standard POS',
         multiBranch: selectedPlanTier === 'Enterprise Multi-Branch',
-        aiVoice: selectedPlanTier !== 'Standard POS',
         cashierShifts: true,
         customPrint: true,
         accountsLedger: true,

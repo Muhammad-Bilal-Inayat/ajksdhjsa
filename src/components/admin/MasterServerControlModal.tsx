@@ -386,7 +386,6 @@ export const MasterServerControlModal: React.FC<MasterServerControlModalProps> =
       featureToggles: {
         ...DEFAULT_TENANT_FEATURE_TOGGLES,
         onlineStore: true,
-        aiVoice: true,
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()

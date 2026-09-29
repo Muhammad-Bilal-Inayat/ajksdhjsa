@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Award, Check, Sparkles, MessageSquare, ShoppingCart, 
@@ -11,6 +11,8 @@ import {
   PlanPricingDetail, 
   PricingDuration 
 } from '../../config/plansConfig';
+import { getSaaSPlans } from '../../lib/planLimitsService';
+import { SaaSPlanDefinition } from '../../types';
 
 export type PricingInterval = PricingDuration;
 export type PricingPlan = PlanPricingDetail;
@@ -29,6 +31,65 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
   const [interval, setInterval] = useState<PricingDuration>('1year');
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [expandedSpecs, setExpandedSpecs] = useState<Record<string, boolean>>({});
+  const [saasPlans, setSaasPlans] = useState<SaaSPlanDefinition[]>(() => getSaaSPlans());
+
+  useEffect(() => {
+    const updatePlans = () => {
+      setSaasPlans(getSaaSPlans());
+    };
+    window.addEventListener('saas-plans-updated', updatePlans);
+    window.addEventListener('storage', updatePlans);
+    return () => {
+      window.removeEventListener('saas-plans-updated', updatePlans);
+      window.removeEventListener('storage', updatePlans);
+    };
+  }, []);
+
+  const displayPlans: PlanPricingDetail[] = saasPlans.filter(p => p.isVisible !== false).map((sp) => {
+    const isBusiness = sp.id === 'Business';
+    const isPremium = sp.id === 'Premium' || sp.id === 'Enterprise';
+    const planId: 'basic' | 'business' | 'enterprise' = sp.id === 'Basic' ? 'basic' : sp.id === 'Business' ? 'business' : 'enterprise';
+    const tierKey: 'silver' | 'gold' | 'platinum' = sp.id === 'Basic' ? 'silver' : sp.id === 'Business' ? 'gold' : 'platinum';
+
+    return {
+      id: planId,
+      tierKey,
+      name: sp.badge?.startsWith('🥈') || sp.badge?.startsWith('🥇') || sp.badge?.startsWith('💎') 
+        ? sp.badge 
+        : (sp.name?.includes('Silver') || sp.name?.includes('Gold') || sp.name?.includes('Platinum') ? sp.name : `${sp.name}`),
+      badge: sp.id === 'Basic' ? 'Basic' : sp.id === 'Business' ? 'Business' : 'Enterprise',
+      tierIcon: sp.id === 'Basic' ? '🥈' : sp.id === 'Business' ? '🥇' : '💎',
+      tagline: sp.tagline,
+      isPopular: sp.isPopular ?? isBusiness,
+      isVip: sp.isVip ?? isPremium,
+      effectiveMonthly: sp.effectiveMonthly || Math.round((sp.pricing?.yearly || 0) / 12),
+      limits: {
+        users: `${sp.maxUsers || 2} Accounts`,
+        branches: `${sp.maxFirms || 2} Branch(es)`,
+        terminals: `${sp.maxUsers || 2} Nodes`,
+      },
+      prices: {
+        monthly: sp.pricing?.monthly || 1999,
+        '1year': sp.pricing?.yearly || 19990,
+        '3years': sp.pricing?.threeYears || 59970,
+        '5years': sp.pricing?.fiveYears || 99950,
+      },
+      savings: {
+        '1year': sp.savings?.['1year'] || (isBusiness ? 'Save ~17% (Annual Deal) • Most Popular' : isPremium ? 'Save ~17% (Annual Deal) • Best Enterprise Value' : 'Save ~17% (Annual Deal)'),
+        '3years': sp.savings?.['3years'] || 'Save ~30%',
+        '5years': sp.savings?.['5years'] || 'Save ~40%',
+      },
+      features: sp.coreFeatures && sp.coreFeatures.length > 0 ? sp.coreFeatures : [
+        `Up to ${sp.maxUsers || 2} Staff Accounts (Admin & Cashier)`,
+        `Up to ${sp.maxFirms || 2} Registered Pharmacy Branches`,
+        '0.2s Ultra-Fast Barcode POS Billing',
+        '100% Offline-First Engine'
+      ],
+      advancedSpecs: sp.advancedSpecs && sp.advancedSpecs.length > 0 ? sp.advancedSpecs : [
+        'Standard Technical Assistance'
+      ],
+    };
+  });
 
   const toggleExpand = (planId: string) => {
     setExpandedSpecs(prev => ({
@@ -152,7 +213,7 @@ export const PricingSection: React.FC<PricingSectionProps> = ({
 
         {/* 3 Pricing Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 max-w-7xl mx-auto items-stretch">
-          {MASTER_PLANS_CONFIG.map((plan) => {
+          {displayPlans.map((plan) => {
             const currentPrice = plan.prices[interval];
             const periodLabel = getIntervalLabel(interval);
             const isPopular = plan.isPopular;

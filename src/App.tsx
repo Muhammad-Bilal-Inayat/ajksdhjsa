@@ -61,8 +61,8 @@ function lazyWithRetry<T extends React.ComponentType<any>>(
 
 const LandingPage = lazyWithRetry(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const AuthPage = lazyWithRetry(() => import('./pages/AuthPage').then(m => ({ default: m.AuthPage })));
-const Login = lazyWithRetry(() => import('./pages/Login'));
-const Register = lazyWithRetry(() => import('./pages/Register'));
+const Login = lazyWithRetry(() => import('./pages/Login').then(m => ({ default: m.default || m.Login || m.LoginPage })));
+const Register = lazyWithRetry(() => import('./pages/Register').then(m => ({ default: m.default || m.Register || m.RegisterPage })));
 const SetupBusiness = lazyWithRetry(() => import('./pages/SetupBusiness'));
 const MasterServerHub = lazyWithRetry(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
 

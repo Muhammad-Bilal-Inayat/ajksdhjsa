@@ -3178,10 +3178,10 @@ async function startServer() {
   });
 
   // Frontend SPA Static & Dev Serving Engine
+  const isProduction = process.env.NODE_ENV === 'production';
   const distPath = path.join(process.cwd(), 'dist');
-  const isProdDistAvailable = fs.existsSync(path.join(distPath, 'index.html'));
 
-  if (isProdDistAvailable) {
+  if (isProduction && fs.existsSync(path.join(distPath, 'index.html'))) {
     // 1. Serve compiled static assets
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
@@ -3219,12 +3219,12 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   } else {
-    // Vite middleware for development when dist has not been generated
+    // Vite middleware for lightning-fast hot development
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: true,
+        hmr: process.env.DISABLE_HMR !== 'true',
       },
       appType: 'spa',
     });

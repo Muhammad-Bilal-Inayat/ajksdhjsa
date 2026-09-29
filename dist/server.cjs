@@ -9670,8 +9670,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.2.3";
-var RELEASE_NOTES = "Instant Zero-Wait App Boot, Optimized Code Splitting, High-Speed Asset Streaming & Master Server Hub Direct Serving";
+var APP_VERSION2 = "4.2.4";
+var RELEASE_NOTES = "Clean Direct Home Landing Boot, Persistent Seamless Login Session & Fleet Sync";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -13682,9 +13682,9 @@ async function startServer() {
       });
     }
   });
+  const isProduction = process.env.NODE_ENV === "production";
   const distPath = import_path15.default.join(process.cwd(), "dist");
-  const isProdDistAvailable = import_fs15.default.existsSync(import_path15.default.join(distPath, "index.html"));
-  if (isProdDistAvailable) {
+  if (isProduction && import_fs15.default.existsSync(import_path15.default.join(distPath, "index.html"))) {
     app.use("/assets", import_express15.default.static(import_path15.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
@@ -13717,7 +13717,7 @@ async function startServer() {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: true
+        hmr: process.env.DISABLE_HMR !== "true"
       },
       appType: "spa"
     });

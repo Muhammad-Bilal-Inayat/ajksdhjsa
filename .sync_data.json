@@ -20,9 +20,9 @@
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-29T04:25:02.935Z",
+      "lastSyncTime": "2026-09-29T04:28:05.403Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T04:25:03.083Z",
+      "updatedAt": "2026-09-29T04:28:05.406Z",
       "allowedModules": {
         "sales": true,
         "purchases": true,

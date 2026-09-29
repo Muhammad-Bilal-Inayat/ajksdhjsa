@@ -691,36 +691,10 @@ export default defineConfig(() => {
             }
             return 'assets/[name]-[hash].[ext]';
           },
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-                return 'vendor-react';
-              }
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
-              }
-              if (id.includes('recharts') || id.includes('d3-')) {
-                return 'vendor-charts';
-              }
-              if (id.includes('jspdf') || id.includes('html2canvas')) {
-                return 'vendor-pdf';
-              }
-              if (id.includes('xlsx') || id.includes('jszip')) {
-                return 'vendor-excel';
-              }
-              if (id.includes('framer-motion') || id.includes('motion')) {
-                return 'vendor-motion';
-              }
-              if (id.includes('jsbarcode') || id.includes('qrcode') || id.includes('html5-qrcode')) {
-                return 'vendor-barcode';
-              }
-              if (id.includes('@radix-ui') || id.includes('@dnd-kit')) {
-                return 'vendor-ui';
-              }
-              if (id.includes('crypto-js') || id.includes('date-fns') || id.includes('uuid') || id.includes('clsx') || id.includes('tailwind-merge')) {
-                return 'vendor-utils';
-              }
-            }
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router', 'react-router-dom'],
+            'vendor-icons': ['lucide-react'],
+            'vendor-charts': ['recharts']
           },
         },
       },

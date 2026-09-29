@@ -108,7 +108,6 @@ export const Pricing: React.FC = () => {
         'Multi-Branch Stock Transfer Delivery Challans & Central Rebalancing',
         'Digital Pharmacy Online Storefront (E-Commerce Web POS & WhatsApp Orders)',
         'Immutable Cashier Anti-Theft Audit Trail Logs & 2FA Staff Access',
-        '50 GB High-Speed NVMe Storage with Midnight Cloud Mirroring',
       ];
       detailedFeatures = [
         'Everything in Gold Business +',

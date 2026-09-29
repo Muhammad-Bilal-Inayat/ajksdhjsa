@@ -552,9 +552,9 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
                   <option value="7 Days Trial">7 Days Trial (Free Instant Activation)</option>
                   <option value="15 Days Trial">15 Days Trial (Free Instant Activation)</option>
                   <option value="30 Days Monthly">30 Days Monthly (Rs. 1,999/mo)</option>
-                  <option value="Standard POS">Standard POS (Rs. 1,999/mo | Rs. 19,990/yr)</option>
-                  <option value="Pharmacy Pro">Pharmacy Pro (Rs. 3,999/mo | Rs. 39,990/yr)</option>
-                  <option value="Enterprise Multi-Branch">Enterprise Multi-Branch (Rs. 6,999/mo | Rs. 69,990/yr)</option>
+                  <option value="Silver Basic">🥈 Silver Basic (Rs. 1,999/mo | Rs. 19,990/yr)</option>
+                  <option value="Gold Business">🥇 Gold Business ⭐ (Rs. 3,999/mo | Rs. 39,990/yr)</option>
+                  <option value="Platinum Enterprise">💎 Platinum Enterprise (Rs. 6,999/mo | Rs. 69,990/yr)</option>
                   <option value="Lifetime License">Lifetime License (Perpetual Deal)</option>
                   <option value="Custom">Custom Duration / Plan Name...</option>
                 </select>

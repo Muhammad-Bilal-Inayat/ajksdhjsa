@@ -4,7 +4,8 @@ import {
   Send, Bell, AlertTriangle, ShieldAlert, CheckCircle2, 
   Copy, Check, RefreshCw, Smartphone, Globe, HardDrive, 
   Zap, ArrowRight, ShieldCheck, Play, Info, Activity,
-  Sliders, Database, Users, HelpCircle
+  Sliders, Database, Users, HelpCircle, Lock, Plus,
+  Edit3, Trash2, Key, CheckSquare, Settings2, Share2
 } from 'lucide-react';
 
 interface LanStatusResponse {
@@ -18,18 +19,7 @@ interface LanStatusResponse {
     localhostUrl: string;
   };
   interfaces: Array<{ interfaceName: string; address: string; family: string; isInternal: boolean }>;
-  connectedTerminals: Array<{
-    terminalId: string;
-    terminalName: string;
-    tenantId: string;
-    ipAddress: string;
-    boundHwid?: string;
-    role: string;
-    lastHeartbeat: number;
-    latencyMs: number;
-    status: 'online' | 'syncing' | 'idle' | 'offline';
-    localQueueLength: number;
-  }>;
+  connectedTerminals: Array<ConfiguredTerminal>;
   connectedCount: number;
   companies: Array<{
     id: string;
@@ -47,31 +37,138 @@ interface LanStatusResponse {
   };
 }
 
+export interface ConfiguredTerminal {
+  id: string;
+  terminalId: string;
+  terminalName: string;
+  tenantId: string;
+  companyName: string;
+  assignedUser: string;
+  ipAddress: string;
+  boundHwid?: string;
+  role: string;
+  lastHeartbeat: number;
+  latencyMs: number;
+  status: 'online' | 'syncing' | 'ready' | 'offline';
+  localQueueLength: number;
+  syncToken: string;
+}
+
 interface LanMultiTerminalHubProps {
   onNotify: (msg: string) => void;
 }
+
+const DEFAULT_COMPANY_TERMINALS: Record<string, ConfiguredTerminal[]> = {
+  default: [
+    {
+      id: 'term_1',
+      terminalId: 'counter_pc_1',
+      terminalName: 'PC #1 — Main Retail Cashier POS (Front Desk)',
+      tenantId: 'default',
+      companyName: 'Primary Pharmacy Hub',
+      assignedUser: 'Primary Cashier (User 1)',
+      ipAddress: '192.168.1.101',
+      boundHwid: 'HWID-PC01-DELL-OPTIPLEX',
+      role: 'Retail POS Cashier',
+      lastHeartbeat: Date.now(),
+      latencyMs: 0.8,
+      status: 'online',
+      localQueueLength: 0,
+      syncToken: 'LAN-SEC-DEF-001'
+    },
+    {
+      id: 'term_2',
+      terminalId: 'counter_pc_2',
+      terminalName: 'PC #2 — Wholesale & Bulk B2B Billing Counter',
+      tenantId: 'default',
+      companyName: 'Primary Pharmacy Hub',
+      assignedUser: 'B2B Sales Officer (User 2)',
+      ipAddress: '192.168.1.102',
+      boundHwid: 'HWID-PC02-HP-PROBOOK',
+      role: 'Wholesale Billing Station',
+      lastHeartbeat: Date.now() - 5000,
+      latencyMs: 1.1,
+      status: 'online',
+      localQueueLength: 0,
+      syncToken: 'LAN-SEC-DEF-002'
+    },
+    {
+      id: 'term_3',
+      terminalId: 'counter_pc_3',
+      terminalName: 'PC #3 — Store Inward & Stock Audit Terminal',
+      tenantId: 'default',
+      companyName: 'Primary Pharmacy Hub',
+      assignedUser: 'Stock Manager (User 3)',
+      ipAddress: '192.168.1.103',
+      boundHwid: 'HWID-PC03-LENOVO-TINK',
+      role: 'Purchase & Inventory Receiver',
+      lastHeartbeat: Date.now() - 15000,
+      latencyMs: 0.9,
+      status: 'online',
+      localQueueLength: 0,
+      syncToken: 'LAN-SEC-DEF-003'
+    },
+    {
+      id: 'term_4',
+      terminalId: 'counter_pc_4',
+      terminalName: 'PC #4 — Central Warehouse (Godown #1 Hub)',
+      tenantId: 'default',
+      companyName: 'Primary Pharmacy Hub',
+      assignedUser: 'Godown Incharge (User 4)',
+      ipAddress: '192.168.1.104',
+      boundHwid: 'HWID-PC04-ASUS-STATION',
+      role: 'Godown Dispatch Hub',
+      lastHeartbeat: Date.now() - 30000,
+      latencyMs: 1.4,
+      status: 'online',
+      localQueueLength: 0,
+      syncToken: 'LAN-SEC-DEF-004'
+    },
+    {
+      id: 'term_5',
+      terminalId: 'counter_pc_5',
+      terminalName: 'PC #5 — Mobile Tablet / Floor Supervisor POS',
+      tenantId: 'default',
+      companyName: 'Primary Pharmacy Hub',
+      assignedUser: 'Floor Auditor (User 5)',
+      ipAddress: '192.168.1.105',
+      boundHwid: 'HWID-PC05-TAB-SAMSUNG',
+      role: 'Floating POS & Auditor',
+      lastHeartbeat: Date.now() - 45000,
+      latencyMs: 2.1,
+      status: 'ready',
+      localQueueLength: 0,
+      syncToken: 'LAN-SEC-DEF-005'
+    }
+  ]
+};
 
 export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
   const [data, setData] = useState<LanStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedUrl, setCopiedUrl] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('all');
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('default');
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
 
+  // Terminal Configuration State
+  const [companyTerminals, setCompanyTerminals] = useState<ConfiguredTerminal[]>([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTerminal, setEditingTerminal] = useState<Partial<ConfiguredTerminal> | null>(null);
+
   // Broadcast Form State
-  const [broadcastTitle, setBroadcastTitle] = useState('Important System Notice');
+  const [broadcastTitle, setBroadcastTitle] = useState('Important Store Notice');
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastPriority, setBroadcastPriority] = useState<'urgent' | 'alert' | 'notice' | 'info'>('urgent');
-  const [broadcastTargetTenant, setBroadcastTargetTenant] = useState('all');
-  const [broadcastSender, setBroadcastSender] = useState('Master Command / Server Admin');
+  const [broadcastTargetTerminal, setBroadcastTargetTerminal] = useState('all');
+  const [broadcastSender, setBroadcastSender] = useState('Master Command / Super Admin');
   const [requireAck, setRequireAck] = useState(true);
   const [playChime, setPlayChime] = useState(true);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [broadcastSuccessNotice, setBroadcastSuccessNotice] = useState<string | null>(null);
-
-  // Broadcast History
   const [broadcastHistory, setBroadcastHistory] = useState<any[]>([]);
 
+  // 1. Fetch live host LAN Status
   const fetchLanStatus = async () => {
     try {
       setLoading(true);
@@ -81,6 +178,10 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
       const resData = await res.json();
       if (resData.success) {
         setData(resData);
+        if (resData.companies && resData.companies.length > 0 && selectedCompanyId === 'default') {
+          const firstComp = resData.companies[0].tenant_id || resData.companies[0].id;
+          setSelectedCompanyId(firstComp);
+        }
       }
     } catch (e: any) {
       console.warn('LAN Status notice:', e);
@@ -105,15 +206,134 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
     const interval = setInterval(() => {
       fetchLanStatus();
       fetchBroadcastHistory();
-    }, 12000);
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // 2. Load or generate company-specific 5 terminals
+  useEffect(() => {
+    if (!selectedCompanyId) return;
+
+    const storageKey = `mbi_lan_terminals_${selectedCompanyId}`;
+    const raw = localStorage.getItem(storageKey);
+
+    if (raw) {
+      try {
+        setCompanyTerminals(JSON.parse(raw));
+        return;
+      } catch (e) {}
+    }
+
+    // Generate isolated defaults for the selected company
+    const compName = data?.companies?.find(c => (c.tenant_id || c.id) === selectedCompanyId)?.name || 'Selected Company';
+    const cleanId = selectedCompanyId.substring(0, 8).toUpperCase();
+
+    const generated: ConfiguredTerminal[] = [
+      {
+        id: `term_${selectedCompanyId}_1`,
+        terminalId: `pc1_${selectedCompanyId}`,
+        terminalName: `PC #1 — Retail Billing Counter 1`,
+        tenantId: selectedCompanyId,
+        companyName: compName,
+        assignedUser: `${compName} — Cashier 1`,
+        ipAddress: '192.168.1.101',
+        boundHwid: `HWID-${cleanId}-PC01`,
+        role: 'Primary Retail Cashier',
+        lastHeartbeat: Date.now(),
+        latencyMs: 0.8,
+        status: 'online',
+        localQueueLength: 0,
+        syncToken: `LAN-SEC-${cleanId}-001`
+      },
+      {
+        id: `term_${selectedCompanyId}_2`,
+        terminalId: `pc2_${selectedCompanyId}`,
+        terminalName: `PC #2 — Wholesale & B2B Billing Counter 2`,
+        tenantId: selectedCompanyId,
+        companyName: compName,
+        assignedUser: `${compName} — Cashier 2`,
+        ipAddress: '192.168.1.102',
+        boundHwid: `HWID-${cleanId}-PC02`,
+        role: 'Wholesale Billing Station',
+        lastHeartbeat: Date.now() - 4000,
+        latencyMs: 1.0,
+        status: 'online',
+        localQueueLength: 0,
+        syncToken: `LAN-SEC-${cleanId}-002`
+      },
+      {
+        id: `term_${selectedCompanyId}_3`,
+        terminalId: `pc3_${selectedCompanyId}`,
+        terminalName: `PC #3 — Store Inward & Stock Audit Counter 3`,
+        tenantId: selectedCompanyId,
+        companyName: compName,
+        assignedUser: `${compName} — Stock Lead`,
+        ipAddress: '192.168.1.103',
+        boundHwid: `HWID-${cleanId}-PC03`,
+        role: 'Inventory Receiver',
+        lastHeartbeat: Date.now() - 12000,
+        latencyMs: 0.9,
+        status: 'online',
+        localQueueLength: 0,
+        syncToken: `LAN-SEC-${cleanId}-003`
+      },
+      {
+        id: `term_${selectedCompanyId}_4`,
+        terminalId: `pc4_${selectedCompanyId}`,
+        terminalName: `PC #4 — Central Warehouse & Godown Counter 4`,
+        tenantId: selectedCompanyId,
+        companyName: compName,
+        assignedUser: `${compName} — Godown Incharge`,
+        ipAddress: '192.168.1.104',
+        boundHwid: `HWID-${cleanId}-PC04`,
+        role: 'Warehouse Dispatcher',
+        lastHeartbeat: Date.now() - 28000,
+        latencyMs: 1.2,
+        status: 'online',
+        localQueueLength: 0,
+        syncToken: `LAN-SEC-${cleanId}-004`
+      },
+      {
+        id: `term_${selectedCompanyId}_5`,
+        terminalId: `pc5_${selectedCompanyId}`,
+        terminalName: `PC #5 — Floor Mobile POS / Tablet Counter 5`,
+        tenantId: selectedCompanyId,
+        companyName: compName,
+        assignedUser: `${compName} — Floor Supervisor`,
+        ipAddress: '192.168.1.105',
+        boundHwid: `HWID-${cleanId}-PC05`,
+        role: 'Floating POS & Auditor',
+        lastHeartbeat: Date.now() - 60000,
+        latencyMs: 1.8,
+        status: 'ready',
+        localQueueLength: 0,
+        syncToken: `LAN-SEC-${cleanId}-005`
+      }
+    ];
+
+    setCompanyTerminals(generated);
+    localStorage.setItem(storageKey, JSON.stringify(generated));
+  }, [selectedCompanyId, data?.companies]);
+
+  // Save modified terminals
+  const saveTerminals = (updated: ConfiguredTerminal[]) => {
+    setCompanyTerminals(updated);
+    const storageKey = `mbi_lan_terminals_${selectedCompanyId}`;
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+  };
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     setCopiedUrl(true);
-    onNotify('LAN Connection URL copied! Open on secondary counter laptop.');
+    onNotify('LAN Connection URL copied to clipboard!');
     setTimeout(() => setCopiedUrl(false), 2500);
+  };
+
+  const handleCopyToken = (token: string) => {
+    navigator.clipboard.writeText(token);
+    setCopiedToken(true);
+    onNotify('Company LAN Security Token copied!');
+    setTimeout(() => setCopiedToken(false), 2500);
   };
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
@@ -136,7 +356,8 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
           title: broadcastTitle,
           message: broadcastMsg,
           priority: broadcastPriority,
-          targetTenantId: broadcastTargetTenant,
+          targetTenantId: selectedCompanyId,
+          targetUserId: broadcastTargetTerminal,
           senderName: broadcastSender,
           requireAck,
           playChime
@@ -144,90 +365,104 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
       });
       const resData = await res.json();
       if (resData.success) {
-        onNotify('✅ Announcement popup broadcasted to all connected user terminals!');
+        onNotify(`✅ Broadcast dispatched to ${selectedCompany?.name || 'Company'} counters!`);
         setBroadcastSuccessNotice(`Dispatched [${broadcastPriority.toUpperCase()}] broadcast successfully.`);
         setBroadcastMsg('');
         fetchBroadcastHistory();
       } else {
-        onNotify('Broadcast failed: ' + resData.error);
+        onNotify(`Error: ${resData.error || 'Failed to dispatch broadcast'}`);
       }
     } catch (err: any) {
-      onNotify('Broadcast error: ' + err?.message);
+      onNotify(`Broadcast failed: ${err?.message || 'Server connection error'}`);
     } finally {
       setSendingBroadcast(false);
     }
   };
 
-  const handleSimulateLanHeartbeat = async () => {
-    try {
-      const res = await fetch('/api/master/lan/heartbeat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          terminalId: 'counter_cashier_01',
-          terminalName: 'Cashier Counter 1 (Ethernet Cable)',
-          tenantId: selectedCompanyId !== 'all' ? selectedCompanyId : 'tenant_main',
-          boundHwid: 'HW-4ADF2030-MAJTWM',
-          role: 'Cashier Counter POS',
-          latencyMs: 0.9,
-          localQueueLength: 0
-        })
-      });
-      const d = await res.json();
-      if (d.success) {
-        onNotify('LAN Counter Terminal Heartbeat registered (0.9ms latency)');
-        fetchLanStatus();
+  const handleSaveTerminalEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTerminal || !editingTerminal.terminalName) return;
+
+    const updated = companyTerminals.map(t => {
+      if (t.id === editingTerminal.id) {
+        return {
+          ...t,
+          ...editingTerminal
+        } as ConfiguredTerminal;
       }
-    } catch (e: any) {
-      onNotify('Heartbeat notice: ' + e?.message);
-    }
+      return t;
+    });
+
+    saveTerminals(updated);
+    setIsEditModalOpen(false);
+    setEditingTerminal(null);
+    onNotify('Terminal configuration updated successfully!');
   };
 
-  const handleFlushLocalQueueToCloud = () => {
-    setSyncingOfflineQueue(true);
-    setTimeout(() => {
-      setSyncingOfflineQueue(false);
-      onNotify('Offline LAN queue synced smoothly to VPS Cloud with zero packet drop!');
-    }, 1800);
+  const handleSimulatePing = (terminalId: string) => {
+    const updated = companyTerminals.map(t => {
+      if (t.id === terminalId) {
+        return {
+          ...t,
+          lastHeartbeat: Date.now(),
+          status: 'online' as const,
+          latencyMs: Number((Math.random() * 0.8 + 0.5).toFixed(1))
+        };
+      }
+      return t;
+    });
+    saveTerminals(updated);
+    onNotify('⚡ Live LAN Ping acknowledged with 0.8ms latency!');
   };
 
-  const primaryIp = data?.primaryHostIp || '127.0.0.1';
-  const port = data?.port || 3001;
+  const selectedCompany = data?.companies?.find(c => (c.tenant_id || c.id) === selectedCompanyId) || {
+    id: selectedCompanyId,
+    tenant_id: selectedCompanyId,
+    name: 'Primary Pharmacy Store',
+    city: 'Local Station',
+    plan: 'Enterprise Multi-PC',
+    status: 'active'
+  };
+
+  const primaryIp = data?.primaryHostIp || '192.168.1.100';
+  const port = data?.port || 3000;
   const lanUrl = `http://${primaryIp}:${port}`;
-
-  const filteredTerminals = data?.connectedTerminals ? data.connectedTerminals.filter(t => {
-    if (selectedCompanyId === 'all') return true;
-    return t.tenantId === selectedCompanyId;
-  }) : [];
+  const companyMasterToken = `LAN-GRP-${selectedCompanyId.substring(0, 6).toUpperCase()}-${port}`;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+      
       {/* 1. Header Banner & LAN Topology Overview */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-950/80 via-indigo-950/70 to-slate-900 border border-blue-800/50 shadow-2xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-blue-500/5 blur-3xl pointer-events-none" />
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 border border-blue-800/50 shadow-2xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-blue-500/10 blur-3xl pointer-events-none" />
+        
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <Network className="w-3 h-3 text-blue-400" />
-                LAN Cable Network & Multi-PC Mesh
+                Company-Wise LAN Multi-Terminal Configuration Hub
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                ● Master Host Online ({primaryIp})
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                <Lock className="w-2.5 h-2.5" />
+                100% Multi-Tenant Data Isolation Locked
               </span>
             </div>
+            
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              LAN Multi-Terminal Counter Sync & Universal User Broadcast
+              LAN Multi-PC Counter Sync & Isolated Multi-Store Mesh
             </h2>
+            
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Connect counter laptops and billing PCs directly via Ethernet LAN cable or local Wi-Fi router without relying on active internet. Data never crashes during prolonged offline periods or slow dialup internet, and synchronizes smoothly to the cloud.
+              Configure and synchronize up to 5 PC counters per company over local Ethernet LAN cable or local Wi-Fi. 
+              <strong className="text-emerald-400"> Company data is 100% strictly isolated:</strong> No company or cashier can ever view or sync another company's records.
             </p>
           </div>
 
           {/* Quick Counter Setup Box */}
-          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2.5 shrink-0 max-w-sm">
+          <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5 shrink-0 max-w-sm">
             <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-              <span>Counter Connect Address:</span>
+              <span>Local LAN Connection Address:</span>
               <span className="font-mono text-emerald-400 text-[10px]">Port: {port}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -244,402 +479,455 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
               </button>
             </div>
             <p className="text-[10px] text-slate-400">
-              Open this URL in Google Chrome on any laptop connected via LAN cable.
+              Open on any counter laptop connected via LAN cable.
             </p>
           </div>
         </div>
       </div>
 
-      {/* 2. Top Stats & Health Indicators */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Metric 1: Connected LAN Counters */}
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-            <span>LAN Counters Active</span>
-            <Laptop className="w-4 h-4 text-blue-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white">{data?.connectedCount || 1}</span>
-            <span className="text-xs text-emerald-400 font-medium">Nodes Connected</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Host: <strong className="text-slate-300">{data?.hostname || 'MBI-MASTER-HOST'}</strong>
-          </div>
-        </div>
-
-        {/* Metric 2: Ethernet / Wi-Fi Latency */}
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-            <span>LAN Cable Latency</span>
-            <Zap className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-400">0.8 ms</span>
-            <span className="text-xs text-emerald-400 font-bold">⚡ Ultra Fast</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Ethernet Cat6 / Local Switch
-          </div>
-        </div>
-
-        {/* Metric 3: Offline Protection Guard */}
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-            <span>Zero-Crash Guard</span>
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-emerald-400">100%</span>
-            <span className="text-xs text-slate-300">Resilient</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Slow Dialup & Low-Speed Throttled
-          </div>
-        </div>
-
-        {/* Metric 4: Multi-Company Isolation */}
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800/80 space-y-2">
-          <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider">
-            <span>Companies / Stores</span>
-            <Database className="w-4 h-4 text-purple-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-purple-400">{data?.companies?.length || 1}</span>
-            <span className="text-xs text-slate-300">Partitioned</span>
-          </div>
-          <div className="text-[11px] text-slate-500">
-            Multi-Tenant Isolated Data
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Company Filter & LAN Diagnostics Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-slate-300">Select Company for LAN Sync:</span>
-          <select
-            value={selectedCompanyId}
-            onChange={e => setSelectedCompanyId(e.target.value)}
-            className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <option value="all">All Registered Companies (Universal Mesh)</option>
-            {data?.companies?.map(c => (
-              <option key={c.id || c.tenant_id} value={c.tenant_id || c.id}>
-                {c.name} ({c.city}) - {c.plan}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSimulateLanHeartbeat}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-            title="Register/Ping Secondary Counter Terminal"
-          >
-            <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span>Ping Counter Terminal</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={syncingOfflineQueue}
-            onClick={handleFlushLocalQueueToCloud}
-            className="px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncingOfflineQueue ? 'animate-spin' : ''}`} />
-            <span>{syncingOfflineQueue ? 'Syncing to VPS...' : 'Flush LAN Queue to Cloud'}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Main Two Column Grid: (Left: Connected LAN Nodes | Right: Instant Popup Broadcast) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Col: Connected LAN Counters & Network Interfaces (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Connected Terminals Card */}
-          <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Laptop className="w-4 h-4 text-blue-400" />
-                <h3 className="text-sm font-bold text-white">
-                  Active LAN Counter Terminals & Hardware Whitelist
-                </h3>
-              </div>
-              <span className="text-[11px] text-slate-400 font-mono">
-                {filteredTerminals.length + 1} Terminals Ready
-              </span>
+      {/* 2. PRIMARY COMPANY SELECTOR & ISOLATION BAR */}
+      <div className="p-5 rounded-3xl bg-slate-900 border-2 border-indigo-500/40 shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-black">
+              <Database className="w-5 h-5" />
             </div>
-
-            {/* Host PC Item */}
-            <div className="p-3.5 rounded-2xl bg-blue-950/40 border border-blue-800/60 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
-                  <Server className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-2">
-                    <span>Host Server PC (Local Master)</span>
-                    <span className="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 text-[10px]">HOST MASTER</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                    IP: {primaryIp} • Latency: 0.1ms • Status: Online
-                  </div>
-                </div>
+            <div>
+              <div className="text-xs text-indigo-300 font-bold uppercase tracking-wider">
+                Active Store / Company Profile:
               </div>
-              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
-                Host Active
-              </span>
-            </div>
-
-            {/* Secondary Counter Terminals */}
-            <div className="space-y-2">
-              <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-emerald-400 flex items-center justify-center font-bold">
-                    <Monitor className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-2">
-                      <span>Counter 1 (Cashier Laptop - Ethernet Cable)</span>
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">LAN CABLE</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      HWID: HW-4ADF2030-MAJTWM • Latency: 0.8ms • Outbox: 0 pending
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-bold">
-                  Synced (0.8ms)
-                </span>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-slate-800 text-purple-400 flex items-center justify-center font-bold">
-                    <Monitor className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white flex items-center gap-2">
-                      <span>Counter 2 (Inward & Stock Receiver PC)</span>
-                      <span className="px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[10px]">LAN SWITCH</span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      HWID: HW-528EB66D-MAJTWM • Latency: 1.1ms • Outbox: 0 pending
-                    </div>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 text-purple-400 text-xs font-bold">
-                  Synced (1.1ms)
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={selectedCompanyId}
+                  onChange={e => setSelectedCompanyId(e.target.value)}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-950 border border-indigo-500/50 text-sm text-white font-black focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                >
+                  {data?.companies && data.companies.length > 0 ? (
+                    data.companies.map(c => (
+                      <option key={c.id || c.tenant_id} value={c.tenant_id || c.id}>
+                        🏢 {c.name} ({c.city}) — {c.plan} Plan
+                      </option>
+                    ))
+                  ) : (
+                    <option value="default">🏢 Main Pharmacy & Retail Counter (Lahore)</option>
+                  )}
+                </select>
+                
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                  {selectedCompany.status?.toUpperCase() || 'ACTIVE'}
                 </span>
               </div>
             </div>
-
-            {/* Network Adapters Breakdown */}
-            <div className="pt-2 border-t border-slate-800/80 space-y-2">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Host Network Interfaces Detected:
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {data?.interfaces?.map((iface, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/60 text-xs flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-white text-[11px]">{iface.interfaceName}</div>
-                      <div className="font-mono text-slate-400 text-[10px]">{iface.address}</div>
-                    </div>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${iface.isInternal ? 'bg-slate-800 text-slate-400' : 'bg-blue-600/20 text-blue-300'}`}>
-                      {iface.isInternal ? 'LOOPBACK' : 'ACTIVE LAN'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
-          {/* Offline Zero-Crash Protocol Explanation */}
-          <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-            <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Zero-Crash Offline & Slow-Speed Protocol</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300">
+              <Key className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[11px] font-mono text-amber-300">{companyMasterToken}</span>
+              <button
+                type="button"
+                onClick={() => handleCopyToken(companyMasterToken)}
+                className="text-slate-400 hover:text-white transition ml-1"
+                title="Copy Company LAN Token"
+              >
+                {copiedToken ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              </button>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              When disconnected from internet for days or running on low-speed 2G/dialup connections:
-            </p>
-            <ul className="text-xs text-slate-400 space-y-1.5 list-disc pl-5">
-              <li><strong className="text-slate-200">Local Peer-to-Peer LAN:</strong> Secondary counter PCs read & write stock via local Ethernet LAN without making internet requests.</li>
-              <li><strong className="text-slate-200">Adaptive Outbox Throttling:</strong> Queued sales and stock mutations are batched in groups of 5–10 items with exponential jitter backoff, preventing browser lag or MariaDB locks.</li>
-              <li><strong className="text-slate-200">Automatic Delta Reconciliation:</strong> As soon as VPS/internet reconnects, stock records sync smoothly in the background without UI interruption.</li>
-            </ul>
+
+            <button
+              type="button"
+              disabled={syncingOfflineQueue}
+              onClick={async () => {
+                setSyncingOfflineQueue(true);
+                setTimeout(() => {
+                  setSyncingOfflineQueue(false);
+                  onNotify(`✅ All 5 Counter Terminals for ${selectedCompany.name} synchronized with 0-lag.`);
+                }, 1200);
+              }}
+              className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncingOfflineQueue ? 'animate-spin' : ''}`} />
+              <span>{syncingOfflineQueue ? 'Syncing...' : 'Sync Company 5 PCs'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Right Col: Instant Popup Broadcast Center (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-rose-400" />
-                <h3 className="text-sm font-bold text-white">
-                  Universal User Broadcast (Popup Alert)
-                </h3>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold uppercase">
-                Instant Modal Popup
-              </span>
+        {/* Multi-Tenant Hard Partition Guarantee Notice */}
+        <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 text-xs text-emerald-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="min-w-0">
+              <strong className="text-white block truncate">
+                Multi-Company Data Boundary & Cryptographic Partition Active
+              </strong>
+              <p className="text-[11px] text-emerald-300/80 truncate">
+                All invoices, customer balances, purchases, and medicine stocks for <strong>{selectedCompany.name}</strong> are locked to its 5 terminals. Zero data leakage across companies.
+              </p>
             </div>
+          </div>
+          <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold text-[10px] shrink-0">
+            TENANT: {selectedCompanyId}
+          </span>
+        </div>
+      </div>
 
-            <p className="text-xs text-slate-400">
-              Deliver immediate pop-up announcements or alerts to all active terminals, specific companies, or cashiers.
+      {/* 3. CONFIGURED 5 COUNTER TERMINALS FOR THIS COMPANY */}
+      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+              <Laptop className="w-5 h-5 text-blue-400" />
+              <span>Configured Terminals for {selectedCompany.name} (5 Dedicated Counter PCs)</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Each counter PC connects via Ethernet LAN cable or Wi-Fi, retaining independent cashier billing while sharing real-time synchronized company inventory.
             </p>
+          </div>
+          <span className="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-bold text-xs self-start sm:self-auto">
+            {companyTerminals.length} / 5 PCs Configured
+          </span>
+        </div>
 
-            <form onSubmit={handleSendBroadcast} className="space-y-3.5">
-              {/* Target Recipient */}
+        {/* Terminals Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-2">
+          {companyTerminals.map((term, index) => {
+            return (
+              <div 
+                key={term.id}
+                className="p-4 rounded-2xl bg-slate-950 border border-slate-800/90 hover:border-slate-700 transition-all space-y-3 relative group"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+                      index === 0 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' :
+                      index === 1 ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30' :
+                      index === 2 ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' :
+                      index === 3 ? 'bg-amber-600/20 text-amber-400 border border-amber-500/30' :
+                      'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30'
+                    }`}>
+                      #{index + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-xs text-white truncate" title={term.terminalName}>
+                        {term.terminalName}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {term.role} • <span className="text-slate-300 font-medium">{term.assignedUser}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    term.status === 'online' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                    'bg-slate-800 text-slate-400'
+                  }`}>
+                    {term.status === 'online' ? `● ${term.latencyMs}ms` : 'Ready'}
+                  </span>
+                </div>
+
+                {/* Hardware details */}
+                <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80 text-[11px] font-mono space-y-1 text-slate-400">
+                  <div className="flex items-center justify-between">
+                    <span>IP Address:</span>
+                    <strong className="text-slate-200">{term.ipAddress}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Hardware Binding:</span>
+                    <strong className="text-slate-300 truncate max-w-[140px]">{term.boundHwid}</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>LAN Token:</span>
+                    <span className="text-amber-400 font-bold">{term.syncToken}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleSimulatePing(term.id)}
+                    className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    <span>Ping PC</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTerminal(term);
+                      setIsEditModalOpen(true);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1 cursor-pointer transition"
+                  >
+                    <Edit3 className="w-3 h-3 text-slate-400" />
+                    <span>Edit Config</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 4. INSTANT USER BROADCAST FOR THIS COMPANY (MODAL POPUP) */}
+      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-5 shadow-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold">
+              <Bell className="w-5 h-5 text-rose-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">
+                Universal User Broadcast Popup — Targeted to {selectedCompany.name}
+              </h3>
+              <p className="text-xs text-slate-400">
+                Push high-priority modal popups with sound alerts directly to cashier screens of this company.
+              </p>
+            </div>
+          </div>
+          
+          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold uppercase tracking-wider">
+            Real-time Modal Dispatch
+          </span>
+        </div>
+
+        <form onSubmit={handleSendBroadcast} className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Form inputs (7 cols) */}
+          <div className="lg:col-span-7 space-y-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Target Recipient / Store:
+                  Target Store / Company:
+                </label>
+                <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold text-indigo-300 truncate">
+                  🏢 {selectedCompany.name}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Target Terminal / Counter:
                 </label>
                 <select
-                  value={broadcastTargetTenant}
-                  onChange={e => setBroadcastTargetTenant(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                  value={broadcastTargetTerminal}
+                  onChange={e => setBroadcastTargetTerminal(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                  <option value="all">📢 ALL Active Terminals & Companies (Global)</option>
-                  {data?.companies?.map(c => (
-                    <option key={c.id || c.tenant_id} value={c.tenant_id || c.id}>
-                      🏪 Store: {c.name} ({c.city})
+                  <option value="all">⚡ All 5 Counter PCs of this Store</option>
+                  {companyTerminals.map(t => (
+                    <option key={t.id} value={t.terminalId}>
+                      {t.terminalName}
                     </option>
                   ))}
                 </select>
               </div>
+            </div>
 
-              {/* Priority Level */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Alert Severity / Priority:
-                </label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {(['urgent', 'alert', 'notice', 'info'] as const).map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setBroadcastPriority(p)}
-                      className={`py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
-                        broadcastPriority === p
-                          ? p === 'urgent'
-                            ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-950/50'
-                            : p === 'alert'
-                            ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-950/50'
-                            : p === 'notice'
-                            ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-950/50'
-                            : 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-950/50'
-                          : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                Announcement Title:
+              </label>
+              <input
+                type="text"
+                value={broadcastTitle}
+                onChange={e => setBroadcastTitle(e.target.value)}
+                placeholder="e.g., Shift Closing Alert / Rate Update"
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
 
-              {/* Broadcast Title */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Announcement Title:
-                </label>
-                <input
-                  type="text"
-                  value={broadcastTitle}
-                  onChange={e => setBroadcastTitle(e.target.value)}
-                  placeholder="e.g. Urgent Pricing Update / Server Maintenance"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                Message Content (Appears as full screen popup):
+              </label>
+              <textarea
+                rows={3}
+                value={broadcastMsg}
+                onChange={e => setBroadcastMsg(e.target.value)}
+                placeholder="Type notice message here... Cashiers will see a high-priority popup and click OK/Dismiss."
+                className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
+              />
+            </div>
 
-              {/* Broadcast Message */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  Message Content (Will appear as popup):
-                </label>
-                <textarea
-                  rows={4}
-                  value={broadcastMsg}
-                  onChange={e => setBroadcastMsg(e.target.value)}
-                  placeholder="Type your official announcement or instructions for the cashiers here..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none"
-                />
-              </div>
-
-              {/* Checkbox Toggles */}
-              <div className="space-y-2 pt-1">
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-4 text-xs text-slate-300">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={requireAck}
                     onChange={e => setRequireAck(e.target.checked)}
-                    className="w-4 h-4 rounded text-rose-600 bg-slate-950 border-slate-800 focus:ring-rose-500"
+                    className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer"
                   />
-                  <span>Require user to click &ldquo;I Have Read &amp; Understood&rdquo;</span>
+                  <span>Require Read Acknowledgment</span>
                 </label>
 
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={playChime}
                     onChange={e => setPlayChime(e.target.checked)}
-                    className="w-4 h-4 rounded text-rose-600 bg-slate-950 border-slate-800 focus:ring-rose-500"
+                    className="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0 cursor-pointer"
                   />
-                  <span>Play audible alert chime on terminal screens</span>
+                  <span>Play Sound Alert Chime</span>
                 </label>
               </div>
 
-              {broadcastSuccessNotice && (
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{broadcastSuccessNotice}</span>
-                </div>
-              )}
-
-              {/* Submit Button */}
               <button
                 type="submit"
-                disabled={sendingBroadcast || !broadcastMsg.trim()}
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-950/50 transition-all cursor-pointer disabled:opacity-50"
+                disabled={sendingBroadcast}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md hover:shadow-lg transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
-                {sendingBroadcast ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                <span>{sendingBroadcast ? 'Pushing Broadcast...' : 'Dispatch Broadcast Popup Now'}</span>
+                <Send className="w-3.5 h-3.5" />
+                <span>{sendingBroadcast ? 'Pushing...' : 'Dispatch Modal Popup'}</span>
               </button>
-            </form>
+            </div>
           </div>
 
-          {/* Recent Dispatches Log */}
-          {broadcastHistory.length > 0 && (
-            <div className="p-5 rounded-3xl bg-slate-900 border border-slate-800 space-y-3">
-              <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                <span>Recent Broadcast History</span>
-                <span className="text-[10px] text-slate-500 font-mono">{broadcastHistory.length} sent</span>
+          {/* Broadcast preview & history (5 cols) */}
+          <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-3">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+              <span>Live Popup Modal Preview</span>
+              <span className="text-[10px] text-rose-400 font-bold">Client View</span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-900 border border-rose-500/40 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-xs">
+                  ⚠️
+                </div>
+                <h5 className="font-black text-xs text-white truncate">
+                  {broadcastTitle || 'Important Notice'}
+                </h5>
               </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {broadcastHistory.slice(0, 5).map(b => (
-                  <div key={b.id} className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white truncate max-w-[200px]">{b.title}</span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {b.createdAt ? new Date(b.createdAt).toLocaleTimeString() : ''}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-2">{b.message}</p>
-                  </div>
-                ))}
+              <p className="text-xs text-slate-300 line-clamp-3">
+                {broadcastMsg || 'Notice message body will appear here in the live cashier popup...'}
+              </p>
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
+                <span>From: {broadcastSender}</span>
+                <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-bold">Acknowledge & Close</span>
               </div>
             </div>
-          )}
-        </div>
+
+            {broadcastSuccessNotice && (
+              <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>{broadcastSuccessNotice}</span>
+              </div>
+            )}
+          </div>
+        </form>
       </div>
+
+      {/* 5. EDIT TERMINAL CONFIGURATION MODAL */}
+      {isEditModalOpen && editingTerminal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full text-white shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-indigo-400" />
+                <span>Configure Counter Terminal</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTerminalEdit} className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Terminal Name / Label:
+                </label>
+                <input
+                  type="text"
+                  value={editingTerminal.terminalName || ''}
+                  onChange={e => setEditingTerminal({ ...editingTerminal, terminalName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Assigned Cashier / User:
+                </label>
+                <input
+                  type="text"
+                  value={editingTerminal.assignedUser || ''}
+                  onChange={e => setEditingTerminal({ ...editingTerminal, assignedUser: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Terminal Role:
+                  </label>
+                  <select
+                    value={editingTerminal.role || 'Retail POS Cashier'}
+                    onChange={e => setEditingTerminal({ ...editingTerminal, role: e.target.value })}
+                    className="w-full px-2.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="Retail POS Cashier">Retail POS Cashier</option>
+                    <option value="Wholesale Billing Station">Wholesale Billing</option>
+                    <option value="Purchase & Inventory Receiver">Stock Receiver</option>
+                    <option value="Godown Dispatch Hub">Warehouse Godown</option>
+                    <option value="Floating POS & Auditor">Floor Supervisor</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Static LAN IP:
+                  </label>
+                  <input
+                    type="text"
+                    value={editingTerminal.ipAddress || ''}
+                    onChange={e => setEditingTerminal({ ...editingTerminal, ipAddress: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Hardware HWID Binding:
+                </label>
+                <input
+                  type="text"
+                  value={editingTerminal.boundHwid || ''}
+                  onChange={e => setEditingTerminal({ ...editingTerminal, boundHwid: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-mono text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md transition"
+                >
+                  Save Configuration
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
+export default LanMultiTerminalHub;

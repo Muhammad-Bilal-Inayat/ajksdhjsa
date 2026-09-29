@@ -265,63 +265,33 @@ export const DocumentationTab: React.FC = () => {
 
           {/* Sub-view switcher tabs */}
           <div className="flex items-center bg-slate-950/70 p-1 rounded-xl border border-slate-700 self-start md:self-auto shrink-0">
-            <button
-              type="button"
-              onClick={() => setSubView('manual')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                subView === 'manual'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
+            <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
               <BookOpen className="w-3.5 h-3.5" />
-              <span>User Manual</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSubView('updates')}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                subView === 'updates'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Software Updates ({APP_VERSION})</span>
-            </button>
+              <span>User Manual & Billing Guides</span>
+            </div>
           </div>
         </div>
 
         {/* Search bar inside Manual mode */}
-        {subView === 'manual' && (
-          <div className="mt-4 pt-4 border-t border-slate-700/80 flex items-center justify-between gap-4">
-            <div className="relative w-full max-w-md">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search documentation, chapters & keyboard shortcuts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-800/90 border border-slate-600 rounded-xl text-xs text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <span className="text-[11px] text-slate-400 hidden sm:inline">
-              {filteredChapters.length} Chapters Available
-            </span>
+        <div className="mt-4 pt-4 border-t border-slate-700/80 flex items-center justify-between gap-4">
+          <div className="relative w-full max-w-md">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search documentation, chapters & keyboard shortcuts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-800/90 border border-slate-600 rounded-xl text-xs text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-        )}
+          <span className="text-[11px] text-slate-400 hidden sm:inline">
+            {filteredChapters.length} Chapters Available
+          </span>
+        </div>
       </div>
 
-      {/* Mode 1: Software Updates View */}
-      {subView === 'updates' && (
-        <div className="animate-in fade-in duration-150">
-          <SystemUpdatesTab />
-        </div>
-      )}
-
-      {/* Mode 2: User Manual Two-Column Layout */}
-      {subView === 'manual' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-150">
+      {/* User Manual Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-150">
           
           {/* Left Sidebar: Table of Contents */}
           <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs p-3 space-y-1">
@@ -502,7 +472,6 @@ export const DocumentationTab: React.FC = () => {
           </div>
 
         </div>
-      )}
 
     </div>
   );

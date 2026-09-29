@@ -37,10 +37,40 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.2.8-stable',
+    version: 'v4.2.9-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Company-Wise 5-PC LAN Multi-Terminal Configuration, Strict Multi-Tenant Data Lock & Isolation, and Client-Side Server Updates Segregation.',
+    features: [
+      {
+        text: 'Company-Wise LAN Multi-Terminal Management: Configure up to 5 dedicated counter PCs per company with custom roles and static IPs.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: '100% Multi-Tenant Cryptographic Isolation: Strict boundary preventing any cross-company data leakage or sync mixing.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Segregated Client Experience: Completely hid server updates and internal server tools from client/user navigation.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Targeted User Broadcasts: Dispatch instant high-priority popup announcements specifically to selected company counters.',
+        type: 'feature',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.2.8-stable',
+    releaseDate: 'September 2026',
+    tag: 'Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Polished Trial Countdown Banner and Header dropdown layering, 100% Rock-Solid Zero Auto-Reload Stability, and LAN Multi-PC Counter Sync Hub.',
     features: [

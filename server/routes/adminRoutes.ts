@@ -38,7 +38,7 @@ const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'Ami7788!@';
 const EMERGENCY_RECOVERY_KEY = process.env.EMERGENCY_RECOVERY_KEY || '03082003';
-const APP_VERSION = 'v4.2.8';
+const APP_VERSION = 'v4.2.9';
 
 // In-memory fleet SSE subscribers for /server and /master hubs
 const fleetStreamClients = new Set<Response>();

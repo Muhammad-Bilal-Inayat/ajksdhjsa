@@ -9,6 +9,59 @@
   "auditLogs": [],
   "appUsers": [
     {
+      "id": "admin-master",
+      "name": "Bilal Inayat (Primary Admin)",
+      "username": "admin-master",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T03:18:16.745Z",
+      "emailOrPhone": "vip123@admin.com",
+      "passcode": "1234",
+      "storeName": "MBI INVENTRA",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-4ADF2030-MAJTWM",
+      "lastSyncTime": "2026-09-29T04:25:02.935Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T04:25:03.083Z",
+      "allowedModules": {
+        "sales": true,
+        "purchases": true,
+        "pharmacy": true,
+        "inventory": true,
+        "reports": true,
+        "cloudSync": true,
+        "multiBranch": true,
+        "aiVoice": true,
+        "cashierShifts": true,
+        "customPrint": true,
+        "accountsLedger": true,
+        "narcoticsSchedule": true,
+        "customerLoyalty": true,
+        "bulkExcel": true,
+        "barcodeLabels": true
+      },
+      "permissions": {
+        "canEditSalePrice": true,
+        "canGiveDiscount": true,
+        "maxDiscountPercent": 25,
+        "canVoidInvoice": false,
+        "canDeleteTransaction": false,
+        "canEditBill": true,
+        "canDeleteBill": false,
+        "canShareBill": true,
+        "canSellBelowCost": false,
+        "canViewPurchaseCost": true,
+        "canViewProfitReports": true,
+        "canAccessControlledDrugs": true,
+        "canExportExcel": true,
+        "canManageUsers": false,
+        "canAccessSettings": true,
+        "canProcessReturns": true,
+        "canAccessBankAccounts": true,
+        "canChangePaymentTerms": true
+      }
+    },
+    {
       "id": "u_1790441675980",
       "name": "Primary Admin",
       "emailOrPhone": "",
@@ -65,5 +118,6 @@
   "bookerTransactions": [],
   "registration_leads": [],
   "tenants": [],
-  "client_licenses": []
+  "client_licenses": [],
+  "storeSettings": []
 }

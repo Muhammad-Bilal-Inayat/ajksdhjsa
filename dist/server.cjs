@@ -8110,6 +8110,254 @@ fleetRouter.post("/tenants/register", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error registering tenant" });
   }
 });
+fleetRouter.get("/users", async (req, res) => {
+  try {
+    const usersMap = /* @__PURE__ */ new Map();
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        const [rows] = await pool2.query(
+          `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone as emailOrPhone, 
+                  u.role, u.status, u.is_kill_switch_active as isKillSwitchActive, 
+                  u.is_silent_monitored as isSilentMonitored, u.bound_hwid as boundHwid, 
+                  u.last_sync_time as lastSyncTime, t.name as storeName 
+           FROM mbi_users u
+           LEFT JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
+           ORDER BY u.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          for (const r of rows) {
+            usersMap.set(r.id, {
+              ...r,
+              installationId: r.tenant_id,
+              isOnline: true,
+              passcode: "1234"
+            });
+          }
+        }
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        if (Array.isArray(localList)) {
+          for (const lu of localList) {
+            if (lu && lu.id) {
+              const existing = usersMap.get(lu.id);
+              usersMap.set(lu.id, {
+                ...lu,
+                ...existing,
+                passcode: lu.passcode || existing?.passcode || "1234",
+                storeName: lu.storeName || existing?.storeName || "MBI INVENTRA"
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+    }
+    const users = Array.from(usersMap.values());
+    res.json({
+      success: true,
+      count: users.length,
+      users,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error fetching fleet users" });
+  }
+});
+fleetRouter.post("/users/save", async (req, res) => {
+  try {
+    const { id, name, username, emailOrPhone, role, status, passcode, storeName, tenantId, boundHwid } = req.body;
+    const cleanId = id || `u_${Date.now()}`;
+    const cleanTenantId = tenantId || "tenant_main";
+    const cleanRole = role || "Cashier";
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, role, status, bound_hwid, passcode_hash, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             username = VALUES(username),
+             email_or_phone = VALUES(email_or_phone),
+             role = VALUES(role),
+             status = VALUES(status),
+             bound_hwid = VALUES(bound_hwid),
+             passcode_hash = VALUES(passcode_hash),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [
+            cleanId,
+            cleanTenantId,
+            name || "Staff User",
+            username || emailOrPhone || cleanId,
+            emailOrPhone || "",
+            cleanRole,
+            status || "Active",
+            boundHwid || null,
+            passcode || "1234"
+          ]
+        );
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      let localList = [];
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        try {
+          localList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        } catch (e) {
+        }
+      }
+      const existingIdx = localList.findIndex((u) => u.id === cleanId || u.emailOrPhone === emailOrPhone);
+      const userRecord = {
+        id: cleanId,
+        name: name || "Staff User",
+        emailOrPhone: emailOrPhone || `${cleanId}@inventra.local`,
+        role: cleanRole,
+        status: status || "Active",
+        passcode: passcode || "1234",
+        storeName: storeName || "MBI INVENTRA",
+        installationId: cleanTenantId,
+        boundHwid: boundHwid || null,
+        lastSyncTime: (/* @__PURE__ */ new Date()).toISOString(),
+        isOnline: true,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      if (existingIdx >= 0) {
+        localList[existingIdx] = { ...localList[existingIdx], ...userRecord };
+      } else {
+        localList.push(userRecord);
+      }
+      import_fs9.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+    } catch (fsErr) {
+    }
+    broadcastGlobalEvent({
+      type: "USER_CREDENTIALS_UPDATED",
+      payload: { userId: cleanId, role: cleanRole, tenantId: cleanTenantId }
+    });
+    res.json({
+      success: true,
+      message: `User ${name || cleanId} updated successfully and synchronized to all terminals.`,
+      userId: cleanId
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error saving user" });
+  }
+});
+fleetRouter.post("/users/passcode", async (req, res) => {
+  try {
+    const { userId, newPasscode } = req.body;
+    if (!userId || !newPasscode) {
+      res.status(400).json({ success: false, error: "userId and newPasscode are required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          "UPDATE mbi_users SET passcode_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
+          [newPasscode, userId]
+        );
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        const target = localList.find((u) => u.id === userId);
+        if (target) {
+          target.passcode = newPasscode;
+          target.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+          import_fs9.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "USER_PASSCODE_CHANGED",
+      payload: { userId, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({ success: true, message: `Passcode updated for user ${userId}` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error resetting passcode" });
+  }
+});
+fleetRouter.post("/users/kill-switch", async (req, res) => {
+  try {
+    const { userId, isKilled } = req.body;
+    const flag = isKilled ? 1 : 0;
+    const statusVal = isKilled ? "Suspended" : "Active";
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          "UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
+          [flag, statusVal, userId]
+        );
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        const target = localList.find((u) => u.id === userId);
+        if (target) {
+          target.status = statusVal;
+          target.isKillSwitchActive = Boolean(isKilled);
+          import_fs9.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "USER_REMOTE_KILL_SWITCH",
+      payload: { userId, isKilled: Boolean(isKilled) }
+    });
+    res.json({ success: true, message: `Remote kill switch ${isKilled ? "ACTIVATED" : "LIFTED"} for user ${userId}` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error updating kill switch" });
+  }
+});
+fleetRouter.post("/users/delete", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      res.status(400).json({ success: false, error: "userId is required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        let localList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        localList = localList.filter((u) => u.id !== userId);
+        import_fs9.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "USER_DELETED",
+      payload: { userId }
+    });
+    res.json({ success: true, message: `User ${userId} deleted successfully` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error deleting user" });
+  }
+});
 
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));

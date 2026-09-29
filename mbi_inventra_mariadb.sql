@@ -704,6 +704,122 @@ CREATE TABLE IF NOT EXISTS `mbi_ai_chat_history` (
   KEY `idx_ai_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ----------------------------------------------------------------------------
+-- 17. PARTIES & PARTY TRANSACTIONS (UNIFIED KHATA ENGINE)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_parties` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(64) NOT NULL DEFAULT 'customer',
+  `phone` VARCHAR(64) NULL,
+  `city` VARCHAR(128) NULL DEFAULT 'Lahore',
+  `address` TEXT NULL,
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `current_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `credit_limit` DECIMAL(12,2) NOT NULL DEFAULT 100000.00,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mbiparty_tenant` (`tenant_id`),
+  KEY `idx_mbiparty_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mbi_party_transactions` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `party_id` VARCHAR(128) NOT NULL,
+  `reference_id` VARCHAR(128) NULL,
+  `transaction_type` VARCHAR(64) NOT NULL DEFAULT 'SALE',
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `debit` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `credit` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `running_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `notes` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_partytrx_tenant` (`tenant_id`),
+  KEY `idx_partytrx_party` (`party_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- 18. CHECKOUT ORDERS & PROMOTIONAL COUPONS
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_checkout_orders` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `business_name` VARCHAR(255) NOT NULL,
+  `owner_name` VARCHAR(255) NOT NULL,
+  `username` VARCHAR(128) NULL,
+  `whatsapp` VARCHAR(64) NOT NULL,
+  `email` VARCHAR(255) NULL,
+  `city` VARCHAR(128) NULL DEFAULT 'Lahore',
+  `plan_id` VARCHAR(64) NOT NULL DEFAULT 'business',
+  `plan_name` VARCHAR(128) NOT NULL DEFAULT 'Gold Business',
+  `billing_interval` VARCHAR(32) NOT NULL DEFAULT '1year',
+  `amount_rupees` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `payment_method` VARCHAR(64) NOT NULL DEFAULT 'Meezan Bank',
+  `trx_id` VARCHAR(128) NULL,
+  `payment_screenshot` LONGTEXT NULL,
+  `notes` TEXT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_chk_tenant` (`tenant_id`),
+  KEY `idx_chk_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mbi_promotional_coupons` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL DEFAULT 'global',
+  `code` VARCHAR(64) NOT NULL,
+  `discount_type` VARCHAR(32) NOT NULL DEFAULT 'PERCENT',
+  `discount_value` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `min_order_amount` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `max_discount_cap` DECIMAL(10,2) NULL,
+  `expiry_date` DATE NOT NULL,
+  `usage_limit` INT NOT NULL DEFAULT 100,
+  `times_used` INT NOT NULL DEFAULT 0,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_coupon_tenant` (`tenant_id`),
+  KEY `idx_coupon_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- 19. BROADCASTS & DATABASE BACKUPS
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_broadcasts` (
+  `id` VARCHAR(128) NOT NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `message` LONGTEXT NOT NULL,
+  `target_scope` VARCHAR(64) NOT NULL DEFAULT 'ALL',
+  `target_tenant_id` VARCHAR(128) NULL,
+  `priority` VARCHAR(32) NOT NULL DEFAULT 'NORMAL',
+  `created_by` VARCHAR(128) NOT NULL DEFAULT 'Master Admin',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mbi_database_backups` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL DEFAULT 'global',
+  `filename` VARCHAR(255) NOT NULL,
+  `file_size_bytes` BIGINT NOT NULL DEFAULT 0,
+  `backup_type` VARCHAR(64) NOT NULL DEFAULT 'AUTOMATED_MIDNIGHT',
+  `record_count` INT NOT NULL DEFAULT 0,
+  `checksum_sha256` VARCHAR(128) NULL,
+  `storage_location` VARCHAR(255) NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_backup_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
 -- SEED ESSENTIAL MASTER DEFAULT DATA
 -- ============================================================================

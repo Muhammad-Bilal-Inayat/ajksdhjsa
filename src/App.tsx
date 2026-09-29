@@ -143,6 +143,7 @@ import { LedgersStatementsPage } from './pages/LedgersStatementsPage';
 import { PurchaseInvoicePage } from './pages/PurchaseInvoicePage';
 import { SaleInvoicePage } from './pages/SaleInvoicePage';
 import { PartiesManagementPage } from './pages/PartiesManagementPage';
+import { MasterServerHub } from './pages/MasterServerHub';
 
 // Code-splitting / Lazy-loaded routes for secondary/marketing/external screens
 const Pricing = lazyWithRetry(() => import('./pages/Pricing').then(m => ({ default: m.Pricing })));
@@ -163,7 +164,6 @@ const SyncHealthPage = lazyWithRetry(() => import('./pages/SyncHealthPage'));
 const BlogListingPage = lazyWithRetry(() => import('./pages/BlogListingPage').then(m => ({ default: m.BlogListingPage })));
 const BlogDetailPage = lazyWithRetry(() => import('./pages/BlogDetailPage').then(m => ({ default: m.BlogDetailPage })));
 const CheckoutPage = lazyWithRetry(() => import('./pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
-const MasterServerHub = lazyWithRetry(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
 const HelpDeskPage = lazyWithRetry(() => import('./pages/HelpDeskPage').then(m => ({ default: m.HelpDeskPage })));
 const SoftwareUpdatesPage = lazyWithRetry(() => import('./pages/SoftwareUpdatesPage').then(m => ({ default: m.SoftwareUpdatesPage })));
 const AiAssistantPage = lazyWithRetry(() => import('./pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
@@ -453,7 +453,6 @@ function AppRoutes() {
           <Route path="/updates" element={<RoleAccessGuard><SoftwareUpdatesPage /></RoleAccessGuard>} />
           <Route path="/software-updates" element={<RoleAccessGuard><SoftwareUpdatesPage /></RoleAccessGuard>} />
           <Route path="/dashboard" element={<RoleAccessGuard><Dashboard /></RoleAccessGuard>} />
-          <Route path="/server" element={<RoleAccessGuard><ServerOverviewPage /></RoleAccessGuard>} />
           <Route path="/online-store" element={<RoleAccessGuard><OnlineStoreManagement /></RoleAccessGuard>} />
           <Route path="/billing" element={<RoleAccessGuard><Billing /></RoleAccessGuard>} />
           <Route path="/sale" element={<RoleAccessGuard><Billing /></RoleAccessGuard>} />
@@ -570,9 +569,10 @@ function TrialExpiryHardLockOverlay() {
     };
   }, []);
 
-  // Bypass on backend server hub or authentication pages
+  // Bypass on backend server hub, lan hub, or authentication pages
   const isBypass = 
     location.pathname.startsWith('/server') || 
+    location.pathname.startsWith('/lan') || 
     location.pathname.startsWith('/master') ||
     location.pathname === '/login' ||
     location.pathname === '/register';
@@ -598,6 +598,7 @@ function DeviceAuthorizationOverlay() {
 
   const isBypass = 
     location.pathname.startsWith('/server') || 
+    location.pathname.startsWith('/lan') || 
     location.pathname.startsWith('/master') ||
     location.pathname === '/login' ||
     location.pathname === '/register';

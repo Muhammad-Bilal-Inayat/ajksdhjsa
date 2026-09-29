@@ -104,8 +104,8 @@ export const initializePwaService = () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               waitingWorker = newWorker;
               notifyListeners({
-                version: '4.2.0',
-                releaseNotes: 'New POS Billing Speed, Seamless Zero-Logout PWA Hot Updates & Soft Slate UI Enhancements',
+                version: '4.2.1',
+                releaseNotes: 'LAN Multi-PC Counter Sync Hub, Zero-Crash Offline Throttle, Universal User Popup Broadcast & Server Direct Access',
                 isUpdateAvailable: true
               });
             }

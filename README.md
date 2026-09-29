@@ -1,20 +1,55 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
+**Version:** `v4.2.1-stable` | **Release Channel:** `Enterprise Production`
 
-# Run and deploy your AI Studio app
+MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/b0808758-c29c-494b-ab41-4bc8abe94b62
+## 🌟 What's New in v4.2.1
+- **Direct Master Hub & LAN Station Access:** Resolved chunk load fallbacks by directly mounting `/server`, `/lan`, and `/server/lan` for instant opening with Master Security Key (`Ami7788!@` / `03082003`).
+- **LAN Multi-PC Counter Sync Hub (`/lan`):** Connect secondary cashier laptops and billing counters directly via Ethernet LAN cable or local Wi-Fi router (0.8ms latency) without requiring active internet.
+- **Universal User Popup Broadcast:** Push instant interactive modal announcements with audio chimes and read-acknowledgments to all or specific pharmacy counters in real time via SSE.
+- **Zero-Crash Low-Speed & Offline Guard:** Throttles delta mutations smoothly in batches of 5–10 items over slow dial-up/2G connections, preventing browser lockups and database timeouts.
+- **Unified 25 Master Hub Tabs:** 100% mutual synchronization across MariaDB (`mbi_users`, `mbi_tenants`, `mbi_licenses`, `mbi_audit_logs`), local caches, and the client portal.
+- **Official MBI PWA & Favicon Branding:** Enhanced vector SVG and high-resolution icons for desktop/mobile PWA installations.
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## 🚀 Key Master Server Routes
+| Route | Description | Access Level |
+|---|---|---|
+| `/server` | Master Server Hub (25 Fleet Operations Tabs) | Master PIN (`Ami7788!@` / `03082003`) |
+| `/lan` or `/server/lan` | LAN Multi-PC Counter Sync & User Broadcast Hub | Master PIN Protected |
+| `/user` | Client Pharmacy POS, Billing, Inventory & Ledgers | Authenticated Staff / Cashier |
+| `/login` & `/register` | Staff Authentication & 1-Device Hardware Binding | Public / Tenant |
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 💻 Local & Server Setup Instructions
+
+### 1. Prerequisites
+- **Node.js:** v18+ / v20+ / v22+
+- **Database:** MariaDB / MySQL (or built-in local sync cache engine)
+
+### 2. Installation & Running
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Run local development server
+npm run dev
+
+# 3. Production Build
+npm run build
+```
+
+### 3. Database Schema Import
+Import the comprehensive schema located at [`server/db/mbi_inventra_master_schema.sql`](server/db/mbi_inventra_master_schema.sql) into phpMyAdmin or MariaDB:
+```bash
+mysql -u root -p mbi72dn < server/db/mbi_inventra_master_schema.sql
+```
+
+---
+
+## 🛡️ License & Copyright
+© 2026 MBI INVENTRA. All rights reserved. Developed with advanced agentic engineering.

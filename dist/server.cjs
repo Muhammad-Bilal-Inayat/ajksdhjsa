@@ -9670,8 +9670,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.2.0";
-var RELEASE_NOTES = "New POS Billing Speed, Seamless Zero-Logout PWA Hot Updates & Soft Slate UI Enhancements";
+var APP_VERSION2 = "4.2.1";
+var RELEASE_NOTES = "LAN Multi-PC Counter Sync Hub, Zero-Crash Offline Throttle, Universal User Popup Broadcast & Server Direct Access";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

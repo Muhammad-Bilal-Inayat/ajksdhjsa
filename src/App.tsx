@@ -580,6 +580,8 @@ function DeviceAuthorizationOverlay() {
     location.pathname.startsWith('/server') || 
     location.pathname.startsWith('/lan') || 
     location.pathname.startsWith('/master') ||
+    location.pathname === '/' ||
+    location.pathname === '/home' ||
     location.pathname === '/login' ||
     location.pathname === '/register';
 

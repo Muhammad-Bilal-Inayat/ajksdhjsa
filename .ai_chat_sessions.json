@@ -1,5 +1,36 @@
 [
   {
+    "id": "sess_admin-master_1790665610165",
+    "userId": "admin-master",
+    "userName": "Bilal Inayat (Primary Admin)",
+    "userEmail": "",
+    "userPhone": "",
+    "storeName": "MBI INVENTRA",
+    "tenantId": "tenant-main-01",
+    "plan": "Pharmacy Pro",
+    "pageContext": "user",
+    "status": "active_ai",
+    "isHumanAssigned": false,
+    "totalClicks": 1,
+    "unreadCountForServer": 0,
+    "unreadCountForUser": 0,
+    "lastMessage": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+    "lastMessageSender": "ai",
+    "lastMessageAt": "2026-09-29T09:29:29.032Z",
+    "createdAt": "2026-09-29T09:29:29.032Z",
+    "updatedAt": "2026-09-29T09:29:29.032Z",
+    "messages": [
+      {
+        "id": "msg_init_1790674169032",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+        "timestamp": "2026-09-29T09:29:29.032Z",
+        "status": "delivered"
+      }
+    ]
+  },
+  {
     "id": "sess_u_1790667685875_1790667824766",
     "userId": "u_1790667685875",
     "userName": "bbb",

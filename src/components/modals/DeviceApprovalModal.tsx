@@ -20,6 +20,7 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
   isOpen = true,
   onClose
 }) => {
+  const [hasConfirmedUnauthorized, setHasConfirmedUnauthorized] = useState(false);
   const [authStatus, setAuthStatus] = useState<DeviceAuthStatus>(() => 
     deviceSecurityService.checkDeviceAuthorization(tenantId, userId)
   );
@@ -30,9 +31,16 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const handleCheck = () => {
       const status = deviceSecurityService.checkDeviceAuthorization(tenantId, userId);
-      setAuthStatus(status);
+      if (isMounted) {
+        setAuthStatus(status);
+        if (status.isAuthorized) {
+          setHasConfirmedUnauthorized(false);
+        }
+      }
     };
 
     const handleDeviceApproved = async (e: any) => {
@@ -41,11 +49,15 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
       setRestoreMessage('Device approved by Master Admin! Restoring complete pharmacy data from Cloud MariaDB...');
       
       const res = await syncEngine.restoreTenantCloudData(approvedTenant, true);
-      setIsRestoring(false);
+      if (isMounted) setIsRestoring(false);
       
       if (res.success) {
         emitToast(`Data restored: ${res.count} records synchronized!`, 'success');
-        setAuthStatus(deviceSecurityService.checkDeviceAuthorization(tenantId, userId));
+        const nextStatus = deviceSecurityService.checkDeviceAuthorization(tenantId, userId);
+        if (isMounted) {
+          setAuthStatus(nextStatus);
+          setHasConfirmedUnauthorized(false);
+        }
         if (onClose) onClose();
       }
     };
@@ -67,21 +79,38 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
             try {
               localStorage.setItem('mbi_bound_hwid', authStatus.hwid);
             } catch {}
-            setAuthStatus({
-              isAuthorized: true,
-              hwid: authStatus.hwid,
-              currentHwid: authStatus.hwid,
-              boundHwid: authStatus.hwid,
-              reason: null
-            });
+            if (isMounted) {
+              setAuthStatus({
+                isAuthorized: true,
+                hwid: authStatus.hwid,
+                currentHwid: authStatus.hwid,
+                boundHwid: authStatus.hwid,
+                reason: null
+              });
+              setHasConfirmedUnauthorized(false);
+            }
             if (onClose) onClose();
+            return;
+          } else {
+            if (isMounted) setHasConfirmedUnauthorized(true);
+          }
+        } else {
+          // If offline or network error, rely on local service status after grace period
+          if (isMounted && !authStatus.isAuthorized) {
+            setHasConfirmedUnauthorized(true);
           }
         }
-      } catch {}
+      } catch {
+        if (isMounted && !authStatus.isAuthorized) {
+          setHasConfirmedUnauthorized(true);
+        }
+      }
     };
 
     if (!authStatus.isAuthorized) {
       verifyCloudStatus();
+    } else {
+      setHasConfirmedUnauthorized(false);
     }
 
     window.addEventListener('mbi-devices-updated', handleCheck);
@@ -93,9 +122,10 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
       if (!authStatus.isAuthorized) {
         verifyCloudStatus();
       }
-    }, 4000);
+    }, 5000);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('mbi-devices-updated', handleCheck);
       window.removeEventListener('mbi-device-authorized', handleDeviceApproved);
       window.removeEventListener('storage', handleCheck);
@@ -103,7 +133,8 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
     };
   }, [tenantId, userId, onClose, authStatus.hwid, authStatus.isAuthorized]);
 
-  if (!isOpen || authStatus.isAuthorized) {
+  // NEVER flash or show unless explicitly verified unauthorized
+  if (!isOpen || authStatus.isAuthorized || !hasConfirmedUnauthorized) {
     return null;
   }
 

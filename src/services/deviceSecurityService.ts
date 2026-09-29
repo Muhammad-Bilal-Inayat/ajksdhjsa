@@ -234,8 +234,27 @@ class DeviceSecurityService {
       }
     } catch {}
 
-    // 2nd Device Lock: If license is bound to a different HWID and not authorized
-    if (license?.boundHwid && license.boundHwid !== currentHwid) {
+    // If 10-day trial or basic plan, or if stored bound HWID was previously set to this device, auto-bind
+    if (!license?.plan || license?.plan === 'Basic' || license?.plan.includes('Trial') || license?.licenseKey?.startsWith('MBI-TR-')) {
+      if (license) {
+        license.boundHwid = currentHwid;
+        license.currentHwid = currentHwid;
+        saveLicenseInfo(license);
+      }
+      try {
+        localStorage.setItem('mbi_bound_hwid', currentHwid);
+      } catch {}
+      return {
+        isAuthorized: true,
+        hwid: currentHwid,
+        currentHwid,
+        boundHwid: currentHwid,
+        reason: null
+      };
+    }
+
+    // 2nd Device Lock: Only if an active multi-device / gold commercial license is bound to a different HWID and not authorized
+    if (license?.boundHwid && license.boundHwid !== currentHwid && !isStoredPlaceholder) {
       return {
         isAuthorized: false,
         hwid: currentHwid,

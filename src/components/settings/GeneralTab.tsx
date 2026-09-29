@@ -14,6 +14,7 @@ import {
 } from '../../lib/backupManager';
 import { AccountUsageService, TenantUsageInfo } from '../../lib/accountUsageService';
 import { UpgradePlanModal } from '../pricing/UpgradePlanModal';
+import { APP_VERSION } from '../../config/appVersion';
 
 export const GeneralTab: React.FC = () => {
   const { 
@@ -818,7 +819,7 @@ export const GeneralTab: React.FC = () => {
             <div className="space-y-1.5 text-xs text-slate-600 pt-1">
               <div className="flex justify-between py-0.5 border-b border-slate-100">
                 <span>Version:</span>
-                <span className="font-bold text-slate-800">MBI Inventra v4.2.0 Enterprise</span>
+                <span className="font-bold text-slate-800">MBI Inventra {APP_VERSION} Enterprise</span>
               </div>
               <div className="flex justify-between py-0.5 border-b border-slate-100">
                 <span>Mode:</span>

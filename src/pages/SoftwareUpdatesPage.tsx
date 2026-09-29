@@ -15,6 +15,7 @@ import {
   Server,
   ArrowUpRight
 } from 'lucide-react';
+import { APP_VERSION_STABLE } from '../config/appVersion';
 import { ReleaseChangelogCard } from '../components/updates/ReleaseChangelogCard';
 import { useTenantPlan } from '../context/TenantPlanContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +28,7 @@ export const SoftwareUpdatesPage: React.FC = () => {
   const [checking, setChecking] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [currentVersion] = useState('v4.2.0-stable');
+  const [currentVersion] = useState(APP_VERSION_STABLE);
   const [channel] = useState('Production Stable (Enterprise OTA)');
   const [swStatus, setSwStatus] = useState<'active' | 'updating' | 'offline_ready'>('offline_ready');
 
@@ -48,7 +49,7 @@ export const SoftwareUpdatesPage: React.FC = () => {
     
     setTimeout(() => {
       setChecking(false);
-      setStatusMessage('✨ You are running the latest production build (v4.2.0-stable). All features and security patches are active.');
+      setStatusMessage(`✨ You are running the latest production build (${APP_VERSION_STABLE}). All features and security patches are active.`);
       emitToast('Software is 100% up to date!', 'success');
     }, 1200);
   };

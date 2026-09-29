@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.2.7';
-export const RELEASE_NOTES = 'Completely Removed All Auto-Reload Listeners for 100% Stable Persistent POS Session';
+export const APP_VERSION = '4.2.8';
+export const RELEASE_NOTES = 'Trial Countdown Banner & Header Dropdown Layering Polished (v4.2.8)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

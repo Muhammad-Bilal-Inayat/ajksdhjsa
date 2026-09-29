@@ -37,10 +37,45 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.2.0-stable',
+    version: 'v4.2.8-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Polished Trial Countdown Banner and Header dropdown layering, 100% Rock-Solid Zero Auto-Reload Stability, and LAN Multi-PC Counter Sync Hub.',
+    features: [
+      {
+        text: 'Polished Top Trial Countdown Banner & Micro-Header dropdown layering without visual obstruction.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: '100% Zero-Reload POS Cashier Stability: completely removed disruptive auto-reload hooks.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'LAN Multi-PC Counter Sync Station (/lan) for offline ethernet LAN billing without cloud dependency.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Real-Time Universal User Broadcast announcements with interactive modal popups and audio chimes.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Persistent authenticated local sessions with zero unexpected logouts.',
+        type: 'security',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.2.0-stable',
+    releaseDate: 'September 2026',
+    tag: 'Production Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Polished dual-theme system, Full-screen Purchase & Billing Workspace, Multi-language AI assistant, and plan-governed live release feed.',
     features: [

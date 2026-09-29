@@ -5,6 +5,7 @@ import {
   ExternalLink, Sparkles
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { APP_VERSION_STABLE } from '../../config/appVersion';
 
 export const HelpSupportTab: React.FC = () => {
   const { business } = useAuth();
@@ -245,7 +246,7 @@ export const HelpSupportTab: React.FC = () => {
           </div>
         </div>
         <div className="text-[11px] font-semibold text-slate-400">
-          v4.2.0 Stable
+          {APP_VERSION_STABLE}
         </div>
       </div>
 

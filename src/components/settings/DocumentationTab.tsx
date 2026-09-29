@@ -8,6 +8,7 @@ import {
   RefreshCw, GitBranch, Bell
 } from 'lucide-react';
 import { SystemUpdatesTab } from './SystemUpdatesTab';
+import { APP_VERSION } from '../../config/appVersion';
 
 interface DocChapter {
   id: string;
@@ -286,7 +287,7 @@ export const DocumentationTab: React.FC = () => {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Software Updates (v4.2)</span>
+              <span>Software Updates ({APP_VERSION})</span>
             </button>
           </div>
         </div>

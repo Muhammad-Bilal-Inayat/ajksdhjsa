@@ -1,4 +1,4 @@
-// PWA Service Worker & Zero-Logout Hot-Update Engine for MBI INVENTRA
+import { APP_VERSION_RAW } from '../config/appVersion';
 
 export interface AppVersionInfo {
   version: string;
@@ -7,7 +7,7 @@ export interface AppVersionInfo {
   isUpdateAvailable: boolean;
 }
 
-export const CURRENT_CLIENT_VERSION = '4.2.7';
+export const CURRENT_CLIENT_VERSION = APP_VERSION_RAW;
 export const CURRENT_CACHE_NAME = `mbi-inventra-v${CURRENT_CLIENT_VERSION}`;
 
 type UpdateCallback = (info: AppVersionInfo) => void;

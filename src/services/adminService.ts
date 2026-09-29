@@ -1,4 +1,5 @@
 import { TenantFeatureMap, getDefaultFeatureMap } from '../types/features';
+import { APP_VERSION } from '../config/appVersion';
 
 export interface TenantTelemetryRecord {
   id: string;
@@ -210,7 +211,7 @@ class AdminService {
         city: 'Lahore',
         plan: 'Platinum',
         status: 'Active',
-        appVersion: 'v4.2.0',
+        appVersion: APP_VERSION,
         salesRevenue: 485000,
         outstandingBalance: 0,
         activeHwid: 'HWID-PK99-WIN11-SEC01',
@@ -235,7 +236,7 @@ class AdminService {
         city: 'Sargodha',
         plan: 'Gold',
         status: 'Active',
-        appVersion: 'v4.2.0',
+        appVersion: APP_VERSION,
         salesRevenue: 620000,
         outstandingBalance: 12500,
         activeHwid: 'HWID-SD88-HP-LAPTOP',

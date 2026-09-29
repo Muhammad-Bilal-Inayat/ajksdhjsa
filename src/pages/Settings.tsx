@@ -23,6 +23,7 @@ import { AdminSettingsTab } from '../components/settings/AdminSettingsTab';
 import { DocumentationTab } from '../components/settings/DocumentationTab';
 import { BackupRestoreTab } from '../components/settings/BackupRestoreTab';
 import { BarcodeGeneratorTab } from '../components/settings/BarcodeGeneratorTab';
+import { APP_VERSION } from '../config/appVersion';
 import { ManualPatchTab } from '../components/settings/ManualPatchTab';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,7 +63,7 @@ export const SETTINGS_TABS: TabItem[] = [
   { key: 'GENERAL', label: 'GENERAL', icon: Sliders },
   { key: 'NAVIGATION & MENU PREFERENCES', label: 'MENU & NAVIGATION', icon: Sliders, badge: 'PRIMARY' },
   { key: 'BACKUP & RESTORE', label: 'BACKUP & RESTORE', icon: ShieldCheck, badge: 'VERIFIED' },
-  { key: 'DOCUMENTATION', label: 'DOCUMENTATION & UPDATES', icon: BookOpen, badge: 'v4.2' },
+  { key: 'DOCUMENTATION', label: 'DOCUMENTATION & UPDATES', icon: BookOpen, badge: APP_VERSION },
   { key: 'ADMIN SETTINGS', label: 'ADMIN SETTINGS & FLAGS', icon: ShieldCheck, badge: 'ADMIN' },
   { key: 'SAFETY & LOCK', label: 'SAFETY & PERIOD LOCK', icon: ShieldCheck },
   { key: 'TRANSACTION', label: 'INVOICE BILLING', icon: Layers },

@@ -11,6 +11,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { emitToast } from '../../contexts/ToastContext';
 import { ReleaseChangelogCard } from '../updates/ReleaseChangelogCard';
 
+import { APP_VERSION, APP_RELEASE_TITLE, APP_RELEASE_DATE } from '../../config/appVersion';
+
 interface VersionRelease {
   version: string;
   releaseDate: string;
@@ -22,36 +24,37 @@ interface VersionRelease {
 
 const BASE_RELEASE_HISTORY: VersionRelease[] = [
   {
-    version: 'v4.2.0 (Enterprise Gold)',
-    releaseDate: 'September 2026',
+    version: APP_RELEASE_TITLE,
+    releaseDate: APP_RELEASE_DATE,
     tag: 'Latest Production Release',
     isLatest: true,
     highlights: [
+      'Top Trial Countdown Banner & Header dropdown layering polished with zero visual cutoff.',
+      '100% Rock-Solid Zero Auto-Reload Stability: cashier sessions stay active without unexpected reloads.',
+      'LAN Multi-PC Counter Sync Station (/lan) for direct offline local ethernet billing.',
+      'Universal User Modal Broadcast System with real-time audio chimes & acknowledgments.',
       'Loss Prevention Engine: Hard dual-confirmation prompt when sales rate is lower than purchase cost.',
-      'Global Support Helpline Sync: Administrator phone, WhatsApp, and email update instantly across all invoices, footers, and help sections.',
-      'Universal 3-Dots Action Menu: Direct view, WhatsApp share, copy, master-permission edit, and delete across Invoices, Purchases, and Inventory items.',
-      'Centralized Smart Notifications Hub: Real-time near-expiry alerts (30/60/90 days), out-of-stock shortages, and cashier shift summaries.',
-      'Complete SEO & Schema.org Rich Metadata: High-indexing pharmacy and enterprise medical management structured data.'
+      'Global Support Helpline Sync: Administrator phone, WhatsApp, and email update instantly across all invoices, footers, and help sections.'
     ],
     fixes: [
-      'Eliminated demo indicators for active licenses (restricted strictly to 3-day trial mode).',
-      'Harmonized Cloud Sync engine terminology and removed internal backend keywords from client UI.',
-      'Full responsive scaling across Mobile, Tablet, and Desktop displays.'
+      'Fixed z-index layering on Company Switcher and Top Micro Bar flyout menus.',
+      'Fixed missing Network icon reference in Master Server Hub.',
+      'Eliminated demo indicators for active licenses (restricted strictly to 3-day trial mode).'
     ]
   },
   {
-    version: 'v4.1.8',
-    releaseDate: 'August 2026',
+    version: 'v4.2.0 (Enterprise Gold)',
+    releaseDate: 'September 2026',
     tag: 'Stable',
     isLatest: false,
     highlights: [
-      'Multi-Item Shortage Demand Bill generator with WhatsApp dispatch to distributors.',
-      'Custom Sidebar Navigation Sequence and Order Manager with drag-free reordering.',
-      'Thermal 80mm & 58mm ESC/POS direct USB receipt printing optimization.'
+      'Full-Screen Multi-Tab Purchase & Sale Workspaces with 12-Column Rapid Grid.',
+      'Polished Dual-Theme Workspace with automatic dark mode contrast calibration.',
+      'FEFO Near-Expiry Radar with 30/60/90 days automatic alert badges.'
     ],
     fixes: [
-      'Fixed IndexedDB transaction lock on simultaneous bulk invoice saves.',
-      'Added high-precision tax rounding and FBR / GST invoice print headers.'
+      'Harmonized Cloud Sync engine terminology and removed internal backend keywords from client UI.',
+      'Full responsive scaling across Mobile, Tablet, and Desktop displays.'
     ]
   }
 ];
@@ -62,7 +65,7 @@ export const SystemUpdatesTab: React.FC = () => {
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [installedVersion, setInstalledVersion] = useState('v4.2.0');
+  const [installedVersion, setInstalledVersion] = useState(APP_VERSION);
   const [pendingUpdates, setPendingUpdates] = useState<PendingSystemUpdate[]>([]);
   const [installingUpdateId, setInstallingUpdateId] = useState<string | null>(null);
 

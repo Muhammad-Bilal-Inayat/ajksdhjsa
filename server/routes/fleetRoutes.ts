@@ -1,20 +1,59 @@
 import express, { Response } from 'express';
-import { getMariaDbPool } from '../db/mariaClient';
+import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
+import fs from 'fs';
+import path from 'path';
 
 export const fleetRouter = express.Router();
+const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 
 // 1. Get all fleet tenants from mbi_tenants with user & license counts
 fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const pool = getMariaDbPool();
-    const [tenants]: any = await pool.query(
-      `SELECT t.*, 
-        (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.tenant_id) as user_count,
-        (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.tenant_id) as invoice_count
-       FROM mbi_tenants t
-       ORDER BY t.created_at DESC;`
-    );
+    let tenants: any[] = [];
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [rows]: any = await pool.query(
+          `SELECT t.*, 
+            (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id) as user_count,
+            (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count
+           FROM mbi_tenants t
+           ORDER BY t.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          tenants = rows;
+        }
+      } catch (dbErr) {}
+    }
+
+    // Merge with fallback storage
+    if (fs.existsSync(syncFile)) {
+      try {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
+        const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
+        const existingIds = new Set(tenants.map(t => t.id || t.tenant_id));
+        for (const ft of fallbackTenants) {
+          const tid = ft.id || ft.tenantId || ft.tenant_id;
+          if (tid && !existingIds.has(tid)) {
+            tenants.push({
+              id: tid,
+              tenant_id: tid,
+              name: ft.name || ft.storeName || 'Pharmacy Client',
+              owner_name: ft.ownerName || 'Owner',
+              owner_phone: ft.ownerPhone || ft.phone || '',
+              owner_email: ft.ownerEmail || ft.email || '',
+              city: ft.city || 'Lahore',
+              plan: ft.plan || ft.planId || 'Basic',
+              status: ft.status || 'Active',
+              created_at: ft.trialStartDate || new Date().toISOString()
+            });
+            existingIds.add(tid);
+          }
+        }
+      } catch (e) {}
+    }
 
     res.json({
       success: true,
@@ -34,37 +73,41 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
     const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
 
-    const pool = getMariaDbPool();
-    await pool.query(
-      `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON DUPLICATE KEY UPDATE 
-         name = VALUES(name),
-         owner_name = VALUES(owner_name),
-         owner_phone = VALUES(owner_phone),
-         owner_email = VALUES(owner_email),
-         city = VALUES(city),
-         address = VALUES(address),
-         plan = VALUES(plan),
-         status = VALUES(status),
-         drug_license_no = VALUES(drug_license_no),
-         ntn_number = VALUES(ntn_number),
-         updated_at = CURRENT_TIMESTAMP;`,
-      [
-        cleanId,
-        cleanTenantId,
-        name || 'Pharmacy Store',
-        owner_name || 'Store Admin',
-        owner_phone || '',
-        owner_email || '',
-        city || 'Lahore',
-        address || '',
-        plan || 'Business',
-        status || 'Active',
-        drug_license_no || '',
-        ntn_number || ''
-      ]
-    );
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             owner_name = VALUES(owner_name),
+             owner_phone = VALUES(owner_phone),
+             owner_email = VALUES(owner_email),
+             city = VALUES(city),
+             address = VALUES(address),
+             plan = VALUES(plan),
+             status = VALUES(status),
+             drug_license_no = VALUES(drug_license_no),
+             ntn_number = VALUES(ntn_number),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [
+            cleanId,
+            cleanTenantId,
+            name || 'Pharmacy Store',
+            owner_name || 'Store Admin',
+            owner_phone || '',
+            owner_email || '',
+            city || 'Lahore',
+            address || '',
+            plan || 'Business',
+            status || 'Active',
+            drug_license_no || '',
+            ntn_number || ''
+          ]
+        );
+      } catch (dbErr) {}
+    }
 
     res.json({
       success: true,
@@ -85,8 +128,12 @@ fleetRouter.post('/tenants/delete', async (req: TenantRequest, res: Response): P
       return;
     }
 
-    const pool = getMariaDbPool();
-    await pool.query('DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;', [tenant_id, tenant_id]);
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query('DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;', [tenant_id, tenant_id]);
+      } catch (dbErr) {}
+    }
 
     res.json({ success: true, message: `Tenant ${tenant_id} removed.` });
   } catch (err: any) {
@@ -97,8 +144,31 @@ fleetRouter.post('/tenants/delete', async (req: TenantRequest, res: Response): P
 // 4. Get all registration trial leads
 fleetRouter.get('/leads', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const pool = getMariaDbPool();
-    const [leads]: any = await pool.query('SELECT * FROM mbi_registration_leads ORDER BY created_at DESC;');
+    let leads: any[] = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [rows]: any = await pool.query('SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;');
+        if (Array.isArray(rows)) {
+          leads = rows;
+        }
+      } catch (dbErr) {}
+    }
+
+    if (fs.existsSync(syncFile)) {
+      try {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
+        const fallbackLeads = syncData.mbi_registration_leads || syncData.registration_leads || [];
+        const existingIds = new Set(leads.map(l => l.id));
+        for (const fl of fallbackLeads) {
+          if (fl && fl.id && !existingIds.has(fl.id)) {
+            leads.push(fl);
+            existingIds.add(fl.id);
+          }
+        }
+      } catch (e) {}
+    }
+
     res.json({ success: true, count: leads.length, leads });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error fetching leads' });

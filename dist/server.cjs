@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_config = require("dotenv/config");
 var import_express15 = __toESM(require("express"));
-var import_path13 = __toESM(require("path"));
-var import_fs13 = __toESM(require("fs"));
+var import_path14 = __toESM(require("path"));
+var import_fs14 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -4540,6 +4540,24 @@ adminRouter.post("/database/export/:tableName", exportTableDataController);
 adminRouter.get("/database/export/:tableName", exportTableDataController);
 adminRouter.get("/database/sql-dump", generateSqlDumpController);
 adminRouter.post("/database/sql-dump", generateSqlDumpController);
+adminRouter.get("/database/schema-download", (req, res) => {
+  const schemaPath = import_path6.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs6.default.existsSync(schemaPath)) {
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
+    return res.sendFile(schemaPath);
+  }
+  return res.status(404).send("Schema file not found");
+});
+adminRouter.get("/schema-download", (req, res) => {
+  const schemaPath = import_path6.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs6.default.existsSync(schemaPath)) {
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
+    return res.sendFile(schemaPath);
+  }
+  return res.status(404).send("Schema file not found");
+});
 adminRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
@@ -6393,32 +6411,135 @@ async function registerTrialController(req, res) {
         }
         await pool2.query(
           `INSERT INTO mbi_tenants (
-             id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
-             plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at
+             id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
+             plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
            ) VALUES (
              ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-             'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?
+             'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?, CURRENT_TIMESTAMP
            )
            ON DUPLICATE KEY UPDATE 
              name = VALUES(name),
+             plan = 'Basic',
              plan_id = 'Basic',
              status = 'Active',
              subscription_plan = 'Basic',
              subscription_status = 'Active',
-             trial_expires_at = VALUES(trial_expires_at);`,
-          [tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
+             trial_expires_at = VALUES(trial_expires_at),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
         ).catch(() => {
         });
         await pool2.query(
-          `INSERT INTO mbi_users (id, tenant_id, name, email_or_phone, passcode, role, is_primary_owner, status, is_kill_switch_active, created_at)
-           VALUES (?, ?, ?, ?, ?, 'Owner', 1, 'Active', 0, ?)
-           ON DUPLICATE KEY UPDATE name = VALUES(name), status = 'Active';`,
-          [userId, tenantId, cleanUsername || cleanOwnerName, cleanPhone || cleanEmail || cleanUsername, cleanPassword, registrationDate]
+          `INSERT INTO mbi_users (
+             id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
+           ) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, ?, CURRENT_TIMESTAMP
+           )
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             username = VALUES(username),
+             passcode = VALUES(passcode),
+             status = 'Active',
+             is_online = 1,
+             updated_at = CURRENT_TIMESTAMP;`,
+          [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword, registrationDate]
+        ).catch(() => {
+        });
+        const leadId = `lead_${Date.now()}`;
+        await pool2.query(
+          `INSERT INTO mbi_registration_leads (
+             id, store_name, owner_name, username, phone, email, city, requested_plan, status, is_approved, activation_key, submitted_at, activated_at
+           ) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'activated', 1, ?, ?, ?
+           )
+           ON DUPLICATE KEY UPDATE 
+             store_name = VALUES(store_name),
+             status = 'activated',
+             is_approved = 1,
+             activated_at = VALUES(activated_at);`,
+          [leadId, cleanStoreName, cleanOwnerName, cleanUsername, cleanPhone, cleanEmail, cleanCity, generatedKey, registrationDate, registrationDate]
+        ).catch(() => {
+        });
+        const deviceId2 = `dev_${userId}_${clientHwid.slice(-6)}`;
+        await pool2.query(
+          `INSERT INTO mbi_devices (
+             id, tenant_id, user_id, device_name, device_type, platform, browser_info, os, hwid, installation_id, authorization_key, status, first_authorized_at, last_seen_at
+           ) VALUES (
+             ?, ?, ?, ?, 'Desktop', 'Windows', 'Web Terminal', ?, ?, ?, ?, 'Active', ?, ?
+           )
+           ON DUPLICATE KEY UPDATE 
+             status = 'Active',
+             last_seen_at = CURRENT_TIMESTAMP;`,
+          [deviceId2, tenantId, userId, clientDeviceModel, clientOs, clientHwid, clientHwid, generatedKey, registrationDate, registrationDate]
         ).catch(() => {
         });
       } catch (dbErr) {
       }
     }
+    const newLicense = {
+      id: licenseId,
+      tenantId,
+      licenseKey: generatedKey,
+      clientName: cleanStoreName,
+      ownerName: cleanOwnerName,
+      phone: cleanPhone,
+      city: cleanCity,
+      plan: "Basic",
+      status: "Active",
+      issueDate: registrationDate.slice(0, 10),
+      expiryDate: trialExpiry.slice(0, 10),
+      maxDevices: 10,
+      boundHardwareIds: [clientHwid]
+    };
+    const newTenant = {
+      id: tenantId,
+      tenantId,
+      name: cleanStoreName,
+      ownerName: cleanOwnerName,
+      ownerPhone: cleanPhone,
+      ownerEmail: cleanEmail,
+      city: cleanCity,
+      planId: "Basic",
+      plan: "Basic",
+      status: "Active",
+      subscriptionStatus: "Active",
+      trialExpiresAt: trialExpiry,
+      features: basicTrialFeatures
+    };
+    const newUser = {
+      id: userId,
+      tenantId,
+      tenant_id: tenantId,
+      name: cleanOwnerName || cleanUsername,
+      username: cleanUsername,
+      emailOrPhone: cleanPhone || cleanEmail || cleanUsername,
+      email: cleanEmail,
+      phone: cleanPhone,
+      passcode: cleanPassword,
+      role: "Owner",
+      status: "Active",
+      isPrimaryOwner: 1,
+      is_primary_owner: 1,
+      isPrimaryAdmin: 1,
+      is_primary_admin: 1,
+      isOnline: true,
+      is_online: 1
+    };
+    const newLead = {
+      id: `lead_${Date.now()}`,
+      storeName: cleanStoreName,
+      ownerName: cleanOwnerName,
+      username: cleanUsername,
+      phone: cleanPhone,
+      city: cleanCity,
+      email: cleanEmail,
+      requestedPlan: "Basic (10-Day Free Trial)",
+      status: "activated",
+      isApproved: true,
+      activationKey: generatedKey,
+      submittedAt: registrationDate,
+      activatedAt: registrationDate
+    };
     try {
       let syncData = {};
       if (import_fs7.default.existsSync(syncFile6)) {
@@ -6432,68 +6553,28 @@ async function registerTrialController(req, res) {
       if (!syncData.tenants) syncData.tenants = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
       if (!syncData.registration_leads) syncData.registration_leads = [];
-      const newLicense = {
-        id: licenseId,
-        licenseKey: generatedKey,
-        clientName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        plan: "Basic",
-        status: "Active",
-        issueDate: registrationDate.slice(0, 10),
-        expiryDate: trialExpiry.slice(0, 10),
-        maxDevices: 1,
-        boundHardwareIds: [clientHwid]
-      };
+      if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
       syncData.mbi_licenses.push(newLicense);
       syncData.client_licenses.push(newLicense);
-      const newTenant = {
-        id: tenantId,
-        tenantId,
-        name: cleanStoreName,
-        ownerName: cleanOwnerName,
-        ownerPhone: cleanPhone,
-        ownerEmail: cleanEmail,
-        city: cleanCity,
-        planId: "Basic",
-        plan: "Basic",
-        status: "Active",
-        subscriptionStatus: "Active",
-        trialExpiresAt: trialExpiry,
-        features: basicTrialFeatures
-      };
       syncData.mbi_tenants.push(newTenant);
       syncData.tenants.push(newTenant);
-      const newUser = {
-        id: userId,
-        tenantId,
-        tenant_id: tenantId,
-        name: cleanUsername || cleanOwnerName,
-        emailOrPhone: cleanPhone || cleanEmail || cleanUsername,
-        passcode: cleanPassword,
-        role: "Owner",
-        status: "Active",
-        isPrimaryOwner: 1,
-        is_primary_owner: 1
-      };
       syncData.mbi_users.push(newUser);
       syncData.appUsers.push(newUser);
-      const newLead = {
-        id: `lead_${Date.now()}`,
-        storeName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        email: cleanEmail,
-        requestedPlan: "Basic (10-Day Free Trial)",
-        status: "Active",
-        isApproved: true,
-        submittedAt: registrationDate
-      };
       syncData.registration_leads.push(newLead);
+      syncData.mbi_registration_leads.push(newLead);
       import_fs7.default.writeFileSync(syncFile6, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (fsErr) {
+    }
+    try {
+      const masterUsersFile2 = import_path7.default.resolve(process.cwd(), ".master_users.json");
+      let masterUsers = [];
+      if (import_fs7.default.existsSync(masterUsersFile2)) {
+        masterUsers = JSON.parse(import_fs7.default.readFileSync(masterUsersFile2, "utf-8"));
+      }
+      masterUsers = masterUsers.filter((u) => u.id !== userId);
+      masterUsers.push(newUser);
+      import_fs7.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
+    } catch (muErr) {
     }
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
     const devRecord = {
@@ -6513,6 +6594,15 @@ async function registerTrialController(req, res) {
     };
     activeDevicesRegistry.set(deviceKey, devRecord);
     try {
+      broadcastAdminEvent({
+        type: "TENANT_REGISTERED",
+        tenant: newTenant,
+        user: newUser,
+        license: newLicense,
+        lead: newLead,
+        device: devRecord,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
       broadcastFleetActivity({
         id: `act_${Date.now()}`,
         tenantId,
@@ -6525,6 +6615,17 @@ async function registerTrialController(req, res) {
         deviceInfo: `${clientOs} \u2022 ${clientHwid}`,
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
         relativeTime: "Just now"
+      });
+      broadcastTenantEvent(tenantId, {
+        type: "TENANT_PROVISIONED",
+        entity: "mbi_tenants",
+        payload: {
+          tenantId,
+          storeName: cleanStoreName,
+          licenseKey: generatedKey,
+          hwid: clientHwid,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        }
       });
     } catch (sseErr) {
     }
@@ -7692,17 +7793,55 @@ aiRouter.post("/settings", (req, res) => {
 
 // server/routes/fleetRoutes.ts
 var import_express6 = __toESM(require("express"));
+var import_fs9 = __toESM(require("fs"));
+var import_path9 = __toESM(require("path"));
 var fleetRouter = import_express6.default.Router();
+var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    const [tenants] = await pool2.query(
-      `SELECT t.*, 
-        (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.tenant_id) as user_count,
-        (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.tenant_id) as invoice_count
-       FROM mbi_tenants t
-       ORDER BY t.created_at DESC;`
-    );
+    let tenants = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        const [rows] = await pool2.query(
+          `SELECT t.*, 
+            (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id) as user_count,
+            (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count
+           FROM mbi_tenants t
+           ORDER BY t.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          tenants = rows;
+        }
+      } catch (dbErr) {
+      }
+    }
+    if (import_fs9.default.existsSync(syncFile7)) {
+      try {
+        const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
+        const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
+        const existingIds = new Set(tenants.map((t) => t.id || t.tenant_id));
+        for (const ft of fallbackTenants) {
+          const tid = ft.id || ft.tenantId || ft.tenant_id;
+          if (tid && !existingIds.has(tid)) {
+            tenants.push({
+              id: tid,
+              tenant_id: tid,
+              name: ft.name || ft.storeName || "Pharmacy Client",
+              owner_name: ft.ownerName || "Owner",
+              owner_phone: ft.ownerPhone || ft.phone || "",
+              owner_email: ft.ownerEmail || ft.email || "",
+              city: ft.city || "Lahore",
+              plan: ft.plan || ft.planId || "Basic",
+              status: ft.status || "Active",
+              created_at: ft.trialStartDate || (/* @__PURE__ */ new Date()).toISOString()
+            });
+            existingIds.add(tid);
+          }
+        }
+      } catch (e) {
+      }
+    }
     res.json({
       success: true,
       count: tenants.length,
@@ -7718,37 +7857,42 @@ fleetRouter.post("/tenants/save", async (req, res) => {
     const { id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number } = req.body;
     const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
-    const pool2 = getMariaDbPool();
-    await pool2.query(
-      `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-       ON DUPLICATE KEY UPDATE 
-         name = VALUES(name),
-         owner_name = VALUES(owner_name),
-         owner_phone = VALUES(owner_phone),
-         owner_email = VALUES(owner_email),
-         city = VALUES(city),
-         address = VALUES(address),
-         plan = VALUES(plan),
-         status = VALUES(status),
-         drug_license_no = VALUES(drug_license_no),
-         ntn_number = VALUES(ntn_number),
-         updated_at = CURRENT_TIMESTAMP;`,
-      [
-        cleanId,
-        cleanTenantId,
-        name || "Pharmacy Store",
-        owner_name || "Store Admin",
-        owner_phone || "",
-        owner_email || "",
-        city || "Lahore",
-        address || "",
-        plan || "Business",
-        status || "Active",
-        drug_license_no || "",
-        ntn_number || ""
-      ]
-    );
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             owner_name = VALUES(owner_name),
+             owner_phone = VALUES(owner_phone),
+             owner_email = VALUES(owner_email),
+             city = VALUES(city),
+             address = VALUES(address),
+             plan = VALUES(plan),
+             status = VALUES(status),
+             drug_license_no = VALUES(drug_license_no),
+             ntn_number = VALUES(ntn_number),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [
+            cleanId,
+            cleanTenantId,
+            name || "Pharmacy Store",
+            owner_name || "Store Admin",
+            owner_phone || "",
+            owner_email || "",
+            city || "Lahore",
+            address || "",
+            plan || "Business",
+            status || "Active",
+            drug_license_no || "",
+            ntn_number || ""
+          ]
+        );
+      } catch (dbErr) {
+      }
+    }
     res.json({
       success: true,
       message: `Tenant ${name} saved successfully`,
@@ -7765,8 +7909,13 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+      } catch (dbErr) {
+      }
+    }
     res.json({ success: true, message: `Tenant ${tenant_id} removed.` });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
@@ -7774,8 +7923,31 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
 });
 fleetRouter.get("/leads", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    const [leads] = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY created_at DESC;");
+    let leads = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        const [rows] = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
+        if (Array.isArray(rows)) {
+          leads = rows;
+        }
+      } catch (dbErr) {
+      }
+    }
+    if (import_fs9.default.existsSync(syncFile7)) {
+      try {
+        const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
+        const fallbackLeads = syncData.mbi_registration_leads || syncData.registration_leads || [];
+        const existingIds = new Set(leads.map((l) => l.id));
+        for (const fl of fallbackLeads) {
+          if (fl && fl.id && !existingIds.has(fl.id)) {
+            leads.push(fl);
+            existingIds.add(fl.id);
+          }
+        }
+      } catch (e) {
+      }
+    }
     res.json({ success: true, count: leads.length, leads });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error fetching leads" });
@@ -8643,10 +8815,10 @@ adminMasterRouter.patch("/tickets/:id", handleUpdateSupportTicketStatus);
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));
-var import_fs9 = __toESM(require("fs"));
-var import_path9 = __toESM(require("path"));
+var import_fs10 = __toESM(require("fs"));
+var import_path10 = __toESM(require("path"));
 var blogRouter = import_express8.default.Router();
-var BLOGS_FILE = import_path9.default.resolve(process.cwd(), ".blogs_store.json");
+var BLOGS_FILE = import_path10.default.resolve(process.cwd(), ".blogs_store.json");
 var SEED_BLOGS = [
   {
     id: "blog-inventra-expiry-conquest",
@@ -8809,8 +8981,8 @@ Experience the speed and security of MBI INVENTRA 4 with full feature access and
 ];
 function loadBlogs() {
   try {
-    if (import_fs9.default.existsSync(BLOGS_FILE)) {
-      const data = JSON.parse(import_fs9.default.readFileSync(BLOGS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(BLOGS_FILE)) {
+      const data = JSON.parse(import_fs10.default.readFileSync(BLOGS_FILE, "utf-8"));
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (err) {
@@ -8821,7 +8993,7 @@ function loadBlogs() {
 }
 function saveBlogs(blogs) {
   try {
-    import_fs9.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving blogs store:", err);
   }
@@ -8961,10 +9133,10 @@ versionRouter.get("/", (req, res) => {
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
-var import_fs10 = __toESM(require("fs"));
-var import_path10 = __toESM(require("path"));
+var import_fs11 = __toESM(require("fs"));
+var import_path11 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
-var syncFile7 = import_path10.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
 licenseRouter.post("/register-trial", async (req, res) => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
@@ -9017,8 +9189,8 @@ licenseRouter.post("/register-trial", async (req, res) => {
     }
     try {
       let syncData = {};
-      if (import_fs10.default.existsSync(syncFile7)) {
-        syncData = JSON.parse(import_fs10.default.readFileSync(syncFile7, "utf-8"));
+      if (import_fs11.default.existsSync(syncFile8)) {
+        syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
@@ -9039,7 +9211,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
       };
       syncData.mbi_licenses.push(licObj);
       syncData.client_licenses.push(licObj);
-      import_fs10.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -9098,9 +9270,9 @@ licenseRouter.post("/verify-device", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (!licenseFound && import_fs10.default.existsSync(syncFile7)) {
+    if (!licenseFound && import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile7, "utf-8"));
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant || l.clientName === activeTenant);
         if (found) {
@@ -9301,8 +9473,8 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
       }
     }
     try {
-      if (import_fs10.default.existsSync(syncFile7)) {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile7, "utf-8"));
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant);
         if (found) {
@@ -9310,7 +9482,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!existingBound.includes(clientHwid)) {
             existingBound.push(clientHwid);
             found.boundHardwareIds = existingBound;
-            import_fs10.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           }
         }
       }
@@ -9521,14 +9693,14 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
-var import_fs11 = __toESM(require("fs"));
-var import_path11 = __toESM(require("path"));
+var import_fs12 = __toESM(require("fs"));
+var import_path12 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
-var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile9 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalSyncData() {
   try {
-    if (import_fs11.default.existsSync(syncFile8)) {
-      return JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+    if (import_fs12.default.existsSync(syncFile9)) {
+      return JSON.parse(import_fs12.default.readFileSync(syncFile9, "utf-8"));
     }
   } catch (e) {
   }
@@ -9536,7 +9708,7 @@ function getLocalSyncData() {
 }
 function saveLocalSyncData(data) {
   try {
-    import_fs11.default.writeFileSync(syncFile8, JSON.stringify(data, null, 2), "utf-8");
+    import_fs12.default.writeFileSync(syncFile9, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save sync file:", e);
   }
@@ -9821,14 +9993,14 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
-var import_fs12 = __toESM(require("fs"));
-var import_path12 = __toESM(require("path"));
-var syncFile9 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs13 = __toESM(require("fs"));
+var import_path13 = __toESM(require("path"));
+var syncFile10 = import_path13.default.resolve(process.cwd(), ".sync_data.json");
 function getFallbackAuditLogs(tenantId) {
   let logs = [];
   try {
-    if (import_fs12.default.existsSync(syncFile9)) {
-      const fileData = JSON.parse(import_fs12.default.readFileSync(syncFile9, "utf-8"));
+    if (import_fs13.default.existsSync(syncFile10)) {
+      const fileData = JSON.parse(import_fs13.default.readFileSync(syncFile10, "utf-8"));
       if (Array.isArray(fileData.mbi_audit_logs)) {
         logs = fileData.mbi_audit_logs;
       }
@@ -9843,8 +10015,8 @@ function getFallbackAuditLogs(tenantId) {
 function saveFallbackAuditLog(log) {
   try {
     let data = {};
-    if (import_fs12.default.existsSync(syncFile9)) {
-      data = JSON.parse(import_fs12.default.readFileSync(syncFile9, "utf-8"));
+    if (import_fs13.default.existsSync(syncFile10)) {
+      data = JSON.parse(import_fs13.default.readFileSync(syncFile10, "utf-8"));
     }
     if (!Array.isArray(data.mbi_audit_logs)) {
       data.mbi_audit_logs = [];
@@ -9853,7 +10025,7 @@ function saveFallbackAuditLog(log) {
     if (data.mbi_audit_logs.length > 5e3) {
       data.mbi_audit_logs = data.mbi_audit_logs.slice(0, 5e3);
     }
-    import_fs12.default.writeFileSync(syncFile9, JSON.stringify(data, null, 2));
+    import_fs13.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2));
   } catch (e) {
     console.warn("[Audit Log Local Fallback Save Warning]:", e);
   }
@@ -10343,7 +10515,7 @@ async function startServer() {
   const app = (0, import_express15.default)();
   const PORT = Number(process.env.PORT) || 3e3;
   const HOST = "0.0.0.0";
-  const syncFile10 = import_path13.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile11 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -10414,8 +10586,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path13.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs13.default.existsSync(ddlPath)) {
+    const ddlPath = import_path14.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs14.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -10487,14 +10659,14 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs13.default.existsSync(syncFile10)) {
-        memorySyncData = JSON.parse(import_fs13.default.readFileSync(syncFile10, "utf-8"));
+      if (import_fs14.default.existsSync(syncFile11)) {
+        memorySyncData = JSON.parse(import_fs14.default.readFileSync(syncFile11, "utf-8"));
       } else {
         memorySyncData = {};
       }
     } catch (e) {
       console.error("[SYNC LOAD ERROR]", e?.message);
-      addServerLog("DISK_IO_ERROR", `Failed to read sync file: ${e?.message || "IO Error"}`, "error", { syncFile: syncFile10 }, "/api/sync");
+      addServerLog("DISK_IO_ERROR", `Failed to read sync file: ${e?.message || "IO Error"}`, "error", { syncFile: syncFile11 }, "/api/sync");
       memorySyncData = {};
     }
     return memorySyncData || {};
@@ -10503,15 +10675,15 @@ async function startServer() {
     if (!memorySyncData || pendingSyncWrites === 0 || isFlushingSync) return;
     try {
       isFlushingSync = true;
-      const tmpFile = `${syncFile10}.tmp`;
-      import_fs13.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs13.default.renameSync(tmpFile, syncFile10);
+      const tmpFile = `${syncFile11}.tmp`;
+      import_fs14.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs14.default.renameSync(tmpFile, syncFile11);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
-      addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile10 }, "/api/sync/flush");
+      addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile11 }, "/api/sync/flush");
     } catch (err) {
       console.error("[SYNC FLUSH ERROR]", err?.message);
-      addServerLog("DISK_IO_ERROR", `Disk sync flush failed: ${err?.message || "Write permission error"}`, "error", { syncFile: syncFile10 }, "/api/sync/flush");
+      addServerLog("DISK_IO_ERROR", `Disk sync flush failed: ${err?.message || "Write permission error"}`, "error", { syncFile: syncFile11 }, "/api/sync/flush");
     } finally {
       isFlushingSync = false;
     }
@@ -10595,8 +10767,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs13.default.existsSync(syncFile10)) {
-        const stat = import_fs13.default.statSync(syncFile10);
+      if (import_fs14.default.existsSync(syncFile11)) {
+        const stat = import_fs14.default.statSync(syncFile11);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -11496,29 +11668,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path13.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path13.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path13.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path13.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path13.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path13.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path13.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path13.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path13.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path13.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path13.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path13.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path13.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs13.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path14.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path14.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path14.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path14.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path14.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path14.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path14.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path14.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path14.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path14.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path14.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path14.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path14.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs14.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs13.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs14.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs13.default.existsSync(filePath)) {
-        return JSON.parse(import_fs13.default.readFileSync(filePath, "utf-8"));
+      if (import_fs14.default.existsSync(filePath)) {
+        return JSON.parse(import_fs14.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -11526,7 +11698,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs13.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs14.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -11544,7 +11716,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs13.default.existsSync(masterConfigFile)) {
+    if (!import_fs14.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -11879,7 +12051,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path13.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path14.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -12668,14 +12840,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs13.default.readdirSync(masterBackupsDir);
+      let files = import_fs14.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs13.default.readFileSync(import_path13.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs14.default.readFileSync(import_path14.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -12699,9 +12871,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs13.default.existsSync(masterLicensesFile)) {
+      if (import_fs14.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs13.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs14.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -12749,9 +12921,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs13.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs14.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs13.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs14.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -12767,7 +12939,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs13.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs14.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -12785,7 +12957,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path13.default.join(masterBackupsDir, fileName);
+      const filePath = import_path14.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -12805,15 +12977,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs13.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs14.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs13.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs14.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs13.default.statSync(import_path13.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs14.default.statSync(import_path14.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs13.default.unlinkSync(import_path13.default.join(masterBackupsDir, oldFile.name));
+              import_fs14.default.unlinkSync(import_path14.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -12868,11 +13040,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path13.default.join(masterBackupsDir, fileName);
-      if (!import_fs13.default.existsSync(filePath)) {
+      const filePath = import_path14.default.join(masterBackupsDir, fileName);
+      if (!import_fs14.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs13.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs14.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -12884,9 +13056,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path13.default.join(masterBackupsDir, fileName);
-      if (import_fs13.default.existsSync(filePath)) {
-        import_fs13.default.unlinkSync(filePath);
+      const filePath = import_path14.default.join(masterBackupsDir, fileName);
+      if (import_fs14.default.existsSync(filePath)) {
+        import_fs14.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -12898,14 +13070,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs13.default.readdirSync(masterBackupsDir);
+      let files = import_fs14.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs13.default.readFileSync(import_path13.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs14.default.readFileSync(import_path14.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -12954,7 +13126,7 @@ async function startServer() {
       });
     }
   });
-  const isProdDistAvailable = import_fs13.default.existsSync(import_path13.default.join(process.cwd(), "dist", "index.html"));
+  const isProdDistAvailable = import_fs14.default.existsSync(import_path14.default.join(process.cwd(), "dist", "index.html"));
   if (process.env.NODE_ENV !== "production" || !isProdDistAvailable) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
@@ -12966,13 +13138,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = import_fs13.default.existsSync(import_path13.default.join(process.cwd(), "dist", "index.html")) ? import_path13.default.join(process.cwd(), "dist") : import_fs13.default.existsSync(import_path13.default.join(__dirname, "index.html")) ? __dirname : import_path13.default.resolve(__dirname, "..", "dist");
-    app.use("/assets", import_express15.default.static(import_path13.default.join(distPath, "assets"), {
+    const distPath = import_fs14.default.existsSync(import_path14.default.join(process.cwd(), "dist", "index.html")) ? import_path14.default.join(process.cwd(), "dist") : import_fs14.default.existsSync(import_path14.default.join(__dirname, "index.html")) ? __dirname : import_path14.default.resolve(__dirname, "..", "dist");
+    app.use("/assets", import_express15.default.static(import_path14.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
       fallthrough: true
     }));
-    app.use("*/assets", import_express15.default.static(import_path13.default.join(distPath, "assets"), {
+    app.use("*/assets", import_express15.default.static(import_path14.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
     }));
@@ -12988,7 +13160,7 @@ async function startServer() {
       if (req.path.startsWith("/api/")) {
         return res.status(404).json({ error: "Endpoint not found" });
       }
-      res.sendFile(import_path13.default.join(distPath, "index.html"));
+      res.sendFile(import_path14.default.join(distPath, "index.html"));
     });
   }
   const server = app.listen(PORT, HOST, () => {

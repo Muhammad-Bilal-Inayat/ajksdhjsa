@@ -440,40 +440,147 @@ export async function registerTrialController(req: TenantRequest, res: Response)
                expiry_date = VALUES(expiry_date);`,
             [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
           ).catch(() => {});
-        }
-
-        // Insert Tenant with Basic Plan and Active Status
+        }        // Insert Tenant with Basic Plan and Active Status
         await pool.query(
           `INSERT INTO mbi_tenants (
-             id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
-             plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at
+             id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
+             plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
            ) VALUES (
              ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-             'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?
+             'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?, CURRENT_TIMESTAMP
            )
            ON DUPLICATE KEY UPDATE 
              name = VALUES(name),
+             plan = 'Basic',
              plan_id = 'Basic',
              status = 'Active',
              subscription_plan = 'Basic',
              subscription_status = 'Active',
-             trial_expires_at = VALUES(trial_expires_at);`,
-          [tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
+             trial_expires_at = VALUES(trial_expires_at),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
         ).catch(() => {});
 
         // Insert Primary Admin User
         await pool.query(
-          `INSERT INTO mbi_users (id, tenant_id, name, email_or_phone, passcode, role, is_primary_owner, status, is_kill_switch_active, created_at)
-           VALUES (?, ?, ?, ?, ?, 'Owner', 1, 'Active', 0, ?)
-           ON DUPLICATE KEY UPDATE name = VALUES(name), status = 'Active';`,
-          [userId, tenantId, cleanUsername || cleanOwnerName, cleanPhone || cleanEmail || cleanUsername, cleanPassword, registrationDate]
+          `INSERT INTO mbi_users (
+             id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
+           ) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, ?, CURRENT_TIMESTAMP
+           )
+           ON DUPLICATE KEY UPDATE 
+             name = VALUES(name),
+             username = VALUES(username),
+             passcode = VALUES(passcode),
+             status = 'Active',
+             is_online = 1,
+             updated_at = CURRENT_TIMESTAMP;`,
+          [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword, registrationDate]
+        ).catch(() => {});
+
+        // Insert Registration Lead for WhatsApp trial leads dashboard
+        const leadId = `lead_${Date.now()}`;
+        await pool.query(
+          `INSERT INTO mbi_registration_leads (
+             id, store_name, owner_name, username, phone, email, city, requested_plan, status, is_approved, activation_key, submitted_at, activated_at
+           ) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'activated', 1, ?, ?, ?
+           )
+           ON DUPLICATE KEY UPDATE 
+             store_name = VALUES(store_name),
+             status = 'activated',
+             is_approved = 1,
+             activated_at = VALUES(activated_at);`,
+          [leadId, cleanStoreName, cleanOwnerName, cleanUsername, cleanPhone, cleanEmail, cleanCity, generatedKey, registrationDate, registrationDate]
+        ).catch(() => {});
+
+        // Insert Registered Device in mbi_devices
+        const deviceId = `dev_${userId}_${clientHwid.slice(-6)}`;
+        await pool.query(
+          `INSERT INTO mbi_devices (
+             id, tenant_id, user_id, device_name, device_type, platform, browser_info, os, hwid, installation_id, authorization_key, status, first_authorized_at, last_seen_at
+           ) VALUES (
+             ?, ?, ?, ?, 'Desktop', 'Windows', 'Web Terminal', ?, ?, ?, ?, 'Active', ?, ?
+           )
+           ON DUPLICATE KEY UPDATE 
+             status = 'Active',
+             last_seen_at = CURRENT_TIMESTAMP;`,
+          [deviceId, tenantId, userId, clientDeviceModel, clientOs, clientHwid, clientHwid, generatedKey, registrationDate, registrationDate]
         ).catch(() => {});
       } catch (dbErr: any) {
         // Ignored
       }
     }
 
-    // 2. Update local sync file cache
+    // 2. Update local sync file cache (.sync_data.json and .master_users.json)
+    const newLicense = {
+      id: licenseId,
+      tenantId,
+      licenseKey: generatedKey,
+      clientName: cleanStoreName,
+      ownerName: cleanOwnerName,
+      phone: cleanPhone,
+      city: cleanCity,
+      plan: 'Basic',
+      status: 'Active',
+      issueDate: registrationDate.slice(0, 10),
+      expiryDate: trialExpiry.slice(0, 10),
+      maxDevices: 10,
+      boundHardwareIds: [clientHwid]
+    };
+
+    const newTenant = {
+      id: tenantId,
+      tenantId,
+      name: cleanStoreName,
+      ownerName: cleanOwnerName,
+      ownerPhone: cleanPhone,
+      ownerEmail: cleanEmail,
+      city: cleanCity,
+      planId: 'Basic',
+      plan: 'Basic',
+      status: 'Active',
+      subscriptionStatus: 'Active',
+      trialExpiresAt: trialExpiry,
+      features: basicTrialFeatures
+    };
+
+    const newUser = {
+      id: userId,
+      tenantId,
+      tenant_id: tenantId,
+      name: cleanOwnerName || cleanUsername,
+      username: cleanUsername,
+      emailOrPhone: cleanPhone || cleanEmail || cleanUsername,
+      email: cleanEmail,
+      phone: cleanPhone,
+      passcode: cleanPassword,
+      role: 'Owner',
+      status: 'Active',
+      isPrimaryOwner: 1,
+      is_primary_owner: 1,
+      isPrimaryAdmin: 1,
+      is_primary_admin: 1,
+      isOnline: true,
+      is_online: 1
+    };
+
+    const newLead = {
+      id: `lead_${Date.now()}`,
+      storeName: cleanStoreName,
+      ownerName: cleanOwnerName,
+      username: cleanUsername,
+      phone: cleanPhone,
+      city: cleanCity,
+      email: cleanEmail,
+      requestedPlan: 'Basic (10-Day Free Trial)',
+      status: 'activated',
+      isApproved: true,
+      activationKey: generatedKey,
+      submittedAt: registrationDate,
+      activatedAt: registrationDate
+    };
+
     try {
       let syncData: any = {};
       if (fs.existsSync(syncFile)) {
@@ -487,73 +594,31 @@ export async function registerTrialController(req: TenantRequest, res: Response)
       if (!syncData.tenants) syncData.tenants = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
       if (!syncData.registration_leads) syncData.registration_leads = [];
+      if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
 
-      const newLicense = {
-        id: licenseId,
-        licenseKey: generatedKey,
-        clientName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        plan: 'Basic',
-        status: 'Active',
-        issueDate: registrationDate.slice(0, 10),
-        expiryDate: trialExpiry.slice(0, 10),
-        maxDevices: 1,
-        boundHardwareIds: [clientHwid]
-      };
       syncData.mbi_licenses.push(newLicense);
       syncData.client_licenses.push(newLicense);
-
-      const newTenant = {
-        id: tenantId,
-        tenantId,
-        name: cleanStoreName,
-        ownerName: cleanOwnerName,
-        ownerPhone: cleanPhone,
-        ownerEmail: cleanEmail,
-        city: cleanCity,
-        planId: 'Basic',
-        plan: 'Basic',
-        status: 'Active',
-        subscriptionStatus: 'Active',
-        trialExpiresAt: trialExpiry,
-        features: basicTrialFeatures
-      };
       syncData.mbi_tenants.push(newTenant);
       syncData.tenants.push(newTenant);
-
-      const newUser = {
-        id: userId,
-        tenantId,
-        tenant_id: tenantId,
-        name: cleanUsername || cleanOwnerName,
-        emailOrPhone: cleanPhone || cleanEmail || cleanUsername,
-        passcode: cleanPassword,
-        role: 'Owner',
-        status: 'Active',
-        isPrimaryOwner: 1,
-        is_primary_owner: 1
-      };
       syncData.mbi_users.push(newUser);
       syncData.appUsers.push(newUser);
-
-      const newLead = {
-        id: `lead_${Date.now()}`,
-        storeName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        email: cleanEmail,
-        requestedPlan: 'Basic (10-Day Free Trial)',
-        status: 'Active',
-        isApproved: true,
-        submittedAt: registrationDate
-      };
       syncData.registration_leads.push(newLead);
+      syncData.mbi_registration_leads.push(newLead);
 
       fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
     } catch (fsErr) {}
+
+    // Update .master_users.json for Master Governance Hub
+    try {
+      const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
+      let masterUsers: any[] = [];
+      if (fs.existsSync(masterUsersFile)) {
+        masterUsers = JSON.parse(fs.readFileSync(masterUsersFile, 'utf-8'));
+      }
+      masterUsers = masterUsers.filter(u => u.id !== userId);
+      masterUsers.push(newUser);
+      fs.writeFileSync(masterUsersFile, JSON.stringify(masterUsers, null, 2), 'utf-8');
+    } catch (muErr) {}
 
     // 3. Auto-Register First Device in Live Telemetry
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
@@ -574,8 +639,18 @@ export async function registerTrialController(req: TenantRequest, res: Response)
     };
     activeDevicesRegistry.set(deviceKey, devRecord);
 
-    // 4. Broadcast registration to Master Hub
+    // 4. Broadcast live registration & telemetry to Master Hub & Fleet tables
     try {
+      broadcastAdminEvent({
+        type: 'TENANT_REGISTERED',
+        tenant: newTenant,
+        user: newUser,
+        license: newLicense,
+        lead: newLead,
+        device: devRecord,
+        timestamp: new Date().toISOString()
+      });
+
       broadcastFleetActivity({
         id: `act_${Date.now()}`,
         tenantId,
@@ -588,6 +663,18 @@ export async function registerTrialController(req: TenantRequest, res: Response)
         deviceInfo: `${clientOs} • ${clientHwid}`,
         timestamp: new Date().toISOString(),
         relativeTime: 'Just now'
+      });
+
+      broadcastTenantEvent(tenantId, {
+        type: 'TENANT_PROVISIONED',
+        entity: 'mbi_tenants',
+        payload: {
+          tenantId,
+          storeName: cleanStoreName,
+          licenseKey: generatedKey,
+          hwid: clientHwid,
+          timestamp: new Date().toISOString()
+        }
       });
     } catch (sseErr) {}
 

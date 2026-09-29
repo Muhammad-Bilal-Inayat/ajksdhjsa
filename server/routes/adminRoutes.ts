@@ -186,6 +186,26 @@ adminRouter.get('/database/export/:tableName', exportTableDataController);
 adminRouter.get('/database/sql-dump', generateSqlDumpController);
 adminRouter.post('/database/sql-dump', generateSqlDumpController);
 
+adminRouter.get('/database/schema-download', (req: Request, res: Response) => {
+  const schemaPath = path.resolve(process.cwd(), 'server/db/mbi_inventra_master_schema.sql');
+  if (fs.existsSync(schemaPath)) {
+    res.setHeader('Content-Type', 'application/sql');
+    res.setHeader('Content-Disposition', 'attachment; filename="mbi_inventra_master_schema.sql"');
+    return res.sendFile(schemaPath);
+  }
+  return res.status(404).send('Schema file not found');
+});
+
+adminRouter.get('/schema-download', (req: Request, res: Response) => {
+  const schemaPath = path.resolve(process.cwd(), 'server/db/mbi_inventra_master_schema.sql');
+  if (fs.existsSync(schemaPath)) {
+    res.setHeader('Content-Type', 'application/sql');
+    res.setHeader('Content-Disposition', 'attachment; filename="mbi_inventra_master_schema.sql"');
+    return res.sendFile(schemaPath);
+  }
+  return res.status(404).send('Schema file not found');
+});
+
 // -------------------------------------------------------------
 // TENANTS & FLEET TELEMETRY
 // -------------------------------------------------------------

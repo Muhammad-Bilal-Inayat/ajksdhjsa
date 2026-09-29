@@ -49,7 +49,10 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [selectedLeadForActivation, setSelectedLeadForActivation] = useState<RegistrationLead | null>(null);
-  const [assignedPlan, setAssignedPlan] = useState<string>('Standard POS');
+  const [assignedPlan, setAssignedPlan] = useState<string>('1 Year — Business (Rs. 39,990/yr)');
+  const [customDays, setCustomDays] = useState<number>(30);
+  const [customTier, setCustomTier] = useState<'Basic' | 'Business' | 'Enterprise'>('Business');
+  const [customPrice, setCustomPrice] = useState<string>('');
   const [customPlanText, setCustomPlanText] = useState<string>('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -62,7 +65,9 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
   const [manualPhone, setManualPhone] = useState('');
   const [manualCity, setManualCity] = useState('Lahore');
   const [manualEmail, setManualEmail] = useState('');
-  const [manualPlan, setManualPlan] = useState<string>('Standard POS');
+  const [manualPlan, setManualPlan] = useState<string>('1 Year — Business (Rs. 39,990/yr)');
+  const [manualCustomDays, setManualCustomDays] = useState<number>(30);
+  const [manualCustomTier, setManualCustomTier] = useState<'Basic' | 'Business' | 'Enterprise'>('Business');
   const [manualCustomPlan, setManualCustomPlan] = useState('');
 
   useEffect(() => {
@@ -113,11 +118,23 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
 
   const handleApprove = (lead: RegistrationLead) => {
     try {
-      const finalPlan = assignedPlan === 'Custom' ? (customPlanText.trim() || 'Custom Plan') : assignedPlan;
-      const { lead: updatedLead, licenseKey } = approveAndActivateLead(lead.id, finalPlan);
+      let finalPlan = assignedPlan;
+      let customOptions: any = undefined;
+
+      if (assignedPlan === 'Custom') {
+        finalPlan = `${customDays} Days — ${customTier} (${customPlanText.trim() || 'Custom Plan'})`;
+        customOptions = {
+          customDays: Number(customDays) || 30,
+          customTier,
+          customPrice: customPrice ? Number(customPrice) : undefined
+        };
+      }
+
+      const { lead: updatedLead, licenseKey } = approveAndActivateLead(lead.id, finalPlan, customOptions);
       setLeads(getAllRegistrationLeads());
       setSelectedLeadForActivation(null);
       setCustomPlanText('');
+      setCustomPrice('');
       showToast(`Activated ${updatedLead.storeName}! Key: ${licenseKey}`);
 
       // Open WhatsApp with key to send to customer
@@ -149,7 +166,9 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
       return;
     }
 
-    const finalPlan = manualPlan === 'Custom' ? (manualCustomPlan.trim() || 'Custom Plan') : manualPlan;
+    const finalPlan = manualPlan === 'Custom' 
+      ? `${manualCustomDays} Days — ${manualCustomTier} (${manualCustomPlan.trim() || 'Custom Plan'})` 
+      : manualPlan;
     const finalUsername = manualUsername.trim().toLowerCase() || manualOwner.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     const finalPassword = manualPassword.trim() || '1234';
 
@@ -546,28 +565,131 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
                 <select
                   value={assignedPlan}
                   onChange={e => setAssignedPlan(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="3 Days Trial">3 Days Trial (Free Instant Activation)</option>
-                  <option value="7 Days Trial">7 Days Trial (Free Instant Activation)</option>
-                  <option value="15 Days Trial">15 Days Trial (Free Instant Activation)</option>
-                  <option value="30 Days Monthly">30 Days Monthly (Rs. 1,999/mo)</option>
-                  <option value="Silver Basic">🥈 Silver Basic (Rs. 1,999/mo | Rs. 19,990/yr)</option>
-                  <option value="Gold Business">🥇 Gold Business ⭐ (Rs. 3,999/mo | Rs. 39,990/yr)</option>
-                  <option value="Platinum Enterprise">💎 Platinum Enterprise (Rs. 6,999/mo | Rs. 69,990/yr)</option>
-                  <option value="Lifetime License">Lifetime License (Perpetual Deal)</option>
-                  <option value="Custom">Custom Duration / Plan Name...</option>
+                  <optgroup label="🎁 Free Trial Activations (Instant Test)">
+                    <option value="3 Days Trial (Basic)">⚡ 3 Days Free Trial — Basic</option>
+                    <option value="3 Days Trial (Business)">⚡ 3 Days Free Trial — Business</option>
+                    <option value="3 Days Trial (Enterprise)">⚡ 3 Days Free Trial — Enterprise</option>
+                    <option value="10 Days Trial (Basic)">⏳ 10 Days Free Trial — Basic</option>
+                    <option value="10 Days Trial (Business)">⏳ 10 Days Free Trial — Business</option>
+                    <option value="10 Days Trial (Enterprise)">⏳ 10 Days Free Trial — Enterprise</option>
+                    <option value="15 Days Trial (Basic)">🎯 15 Days Free Trial — Basic</option>
+                    <option value="15 Days Trial (Business)">🎯 15 Days Free Trial — Business</option>
+                    <option value="15 Days Trial (Enterprise)">🎯 15 Days Free Trial — Enterprise</option>
+                  </optgroup>
+
+                  <optgroup label="📅 1 Month Plans (Monthly)">
+                    <option value="1 Month — Basic (Rs. 1,999/mo)">🥈 1 Month — Basic (Rs. 1,999/mo)</option>
+                    <option value="1 Month — Business (Rs. 3,999/mo)">🥇 1 Month — Business ⭐ (Rs. 3,999/mo)</option>
+                    <option value="1 Month — Enterprise (Rs. 6,999/mo)">💎 1 Month — Enterprise (Rs. 6,999/mo)</option>
+                  </optgroup>
+
+                  <optgroup label="📆 1 Year Plans (Annual License)">
+                    <option value="1 Year — Basic (Rs. 19,990/yr)">🥈 1 Year — Basic (Rs. 19,990/yr)</option>
+                    <option value="1 Year — Business (Rs. 39,990/yr)">🥇 1 Year — Business ⭐ (Rs. 39,990/yr)</option>
+                    <option value="1 Year — Enterprise (Rs. 69,990/yr)">💎 1 Year — Enterprise (Rs. 69,990/yr)</option>
+                  </optgroup>
+
+                  <optgroup label="🚀 3 Years Plans (Multi-Year Deal)">
+                    <option value="3 Years — Basic (Rs. 49,990)">🥈 3 Years — Basic (Rs. 49,990)</option>
+                    <option value="3 Years — Business (Rs. 89,990)">🥇 3 Years — Business ⭐ (Rs. 89,990)</option>
+                    <option value="3 Years — Enterprise (Rs. 149,990)">💎 3 Years — Enterprise (Rs. 149,990)</option>
+                  </optgroup>
+
+                  <optgroup label="🏢 5 Years Plans (Long-Term Enterprise)">
+                    <option value="5 Years — Basic (Rs. 79,990)">🥈 5 Years — Basic (Rs. 79,990)</option>
+                    <option value="5 Years — Business (Rs. 139,990)">🥇 5 Years — Business ⭐ (Rs. 139,990)</option>
+                    <option value="5 Years — Enterprise (Rs. 229,990)">💎 5 Years — Enterprise (Rs. 229,990)</option>
+                  </optgroup>
+
+                  <optgroup label="♾️ Lifetime Licenses (Perpetual Deal)">
+                    <option value="Lifetime — Basic (Rs. 99,990)">🥈 Lifetime Perpetual — Basic (Rs. 99,990)</option>
+                    <option value="Lifetime — Business (Rs. 189,990)">🥇 Lifetime Perpetual — Business (Rs. 189,990)</option>
+                    <option value="Lifetime — Enterprise (Rs. 299,990)">💎 Lifetime Perpetual — Enterprise (Rs. 299,990)</option>
+                  </optgroup>
+
+                  <optgroup label="⚙️ Custom Duration & Tier">
+                    <option value="Custom">⚙️ Custom (Select Days & Plan Box)...</option>
+                  </optgroup>
                 </select>
 
                 {assignedPlan === 'Custom' && (
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      placeholder="Enter custom plan name or duration (e.g. 60 Days VIP Trial)..."
-                      value={customPlanText}
-                      onChange={e => setCustomPlanText(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-blue-500 rounded-xl text-white text-xs font-semibold"
-                    />
+                  <div className="mt-3 p-3.5 bg-slate-950 border border-blue-500/50 rounded-2xl space-y-3 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-400 font-bold uppercase tracking-wider text-[10px]">⚙️ Custom Duration & Tier Setup</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{customDays} Days ({new Date(Date.now() + customDays * 86400000).toLocaleDateString()})</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Duration (Days) *</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={3650}
+                          value={customDays}
+                          onChange={e => setCustomDays(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono font-bold text-xs"
+                          placeholder="e.g. 45"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Software Plan Tier *</label>
+                        <select
+                          value={customTier}
+                          onChange={e => setCustomTier(e.target.value as any)}
+                          className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-bold text-xs"
+                        >
+                          <option value="Basic">🥈 Basic Plan</option>
+                          <option value="Business">🥇 Business Plan</option>
+                          <option value="Enterprise">💎 Enterprise Plan</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Quick Days Chips */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <span className="text-[10px] text-slate-500">Quick:</span>
+                      {[3, 10, 15, 30, 45, 60, 90, 180, 365, 1095, 1825].map(d => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setCustomDays(d)}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                            customDays === d 
+                              ? 'bg-blue-600 text-white shadow-xs' 
+                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                          }`}
+                        >
+                          {d >= 365 ? `${Math.round(d / 365)}y` : `${d}d`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 pt-1 border-t border-slate-800/80">
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Deal Price (PKR)</label>
+                        <input
+                          type="number"
+                          value={customPrice}
+                          onChange={e => setCustomPrice(e.target.value)}
+                          placeholder="e.g. 15000 (0 for free)"
+                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Custom Note / Label</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Special VIP Deal"
+                          value={customPlanText}
+                          onChange={e => setCustomPlanText(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -756,27 +878,88 @@ export const WhatsAppLeadsManagerPanel: React.FC<WhatsAppLeadsManagerPanelProps>
                 <select
                   value={manualPlan}
                   onChange={e => setManualPlan(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="3 Days Trial">3 Days Trial</option>
-                  <option value="7 Days Trial">7 Days Trial</option>
-                  <option value="15 Days Trial">15 Days Trial</option>
-                  <option value="30 Days Monthly">30 Days Monthly</option>
-                  <option value="Standard POS">Standard POS</option>
-                  <option value="Pharmacy Pro">Pharmacy Pro</option>
-                  <option value="Enterprise Multi-Branch">Enterprise Multi-Branch</option>
-                  <option value="Lifetime License">Lifetime License</option>
-                  <option value="Custom">Custom Duration / Plan Name...</option>
+                  <optgroup label="🎁 Free Trial Activations (Instant Test)">
+                    <option value="3 Days Trial (Basic)">⚡ 3 Days Free Trial — Basic</option>
+                    <option value="3 Days Trial (Business)">⚡ 3 Days Free Trial — Business</option>
+                    <option value="3 Days Trial (Enterprise)">⚡ 3 Days Free Trial — Enterprise</option>
+                    <option value="10 Days Trial (Basic)">⏳ 10 Days Free Trial — Basic</option>
+                    <option value="10 Days Trial (Business)">⏳ 10 Days Free Trial — Business</option>
+                    <option value="10 Days Trial (Enterprise)">⏳ 10 Days Free Trial — Enterprise</option>
+                    <option value="15 Days Trial (Basic)">🎯 15 Days Free Trial — Basic</option>
+                    <option value="15 Days Trial (Business)">🎯 15 Days Free Trial — Business</option>
+                    <option value="15 Days Trial (Enterprise)">🎯 15 Days Free Trial — Enterprise</option>
+                  </optgroup>
+
+                  <optgroup label="📅 1 Month Plans (Monthly)">
+                    <option value="1 Month — Basic (Rs. 1,999/mo)">🥈 1 Month — Basic (Rs. 1,999/mo)</option>
+                    <option value="1 Month — Business (Rs. 3,999/mo)">🥇 1 Month — Business ⭐ (Rs. 3,999/mo)</option>
+                    <option value="1 Month — Enterprise (Rs. 6,999/mo)">💎 1 Month — Enterprise (Rs. 6,999/mo)</option>
+                  </optgroup>
+
+                  <optgroup label="📆 1 Year Plans (Annual License)">
+                    <option value="1 Year — Basic (Rs. 19,990/yr)">🥈 1 Year — Basic (Rs. 19,990/yr)</option>
+                    <option value="1 Year — Business (Rs. 39,990/yr)">🥇 1 Year — Business ⭐ (Rs. 39,990/yr)</option>
+                    <option value="1 Year — Enterprise (Rs. 69,990/yr)">💎 1 Year — Enterprise (Rs. 69,990/yr)</option>
+                  </optgroup>
+
+                  <optgroup label="🚀 3 Years Plans (Multi-Year Deal)">
+                    <option value="3 Years — Basic (Rs. 49,990)">🥈 3 Years — Basic (Rs. 49,990)</option>
+                    <option value="3 Years — Business (Rs. 89,990)">🥇 3 Years — Business ⭐ (Rs. 89,990)</option>
+                    <option value="3 Years — Enterprise (Rs. 149,990)">💎 3 Years — Enterprise (Rs. 149,990)</option>
+                  </optgroup>
+
+                  <optgroup label="🏢 5 Years Plans (Long-Term Enterprise)">
+                    <option value="5 Years — Basic (Rs. 79,990)">🥈 5 Years — Basic (Rs. 79,990)</option>
+                    <option value="5 Years — Business (Rs. 139,990)">🥇 5 Years — Business ⭐ (Rs. 139,990)</option>
+                    <option value="5 Years — Enterprise (Rs. 229,990)">💎 5 Years — Enterprise (Rs. 229,990)</option>
+                  </optgroup>
+
+                  <optgroup label="♾️ Lifetime Licenses (Perpetual Deal)">
+                    <option value="Lifetime — Basic (Rs. 99,990)">🥈 Lifetime Perpetual — Basic (Rs. 99,990)</option>
+                    <option value="Lifetime — Business (Rs. 189,990)">🥇 Lifetime Perpetual — Business (Rs. 189,990)</option>
+                    <option value="Lifetime — Enterprise (Rs. 299,990)">💎 Lifetime Perpetual — Enterprise (Rs. 299,990)</option>
+                  </optgroup>
+
+                  <optgroup label="⚙️ Custom Duration & Tier">
+                    <option value="Custom">⚙️ Custom (Select Days & Plan Box)...</option>
+                  </optgroup>
                 </select>
 
                 {manualPlan === 'Custom' && (
-                  <div className="mt-2">
+                  <div className="mt-3 p-3 bg-slate-950 border border-blue-500/50 rounded-2xl space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Days</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={3650}
+                          value={manualCustomDays}
+                          onChange={e => setManualCustomDays(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 text-[10px] font-bold mb-1">Plan Tier</label>
+                        <select
+                          value={manualCustomTier}
+                          onChange={e => setManualCustomTier(e.target.value as any)}
+                          className="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs font-bold"
+                        >
+                          <option value="Basic">Basic Plan</option>
+                          <option value="Business">Business Plan</option>
+                          <option value="Enterprise">Enterprise Plan</option>
+                        </select>
+                      </div>
+                    </div>
                     <input
                       type="text"
-                      placeholder="Enter custom plan name (e.g. 14 Days Custom Trial)..."
+                      placeholder="Custom plan note (e.g. 45 Days Special Deal)..."
                       value={manualCustomPlan}
                       onChange={e => setManualCustomPlan(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-950 border border-blue-500 rounded-xl text-white text-xs font-semibold"
+                      className="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white text-xs"
                     />
                   </div>
                 )}

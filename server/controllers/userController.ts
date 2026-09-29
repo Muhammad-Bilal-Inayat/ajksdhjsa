@@ -9,7 +9,10 @@ import { broadcastFleetActivity } from '../routes/adminRoutes';
 const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
 
-// In-memory fallback / file-based storage helper
+/**
+ * In-memory / file-based fallback helper with STRICT tenant isolation.
+ * NEVER returns records from other tenants when querying for a specific tenantId.
+ */
 export function getFallbackUsers(tenantId?: string): any[] {
   let allUsers: any[] = [];
   try {
@@ -30,120 +33,35 @@ export function getFallbackUsers(tenantId?: string): any[] {
     } catch (e) {}
   }
 
-  if (allUsers.length === 0) {
-    allUsers = [
-      {
-        id: 'usr_primary_owner',
-        tenant_id: 'tenant_main_pharmacy',
-        tenantId: 'tenant_main_pharmacy',
-        name: 'Dr. Kashif Ahmed',
-        username: 'owner',
-        emailOrPhone: '0328-1302636',
-        email: 'admin@inventra.local',
-        phone: '0328-1302636',
-        role: 'Owner',
-        isPrimaryOwner: true,
-        is_primary_owner: 1,
-        status: 'Active',
-        passcode: '1234',
-        is_online: 1,
-        isOnline: true,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: true,
-          canAccessMasterServer: true,
-          canEditInvoices: true,
-          canDeleteInvoices: true,
-          canReprintInvoices: true,
-          canGiveDiscounts: true,
-          canViewReports: true,
-          canManageInventory: true,
-          canManageSuppliers: true,
-          canAccessSettings: true
-        },
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'usr_cashier_bilal',
-        tenant_id: 'tenant_main_pharmacy',
-        tenantId: 'tenant_main_pharmacy',
-        name: 'Bilal Cashier',
-        username: 'bilal_pos',
-        emailOrPhone: '0300-1234567',
-        email: 'bilal@inventra.local',
-        phone: '0300-1234567',
-        role: 'Cashier',
-        isPrimaryOwner: false,
-        is_primary_owner: 0,
-        status: 'Active',
-        passcode: '5566',
-        is_online: 1,
-        isOnline: true,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: false,
-          canAccessMasterServer: false,
-          canEditInvoices: false,
-          canDeleteInvoices: false,
-          canReprintInvoices: true,
-          canGiveDiscounts: false,
-          canViewReports: false,
-          canManageInventory: false,
-          canManageSuppliers: false,
-          canAccessSettings: false
-        },
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'usr_pharmacist_ali',
-        tenant_id: 'tenant_hassan_medicos',
-        tenantId: 'tenant_hassan_medicos',
-        name: 'Hassan Ali',
-        username: 'hassan_owner',
-        emailOrPhone: '0336-4585863',
-        email: 'hassan@medicos.pk',
-        phone: '0336-4585863',
-        role: 'Owner',
-        isPrimaryOwner: true,
-        is_primary_owner: 1,
-        status: 'Active',
-        passcode: '7788',
-        is_online: 0,
-        isOnline: false,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: true,
-          canAccessMasterServer: true,
-          canEditInvoices: true,
-          canDeleteInvoices: true,
-          canReprintInvoices: true,
-          canGiveDiscounts: true,
-          canViewReports: true,
-          canManageInventory: true,
-          canManageSuppliers: true,
-          canAccessSettings: true
-        },
-        createdAt: new Date().toISOString()
-      }
-    ];
+  // If a specific tenant is requested, strictly filter by tenant_id
+  if (tenantId && tenantId !== 'all') {
+    return allUsers.filter(u => {
+      const uTenant = u.tenant_id || u.tenantId;
+      return uTenant === tenantId;
+    });
   }
 
-  if (tenantId && tenantId !== 'all' && tenantId !== 'default') {
-    return allUsers.filter(u => (u.tenant_id === tenantId || u.tenantId === tenantId));
-  }
+  // If no tenant specified (master admin only), return all
   return allUsers;
 }
 
-export function saveFallbackUsers(users: any[]) {
+export function saveFallbackUsers(users: any[], tenantId?: string) {
   try {
     let data: any = {};
     if (fs.existsSync(syncFile)) {
       data = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
     }
-    data.mbi_users = users;
+    
+    if (tenantId && tenantId !== 'all') {
+      const existingOtherTenants = (data.mbi_users || []).filter((u: any) => {
+        const uTenant = u.tenant_id || u.tenantId;
+        return uTenant && uTenant !== tenantId;
+      });
+      data.mbi_users = [...existingOtherTenants, ...users];
+    } else {
+      data.mbi_users = users;
+    }
+
     fs.writeFileSync(syncFile, JSON.stringify(data, null, 2), 'utf-8');
   } catch (e) {
     console.warn('Failed to save fallback users to sync data:', e);
@@ -151,26 +69,39 @@ export function saveFallbackUsers(users: any[]) {
 }
 
 /**
- * Controller: Get all staff members for a tenant
+ * Controller: Get all staff members for the requesting tenant.
+ * Zero cross-tenant data leakage: Strictly filters by authenticated tenantId.
  */
 export async function getUsersController(req: Request, res: Response) {
   try {
-    const tenantId = (req.query.tenantId as string) || (req.headers['x-tenant-id'] as string) || 'default';
+    // Priority: Verified JWT user claim -> x-tenant-id header -> query param
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || '';
 
-    // 1. Attempt MariaDB query
+    if (!tenantId || tenantId === 'undefined' || tenantId === 'null') {
+      return res.status(400).json({
+        success: false,
+        error: 'Tenant context required to retrieve users',
+        users: []
+      });
+    }
+
+    // 1. Query MariaDB with strict WHERE tenant_id = ?
     try {
       const pool = getMariaDbPool();
-      let query = 'SELECT * FROM mbi_users ORDER BY is_primary_owner DESC, created_at ASC';
-      let params: any[] = [];
+      let query: string;
+      let params: any[];
 
-      if (tenantId && tenantId !== 'all' && tenantId !== 'default') {
-        query = 'SELECT * FROM mbi_users WHERE tenant_id = ? OR tenant_id IS NULL OR tenant_id = "default" ORDER BY is_primary_owner DESC, created_at ASC';
+      if (tenantId === 'all' && (req as any).user?.isMasterAdmin) {
+        query = 'SELECT * FROM mbi_users ORDER BY is_primary_owner DESC, created_at ASC';
+        params = [];
+      } else {
+        query = 'SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC';
         params = [tenantId];
       }
 
       const rows: any = await pool.query(query, params);
 
-      if (Array.isArray(rows) && rows.length > 0) {
+      if (Array.isArray(rows)) {
         const mapped = rows.map((u: any) => ({
           id: u.id,
           tenantId: u.tenant_id,
@@ -197,7 +128,7 @@ export async function getUsersController(req: Request, res: Response) {
         return res.json({ success: true, users: mapped });
       }
     } catch (dbErr) {
-      // Fall through to file fallback
+      // Fall through to strictly scoped file fallback
     }
 
     const fallback = getFallbackUsers(tenantId);
@@ -208,12 +139,18 @@ export async function getUsersController(req: Request, res: Response) {
 }
 
 /**
- * Controller: Create new staff / sub-user and emit SSE mutation
+ * Controller: Create new staff / sub-user and emit SSE mutation strictly scoped to tenant.
  */
 export async function createUserController(req: Request, res: Response) {
   try {
-    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes, tenantId: bodyTenantId } = req.body;
-    const tenantId = bodyTenantId || (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || 'tenant_main_pharmacy';
+    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes } = req.body;
+    
+    // Strictly determine tenantId
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || req.body.tenantId || (req.query.tenantId as string);
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, error: 'Cannot create user without an explicit tenant context' });
+    }
 
     if (!name || !role) {
       return res.status(400).json({ success: false, error: 'Name and role are required' });
@@ -254,6 +191,29 @@ export async function createUserController(req: Request, res: Response) {
       updatedAt: new Date().toISOString()
     };
 
+    // Quota Validation from MariaDB or Fallback
+    try {
+      const pool = getMariaDbPool();
+      const [licRows]: any = await pool.query(
+        'SELECT max_users FROM mbi_licenses WHERE tenant_id = ? LIMIT 1',
+        [tenantId]
+      );
+      const maxUsers = licRows && licRows[0]?.max_users ? Number(licRows[0].max_users) : 10;
+
+      const [countRows]: any = await pool.query(
+        'SELECT COUNT(*) as total FROM mbi_users WHERE tenant_id = ?',
+        [tenantId]
+      );
+      const currentCount = countRows && countRows[0]?.total ? Number(countRows[0].total) : 0;
+
+      if (currentCount >= maxUsers) {
+        return res.status(400).json({
+          success: false,
+          error: `User limit reached for your company plan (${currentCount}/${maxUsers}). Please upgrade plan in Server License HQ.`
+        });
+      }
+    } catch (quotaErr) {}
+
     // MariaDB write
     try {
       const pool = getMariaDbPool();
@@ -279,14 +239,24 @@ export async function createUserController(req: Request, res: Response) {
           newUser.updatedAt
         ]
       );
+
+      // Sync into users table for backward compatibility
+      try {
+        await pool.query(
+          `INSERT INTO users (id, tenant_id, email, password, role, created_at)
+           VALUES (?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE tenant_id=VALUES(tenant_id), role=VALUES(role);`,
+          [newUser.id, newUser.tenant_id, newUser.email || newUser.username, newUser.passcode, newUser.role]
+        );
+      } catch (uErr) {}
     } catch (dbErr) {}
 
-    // Fallback sync
-    const allUsers = getFallbackUsers();
-    allUsers.push(newUser);
-    saveFallbackUsers(allUsers);
+    // Save strictly to tenant scope in fallback
+    const tenantUsers = getFallbackUsers(tenantId);
+    tenantUsers.push(newUser);
+    saveFallbackUsers(tenantUsers, tenantId);
 
-    // Broadcast SSE event to client & Master Hub
+    // Broadcast SSE event ONLY to this specific tenant's users
     try {
       broadcastTenantEvent(tenantId, {
         type: 'STAFF_LIST_MUTATED',
@@ -306,7 +276,7 @@ export async function createUserController(req: Request, res: Response) {
         userName: newUser.name,
         userRole: newUser.role,
         actionType: 'STAFF_MUTATION',
-        actionDetails: `New staff sub-user registered: ${newUser.name} (${newUser.role})`,
+        actionDetails: `New staff registered: ${newUser.name} (${newUser.role})`,
         ipAddress: req.ip || '127.0.0.1',
         deviceInfo: 'Web Dispatch',
         timestamp: new Date().toISOString(),
@@ -321,16 +291,17 @@ export async function createUserController(req: Request, res: Response) {
 }
 
 /**
- * Controller: Update staff / sub-user details
+ * Controller: Update staff / sub-user details strictly within tenant.
  */
 export async function updateUserController(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || req.body.tenantId || (req.query.tenantId as string);
     const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes, is_kill_switch_active } = req.body;
 
-    const allUsers = getFallbackUsers();
-    const existingIndex = allUsers.findIndex(u => u.id === id);
-    const existing = existingIndex >= 0 ? allUsers[existingIndex] : null;
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existingIndex = tenantUsers.findIndex(u => u.id === id);
+    const existing = existingIndex >= 0 ? tenantUsers[existingIndex] : null;
 
     if (existing && (existing.isPrimaryOwner || existing.is_primary_owner === 1 || existing.role === 'Owner')) {
       if (role && role !== 'Owner') {
@@ -342,7 +313,7 @@ export async function updateUserController(req: Request, res: Response) {
     }
 
     const updatedUser = {
-      ...(existing || { id }),
+      ...(existing || { id, tenant_id: tenantId, tenantId }),
       name: name !== undefined ? name : existing?.name,
       username: username !== undefined ? username : existing?.username,
       emailOrPhone: emailOrPhone !== undefined ? emailOrPhone : existing?.emailOrPhone,
@@ -360,40 +331,46 @@ export async function updateUserController(req: Request, res: Response) {
 
     try {
       const pool = getMariaDbPool();
-      await pool.query(
-        `UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?`,
-        [
-          updatedUser.name,
-          updatedUser.username,
-          updatedUser.email,
-          updatedUser.phone,
-          updatedUser.role,
-          updatedUser.passcode,
-          updatedUser.status,
-          updatedUser.is_kill_switch_active ? 1 : 0,
-          JSON.stringify(updatedUser.permissions || {}),
-          updatedUser.updatedAt,
-          id
-        ]
-      );
+      let sql = 'UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?';
+      let params = [
+        updatedUser.name,
+        updatedUser.username,
+        updatedUser.email,
+        updatedUser.phone,
+        updatedUser.role,
+        updatedUser.passcode,
+        updatedUser.status,
+        updatedUser.is_kill_switch_active ? 1 : 0,
+        JSON.stringify(updatedUser.permissions || {}),
+        updatedUser.updatedAt,
+        id
+      ];
+
+      if (tenantId && tenantId !== 'all') {
+        sql += ' AND tenant_id = ?';
+        params.push(tenantId);
+      }
+
+      await pool.query(sql, params);
     } catch (dbErr) {}
 
     if (existingIndex >= 0) {
-      allUsers[existingIndex] = updatedUser;
+      tenantUsers[existingIndex] = updatedUser;
     } else {
-      allUsers.push(updatedUser);
+      tenantUsers.push(updatedUser);
     }
-    saveFallbackUsers(allUsers);
+    saveFallbackUsers(tenantUsers, tenantId);
 
-    // Broadcast SSE
-    const tenantId = updatedUser.tenant_id || updatedUser.tenantId || 'tenant_main_pharmacy';
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: 'STAFF_LIST_MUTATED',
-        entity: 'mbi_users',
-        payload: { action: 'UPDATE', tenantId, user: updatedUser, timestamp: new Date().toISOString() }
-      });
-    } catch (e) {}
+    // Broadcast SSE strictly to tenant
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: 'STAFF_LIST_MUTATED',
+          entity: 'mbi_users',
+          payload: { action: 'UPDATE', tenantId, user: updatedUser, timestamp: new Date().toISOString() }
+        });
+      } catch (e) {}
+    }
 
     return res.json({ success: true, user: updatedUser });
   } catch (error: any) {
@@ -402,15 +379,16 @@ export async function updateUserController(req: Request, res: Response) {
 }
 
 /**
- * Controller: Toggle user status or kill-switch
+ * Controller: Toggle user status or kill-switch within tenant boundary
  */
 export async function toggleUserStatusController(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || req.body.tenantId || (req.query.tenantId as string);
     const { status, killSwitch } = req.body;
 
-    const allUsers = getFallbackUsers();
-    const existing = allUsers.find(u => u.id === id);
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existing = tenantUsers.find(u => u.id === id);
 
     if (id === 'usr_primary_owner' || (existing && (existing.isPrimaryOwner || existing.is_primary_owner === 1 || existing.role === 'Owner'))) {
       return res.status(403).json({ success: false, error: 'Primary Store Owner account cannot be disabled or killed' });
@@ -421,12 +399,13 @@ export async function toggleUserStatusController(req: Request, res: Response) {
 
     try {
       const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?', [
-        newStatus,
-        isKillActive,
-        new Date().toISOString(),
-        id
-      ]);
+      let sql = 'UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?';
+      let params = [newStatus, isKillActive, new Date().toISOString(), id];
+      if (tenantId && tenantId !== 'all') {
+        sql += ' AND tenant_id = ?';
+        params.push(tenantId);
+      }
+      await pool.query(sql, params);
     } catch (dbErr) {}
 
     if (existing) {
@@ -434,17 +413,18 @@ export async function toggleUserStatusController(req: Request, res: Response) {
       existing.is_kill_switch_active = isKillActive;
       existing.isKillSwitchActive = Boolean(isKillActive);
       existing.updatedAt = new Date().toISOString();
-      saveFallbackUsers(allUsers);
+      saveFallbackUsers(tenantUsers, tenantId);
     }
 
-    const tenantId = existing?.tenant_id || existing?.tenantId || 'tenant_main_pharmacy';
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: 'STAFF_LIST_MUTATED',
-        entity: 'mbi_users',
-        payload: { action: 'STATUS_CHANGE', tenantId, userId: id, status: newStatus, killSwitch: Boolean(isKillActive), timestamp: new Date().toISOString() }
-      });
-    } catch (e) {}
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: 'STAFF_LIST_MUTATED',
+          entity: 'mbi_users',
+          payload: { action: 'STATUS_CHANGE', tenantId, userId: id, status: newStatus, killSwitch: Boolean(isKillActive), timestamp: new Date().toISOString() }
+        });
+      } catch (e) {}
+    }
 
     return res.json({ success: true, status: newStatus, killSwitch: Boolean(isKillActive) });
   } catch (error: any) {
@@ -458,38 +438,42 @@ export async function toggleUserStatusController(req: Request, res: Response) {
 export async function resetPasscodeController(req: Request, res: Response) {
   try {
     const { id } = req.params;
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || req.body.tenantId || (req.query.tenantId as string);
     const { passcode } = req.body;
 
     if (!passcode) {
       return res.status(400).json({ success: false, error: 'New passcode is required' });
     }
 
-    const allUsers = getFallbackUsers();
-    const existing = allUsers.find(u => u.id === id);
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existing = tenantUsers.find(u => u.id === id);
 
     try {
       const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?', [
-        passcode,
-        new Date().toISOString(),
-        id
-      ]);
+      let sql = 'UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?';
+      let params = [passcode, new Date().toISOString(), id];
+      if (tenantId && tenantId !== 'all') {
+        sql += ' AND tenant_id = ?';
+        params.push(tenantId);
+      }
+      await pool.query(sql, params);
     } catch (dbErr) {}
 
     if (existing) {
       existing.passcode = passcode;
       existing.updatedAt = new Date().toISOString();
-      saveFallbackUsers(allUsers);
+      saveFallbackUsers(tenantUsers, tenantId);
     }
 
-    const tenantId = existing?.tenant_id || existing?.tenantId || 'tenant_main_pharmacy';
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: 'STAFF_LIST_MUTATED',
-        entity: 'mbi_users',
-        payload: { action: 'PASSCODE_RESET', tenantId, userId: id, timestamp: new Date().toISOString() }
-      });
-    } catch (e) {}
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: 'STAFF_LIST_MUTATED',
+          entity: 'mbi_users',
+          payload: { action: 'PASSCODE_RESET', tenantId, userId: id, timestamp: new Date().toISOString() }
+        });
+      } catch (e) {}
+    }
 
     return res.json({ success: true, message: 'Passcode successfully reset', passcode });
   } catch (error: any) {
@@ -503,8 +487,9 @@ export async function resetPasscodeController(req: Request, res: Response) {
 export async function deleteUserController(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const allUsers = getFallbackUsers();
-    const target = allUsers.find(u => u.id === id);
+    const tenantId = (req as any).user?.tenantId || (req.headers['x-tenant-id'] as string) || req.body.tenantId || (req.query.tenantId as string);
+    const tenantUsers = getFallbackUsers(tenantId);
+    const target = tenantUsers.find(u => u.id === id);
 
     if (id === 'usr_primary_owner' || (target && (target.isPrimaryOwner || target.is_primary_owner === 1 || target.role === 'Owner'))) {
       return res.status(403).json({ success: false, error: 'Primary Store Owner account cannot be deleted' });
@@ -512,20 +497,27 @@ export async function deleteUserController(req: Request, res: Response) {
 
     try {
       const pool = getMariaDbPool();
-      await pool.query('DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)', [id]);
+      let sql = 'DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)';
+      let params = [id];
+      if (tenantId && tenantId !== 'all') {
+        sql += ' AND tenant_id = ?';
+        params.push(tenantId);
+      }
+      await pool.query(sql, params);
     } catch (dbErr) {}
 
-    const filtered = allUsers.filter(u => u.id !== id);
-    saveFallbackUsers(filtered);
+    const filtered = tenantUsers.filter(u => u.id !== id);
+    saveFallbackUsers(filtered, tenantId);
 
-    const tenantId = target?.tenant_id || target?.tenantId || 'tenant_main_pharmacy';
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: 'STAFF_LIST_MUTATED',
-        entity: 'mbi_users',
-        payload: { action: 'DELETE', tenantId, userId: id, timestamp: new Date().toISOString() }
-      });
-    } catch (e) {}
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: 'STAFF_LIST_MUTATED',
+          entity: 'mbi_users',
+          payload: { action: 'DELETE', tenantId, userId: id, timestamp: new Date().toISOString() }
+        });
+      } catch (e) {}
+    }
 
     return res.json({ success: true, message: 'User deleted successfully' });
   } catch (error: any) {

@@ -200,10 +200,10 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
     try {
       if (editingUserId) {
-        await userService.updateUser(editingUserId, formData);
+        await userService.updateUser(editingUserId, formData, business?.id);
         emitToast(`✅ Staff member ${formData.name} updated!`, 'success');
       } else {
-        await userService.createUser(formData);
+        await userService.createUser(formData, business?.id);
         emitToast(`✅ New staff member ${formData.name} added!`, 'success');
       }
       setIsFormOpen(false);
@@ -220,7 +220,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     }
 
     try {
-      const updatedStatus = await userService.toggleUserStatus(user);
+      const updatedStatus = await userService.toggleUserStatus(user, business?.id);
       emitToast(`User ${user.name} is now ${updatedStatus}`, 'info');
       loadUsers();
     } catch (err: any) {
@@ -237,7 +237,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     }
 
     try {
-      await userService.deleteUser(userToDelete);
+      await userService.deleteUser(userToDelete, business?.id);
       emitToast(`Staff member ${userToDelete.name} deleted successfully`, 'success');
       setUserToDelete(null);
       loadUsers();

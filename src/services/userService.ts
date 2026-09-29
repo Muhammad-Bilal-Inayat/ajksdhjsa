@@ -2,24 +2,41 @@ import { AppUser, CreateUserInput, UpdateUserInput, UserRole } from '../types/us
 import { emitToast } from '../contexts/ToastContext';
 
 class UserService {
-  private cache: AppUser[] = [];
+  // Tenant-scoped in-memory cache
+  private tenantCache = new Map<string, AppUser[]>();
+
+  private getAuthHeaders(tenantId?: string): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('mbi_auth_token') : null;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    if (tenantId) {
+      headers['x-tenant-id'] = tenantId;
+    }
+
+    return headers;
+  }
 
   /**
-   * Fetch all staff members / users
+   * Fetch all staff members / users strictly for the active tenant
    */
   async getAllUsers(tenantId?: string): Promise<AppUser[]> {
+    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+
     try {
-      const response = await fetch(`/api/users${tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : ''}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tenantId ? { 'x-tenant-id': tenantId } : {})
-        }
+      const response = await fetch(`/api/users?tenantId=${encodeURIComponent(effectiveTenantId)}`, {
+        headers: this.getAuthHeaders(effectiveTenantId)
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data && Array.isArray(data.users)) {
-          this.cache = data.users;
+          this.tenantCache.set(effectiveTenantId, data.users);
           return data.users;
         }
       }
@@ -27,52 +44,29 @@ class UserService {
       console.warn('Network request failed for getAllUsers, using cached/local users:', err);
     }
 
-    if (this.cache.length > 0) {
-      return this.cache;
+    if (this.tenantCache.has(effectiveTenantId)) {
+      return this.tenantCache.get(effectiveTenantId)!;
     }
 
-    // Default primary owner fallback
-    const defaultOwner: AppUser = {
-      id: 'usr_primary_owner',
-      name: 'Primary Administrator',
-      username: 'owner',
-      emailOrPhone: 'owner@inventra.local',
-      role: 'Owner',
-      isPrimaryOwner: true,
-      is_primary_owner: 1,
-      status: 'Active',
-      passcode: '1234',
-      permissions: {
-        canManageStaff: true,
-        canAccessMasterServer: true,
-        canEditInvoices: true,
-        canDeleteInvoices: true,
-        canReprintInvoices: true,
-        canGiveDiscounts: true,
-        canViewReports: true,
-        canManageInventory: true,
-        canManageSuppliers: true,
-        canAccessSettings: true
-      },
-      createdAt: new Date().toISOString()
-    };
-
-    return [defaultOwner];
+    return [];
   }
 
   /**
    * Create a new sub-user (Cashier, Pharmacist, Manager, Accountant)
    */
-  async createUser(input: CreateUserInput): Promise<AppUser> {
+  async createUser(input: CreateUserInput, tenantId?: string): Promise<AppUser> {
+    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+
     const payload = {
       ...input,
+      tenantId: effectiveTenantId,
       isPrimaryOwner: false,
       is_primary_owner: 0
     };
 
     const response = await fetch('/api/users', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.getAuthHeaders(effectiveTenantId),
       body: JSON.stringify(payload)
     });
 
@@ -81,16 +75,21 @@ class UserService {
       throw new Error(data.error || 'Failed to create user');
     }
 
+    // Invalidate local cache for this tenant
+    this.tenantCache.delete(effectiveTenantId);
+
     return data.user;
   }
 
   /**
    * Update sub-user details
    */
-  async updateUser(id: string, input: UpdateUserInput): Promise<AppUser> {
+  async updateUser(id: string, input: UpdateUserInput, tenantId?: string): Promise<AppUser> {
+    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+
     const response = await fetch(`/api/users/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.getAuthHeaders(effectiveTenantId),
       body: JSON.stringify(input)
     });
 
@@ -99,22 +98,25 @@ class UserService {
       throw new Error(data.error || data.message || 'Failed to update user');
     }
 
+    this.tenantCache.delete(effectiveTenantId);
     return data.user;
   }
 
   /**
    * Toggle Active / Inactive Status with Primary Owner Immunity Guard
    */
-  async toggleUserStatus(user: AppUser): Promise<string> {
+  async toggleUserStatus(user: AppUser, tenantId?: string): Promise<string> {
     if (this.isPrimaryOwner(user)) {
       emitToast('Root Primary Store Owner account cannot be deactivated', 'warning');
       throw new Error('Primary Store Owner account cannot be deleted or deactivated');
     }
 
+    const effectiveTenantId = tenantId || user.tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
     const nextStatus = user.status === 'Active' ? 'Inactive' : 'Active';
+
     const response = await fetch(`/api/users/${encodeURIComponent(user.id)}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.getAuthHeaders(effectiveTenantId),
       body: JSON.stringify({ status: nextStatus })
     });
 
@@ -123,27 +125,32 @@ class UserService {
       throw new Error(data.error || data.message || 'Failed to change status');
     }
 
+    this.tenantCache.delete(effectiveTenantId);
     return nextStatus;
   }
 
   /**
    * Delete Sub-User with Primary Owner Immunity Guard
    */
-  async deleteUser(user: AppUser): Promise<void> {
+  async deleteUser(user: AppUser, tenantId?: string): Promise<void> {
     if (this.isPrimaryOwner(user)) {
       emitToast('Root Primary Store Owner account cannot be deleted', 'error');
       throw new Error('Primary Store Owner account cannot be deleted or deactivated');
     }
 
+    const effectiveTenantId = tenantId || user.tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+
     const response = await fetch(`/api/users/${encodeURIComponent(user.id)}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
+      headers: this.getAuthHeaders(effectiveTenantId)
     });
 
     const data = await response.json();
     if (!response.ok || !data.success) {
       throw new Error(data.error || data.message || 'Failed to delete user');
     }
+
+    this.tenantCache.delete(effectiveTenantId);
   }
 
   /**

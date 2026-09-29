@@ -232,6 +232,42 @@ export async function initializeMariaDbSchema(): Promise<boolean> {
         // Silent catch for already existing tables/indexes
       }
     }
+
+    // Multi-Tenant Zero-Data-Leakage Column & Index Migrations
+    const multiTenantMigrations = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) AFTER email;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT 'cashier';",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS pharmacy_name VARCHAR(255) AFTER tenant_id;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(64) DEFAULT 'Gold Business';",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_users INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_branches INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_terminals INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS bound_hardware_ids JSON;",
+      "ALTER TABLE medicines ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE parties ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "CREATE INDEX IF NOT EXISTS idx_tenant_users ON users (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_license_tenant ON mbi_licenses (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_med_tenant ON medicines (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_sales_tenant ON sales (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_parties_tenant ON parties (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_expenses_tenant ON expenses (tenant_id);"
+    ];
+
+    for (const mig of multiTenantMigrations) {
+      try {
+        await currentPool.query(mig);
+      } catch (e) {
+        // Ignored if column or index already exists
+      }
+    }
+
     await seedMariaDbDefaults(currentPool);
     return true;
   } catch (err: any) {

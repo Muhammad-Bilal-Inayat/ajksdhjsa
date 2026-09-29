@@ -789,7 +789,11 @@ export function buildCustomerReplyWhatsAppUrl(lead: RegistrationLead, activation
   return `https://wa.me/${formattedPhone}?text=${encodedText}`;
 }
 
-export function approveAndActivateLead(leadId: string, assignedPlan?: SoftwareCategoryPlan): {
+export function approveAndActivateLead(
+  leadId: string, 
+  assignedPlan?: string,
+  customOptions?: { customDays?: number; customTier?: 'Basic' | 'Business' | 'Enterprise'; customPrice?: number }
+): {
   lead: RegistrationLead;
   licenseKey: string;
 } {
@@ -797,33 +801,63 @@ export function approveAndActivateLead(leadId: string, assignedPlan?: SoftwareCa
   const lead = leads.find(l => l.id === leadId);
   if (!lead) throw new Error('Lead not found.');
 
-  const plan = assignedPlan || lead.requestedPlan || 'Standard POS';
+  const plan = assignedPlan || lead.requestedPlan || '1 Year — Business (Rs. 39,990/yr)';
   const licenseKey = lead.activationKey || generateNewLicenseKey(plan as any);
 
-  // Determine duration and pricing
+  // Determine duration, tier, and pricing
   let expiryStr = 'Lifetime';
   let isTrial = false;
-  let dealPrice = 19990;
+  let dealPrice = 39990;
+  let resolvedTier: 'Basic' | 'Business' | 'Enterprise' = 'Business';
 
-  if (plan === '3 Days Trial' || plan === '3 Days') {
+  const planLower = plan.toLowerCase();
+
+  // Tier detection
+  if (planLower.includes('enterprise') || planLower.includes('platinum')) {
+    resolvedTier = 'Enterprise';
+  } else if (planLower.includes('basic') || planLower.includes('silver') || planLower.includes('standard pos')) {
+    resolvedTier = 'Basic';
+  } else {
+    resolvedTier = 'Business';
+  }
+
+  // Duration & Price calculation
+  if (planLower.includes('3 days') || planLower.includes('3-day')) {
     expiryStr = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     isTrial = true;
     dealPrice = 0;
-  } else if (plan === '7 Days Trial' || plan === '7 Days') {
-    expiryStr = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  } else if (planLower.includes('10 days') || planLower.includes('10-day')) {
+    expiryStr = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     isTrial = true;
     dealPrice = 0;
-  } else if (plan === '15 Days Trial' || plan === '15 Days') {
+  } else if (planLower.includes('15 days') || planLower.includes('15-day')) {
     expiryStr = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     isTrial = true;
     dealPrice = 0;
-  } else if (plan === '30 Days Monthly' || plan === '30 Days') {
+  } else if (planLower.includes('7 days') || planLower.includes('7-day')) {
+    expiryStr = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    isTrial = true;
+    dealPrice = 0;
+  } else if (planLower.includes('1 month') || planLower.includes('30 days') || planLower.includes('monthly')) {
     expiryStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    dealPrice = 1999;
-  } else if (plan === 'Pharmacy Pro') {
-    dealPrice = 39990;
-  } else if (plan === 'Enterprise Multi-Branch') {
-    dealPrice = 69990;
+    dealPrice = resolvedTier === 'Enterprise' ? 6999 : resolvedTier === 'Business' ? 3999 : 1999;
+  } else if (planLower.includes('1 year') || planLower.includes('365 days') || planLower.includes('yearly') || planLower.includes('annual')) {
+    expiryStr = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    dealPrice = resolvedTier === 'Enterprise' ? 69990 : resolvedTier === 'Business' ? 39990 : 19990;
+  } else if (planLower.includes('3 years') || planLower.includes('3 year')) {
+    expiryStr = new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    dealPrice = resolvedTier === 'Enterprise' ? 149990 : resolvedTier === 'Business' ? 89990 : 49990;
+  } else if (planLower.includes('5 years') || planLower.includes('5 year')) {
+    expiryStr = new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    dealPrice = resolvedTier === 'Enterprise' ? 229990 : resolvedTier === 'Business' ? 139990 : 79990;
+  } else if (planLower.includes('lifetime') || planLower.includes('perpetual')) {
+    expiryStr = 'Lifetime';
+    dealPrice = resolvedTier === 'Enterprise' ? 299990 : resolvedTier === 'Business' ? 189990 : 99990;
+  } else if (customOptions?.customDays && customOptions.customDays > 0) {
+    expiryStr = new Date(Date.now() + customOptions.customDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (customOptions.customTier) resolvedTier = customOptions.customTier;
+    dealPrice = customOptions.customPrice !== undefined ? customOptions.customPrice : (customOptions.customDays <= 15 ? 0 : 9990);
+    isTrial = dealPrice === 0;
   }
 
   // 1. Create / update client license
@@ -838,7 +872,7 @@ export function approveAndActivateLead(leadId: string, assignedPlan?: SoftwareCa
     status: 'Active',
     issueDate: new Date().toISOString().slice(0, 10),
     expiryDate: expiryStr,
-    maxDevices: plan.includes('Enterprise') ? 10 : 3,
+    maxDevices: resolvedTier === 'Enterprise' ? 10 : resolvedTier === 'Business' ? 5 : 3,
     strictHardwareLock: false,
     maxOfflineDays: 30,
     boundHardwareIds: [],
@@ -849,7 +883,7 @@ export function approveAndActivateLead(leadId: string, assignedPlan?: SoftwareCa
       inventory: true,
       reports: true,
       cloudSync: true,
-      multiBranch: plan.includes('Enterprise'),
+      multiBranch: resolvedTier === 'Enterprise',
       cashierShifts: true,
       customPrint: true,
       accountsLedger: true,
@@ -863,7 +897,7 @@ export function approveAndActivateLead(leadId: string, assignedPlan?: SoftwareCa
     amountDue: 0,
     saleStatus: isTrial ? 'Complimentary / Trial' : 'Paid',
     paymentMethod: isTrial ? 'Other' : 'Cash',
-    notes: `Lead activated via WhatsApp Registry (${lead.id}) - Plan: ${plan}`,
+    notes: `Lead activated via WhatsApp Registry (${lead.id}) - Plan: ${plan} (Expiry: ${expiryStr})`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });

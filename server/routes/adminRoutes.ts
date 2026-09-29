@@ -410,7 +410,7 @@ adminRouter.get('/tenants/:id/staff-and-devices', async (req: Request, res: Resp
     try {
       const pool = getMariaDbPool();
       const rows: any = await pool.query(
-        'SELECT * FROM mbi_users WHERE tenant_id = ? OR tenant_id IS NULL OR tenant_id = "default" ORDER BY is_primary_owner DESC, created_at ASC',
+        'SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC',
         [id]
       );
 
@@ -2002,6 +2002,334 @@ adminRouter.post('/impersonate/:id', (req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Failed to generate shadow token' });
+  }
+});
+
+// -------------------------------------------------------------
+// ULTIMATE LICENSE MANAGER ENDPOINTS
+// -------------------------------------------------------------
+
+/**
+ * GET /api/admin/licenses
+ * Fetch all licenses auto-synced with user registrations and tenants from MariaDB + local fallback
+ */
+adminRouter.get('/licenses', async (req: Request, res: Response) => {
+  try {
+    let licenses: any[] = [];
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [rows]: any = await pool.query(`
+          SELECT 
+            l.id,
+            l.tenant_id,
+            l.license_key,
+            COALESCE(l.client_name, t.name, 'Registered Pharmacy') AS pharmacy_name,
+            COALESCE(l.owner_name, t.owner_name, 'Store Owner') AS owner_name,
+            COALESCE(l.phone, t.owner_phone, t.contact_phone, '') AS owner_contact,
+            COALESCE(l.plan, t.plan_id, t.plan, 'Gold Business') AS plan_tier,
+            COALESCE(l.status, 'Active') AS status,
+            l.issue_date,
+            l.expiry_date,
+            COALESCE(l.max_devices, 5) AS max_terminals,
+            5 AS max_users,
+            5 AS max_branches,
+            l.bound_hardware_ids,
+            l.bound_hwid,
+            l.created_at
+          FROM mbi_licenses l
+          LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id OR l.client_name = t.name)
+          ORDER BY l.created_at DESC
+        `);
+
+        if (Array.isArray(rows) && rows.length > 0) {
+          licenses = rows;
+        }
+      } catch (dbErr) {
+        console.warn('[ADMIN LICENSES DB FETCH]', dbErr);
+      }
+    }
+
+    // Merge with any tenants or fallback sync users that don't have a license row yet
+    const fallback = getLocalFallbackData();
+    const fallbackLicenses = fallback.mbi_licenses || fallback.client_licenses || [];
+    const fallbackTenants = fallback.tenants || [];
+    const fallbackUsers = getFallbackUsers();
+
+    // If empty from DB, populate from fallback
+    if (licenses.length === 0) {
+      licenses = fallbackLicenses.map((l: any) => ({
+        id: l.id || `lic_${l.licenseKey}`,
+        tenant_id: l.tenantId || l.tenant_id || 'tenant_default',
+        license_key: l.licenseKey || l.license_key || 'MBI-GOLD-PK-2028',
+        pharmacy_name: l.clientName || l.storeName || l.pharmacy_name || 'Central Pharmacy',
+        owner_name: l.ownerName || l.owner_name || 'Store Owner',
+        owner_contact: l.phone || l.owner_contact || '0300-1234567',
+        plan_tier: l.plan || l.plan_tier || 'Gold Business',
+        status: (l.status || 'Active').toLowerCase(),
+        issue_date: l.issueDate || l.issue_date || new Date().toISOString(),
+        expiry_date: l.expiryDate || l.expiry_date || '2028-12-31',
+        max_terminals: l.maxDevices || l.max_terminals || 5,
+        max_users: 5,
+        max_branches: 5,
+        bound_hardware_ids: l.boundHardwareIds || l.bound_hardware_ids || []
+      }));
+    }
+
+    // Ensure all tenants/registered users are accounted for
+    for (const t of fallbackTenants) {
+      const exists = licenses.some(l => l.tenant_id === t.id || l.pharmacy_name === t.name);
+      if (!exists) {
+        licenses.push({
+          id: `lic_${t.id}`,
+          tenant_id: t.id,
+          license_key: t.licenseKey || `MBI-TR-${(t.name || 'PH').substring(0, 3).toUpperCase()}-7788`,
+          pharmacy_name: t.name || t.storeName || 'Registered Pharmacy',
+          owner_name: t.ownerName || 'Store Owner',
+          owner_contact: t.phone || t.ownerPhone || '0300-0000000',
+          plan_tier: t.plan || 'Gold Business',
+          status: (t.status || 'Active').toLowerCase(),
+          issue_date: t.createdAt || new Date().toISOString(),
+          expiry_date: t.trialExpiryDate || '2028-12-31',
+          max_terminals: 5,
+          max_users: 5,
+          max_branches: 5,
+          bound_hardware_ids: t.boundHwids || []
+        });
+      }
+    }
+
+    return res.json({ success: true, licenses });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/licenses/create
+ * Generate a new enterprise license
+ */
+adminRouter.post('/licenses/create', async (req: Request, res: Response) => {
+  try {
+    const { pharmacyName, ownerContact, ownerName, tier, durationYears, maxUsers, maxBranches, maxTerminals } = req.body;
+    if (!pharmacyName || !pharmacyName.trim()) {
+      return res.status(400).json({ success: false, error: 'Pharmacy name is required' });
+    }
+
+    const cleanPharmacyName = pharmacyName.trim();
+    const cleanOwnerContact = (ownerContact || '').trim();
+    const cleanOwnerName = (ownerName || cleanPharmacyName || 'Pharmacy Owner').trim();
+    const cleanTier = tier || 'Gold Business';
+    const years = Number(durationYears) || 1;
+    const terminals = Number(maxTerminals) || 5;
+    const users = Number(maxUsers) || 5;
+    const branches = Number(maxBranches) || 5;
+
+    const licenseId = `lic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const licenseKey = `MBI-${cleanTier.substring(0, 2).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    const now = new Date();
+    const expiryDate = years >= 99 
+      ? '2099-12-31' 
+      : new Date(now.getTime() + years * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Write to MariaDB
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(`
+          INSERT INTO mbi_licenses (
+            id, tenant_id, license_key, client_name, owner_name, phone, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', CURRENT_DATE, ?, ?, '[]')
+          ON DUPLICATE KEY UPDATE status = 'Active', expiry_date = VALUES(expiry_date);
+        `, [licenseId, tenantId, licenseKey, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, expiryDate, terminals]);
+
+        await pool.query(`
+          INSERT INTO mbi_tenants (
+            id, tenant_id, name, owner_name, owner_phone, plan, plan_id, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')
+          ON DUPLICATE KEY UPDATE status = 'Active';
+        `, [tenantId, tenantId, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, cleanTier]);
+      } catch (dbErr) {
+        console.warn('[CREATE LICENSE DB ERROR]', dbErr);
+      }
+    }
+
+    // Save to local fallback cache
+    const fallback = getLocalFallbackData();
+    if (!fallback.mbi_licenses) fallback.mbi_licenses = [];
+    fallback.mbi_licenses.unshift({
+      id: licenseId,
+      tenantId,
+      licenseKey,
+      clientName: cleanPharmacyName,
+      ownerName: cleanOwnerName,
+      phone: cleanOwnerContact,
+      plan: cleanTier,
+      status: 'Active',
+      issueDate: now.toISOString().split('T')[0],
+      expiryDate,
+      maxDevices: terminals,
+      boundHardwareIds: []
+    });
+    saveLocalFallbackData(fallback);
+
+    // Broadcast event
+    broadcastFleetActivity({
+      id: `act_${Date.now()}`,
+      tenantId,
+      storeName: cleanPharmacyName,
+      userName: cleanOwnerName,
+      userRole: 'Master Admin',
+      actionType: 'LICENSE_GENERATED',
+      actionDetails: `🔑 New License generated for ${cleanPharmacyName} (${cleanTier}, ${years} yr validity, ${terminals} terminals).`,
+      ipAddress: req.ip || '127.0.0.1',
+      deviceInfo: 'Master License HQ',
+      timestamp: new Date().toISOString(),
+      relativeTime: 'Just now'
+    });
+
+    return res.json({
+      success: true,
+      message: `License key generated for ${cleanPharmacyName}!`,
+      licenseKey,
+      licenseId,
+      tenantId
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/licenses/action
+ * Perform Master Actions (extend_days, grant_terminal_slot, reset_fingerprint, suspend, reactivate)
+ */
+adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
+  const { action, licenseKey, days, tenantId } = req.body;
+  if (!action || !licenseKey) {
+    return res.status(400).json({ success: false, error: 'action and licenseKey are required' });
+  }
+
+  try {
+    const isDb = await isMariaDbAvailable();
+    const pool = isDb ? getMariaDbPool() : null;
+
+    if (action === 'extend_days') {
+      const daysToAdd = Number(days) || 365;
+      if (pool) {
+        await pool.query(`
+          UPDATE mbi_licenses 
+          SET expiry_date = DATE_ADD(COALESCE(expiry_date, CURRENT_DATE), INTERVAL ? DAY),
+              status = 'Active'
+          WHERE license_key = ?
+        `, [daysToAdd, licenseKey]);
+      }
+
+      // Update local fallback
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          const currentExp = lic.expiryDate ? new Date(lic.expiryDate).getTime() : Date.now();
+          lic.expiryDate = new Date(currentExp + daysToAdd * 86400000).toISOString().split('T')[0];
+          lic.status = 'Active';
+          saveLocalFallbackData(fallback);
+        }
+      }
+
+      broadcastAdminEvent({ type: 'LICENSE_EXTENDED', licenseKey, days: daysToAdd });
+      return res.json({ success: true, message: `Extended license validity by ${daysToAdd} days!` });
+    }
+
+    if (action === 'grant_terminal_slot') {
+      if (pool) {
+        await pool.query(`
+          UPDATE mbi_licenses 
+          SET max_devices = COALESCE(max_devices, 1) + 1 
+          WHERE license_key = ?
+        `, [licenseKey]);
+      }
+
+      // Update local fallback
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.maxDevices = (lic.maxDevices || 5) + 1;
+          saveLocalFallbackData(fallback);
+        }
+      }
+
+      broadcastAdminEvent({ type: 'TERMINAL_SLOT_GRANTED', licenseKey });
+      return res.json({ success: true, message: '+1 Terminal slot granted successfully!' });
+    }
+
+    if (action === 'reset_fingerprint') {
+      if (pool) {
+        await pool.query(`
+          UPDATE mbi_licenses 
+          SET bound_hardware_ids = '[]', bound_hwid = NULL 
+          WHERE license_key = ?
+        `, [licenseKey]);
+      }
+
+      // Update local fallback
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.boundHardwareIds = [];
+          lic.boundHwid = null;
+          saveLocalFallbackData(fallback);
+        }
+      }
+
+      broadcastAdminEvent({ type: 'HWID_FINGERPRINT_RESET', licenseKey });
+      return res.json({ success: true, message: 'HWID Fingerprint reset for new PC/laptop registration!' });
+    }
+
+    if (action === 'suspend') {
+      if (pool) {
+        await pool.query(`UPDATE mbi_licenses SET status = 'Suspended' WHERE license_key = ?`, [licenseKey]);
+      }
+
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.status = 'Suspended';
+          saveLocalFallbackData(fallback);
+        }
+      }
+
+      broadcastAdminEvent({ type: 'LICENSE_SUSPENDED', licenseKey });
+      return res.json({ success: true, message: 'License suspended and locked remotely.' });
+    }
+
+    if (action === 'reactivate') {
+      if (pool) {
+        await pool.query(`UPDATE mbi_licenses SET status = 'Active' WHERE license_key = ?`, [licenseKey]);
+      }
+
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.status = 'Active';
+          saveLocalFallbackData(fallback);
+        }
+      }
+
+      broadcastAdminEvent({ type: 'LICENSE_REACTIVATED', licenseKey });
+      return res.json({ success: true, message: 'License reactivated successfully.' });
+    }
+
+    return res.status(400).json({ success: false, error: 'Invalid action specified' });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 

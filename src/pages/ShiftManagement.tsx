@@ -103,6 +103,14 @@ export const ShiftManagement: React.FC = () => {
         dbAppUsers.getAll()
       ]);
 
+      const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || 'tenant_main_pharmacy';
+      const tenantUsers = (allUsers || []).filter(u => {
+        if (!u) return false;
+        const uTenant = u.tenantId || (u as any).tenant_id;
+        if (uTenant) return uTenant === currentTenantId;
+        return currentTenantId === 'tenant_main_pharmacy' || currentTenantId === 'tenant-demo-01';
+      });
+
       setShifts(allShifts || []);
       // Find open shift
       const openShift = (allShifts || []).find(s => s.status === 'OPEN') || null;
@@ -111,7 +119,7 @@ export const ShiftManagement: React.FC = () => {
       setInvoices(allInvoices || []);
       setExpenses(allExpenses || []);
       setPartyPayments(allPayments || []);
-      setUsers(allUsers || []);
+      setUsers(tenantUsers);
 
       if (openShift?.denominations) {
         setLiveDenoms(openShift.denominations);

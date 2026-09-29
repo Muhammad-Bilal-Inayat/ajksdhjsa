@@ -267,7 +267,7 @@ export async function getTableDataController(req: Request, res: Response) {
       const queryParams: any[] = [];
 
       if (tenantId && tenantId !== 'all') {
-        whereParts.push('(tenant_id = ? OR tenant_id IS NULL)');
+        whereParts.push('tenant_id = ?');
         queryParams.push(tenantId);
       }
 

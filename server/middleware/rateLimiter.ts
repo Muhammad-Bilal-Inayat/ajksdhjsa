@@ -13,17 +13,21 @@ export const apiLimiter = rateLimit({
       clientIp === '127.0.0.1' ||
       clientIp === '::1' ||
       clientIp.includes('127.0.0.1') ||
+      req.path.startsWith('/api/admin') ||
+      req.path.startsWith('/api/master') ||
+      req.path.startsWith('/api/license') ||
       req.path.startsWith('/api/health') ||
       req.path.startsWith('/api/db/status') ||
       req.path.startsWith('/api/sync') ||
-      req.path.startsWith('/api/khata')
+      req.path.startsWith('/api/khata') ||
+      req.path.startsWith('/api/version')
     );
   },
   handler: (req, res) => {
     res.status(429).json({
       status: 429,
       success: false,
-      message: 'Too many requests, please try again later.'
+      message: 'Rate limit exceeded. Please wait a moment.'
     });
   }
 });

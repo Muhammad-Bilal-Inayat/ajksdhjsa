@@ -16,6 +16,7 @@ import { unifiedSyncService } from '../lib/syncService';
 import { firebaseSyncManager } from '../lib/firebaseSync';
 import { deleteRecordFromFirestore } from '../lib/firebase';
 import { deleteMasterActiveUser, saveMasterActiveUser, DEFAULT_USER_PERMISSIONS, calculateTrialRemaining, activateLicenseKey } from '../lib/masterServerService';
+import { userService } from '../services/userService';
 import { FirebaseAuthModal } from '../components/admin/FirebaseAuthModal';
 import { PWAInstallButton } from '../components/pwa/PWAComponents';
 import { getBrandContact } from '../lib/siteCmsService';
@@ -26,6 +27,24 @@ import { BackupRestoreTab } from '../components/settings/BackupRestoreTab';
 
 export const ALL_AVAILABLE_ROLES: UserRole[] = [
   'Primary Admin',
+  'Secondary Admin',
+  'Admin',
+  'Store Manager',
+  'Pharmacist',
+  'Cashier',
+  'Salesman',
+  'Biller',
+  'Biller and Salesman',
+  'Sales Staff',
+  'Accountant',
+  'CA/Accountant',
+  'Inventory Manager',
+  'Stock Keeper',
+  'Viewer'
+];
+
+// Roles assignable to sub-users / staff (Primary Admin is strictly 1 per company and cannot be assigned to new users)
+export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
   'Secondary Admin',
   'Admin',
   'Store Manager',
@@ -116,10 +135,82 @@ export const SyncAndShare: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const appUsersList = await dbAppUsers.getAll();
+      const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+
+      // 1. Fetch server records strictly for this tenant
+      let serverUsers: AppUserRecord[] = [];
+      try {
+        const fetched = await userService.getAllUsers(currentTenantId);
+        if (Array.isArray(fetched) && fetched.length > 0) {
+          serverUsers = fetched.map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            emailOrPhone: u.email || u.phone || u.emailOrPhone || '',
+            role: normalizeUserRole(u.role),
+            passcode: u.pin || u.passcode || '1234',
+            status: (u.status === 'Active' ? 'Joined' : u.status) || 'Joined',
+            notes: u.notes || '',
+            tenantId: u.tenantId || u.tenant_id || currentTenantId,
+            canEditInvoices: u.canEditInvoices,
+            canDeleteInvoices: u.canDeleteInvoices,
+            customPermissions: u.customPermissions || u.custom_permissions,
+            allowed_modules: u.allowed_modules,
+            createdAt: u.createdAt || u.created_at || new Date().toISOString(),
+            updatedAt: u.updatedAt || u.updated_at || new Date().toISOString(),
+            lastActive: u.lastActive || 'Active Now'
+          }));
+        }
+      } catch (err) {
+        console.warn('Could not fetch server users for tenant:', err);
+      }
+
+      // 2. Fetch local appUsers and strictly filter by active tenant
+      const rawLocalUsers = await dbAppUsers.getAll();
+      const localTenantUsers = (rawLocalUsers || []).filter(u => {
+        if (!u || !u.id) return false;
+        const uTenant = u.tenantId || (u as any).tenant_id;
+        if (uTenant) {
+          return uTenant === currentTenantId;
+        }
+        // If un-tagged, only allow if current tenant is default
+        return currentTenantId === 'tenant_main_pharmacy' || currentTenantId === 'tenant-demo-01';
+      });
+
+      // 3. Merge server and local records strictly for this tenant
+      const userMap = new Map<string, AppUserRecord>();
+      localTenantUsers.forEach(u => userMap.set(u.id, u));
+      serverUsers.forEach(u => userMap.set(u.id, { ...userMap.get(u.id), ...u }));
+
+      // 4. Ensure there is at least 1 Primary Admin for this company
+      if (userMap.size === 0) {
+        const primaryAdminName = (activeUser?.name || currentUser?.displayName || business?.name || 'Primary Admin').replace(/\(Admin\)/g, '').trim();
+        const primaryAdmin: AppUserRecord = {
+          id: activeUser?.id || currentUser?.uid || `usr_primary_${currentTenantId}`,
+          name: primaryAdminName,
+          emailOrPhone: activeUser?.emailOrPhone || currentUser?.email || (business as any)?.phone || '',
+          role: 'Primary Admin',
+          passcode: activeUser?.passcode || '1234',
+          status: 'Joined',
+          tenantId: currentTenantId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastActive: 'Active Now'
+        };
+        userMap.set(primaryAdmin.id, primaryAdmin);
+        await dbAppUsers.save(primaryAdmin);
+      }
+
+      const tenantUsersList = Array.from(userMap.values());
       const activityList = await dbUserActivities.getAll();
-      setUsers(appUsersList || []);
-      setActivities(activityList || []);
+      const tenantActivities = (activityList || []).filter(a => {
+        if (!a) return false;
+        const aTenant = (a as any).tenantId || (a as any).tenant_id;
+        if (aTenant) return aTenant === currentTenantId;
+        return true;
+      });
+
+      setUsers(tenantUsersList);
+      setActivities(tenantActivities);
     } catch (e) {
       console.error('Failed to load user and activity data', e);
     } finally {
@@ -132,7 +223,7 @@ export const SyncAndShare: React.FC = () => {
     const handleLocalChange = () => loadData();
     window.addEventListener('mbi-local-db-change', handleLocalChange);
     return () => window.removeEventListener('mbi-local-db-change', handleLocalChange);
-  }, []);
+  }, [tenantId, tenant?.id, business?.id]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -153,6 +244,19 @@ export const SyncAndShare: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const isPrimaryUser = (u?: AppUserRecord | null) => {
+    if (!u) return false;
+    return Boolean(
+      u.role === 'Primary Admin' ||
+      u.role === 'Owner' ||
+      (u as any).is_primary_owner === 1 ||
+      (u as any).isPrimaryOwner ||
+      (u as any).is_primary_admin === 1 ||
+      (u as any).isPrimaryAdmin ||
+      u.id === 'usr_primary_owner'
+    );
   };
 
   const handleOpenAdd = () => {
@@ -185,6 +289,12 @@ export const SyncAndShare: React.FC = () => {
       return;
     }
 
+    if (formData.role === 'Primary Admin') {
+      showToast('❌ Primary Admin role is strictly 1 per company and cannot be created as a sub-user.');
+      return;
+    }
+
+    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
     const newUser: AppUserRecord = {
       id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name: formData.name.trim(),
@@ -193,6 +303,7 @@ export const SyncAndShare: React.FC = () => {
       passcode: formData.passcode.trim(),
       status: 'Joined',
       notes: formData.notes.trim(),
+      tenantId: currentTenantId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       lastActive: 'Active Now'
@@ -201,11 +312,26 @@ export const SyncAndShare: React.FC = () => {
     await dbAppUsers.save(newUser);
     saveMasterActiveUser({
       ...newUser,
+      tenantId: currentTenantId,
       storeName: business?.name || tenant?.name || 'MBI INVENTRA',
       lastSyncTime: new Date().toISOString(),
       isOnline: navigator.onLine
     } as any);
-    await firebaseSyncManager.queueRecord('appUsers', newUser.id, newUser, 'set');
+
+    try {
+      await userService.createUser({
+        name: newUser.name,
+        email: newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
+        phone: !newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
+        role: newUser.role,
+        pin: newUser.passcode,
+        notes: newUser.notes
+      }, currentTenantId);
+    } catch (apiErr) {
+      console.warn('Failed to save to server user API:', apiErr);
+    }
+
+    await firebaseSyncManager.queueRecord('appUsers', newUser.id, { ...newUser, tenantId: currentTenantId }, 'set');
 
     const newLog: UserActivityLog = {
       id: `act-${Date.now()}`,
@@ -229,23 +355,46 @@ export const SyncAndShare: React.FC = () => {
     e.preventDefault();
     if (!selectedUser || !formData.name.trim()) return;
 
+    const isTargetPrimary = isPrimaryUser(selectedUser);
+    if (!isTargetPrimary && formData.role === 'Primary Admin') {
+      showToast('❌ Cannot promote sub-user to Primary Admin.');
+      return;
+    }
+
+    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
     const updatedUser: AppUserRecord = {
       ...selectedUser,
       name: formData.name.trim(),
       emailOrPhone: formData.emailOrPhone.trim(),
-      role: formData.role,
+      role: isTargetPrimary ? 'Primary Admin' : formData.role,
       passcode: formData.passcode.trim(),
       notes: formData.notes.trim(),
-      updatedAt: new Date().toISOString(),
+      tenantId: selectedUser.tenantId || currentTenantId,
+      updatedAt: new Date().toISOString()
     };
 
     await dbAppUsers.save(updatedUser);
     saveMasterActiveUser({
       ...updatedUser,
+      tenantId: updatedUser.tenantId,
       storeName: business?.name || tenant?.name || 'MBI INVENTRA',
       lastSyncTime: new Date().toISOString(),
       isOnline: navigator.onLine
     } as any);
+
+    try {
+      await userService.updateUser(updatedUser.id, {
+        name: updatedUser.name,
+        email: updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
+        phone: !updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
+        role: updatedUser.role,
+        pin: updatedUser.passcode,
+        notes: updatedUser.notes
+      }, currentTenantId);
+    } catch (err) {
+      console.warn('Backend user update API notice:', err);
+    }
+
     await firebaseSyncManager.queueRecord('appUsers', updatedUser.id, updatedUser, 'set');
 
     if (activeUser?.id === updatedUser.id) {
@@ -326,9 +475,15 @@ export const SyncAndShare: React.FC = () => {
     if (!selectedUser) return;
     const targetId = selectedUser.id;
     const targetName = selectedUser.name;
+    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
 
     await dbAppUsers.delete(targetId);
     deleteMasterActiveUser(targetId);
+    try {
+      await userService.deleteUser({ id: targetId, is_primary_owner: 0, isPrimaryOwner: false } as any, currentTenantId);
+    } catch (err) {
+      console.warn('Backend user delete API notice:', err);
+    }
     firebaseSyncManager.queueRecord('appUsers', targetId, null, 'delete').catch(() => {});
     if (removeAppUser) await removeAppUser(targetId);
 
@@ -908,14 +1063,20 @@ export const SyncAndShare: React.FC = () => {
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDelete(u)}
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                            title="Delete User"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {isPrimaryUser(u) ? (
+                            <span className="p-1.5 text-[10.5px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2.5 py-1 rounded-lg border border-amber-300 dark:border-amber-800 inline-flex items-center gap-1 shadow-2xs select-none" title="Primary Admin is the root registering owner and cannot be deleted">
+                              👑 Primary Owner
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDelete(u)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                              title="Delete User"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -975,15 +1136,22 @@ export const SyncAndShare: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Role</label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserRole }))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold"
-                  >
-                    {ALL_AVAILABLE_ROLES.map(r => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                  {isEditUserModalOpen && isPrimaryUser(selectedUser) ? (
+                    <div className="w-full px-3.5 py-2 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold flex items-center justify-between text-xs">
+                      <span>👑 Primary Admin</span>
+                      <span className="text-[10px] uppercase font-black tracking-wider bg-amber-200 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">Fixed Root</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserRole }))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none font-bold"
+                    >
+                      {ASSIGNABLE_STAFF_ROLES.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>

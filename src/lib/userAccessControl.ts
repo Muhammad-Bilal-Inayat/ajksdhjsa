@@ -293,25 +293,193 @@ export const SYSTEM_MENU_TREE: MenuItemDefinition[] = [
       {
         id: 'dashboardOverview',
         menuId: 'dashboard',
-        label: 'Business Overview & Stats',
+        label: 'Business Overview & Stats (23 Live Widgets & Cards)',
         path: '/',
         order: 1,
         functions: [
           {
-            id: 'viewDashboardCards',
+            id: 'viewTodaySalesCard',
             submenuId: 'dashboardOverview',
-            label: 'View Summary Metrics',
-            description: 'Today sales, receivables, payables, stock value',
+            label: '1. Today Net Sales KPI Card',
+            description: 'Live daily revenue counter with cash, card, and credit breakdown',
             order: 1,
-            actions: [{ id: 'act_view_stats', functionId: 'viewDashboardCards', label: 'View Metrics', code: 'DASH_VIEW' }]
+            actions: [{ id: 'act_dash_today_sales', functionId: 'viewTodaySalesCard', label: 'Today Sales Card', code: 'DASH_SALES_CARD' }]
           },
           {
-            id: 'viewProfitGraphs',
+            id: 'viewNetProfitMargin',
             submenuId: 'dashboardOverview',
-            label: 'View Financial & Sales Charts',
-            description: 'Sales velocity, revenue trend, top selling items',
+            label: '2. Net Profit & Gross Margin Card',
+            description: 'Real-time gross profit calculation and margin percentage indicator',
             order: 2,
-            actions: [{ id: 'act_view_charts', functionId: 'viewProfitGraphs', label: 'View Charts', code: 'DASH_CHARTS' }]
+            actions: [{ id: 'act_dash_profit_margin', functionId: 'viewNetProfitMargin', label: 'Profit & Margin', code: 'DASH_PROFIT_MARGIN' }]
+          },
+          {
+            id: 'viewPurchasesTodayCard',
+            submenuId: 'dashboardOverview',
+            label: '3. Purchases Today Inflow Card',
+            description: 'Daily stock receiving volume and procurement bills counter',
+            order: 3,
+            actions: [{ id: 'act_dash_purchases_today', functionId: 'viewPurchasesTodayCard', label: 'Purchases Today', code: 'DASH_PURCHASES_CARD' }]
+          },
+          {
+            id: 'viewDailyExpensesCard',
+            submenuId: 'dashboardOverview',
+            label: '4. Daily Expenses & Petty Cash Card',
+            description: 'Live shop expense tally including tea, utility, and petty cash',
+            order: 4,
+            actions: [{ id: 'act_dash_daily_expenses', functionId: 'viewDailyExpensesCard', label: 'Expenses Card', code: 'DASH_EXPENSES_CARD' }]
+          },
+          {
+            id: 'viewCashInHandDrawer',
+            submenuId: 'dashboardOverview',
+            label: '5. Cash-in-Hand Drawer Widget',
+            description: 'Active till cash balance and physical cash drawer status',
+            order: 5,
+            actions: [{ id: 'act_dash_cash_drawer', functionId: 'viewCashInHandDrawer', label: 'Cash Drawer', code: 'DASH_CASH_DRAWER' }]
+          },
+          {
+            id: 'viewNearExpiryAlertCard',
+            submenuId: 'dashboardOverview',
+            label: '6. Near-Expiry 30/60/90 Days Alert Card',
+            description: 'Color-coded radar count of medicines approaching expiration',
+            order: 6,
+            actions: [{ id: 'act_dash_near_expiry', functionId: 'viewNearExpiryAlertCard', label: 'Expiry Alerts', code: 'DASH_NEAR_EXPIRY' }]
+          },
+          {
+            id: 'viewLowStockWarningCard',
+            submenuId: 'dashboardOverview',
+            label: '7. Low Stock & Reorder Warning Card',
+            description: 'Count of medicines below minimum reorder point requiring PO',
+            order: 7,
+            actions: [{ id: 'act_dash_low_stock', functionId: 'viewLowStockWarningCard', label: 'Low Stock Alerts', code: 'DASH_LOW_STOCK' }]
+          },
+          {
+            id: 'viewActiveShiftFloatCard',
+            submenuId: 'dashboardOverview',
+            label: '8. Active Cashier Shift & Float Card',
+            description: 'Current on-duty cashier name, shift start time, and register float',
+            order: 8,
+            actions: [{ id: 'act_dash_active_shift', functionId: 'viewActiveShiftFloatCard', label: 'Active Shift Status', code: 'DASH_SHIFT_STATUS' }]
+          },
+          {
+            id: 'viewHourlySalesTrendChart',
+            submenuId: 'dashboardOverview',
+            label: '9. Hourly Sales Trend Peak Chart',
+            description: 'Interactive hourly sales graph showing peak counter rush hours',
+            order: 9,
+            actions: [{ id: 'act_dash_hourly_chart', functionId: 'viewHourlySalesTrendChart', label: 'Hourly Sales Chart', code: 'DASH_HOURLY_CHART' }]
+          },
+          {
+            id: 'viewTopSellingMedicines',
+            submenuId: 'dashboardOverview',
+            label: '10. Top Selling Medicines Leaderboard',
+            description: 'Ranking of highest volume and high margin products sold',
+            order: 10,
+            actions: [{ id: 'act_dash_top_selling', functionId: 'viewTopSellingMedicines', label: 'Top Selling Products', code: 'DASH_TOP_SELLING' }]
+          },
+          {
+            id: 'viewRecentInvoicesFeed',
+            submenuId: 'dashboardOverview',
+            label: '11. Recent Invoices Real-Time Live Feed',
+            description: 'Time-stamped feed of counter bills with quick preview',
+            order: 11,
+            actions: [{ id: 'act_dash_recent_invoices', functionId: 'viewRecentInvoicesFeed', label: 'Recent Invoices Feed', code: 'DASH_RECENT_INVOICES' }]
+          },
+          {
+            id: 'viewCustomerReceivablesKhata',
+            submenuId: 'dashboardOverview',
+            label: '12. Customer Receivables (Udhaar) Card',
+            description: 'Total market outstanding credit balance owed by regular patients',
+            order: 12,
+            actions: [{ id: 'act_dash_customer_receivables', functionId: 'viewCustomerReceivablesKhata', label: 'Customer Receivables', code: 'DASH_CUSTOMER_KHATA' }]
+          },
+          {
+            id: 'viewSupplierPayablesCard',
+            submenuId: 'dashboardOverview',
+            label: '13. Supplier Payables Outstanding Card',
+            description: 'Total pending supplier credit balance due for payment',
+            order: 13,
+            actions: [{ id: 'act_dash_supplier_payables', functionId: 'viewSupplierPayablesCard', label: 'Supplier Payables', code: 'DASH_SUPPLIER_PAYABLES' }]
+          },
+          {
+            id: 'viewDeadStockRadar',
+            submenuId: 'dashboardOverview',
+            label: '14. Dead & Slow-Moving Stock Radar',
+            description: 'Items with zero movement over the past 30-90 days',
+            order: 14,
+            actions: [{ id: 'act_dash_dead_stock', functionId: 'viewDeadStockRadar', label: 'Dead Stock Radar', code: 'DASH_DEAD_STOCK' }]
+          },
+          {
+            id: 'viewMbiAiInsightsCard',
+            submenuId: 'dashboardOverview',
+            label: '15. MBI AI Instant Insights & Alerts Card',
+            description: 'AI business health score and predictive recommendations',
+            order: 15,
+            actions: [{ id: 'act_dash_ai_insights', functionId: 'viewMbiAiInsightsCard', label: 'AI Copilot Insights', code: 'DASH_AI_INSIGHTS' }]
+          },
+          {
+            id: 'viewQuickActionLaunchpad',
+            submenuId: 'dashboardOverview',
+            label: '16. Quick Action 1-Click Launchpad',
+            description: 'Direct 1-click shortcut buttons for sale, purchase, and expenses',
+            order: 16,
+            actions: [{ id: 'act_dash_quick_actions', functionId: 'viewQuickActionLaunchpad', label: 'Quick Launchpad', code: 'DASH_QUICK_ACTIONS' }]
+          },
+          {
+            id: 'viewCloudSyncHealthBadge',
+            submenuId: 'dashboardOverview',
+            label: '17. Real-Time Cloud Sync Health Badge',
+            description: 'Connection status, server latency, and un-synced outbox record count',
+            order: 17,
+            actions: [{ id: 'act_dash_sync_health', functionId: 'viewCloudSyncHealthBadge', label: 'Cloud Sync Health', code: 'DASH_SYNC_HEALTH' }]
+          },
+          {
+            id: 'viewShortcutsCalendarCard',
+            submenuId: 'dashboardOverview',
+            label: '18. Keyboard Shortcuts & Shift Calendar',
+            description: 'Hotkeys cheatsheet and date filter calendar tool',
+            order: 18,
+            actions: [{ id: 'act_dash_shortcuts', functionId: 'viewShortcutsCalendarCard', label: 'Shortcuts & Calendar', code: 'DASH_SHORTCUTS_CALENDAR' }]
+          },
+          {
+            id: 'viewSalesGrowthVelocity',
+            submenuId: 'dashboardOverview',
+            label: '19. Sales Growth & Velocity Charts',
+            description: 'Week-over-week and month-over-month growth comparisons',
+            order: 19,
+            actions: [{ id: 'act_dash_sales_growth', functionId: 'viewSalesGrowthVelocity', label: 'Sales Growth Charts', code: 'DASH_SALES_VELOCITY' }]
+          },
+          {
+            id: 'viewProfitVsExpenseChart',
+            submenuId: 'dashboardOverview',
+            label: '20. Gross Profit vs Expense Comparison',
+            description: 'Visual ratio of daily operational expenses against gross margin',
+            order: 20,
+            actions: [{ id: 'act_dash_profit_vs_expense', functionId: 'viewProfitVsExpenseChart', label: 'Profit vs Expenses', code: 'DASH_PROFIT_VS_EXPENSE' }]
+          },
+          {
+            id: 'viewCategoryRevenueBreakdown',
+            submenuId: 'dashboardOverview',
+            label: '21. Category-wise Revenue Breakdown',
+            description: 'Antibiotics, General OTC, Surgical, and Injections sales pie chart',
+            order: 21,
+            actions: [{ id: 'act_dash_category_breakdown', functionId: 'viewCategoryRevenueBreakdown', label: 'Category Breakdown', code: 'DASH_CATEGORY_BREAKDOWN' }]
+          },
+          {
+            id: 'viewWalkinVsKhataRatio',
+            submenuId: 'dashboardOverview',
+            label: '22. Walk-in vs Khata Sales Ratio',
+            description: 'Proportion of immediate cash sales versus customer credit bills',
+            order: 22,
+            actions: [{ id: 'act_dash_walkin_khata_ratio', functionId: 'viewWalkinVsKhataRatio', label: 'Walkin vs Khata', code: 'DASH_WALKIN_VS_KHATA' }]
+          },
+          {
+            id: 'viewMasterFinancialSummary',
+            submenuId: 'dashboardOverview',
+            label: '23. Master Financial Summary Metrics',
+            description: 'Total asset valuation, net working capital, and overall business equity',
+            order: 23,
+            actions: [{ id: 'act_dash_master_summary', functionId: 'viewMasterFinancialSummary', label: 'Master Summary', code: 'DASH_FINANCIAL_SUMMARY' }]
           }
         ]
       }
@@ -402,8 +570,8 @@ export const SYSTEM_MENU_TREE: MenuItemDefinition[] = [
           {
             id: 'manageBatches',
             submenuId: 'inventoryList',
-            label: 'Batch & Expiry Controls',
-            description: 'Track batch numbers, expiration dates, racks',
+            label: 'Batch & Expiry Controls (FEFO)',
+            description: 'Track batch numbers, expiration dates, racks and FEFO priority',
             order: 4,
             actions: [{ id: 'act_manage_batches', functionId: 'manageBatches', label: 'Batch Control', code: 'BATCH_MGMT' }]
           }
@@ -412,17 +580,102 @@ export const SYSTEM_MENU_TREE: MenuItemDefinition[] = [
       {
         id: 'shortageRegistry',
         menuId: 'items',
-        label: 'Shortage Registry & Demand Register',
+        label: 'Shortage Registry & Demand Book',
         path: '/shortage-registry',
         order: 2,
         functions: [
           {
             id: 'manageShortageRegistry',
             submenuId: 'shortageRegistry',
-            label: 'Manage Out-of-Stock Demand',
+            label: 'Manage Out-of-Stock Demand & Reorders',
             description: 'Record customer requests and shortage items',
             order: 1,
             actions: [{ id: 'act_shortage_edit', functionId: 'manageShortageRegistry', label: 'Edit Shortage Log', code: 'SHORTAGE_EDIT' }]
+          }
+        ]
+      },
+      {
+        id: 'narcoticsRegistry',
+        menuId: 'items',
+        label: 'Narcotics & Controlled Drugs (Schedule D)',
+        path: '/items?tab=narcotics',
+        order: 3,
+        functions: [
+          {
+            id: 'manageNarcoticsLog',
+            submenuId: 'narcoticsRegistry',
+            label: 'Manage Schedule D Narcotics Register',
+            description: 'Log patient CNIC, doctor license, and prescription dispensing',
+            order: 1,
+            actions: [{ id: 'act_narcotics_log', functionId: 'manageNarcoticsLog', label: 'Log Narcotics', code: 'NARCOTICS_LOG' }]
+          }
+        ]
+      },
+      {
+        id: 'chronicRefills',
+        menuId: 'items',
+        label: 'Chronic Patient Refills & Regular Medicines',
+        path: '/items?tab=chronic',
+        order: 4,
+        functions: [
+          {
+            id: 'manageChronicRefills',
+            submenuId: 'chronicRefills',
+            label: 'Track Regular Diabetes / BP Refills',
+            description: 'Patient regular dosage reminders and auto refill demand',
+            order: 1,
+            actions: [{ id: 'act_chronic_refill', functionId: 'manageChronicRefills', label: 'Chronic Refills', code: 'CHRONIC_REFILL' }]
+          }
+        ]
+      },
+      {
+        id: 'barcodeLabels',
+        menuId: 'items',
+        label: 'Barcode & Price Tag Generator',
+        path: '/utilities',
+        order: 5,
+        functions: [
+          {
+            id: 'generateBarcodeStickers',
+            submenuId: 'barcodeLabels',
+            label: 'Generate Thermal Barcode Stickers',
+            description: 'Print custom price labels and retail barcodes',
+            order: 1,
+            actions: [{ id: 'act_barcode_gen', functionId: 'generateBarcodeStickers', label: 'Print Barcodes', code: 'BARCODE_PRINT' }]
+          }
+        ]
+      },
+      {
+        id: 'quarantineStock',
+        menuId: 'items',
+        label: 'Product Recall & Quarantine Inventory',
+        path: '/items?tab=quarantine',
+        order: 6,
+        functions: [
+          {
+            id: 'manageQuarantine',
+            submenuId: 'quarantineStock',
+            label: 'Quarantine Defective / Recalled Batches',
+            description: 'Lock batches to prevent accidental counter sale',
+            order: 1,
+            actions: [{ id: 'act_quarantine_batch', functionId: 'manageQuarantine', label: 'Quarantine Batches', code: 'BATCH_QUARANTINE' }]
+          }
+        ]
+      },
+      {
+        id: 'stockTransfers',
+        menuId: 'items',
+        label: 'Multi-Branch & Godown Stock Transfer',
+        path: '/items?tab=transfers',
+        order: 7,
+        functions: [
+          {
+            id: 'manageStockTransfers',
+            submenuId: 'stockTransfers',
+            label: 'Transfer Stock Across Branches / Godowns',
+            description: 'Generate inter-branch gate passes and receive transfer batches',
+            order: 1,
+            actions: [{ id: 'act_stock_transfer', functionId: 'manageStockTransfers', label: 'Transfer Stock', code: 'STOCK_TRANSFER' }]
           }
         ]
       },
@@ -431,7 +684,7 @@ export const SYSTEM_MENU_TREE: MenuItemDefinition[] = [
         menuId: 'items',
         label: 'Top Selling & Fast Moving Products',
         path: '/top-products',
-        order: 3,
+        order: 8,
         functions: [
           {
             id: 'viewTopProducts',

@@ -229,7 +229,7 @@ async function testMariaDbConnection() {
     };
   }
 }
-async function isMariaDbAvailable() {
+async function isMariaDbAvailable2() {
   const now = Date.now();
   if (isConnected && now - lastPingTime < 3e4) {
     return true;
@@ -247,7 +247,7 @@ async function isMariaDbAvailable() {
 }
 async function initializeMariaDbSchema() {
   try {
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (!isAvailable) {
       return false;
     }
@@ -263,6 +263,37 @@ async function initializeMariaDbSchema() {
       } catch (err) {
       }
     }
+    const multiTenantMigrations = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) AFTER email;",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT 'cashier';",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS pharmacy_name VARCHAR(255) AFTER tenant_id;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(64) DEFAULT 'Gold Business';",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_users INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_branches INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_terminals INT DEFAULT 5;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS bound_hardware_ids JSON;",
+      "ALTER TABLE medicines ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE parties ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
+      "CREATE INDEX IF NOT EXISTS idx_tenant_users ON users (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_license_tenant ON mbi_licenses (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_med_tenant ON medicines (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_sales_tenant ON sales (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_parties_tenant ON parties (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_expenses_tenant ON expenses (tenant_id);"
+    ];
+    for (const mig of multiTenantMigrations) {
+      try {
+        await currentPool.query(mig);
+      } catch (e) {
+      }
+    }
     await seedMariaDbDefaults(currentPool);
     return true;
   } catch (err) {
@@ -271,7 +302,7 @@ async function initializeMariaDbSchema() {
 }
 async function seedMariaDbDefaults(currentPool) {
   try {
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (!isAvailable) return;
     const p = currentPool || getMariaDbPool();
     await p.query(`
@@ -341,7 +372,7 @@ async function getMariaDbTableStats() {
     "mbi_ai_chat_history"
   ];
   try {
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (!isAvailable) return stats;
     const currentPool = getMariaDbPool();
     for (const table of tables) {
@@ -360,7 +391,7 @@ async function getMariaDbTableStats() {
 }
 async function syncRecordToMariaDb(collectionName, record) {
   if (!record || !record.id) return false;
-  const isAvailable = await isMariaDbAvailable();
+  const isAvailable = await isMariaDbAvailable2();
   if (!isAvailable) return false;
   try {
     const currentPool = getMariaDbPool();
@@ -969,7 +1000,7 @@ async function syncRecordToMariaDb(collectionName, record) {
   }
 }
 async function saveAiChatLogToMariaDb(data) {
-  const isAvailable = await isMariaDbAvailable();
+  const isAvailable = await isMariaDbAvailable2();
   if (!isAvailable) return false;
   try {
     const currentPool = getMariaDbPool();
@@ -1022,7 +1053,7 @@ async function saveAiChatLogToMariaDb(data) {
   }
 }
 async function getAiChatHistoryFromMariaDb(options) {
-  const isAvailable = await isMariaDbAvailable();
+  const isAvailable = await isMariaDbAvailable2();
   if (!isAvailable) return [];
   try {
     const currentPool = getMariaDbPool();
@@ -1502,118 +1533,29 @@ function getFallbackUsers(tenantId) {
     } catch (e) {
     }
   }
-  if (allUsers.length === 0) {
-    allUsers = [
-      {
-        id: "usr_primary_owner",
-        tenant_id: "tenant_main_pharmacy",
-        tenantId: "tenant_main_pharmacy",
-        name: "Dr. Kashif Ahmed",
-        username: "owner",
-        emailOrPhone: "0328-1302636",
-        email: "admin@inventra.local",
-        phone: "0328-1302636",
-        role: "Owner",
-        isPrimaryOwner: true,
-        is_primary_owner: 1,
-        status: "Active",
-        passcode: "1234",
-        is_online: 1,
-        isOnline: true,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: true,
-          canAccessMasterServer: true,
-          canEditInvoices: true,
-          canDeleteInvoices: true,
-          canReprintInvoices: true,
-          canGiveDiscounts: true,
-          canViewReports: true,
-          canManageInventory: true,
-          canManageSuppliers: true,
-          canAccessSettings: true
-        },
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      },
-      {
-        id: "usr_cashier_bilal",
-        tenant_id: "tenant_main_pharmacy",
-        tenantId: "tenant_main_pharmacy",
-        name: "Bilal Cashier",
-        username: "bilal_pos",
-        emailOrPhone: "0300-1234567",
-        email: "bilal@inventra.local",
-        phone: "0300-1234567",
-        role: "Cashier",
-        isPrimaryOwner: false,
-        is_primary_owner: 0,
-        status: "Active",
-        passcode: "5566",
-        is_online: 1,
-        isOnline: true,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: false,
-          canAccessMasterServer: false,
-          canEditInvoices: false,
-          canDeleteInvoices: false,
-          canReprintInvoices: true,
-          canGiveDiscounts: false,
-          canViewReports: false,
-          canManageInventory: false,
-          canManageSuppliers: false,
-          canAccessSettings: false
-        },
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      },
-      {
-        id: "usr_pharmacist_ali",
-        tenant_id: "tenant_hassan_medicos",
-        tenantId: "tenant_hassan_medicos",
-        name: "Hassan Ali",
-        username: "hassan_owner",
-        emailOrPhone: "0336-4585863",
-        email: "hassan@medicos.pk",
-        phone: "0336-4585863",
-        role: "Owner",
-        isPrimaryOwner: true,
-        is_primary_owner: 1,
-        status: "Active",
-        passcode: "7788",
-        is_online: 0,
-        isOnline: false,
-        is_kill_switch_active: 0,
-        isKillSwitchActive: false,
-        permissions: {
-          canManageStaff: true,
-          canAccessMasterServer: true,
-          canEditInvoices: true,
-          canDeleteInvoices: true,
-          canReprintInvoices: true,
-          canGiveDiscounts: true,
-          canViewReports: true,
-          canManageInventory: true,
-          canManageSuppliers: true,
-          canAccessSettings: true
-        },
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    ];
-  }
-  if (tenantId && tenantId !== "all" && tenantId !== "default") {
-    return allUsers.filter((u) => u.tenant_id === tenantId || u.tenantId === tenantId);
+  if (tenantId && tenantId !== "all") {
+    return allUsers.filter((u) => {
+      const uTenant = u.tenant_id || u.tenantId;
+      return uTenant === tenantId;
+    });
   }
   return allUsers;
 }
-function saveFallbackUsers(users) {
+function saveFallbackUsers(users, tenantId) {
   try {
     let data = {};
     if (import_fs2.default.existsSync(syncFile)) {
       data = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8"));
     }
-    data.mbi_users = users;
+    if (tenantId && tenantId !== "all") {
+      const existingOtherTenants = (data.mbi_users || []).filter((u) => {
+        const uTenant = u.tenant_id || u.tenantId;
+        return uTenant && uTenant !== tenantId;
+      });
+      data.mbi_users = [...existingOtherTenants, ...users];
+    } else {
+      data.mbi_users = users;
+    }
     import_fs2.default.writeFileSync(syncFile, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save fallback users to sync data:", e);
@@ -1621,17 +1563,27 @@ function saveFallbackUsers(users) {
 }
 async function getUsersController(req, res) {
   try {
-    const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.query.tenantId || "";
+    if (!tenantId || tenantId === "undefined" || tenantId === "null") {
+      return res.status(400).json({
+        success: false,
+        error: "Tenant context required to retrieve users",
+        users: []
+      });
+    }
     try {
       const pool2 = getMariaDbPool();
-      let query = "SELECT * FROM mbi_users ORDER BY is_primary_owner DESC, created_at ASC";
-      let params = [];
-      if (tenantId && tenantId !== "all" && tenantId !== "default") {
-        query = 'SELECT * FROM mbi_users WHERE tenant_id = ? OR tenant_id IS NULL OR tenant_id = "default" ORDER BY is_primary_owner DESC, created_at ASC';
+      let query;
+      let params;
+      if (tenantId === "all" && req.user?.isMasterAdmin) {
+        query = "SELECT * FROM mbi_users ORDER BY is_primary_owner DESC, created_at ASC";
+        params = [];
+      } else {
+        query = "SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC";
         params = [tenantId];
       }
       const rows = await pool2.query(query, params);
-      if (Array.isArray(rows) && rows.length > 0) {
+      if (Array.isArray(rows)) {
         const mapped = rows.map((u) => ({
           id: u.id,
           tenantId: u.tenant_id,
@@ -1667,8 +1619,11 @@ async function getUsersController(req, res) {
 }
 async function createUserController(req, res) {
   try {
-    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes, tenantId: bodyTenantId } = req.body;
-    const tenantId = bodyTenantId || req.headers["x-tenant-id"] || req.query.tenantId || "tenant_main_pharmacy";
+    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes } = req.body;
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ success: false, error: "Cannot create user without an explicit tenant context" });
+    }
     if (!name || !role) {
       return res.status(400).json({ success: false, error: "Name and role are required" });
     }
@@ -1708,6 +1663,26 @@ async function createUserController(req, res) {
     };
     try {
       const pool2 = getMariaDbPool();
+      const [licRows] = await pool2.query(
+        "SELECT max_users FROM mbi_licenses WHERE tenant_id = ? LIMIT 1",
+        [tenantId]
+      );
+      const maxUsers = licRows && licRows[0]?.max_users ? Number(licRows[0].max_users) : 10;
+      const [countRows] = await pool2.query(
+        "SELECT COUNT(*) as total FROM mbi_users WHERE tenant_id = ?",
+        [tenantId]
+      );
+      const currentCount = countRows && countRows[0]?.total ? Number(countRows[0].total) : 0;
+      if (currentCount >= maxUsers) {
+        return res.status(400).json({
+          success: false,
+          error: `User limit reached for your company plan (${currentCount}/${maxUsers}). Please upgrade plan in Server License HQ.`
+        });
+      }
+    } catch (quotaErr) {
+    }
+    try {
+      const pool2 = getMariaDbPool();
       await pool2.query(
         `INSERT INTO mbi_users (id, tenant_id, name, username, email, phone, role, is_primary_owner, status, passcode, is_online, is_kill_switch_active, permissions, created_at, updated_at) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1730,11 +1705,20 @@ async function createUserController(req, res) {
           newUser.updatedAt
         ]
       );
+      try {
+        await pool2.query(
+          `INSERT INTO users (id, tenant_id, email, password, role, created_at)
+           VALUES (?, ?, ?, ?, ?, NOW())
+           ON DUPLICATE KEY UPDATE tenant_id=VALUES(tenant_id), role=VALUES(role);`,
+          [newUser.id, newUser.tenant_id, newUser.email || newUser.username, newUser.passcode, newUser.role]
+        );
+      } catch (uErr) {
+      }
     } catch (dbErr) {
     }
-    const allUsers = getFallbackUsers();
-    allUsers.push(newUser);
-    saveFallbackUsers(allUsers);
+    const tenantUsers = getFallbackUsers(tenantId);
+    tenantUsers.push(newUser);
+    saveFallbackUsers(tenantUsers, tenantId);
     try {
       broadcastTenantEvent(tenantId, {
         type: "STAFF_LIST_MUTATED",
@@ -1753,7 +1737,7 @@ async function createUserController(req, res) {
         userName: newUser.name,
         userRole: newUser.role,
         actionType: "STAFF_MUTATION",
-        actionDetails: `New staff sub-user registered: ${newUser.name} (${newUser.role})`,
+        actionDetails: `New staff registered: ${newUser.name} (${newUser.role})`,
         ipAddress: req.ip || "127.0.0.1",
         deviceInfo: "Web Dispatch",
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -1769,10 +1753,11 @@ async function createUserController(req, res) {
 async function updateUserController(req, res) {
   try {
     const { id } = req.params;
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
     const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes, is_kill_switch_active } = req.body;
-    const allUsers = getFallbackUsers();
-    const existingIndex = allUsers.findIndex((u) => u.id === id);
-    const existing = existingIndex >= 0 ? allUsers[existingIndex] : null;
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existingIndex = tenantUsers.findIndex((u) => u.id === id);
+    const existing = existingIndex >= 0 ? tenantUsers[existingIndex] : null;
     if (existing && (existing.isPrimaryOwner || existing.is_primary_owner === 1 || existing.role === "Owner")) {
       if (role && role !== "Owner") {
         return res.status(403).json({ success: false, error: "Primary Store Owner account cannot have its Owner role altered" });
@@ -1782,7 +1767,7 @@ async function updateUserController(req, res) {
       }
     }
     const updatedUser = {
-      ...existing || { id },
+      ...existing || { id, tenant_id: tenantId, tenantId },
       name: name !== void 0 ? name : existing?.name,
       username: username !== void 0 ? username : existing?.username,
       emailOrPhone: emailOrPhone !== void 0 ? emailOrPhone : existing?.emailOrPhone,
@@ -1799,38 +1784,42 @@ async function updateUserController(req, res) {
     };
     try {
       const pool2 = getMariaDbPool();
-      await pool2.query(
-        `UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?`,
-        [
-          updatedUser.name,
-          updatedUser.username,
-          updatedUser.email,
-          updatedUser.phone,
-          updatedUser.role,
-          updatedUser.passcode,
-          updatedUser.status,
-          updatedUser.is_kill_switch_active ? 1 : 0,
-          JSON.stringify(updatedUser.permissions || {}),
-          updatedUser.updatedAt,
-          id
-        ]
-      );
+      let sql = "UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?";
+      let params = [
+        updatedUser.name,
+        updatedUser.username,
+        updatedUser.email,
+        updatedUser.phone,
+        updatedUser.role,
+        updatedUser.passcode,
+        updatedUser.status,
+        updatedUser.is_kill_switch_active ? 1 : 0,
+        JSON.stringify(updatedUser.permissions || {}),
+        updatedUser.updatedAt,
+        id
+      ];
+      if (tenantId && tenantId !== "all") {
+        sql += " AND tenant_id = ?";
+        params.push(tenantId);
+      }
+      await pool2.query(sql, params);
     } catch (dbErr) {
     }
     if (existingIndex >= 0) {
-      allUsers[existingIndex] = updatedUser;
+      tenantUsers[existingIndex] = updatedUser;
     } else {
-      allUsers.push(updatedUser);
+      tenantUsers.push(updatedUser);
     }
-    saveFallbackUsers(allUsers);
-    const tenantId = updatedUser.tenant_id || updatedUser.tenantId || "tenant_main_pharmacy";
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: "STAFF_LIST_MUTATED",
-        entity: "mbi_users",
-        payload: { action: "UPDATE", tenantId, user: updatedUser, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-      });
-    } catch (e) {
+    saveFallbackUsers(tenantUsers, tenantId);
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: "STAFF_LIST_MUTATED",
+          entity: "mbi_users",
+          payload: { action: "UPDATE", tenantId, user: updatedUser, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+        });
+      } catch (e) {
+      }
     }
     return res.json({ success: true, user: updatedUser });
   } catch (error) {
@@ -1840,9 +1829,10 @@ async function updateUserController(req, res) {
 async function toggleUserStatusController(req, res) {
   try {
     const { id } = req.params;
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
     const { status, killSwitch } = req.body;
-    const allUsers = getFallbackUsers();
-    const existing = allUsers.find((u) => u.id === id);
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existing = tenantUsers.find((u) => u.id === id);
     if (id === "usr_primary_owner" || existing && (existing.isPrimaryOwner || existing.is_primary_owner === 1 || existing.role === "Owner")) {
       return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be disabled or killed" });
     }
@@ -1850,12 +1840,13 @@ async function toggleUserStatusController(req, res) {
     const isKillActive = killSwitch !== void 0 ? killSwitch ? 1 : 0 : existing?.is_kill_switch_active ? 1 : 0;
     try {
       const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?", [
-        newStatus,
-        isKillActive,
-        (/* @__PURE__ */ new Date()).toISOString(),
-        id
-      ]);
+      let sql = "UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?";
+      let params = [newStatus, isKillActive, (/* @__PURE__ */ new Date()).toISOString(), id];
+      if (tenantId && tenantId !== "all") {
+        sql += " AND tenant_id = ?";
+        params.push(tenantId);
+      }
+      await pool2.query(sql, params);
     } catch (dbErr) {
     }
     if (existing) {
@@ -1863,16 +1854,17 @@ async function toggleUserStatusController(req, res) {
       existing.is_kill_switch_active = isKillActive;
       existing.isKillSwitchActive = Boolean(isKillActive);
       existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      saveFallbackUsers(allUsers);
+      saveFallbackUsers(tenantUsers, tenantId);
     }
-    const tenantId = existing?.tenant_id || existing?.tenantId || "tenant_main_pharmacy";
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: "STAFF_LIST_MUTATED",
-        entity: "mbi_users",
-        payload: { action: "STATUS_CHANGE", tenantId, userId: id, status: newStatus, killSwitch: Boolean(isKillActive), timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-      });
-    } catch (e) {
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: "STAFF_LIST_MUTATED",
+          entity: "mbi_users",
+          payload: { action: "STATUS_CHANGE", tenantId, userId: id, status: newStatus, killSwitch: Boolean(isKillActive), timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+        });
+      } catch (e) {
+      }
     }
     return res.json({ success: true, status: newStatus, killSwitch: Boolean(isKillActive) });
   } catch (error) {
@@ -1882,34 +1874,38 @@ async function toggleUserStatusController(req, res) {
 async function resetPasscodeController(req, res) {
   try {
     const { id } = req.params;
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
     const { passcode } = req.body;
     if (!passcode) {
       return res.status(400).json({ success: false, error: "New passcode is required" });
     }
-    const allUsers = getFallbackUsers();
-    const existing = allUsers.find((u) => u.id === id);
+    const tenantUsers = getFallbackUsers(tenantId);
+    const existing = tenantUsers.find((u) => u.id === id);
     try {
       const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?", [
-        passcode,
-        (/* @__PURE__ */ new Date()).toISOString(),
-        id
-      ]);
+      let sql = "UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?";
+      let params = [passcode, (/* @__PURE__ */ new Date()).toISOString(), id];
+      if (tenantId && tenantId !== "all") {
+        sql += " AND tenant_id = ?";
+        params.push(tenantId);
+      }
+      await pool2.query(sql, params);
     } catch (dbErr) {
     }
     if (existing) {
       existing.passcode = passcode;
       existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      saveFallbackUsers(allUsers);
+      saveFallbackUsers(tenantUsers, tenantId);
     }
-    const tenantId = existing?.tenant_id || existing?.tenantId || "tenant_main_pharmacy";
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: "STAFF_LIST_MUTATED",
-        entity: "mbi_users",
-        payload: { action: "PASSCODE_RESET", tenantId, userId: id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-      });
-    } catch (e) {
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: "STAFF_LIST_MUTATED",
+          entity: "mbi_users",
+          payload: { action: "PASSCODE_RESET", tenantId, userId: id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+        });
+      } catch (e) {
+      }
     }
     return res.json({ success: true, message: "Passcode successfully reset", passcode });
   } catch (error) {
@@ -1919,26 +1915,34 @@ async function resetPasscodeController(req, res) {
 async function deleteUserController(req, res) {
   try {
     const { id } = req.params;
-    const allUsers = getFallbackUsers();
-    const target = allUsers.find((u) => u.id === id);
+    const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
+    const tenantUsers = getFallbackUsers(tenantId);
+    const target = tenantUsers.find((u) => u.id === id);
     if (id === "usr_primary_owner" || target && (target.isPrimaryOwner || target.is_primary_owner === 1 || target.role === "Owner")) {
       return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be deleted" });
     }
     try {
       const pool2 = getMariaDbPool();
-      await pool2.query("DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)", [id]);
+      let sql = "DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)";
+      let params = [id];
+      if (tenantId && tenantId !== "all") {
+        sql += " AND tenant_id = ?";
+        params.push(tenantId);
+      }
+      await pool2.query(sql, params);
     } catch (dbErr) {
     }
-    const filtered = allUsers.filter((u) => u.id !== id);
-    saveFallbackUsers(filtered);
-    const tenantId = target?.tenant_id || target?.tenantId || "tenant_main_pharmacy";
-    try {
-      broadcastTenantEvent(tenantId, {
-        type: "STAFF_LIST_MUTATED",
-        entity: "mbi_users",
-        payload: { action: "DELETE", tenantId, userId: id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
-      });
-    } catch (e) {
+    const filtered = tenantUsers.filter((u) => u.id !== id);
+    saveFallbackUsers(filtered, tenantId);
+    if (tenantId) {
+      try {
+        broadcastTenantEvent(tenantId, {
+          type: "STAFF_LIST_MUTATED",
+          entity: "mbi_users",
+          payload: { action: "DELETE", tenantId, userId: id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+        });
+      } catch (e) {
+      }
     }
     return res.json({ success: true, message: "User deleted successfully" });
   } catch (error) {
@@ -2212,7 +2216,7 @@ async function getTableDataController(req, res) {
       const whereParts = [];
       const queryParams = [];
       if (tenantId && tenantId !== "all") {
-        whereParts.push("(tenant_id = ? OR tenant_id IS NULL)");
+        whereParts.push("tenant_id = ?");
         queryParams.push(tenantId);
       }
       if (search) {
@@ -3763,7 +3767,7 @@ function generate14kMasterCatalog() {
 var masterCatalogCache = generate14kMasterCatalog();
 async function initDatabaseTablesAndIndexes() {
   try {
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (!isAvailable) return;
     const pool2 = getMariaDbPool();
     await pool2.query(`
@@ -4768,7 +4772,7 @@ adminRouter.get("/tenants/:id/staff-and-devices", async (req, res) => {
     try {
       const pool2 = getMariaDbPool();
       const rows = await pool2.query(
-        'SELECT * FROM mbi_users WHERE tenant_id = ? OR tenant_id IS NULL OR tenant_id = "default" ORDER BY is_primary_owner DESC, created_at ASC',
+        "SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC",
         [id]
       );
       if (Array.isArray(rows) && rows.length > 0) {
@@ -6103,6 +6107,273 @@ adminRouter.post("/impersonate/:id", (req, res) => {
     return res.status(500).json({ success: false, error: err?.message || "Failed to generate shadow token" });
   }
 });
+adminRouter.get("/licenses", async (req, res) => {
+  try {
+    let licenses = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        const [rows] = await pool2.query(`
+          SELECT 
+            l.id,
+            l.tenant_id,
+            l.license_key,
+            COALESCE(l.client_name, t.name, 'Registered Pharmacy') AS pharmacy_name,
+            COALESCE(l.owner_name, t.owner_name, 'Store Owner') AS owner_name,
+            COALESCE(l.phone, t.owner_phone, t.contact_phone, '') AS owner_contact,
+            COALESCE(l.plan, t.plan_id, t.plan, 'Gold Business') AS plan_tier,
+            COALESCE(l.status, 'Active') AS status,
+            l.issue_date,
+            l.expiry_date,
+            COALESCE(l.max_devices, 5) AS max_terminals,
+            5 AS max_users,
+            5 AS max_branches,
+            l.bound_hardware_ids,
+            l.bound_hwid,
+            l.created_at
+          FROM mbi_licenses l
+          LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id OR l.client_name = t.name)
+          ORDER BY l.created_at DESC
+        `);
+        if (Array.isArray(rows) && rows.length > 0) {
+          licenses = rows;
+        }
+      } catch (dbErr) {
+        console.warn("[ADMIN LICENSES DB FETCH]", dbErr);
+      }
+    }
+    const fallback = getLocalFallbackData();
+    const fallbackLicenses = fallback.mbi_licenses || fallback.client_licenses || [];
+    const fallbackTenants = fallback.tenants || [];
+    const fallbackUsers = getFallbackUsers();
+    if (licenses.length === 0) {
+      licenses = fallbackLicenses.map((l) => ({
+        id: l.id || `lic_${l.licenseKey}`,
+        tenant_id: l.tenantId || l.tenant_id || "tenant_default",
+        license_key: l.licenseKey || l.license_key || "MBI-GOLD-PK-2028",
+        pharmacy_name: l.clientName || l.storeName || l.pharmacy_name || "Central Pharmacy",
+        owner_name: l.ownerName || l.owner_name || "Store Owner",
+        owner_contact: l.phone || l.owner_contact || "0300-1234567",
+        plan_tier: l.plan || l.plan_tier || "Gold Business",
+        status: (l.status || "Active").toLowerCase(),
+        issue_date: l.issueDate || l.issue_date || (/* @__PURE__ */ new Date()).toISOString(),
+        expiry_date: l.expiryDate || l.expiry_date || "2028-12-31",
+        max_terminals: l.maxDevices || l.max_terminals || 5,
+        max_users: 5,
+        max_branches: 5,
+        bound_hardware_ids: l.boundHardwareIds || l.bound_hardware_ids || []
+      }));
+    }
+    for (const t of fallbackTenants) {
+      const exists = licenses.some((l) => l.tenant_id === t.id || l.pharmacy_name === t.name);
+      if (!exists) {
+        licenses.push({
+          id: `lic_${t.id}`,
+          tenant_id: t.id,
+          license_key: t.licenseKey || `MBI-TR-${(t.name || "PH").substring(0, 3).toUpperCase()}-7788`,
+          pharmacy_name: t.name || t.storeName || "Registered Pharmacy",
+          owner_name: t.ownerName || "Store Owner",
+          owner_contact: t.phone || t.ownerPhone || "0300-0000000",
+          plan_tier: t.plan || "Gold Business",
+          status: (t.status || "Active").toLowerCase(),
+          issue_date: t.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+          expiry_date: t.trialExpiryDate || "2028-12-31",
+          max_terminals: 5,
+          max_users: 5,
+          max_branches: 5,
+          bound_hardware_ids: t.boundHwids || []
+        });
+      }
+    }
+    return res.json({ success: true, licenses });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+adminRouter.post("/licenses/create", async (req, res) => {
+  try {
+    const { pharmacyName, ownerContact, ownerName, tier, durationYears, maxUsers, maxBranches, maxTerminals } = req.body;
+    if (!pharmacyName || !pharmacyName.trim()) {
+      return res.status(400).json({ success: false, error: "Pharmacy name is required" });
+    }
+    const cleanPharmacyName = pharmacyName.trim();
+    const cleanOwnerContact = (ownerContact || "").trim();
+    const cleanOwnerName = (ownerName || cleanPharmacyName || "Pharmacy Owner").trim();
+    const cleanTier = tier || "Gold Business";
+    const years = Number(durationYears) || 1;
+    const terminals = Number(maxTerminals) || 5;
+    const users = Number(maxUsers) || 5;
+    const branches = Number(maxBranches) || 5;
+    const licenseId = `lic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const licenseKey = `MBI-${cleanTier.substring(0, 2).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const now = /* @__PURE__ */ new Date();
+    const expiryDate = years >= 99 ? "2099-12-31" : new Date(now.getTime() + years * 365 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(`
+          INSERT INTO mbi_licenses (
+            id, tenant_id, license_key, client_name, owner_name, phone, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', CURRENT_DATE, ?, ?, '[]')
+          ON DUPLICATE KEY UPDATE status = 'Active', expiry_date = VALUES(expiry_date);
+        `, [licenseId, tenantId, licenseKey, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, expiryDate, terminals]);
+        await pool2.query(`
+          INSERT INTO mbi_tenants (
+            id, tenant_id, name, owner_name, owner_phone, plan, plan_id, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')
+          ON DUPLICATE KEY UPDATE status = 'Active';
+        `, [tenantId, tenantId, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, cleanTier]);
+      } catch (dbErr) {
+        console.warn("[CREATE LICENSE DB ERROR]", dbErr);
+      }
+    }
+    const fallback = getLocalFallbackData();
+    if (!fallback.mbi_licenses) fallback.mbi_licenses = [];
+    fallback.mbi_licenses.unshift({
+      id: licenseId,
+      tenantId,
+      licenseKey,
+      clientName: cleanPharmacyName,
+      ownerName: cleanOwnerName,
+      phone: cleanOwnerContact,
+      plan: cleanTier,
+      status: "Active",
+      issueDate: now.toISOString().split("T")[0],
+      expiryDate,
+      maxDevices: terminals,
+      boundHardwareIds: []
+    });
+    saveLocalFallbackData(fallback);
+    broadcastFleetActivity({
+      id: `act_${Date.now()}`,
+      tenantId,
+      storeName: cleanPharmacyName,
+      userName: cleanOwnerName,
+      userRole: "Master Admin",
+      actionType: "LICENSE_GENERATED",
+      actionDetails: `\u{1F511} New License generated for ${cleanPharmacyName} (${cleanTier}, ${years} yr validity, ${terminals} terminals).`,
+      ipAddress: req.ip || "127.0.0.1",
+      deviceInfo: "Master License HQ",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      relativeTime: "Just now"
+    });
+    return res.json({
+      success: true,
+      message: `License key generated for ${cleanPharmacyName}!`,
+      licenseKey,
+      licenseId,
+      tenantId
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+adminRouter.post("/licenses/action", async (req, res) => {
+  const { action, licenseKey, days, tenantId } = req.body;
+  if (!action || !licenseKey) {
+    return res.status(400).json({ success: false, error: "action and licenseKey are required" });
+  }
+  try {
+    const isDb = await isMariaDbAvailable();
+    const pool2 = isDb ? getMariaDbPool() : null;
+    if (action === "extend_days") {
+      const daysToAdd = Number(days) || 365;
+      if (pool2) {
+        await pool2.query(`
+          UPDATE mbi_licenses 
+          SET expiry_date = DATE_ADD(COALESCE(expiry_date, CURRENT_DATE), INTERVAL ? DAY),
+              status = 'Active'
+          WHERE license_key = ?
+        `, [daysToAdd, licenseKey]);
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          const currentExp = lic.expiryDate ? new Date(lic.expiryDate).getTime() : Date.now();
+          lic.expiryDate = new Date(currentExp + daysToAdd * 864e5).toISOString().split("T")[0];
+          lic.status = "Active";
+          saveLocalFallbackData(fallback);
+        }
+      }
+      broadcastAdminEvent({ type: "LICENSE_EXTENDED", licenseKey, days: daysToAdd });
+      return res.json({ success: true, message: `Extended license validity by ${daysToAdd} days!` });
+    }
+    if (action === "grant_terminal_slot") {
+      if (pool2) {
+        await pool2.query(`
+          UPDATE mbi_licenses 
+          SET max_devices = COALESCE(max_devices, 1) + 1 
+          WHERE license_key = ?
+        `, [licenseKey]);
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.maxDevices = (lic.maxDevices || 5) + 1;
+          saveLocalFallbackData(fallback);
+        }
+      }
+      broadcastAdminEvent({ type: "TERMINAL_SLOT_GRANTED", licenseKey });
+      return res.json({ success: true, message: "+1 Terminal slot granted successfully!" });
+    }
+    if (action === "reset_fingerprint") {
+      if (pool2) {
+        await pool2.query(`
+          UPDATE mbi_licenses 
+          SET bound_hardware_ids = '[]', bound_hwid = NULL 
+          WHERE license_key = ?
+        `, [licenseKey]);
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.boundHardwareIds = [];
+          lic.boundHwid = null;
+          saveLocalFallbackData(fallback);
+        }
+      }
+      broadcastAdminEvent({ type: "HWID_FINGERPRINT_RESET", licenseKey });
+      return res.json({ success: true, message: "HWID Fingerprint reset for new PC/laptop registration!" });
+    }
+    if (action === "suspend") {
+      if (pool2) {
+        await pool2.query(`UPDATE mbi_licenses SET status = 'Suspended' WHERE license_key = ?`, [licenseKey]);
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.status = "Suspended";
+          saveLocalFallbackData(fallback);
+        }
+      }
+      broadcastAdminEvent({ type: "LICENSE_SUSPENDED", licenseKey });
+      return res.json({ success: true, message: "License suspended and locked remotely." });
+    }
+    if (action === "reactivate") {
+      if (pool2) {
+        await pool2.query(`UPDATE mbi_licenses SET status = 'Active' WHERE license_key = ?`, [licenseKey]);
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === licenseKey || l.license_key === licenseKey);
+        if (lic) {
+          lic.status = "Active";
+          saveLocalFallbackData(fallback);
+        }
+      }
+      broadcastAdminEvent({ type: "LICENSE_REACTIVATED", licenseKey });
+      return res.json({ success: true, message: "License reactivated successfully." });
+    }
+    return res.status(400).json({ success: false, error: "Invalid action specified" });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // server/controllers/authController.ts
 var import_fs7 = __toESM(require("fs"));
@@ -6168,7 +6439,7 @@ async function loginController(req, res) {
       return;
     }
     let authenticatedUser = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -6263,7 +6534,7 @@ async function loginController(req, res) {
       return;
     }
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || "tenant_main_pharmacy";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         pool2.execute(
@@ -6405,7 +6676,7 @@ async function registerTrialController(req, res) {
       offlineSync: true,
       expensesManagement: true
     };
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         try {
@@ -7837,7 +8108,7 @@ var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -7894,7 +8165,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
     const { id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number } = req.body;
     const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -7946,7 +8217,7 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
@@ -7961,7 +8232,7 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
 fleetRouter.get("/leads", async (req, res) => {
   try {
     let leads = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
@@ -8131,7 +8402,7 @@ fleetRouter.post("/tenants/register", async (req, res) => {
 fleetRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -8193,7 +8464,7 @@ fleetRouter.post("/users/save", async (req, res) => {
     const cleanId = id || `u_${Date.now()}`;
     const cleanTenantId = tenantId || "tenant_main";
     const cleanRole = role || "Cashier";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8275,7 +8546,7 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       res.status(400).json({ success: false, error: "userId and newPasscode are required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8312,7 +8583,7 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
     const { userId, isKilled } = req.body;
     const flag = isKilled ? 1 : 0;
     const statusVal = isKilled ? "Suspended" : "Active";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8351,7 +8622,7 @@ fleetRouter.post("/users/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "userId is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
@@ -8639,7 +8910,7 @@ adminMasterRouter.post("/backup/restore-latest", async (req, res) => {
 adminMasterRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -8709,7 +8980,7 @@ adminMasterRouter.get("/users", async (req, res) => {
 adminMasterRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -9808,7 +10079,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
     const trialEndsAt = trialEndsAtDate.toISOString();
     const licenseId = `lic_trial_${Date.now()}`;
     const licenseKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -9895,7 +10166,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     let maxDevices = 10;
     let licenseFound = false;
     let licenseRecordId = "";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -9940,7 +10211,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     boundHardwareIds = Array.from(new Set(boundHardwareIds.map((h) => String(h).trim().toUpperCase()).filter(Boolean)));
     if (boundHardwareIds.length === 0) {
       boundHardwareIds = [clientHwid];
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
           const pool2 = getMariaDbPool();
           if (licenseRecordId) {
@@ -9988,7 +10259,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     }
     if (boundHardwareIds.length < maxDevices) {
       boundHardwareIds.push(clientHwid);
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
           const pool2 = getMariaDbPool();
           if (licenseRecordId) {
@@ -10039,7 +10310,7 @@ licenseRouter.post("/bind-device", async (req, res) => {
     const clientHwid = (hwid || "HWID-DEVICE-1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10086,7 +10357,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
     const clientHwid = (hwid || deviceId || "HWID-DEV1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10166,7 +10437,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
     let licenseKey = "";
     let plan = "Basic";
     let status = "Active";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10217,7 +10488,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     }
     let isDbMatched = false;
     let matchedLicense = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10263,7 +10534,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     const now = /* @__PURE__ */ new Date();
     const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
     const planId = planTier === "Platinum" ? "Premium" : planTier === "Gold" ? "Business" : "Basic";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -10310,7 +10581,7 @@ licenseRouter.get("/status", async (req, res) => {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
     let dbTenant = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10688,7 +10959,7 @@ async function getAuditLogs(req, res) {
     const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || "tenant_main_pharmacy";
     const { module: moduleFilter, staff, dateRange, startDate, endDate, search, limit = "200" } = req.query;
     const maxRows = Math.min(Number(limit) || 200, 1e3);
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     let records = [];
     if (isAvailable) {
       try {
@@ -10798,7 +11069,7 @@ async function createAuditLog(req, res) {
       ip_address: req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
       created_at: timestamp ? new Date(timestamp).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
     };
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (isAvailable) {
       try {
         const pool2 = getMariaDbPool();
@@ -10867,7 +11138,7 @@ var import_uuid2 = require("uuid");
 async function getPurchases(req, res) {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (!isOnline) {
       return res.json({
         success: true,
@@ -10894,7 +11165,7 @@ async function getPurchases(req, res) {
 async function getPurchaseById(req, res) {
   try {
     const { id } = req.params;
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (!isOnline) {
       return res.status(404).json({ success: false, message: "Database offline" });
     }
@@ -10936,7 +11207,7 @@ async function createPurchaseOrder(req, res) {
     const items = Array.isArray(purchaseData.items) ? purchaseData.items : [];
     const userId = purchaseData.userId || req.body.userId || "admin";
     const userName = purchaseData.cashierName || purchaseData.userName || "Admin / Operator";
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (isOnline) {
       const pool2 = getMariaDbPool();
       const connection = await pool2.getConnection();
@@ -11166,7 +11437,7 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
     let config = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -11215,7 +11486,7 @@ whatsappRouter.post("/settings", async (req, res) => {
       customKhataTemplate: customKhataTemplate || "",
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -11254,7 +11525,7 @@ whatsappRouter.post("/send", async (req, res) => {
       status: "DELIVERED",
       deliveryMode: "Auto-Background Gateway"
     });
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -11308,7 +11579,7 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -11635,13 +11906,13 @@ var apiLimiter = (0, import_express_rate_limit.default)({
   // Bypass rate limiting for localhost / WebContainer / preview environments
   skip: (req) => {
     const clientIp = req.ip || req.socket.remoteAddress || "";
-    return process.env.NODE_ENV !== "production" || clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.includes("127.0.0.1") || req.path.startsWith("/api/health") || req.path.startsWith("/api/db/status") || req.path.startsWith("/api/sync") || req.path.startsWith("/api/khata");
+    return process.env.NODE_ENV !== "production" || clientIp === "127.0.0.1" || clientIp === "::1" || clientIp.includes("127.0.0.1") || req.path.startsWith("/api/admin") || req.path.startsWith("/api/master") || req.path.startsWith("/api/license") || req.path.startsWith("/api/health") || req.path.startsWith("/api/db/status") || req.path.startsWith("/api/sync") || req.path.startsWith("/api/khata") || req.path.startsWith("/api/version");
   },
   handler: (req, res) => {
     res.status(429).json({
       status: 429,
       success: false,
-      message: "Too many requests, please try again later."
+      message: "Rate limit exceeded. Please wait a moment."
     });
   }
 });
@@ -11700,7 +11971,7 @@ async function startServer() {
   }
   app.get(["/api/health", "/health"], async (req, res) => {
     try {
-      const isOnline = await isMariaDbAvailable();
+      const isOnline = await isMariaDbAvailable2();
       res.json({
         status: "OK",
         database: isOnline ? "Connected" : "Offline Cache Mode",

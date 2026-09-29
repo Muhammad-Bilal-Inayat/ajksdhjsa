@@ -152,7 +152,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
   onMinimizeChange,
   onSummaryChange
 }) => {
-  const { business, activeUser } = useAuth();
+  const { business, activeUser, tenant, tenantId } = useAuth();
   const { settings } = useSettings();
   let dockCtx: ReturnType<typeof useTransactionDock> | null = null;
   try {

@@ -582,13 +582,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadAppUsers = async () => {
     try {
+      const currentTenantId = tenantId || tenant?.id || business?.tenantId || business?.id || 'tenant_main_pharmacy';
       const localUsers = await dbAppUsers.getAll();
       const map = new Map<string, AppUserRecord>();
       
-      // Filter out blank or corrupt records
-      const validLocalUsers = (localUsers || []).filter(lu => lu && lu.id && lu.name && typeof lu.name === 'string' && lu.name.trim() !== '' && lu.name !== 'undefined');
-
       const isMasterAdmin = currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
+
+      // Filter out blank or corrupt records AND strictly scope to current tenant
+      const validLocalUsers = (localUsers || []).filter(lu => {
+        if (!lu || !lu.id || !lu.name || typeof lu.name !== 'string' || lu.name.trim() === '' || lu.name === 'undefined') return false;
+        if (isMasterAdmin) return true;
+        const uTenant = lu.tenantId || (lu as any).tenant_id;
+        if (uTenant) return uTenant === currentTenantId;
+        return currentTenantId === 'tenant_main_pharmacy' || currentTenantId === 'tenant-demo-01';
+      });
 
       // Add / load local DB users
       if (validLocalUsers.length > 0) {

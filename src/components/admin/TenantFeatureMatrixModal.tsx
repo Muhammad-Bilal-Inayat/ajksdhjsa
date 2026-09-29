@@ -35,13 +35,16 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
     }));
   };
 
+  const totalFeaturesCount = DEFAULT_173_FEATURE_MATRIX.reduce((acc, cat) => acc + cat.features.length, 0);
+  const activeCount = Object.values(editingFeatures).filter(Boolean).length;
+
   const handleEnableAll = () => {
     const fullMap: TenantFeatureMap = {};
     for (const cat of DEFAULT_173_FEATURE_MATRIX) {
       for (const f of cat.features) fullMap[f.id] = true;
     }
     setEditingFeatures(fullMap);
-    emitToast('All 173 enterprise modules unlocked for editing', 'info');
+    emitToast(`All ${totalFeaturesCount} enterprise modules unlocked for editing`, 'info');
   };
 
   const handleResetDefaults = () => {
@@ -54,7 +57,7 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
     try {
       const ok = await adminService.updateTenantFeatures(tenant.id, editingFeatures);
       if (ok) {
-        emitToast(`✅ 173-Feature matrix updated & broadcasted via SSE to ${tenant.name}`, 'success');
+        emitToast(`✅ Feature matrix updated & broadcasted via SSE to ${tenant.name}`, 'success');
         onFeaturesSaved?.(editingFeatures);
         onClose();
       } else {
@@ -66,8 +69,6 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
       setIsSaving(false);
     }
   };
-
-  const activeCount = Object.values(editingFeatures).filter(Boolean).length;
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-end bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -82,10 +83,10 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-black text-slate-900 dark:text-white text-base tracking-tight">
-                  Tenant 173 Feature Switchboard
+                  Master Feature & Widget Switchboard
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                  Tenant-Level (All Staff)
+                  Per-Tenant & User Control
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
@@ -111,11 +112,11 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <span className="text-slate-700 dark:text-slate-300 font-medium">
-              Toggle any module ON as a <strong>custom paid add-on</strong> for this pharmacy. Broadcasts instantly via SSE (&lt;100ms).
+              Toggle any module or dashboard widget ON/OFF for this tenant. Broadcasts instantly via SSE (&lt;100ms).
             </span>
           </div>
           <div className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono font-bold text-blue-600 dark:text-blue-400 shrink-0">
-            {activeCount} / 173 Active
+            {activeCount} / {totalFeaturesCount} Active
           </div>
         </div>
 
@@ -127,7 +128,7 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
               onClick={handleEnableAll}
               className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 font-bold cursor-pointer transition-colors"
             >
-              Enable All (173)
+              Enable All ({totalFeaturesCount})
             </button>
             <button
               type="button"
@@ -145,7 +146,7 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search 173 features..."
+              placeholder={`Search ${totalFeaturesCount} features...`}
               className="w-full pl-7 pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 outline-hidden"
             />
           </div>

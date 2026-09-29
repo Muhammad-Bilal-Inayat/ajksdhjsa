@@ -49,7 +49,7 @@ export const TrialCountdownBanner: React.FC<TrialCountdownBannerProps> = ({
     <div 
       id="trial-countdown-strip"
       role="banner"
-      className={`relative w-full bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white px-3 sm:px-4 py-1.5 border-b border-blue-500/30 shadow-md text-xs z-40 select-none ${className}`}
+      className={`relative w-full bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white px-3 sm:px-4 py-1.5 border-b border-blue-500/30 shadow-md text-xs z-10 select-none ${className}`}
     >
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
         {/* Left Side: Countdown Text */}

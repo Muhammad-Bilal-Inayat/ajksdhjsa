@@ -126,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       {/* Topmost Micro Bar (Company Switcher, Hotline, Shortcuts) */}
-      <div className="hidden md:flex h-8 bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200/90 dark:border-slate-800 items-center justify-between px-3 sm:px-4 text-[11px] text-slate-600 dark:text-slate-300 select-none z-40 overflow-visible relative shadow-2xs transition-colors duration-150">
+      <div className="hidden md:flex h-8 bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200/90 dark:border-slate-800 items-center justify-between px-3 sm:px-4 text-[11px] text-slate-600 dark:text-slate-300 select-none z-50 overflow-visible relative shadow-2xs transition-colors duration-150">
 
         {/* Top-Left Company Menu & Quick Links */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -145,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Comprehensive Company Dropdown Flyout */}
             {isCompanyDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 p-2 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute top-full left-0 mt-1.5 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-[9995] p-2 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150">
 
                 {/* Store Header Banner in Dropdown */}
                 <div className="p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800/80 dark:to-slate-800/40 border border-blue-100 dark:border-slate-700 mb-2">

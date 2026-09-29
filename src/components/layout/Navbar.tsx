@@ -101,6 +101,13 @@ export const Navbar: React.FC = () => {
             </button>
             <button 
               type="button" 
+              onClick={() => handleScrollTo('testimonials')} 
+              className="text-sm font-medium px-3 py-1.5 rounded-lg hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+            >
+              Reviews
+            </button>
+            <button 
+              type="button" 
               onClick={() => handleScrollTo('pricing')} 
               className="text-sm font-medium px-3 py-1.5 rounded-lg hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
             >
@@ -200,6 +207,13 @@ export const Navbar: React.FC = () => {
                 className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-center cursor-pointer"
               >
                 🎯 FEFO Radar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleScrollTo('testimonials')}
+                className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-center cursor-pointer"
+              >
+                ⭐ Reviews
               </button>
               <button
                 type="button"

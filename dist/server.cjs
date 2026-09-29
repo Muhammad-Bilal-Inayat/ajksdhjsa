@@ -23,9 +23,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // server.ts
 var import_config = require("dotenv/config");
-var import_express16 = __toESM(require("express"));
-var import_path16 = __toESM(require("path"));
-var import_fs16 = __toESM(require("fs"));
+var import_express17 = __toESM(require("express"));
+var import_path17 = __toESM(require("path"));
+var import_fs17 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -11341,6 +11341,189 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
   }
 });
 
+// server/routes/cmsRoutes.ts
+var import_express16 = __toESM(require("express"));
+var import_fs16 = __toESM(require("fs"));
+var import_path16 = __toESM(require("path"));
+var cmsRouter = import_express16.default.Router();
+var TESTIMONIALS_FILE = import_path16.default.resolve(process.cwd(), ".testimonials_store.json");
+var SEED_TESTIMONIALS = [
+  {
+    id: "test-1",
+    name: "Dr. Tariq Mahmood",
+    role: "B.Pharm, RPh \u2022 Chief Pharmacist",
+    pharmacyName: "Al-Shifa Medicos & Heart Care",
+    city: "Lahore (DHA Phase 5)",
+    rating: 5,
+    content: "MBI INVENTRA cut our peak rush queue times by 70%. The 0.2s F2 quick search and thermal printing make billing effortless. The 30/60/90-day FEFO expiry radar saved our pharmacy over Rs. 180,000 in returnable stock in our very first quarter!",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "test-2",
+    name: "Hafiz Usman Ali Qureshi",
+    role: "Managing Partner",
+    pharmacyName: "Shaheen Chemist & Surgical",
+    city: "Islamabad (Blue Area)",
+    rating: 5,
+    content: "Running a high-traffic 24/7 store in Islamabad requires bulletproof stability. MBI INVENTRA's 100% offline-first architecture works smoothly through power disruptions and internet downtime without dropping a single sale.",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "test-3",
+    name: "Syed Kashif Raza",
+    role: "Director Pharmacy Operations",
+    pharmacyName: "Servaid Health Solutions",
+    city: "Karachi (Clifton Block 2)",
+    rating: 5,
+    content: "The multi-branch cloud sync and automated WhatsApp PDF invoice dispatch have completely digitized our customer khata management. Cash flow and recovery rates jumped by 45% within two months.",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "test-4",
+    name: "Malik Zeeshan Awan",
+    role: "Chief Executive",
+    pharmacyName: "City Care Chemist & Cosmetics",
+    city: "Rawalpindi (Saddar Cantt)",
+    rating: 5,
+    content: "The narcotics schedule drug monitoring, doctor referral commissions, and double-entry profit & loss reports fulfill every drug regulatory requirement. Best pharmacy ERP in Pakistan by far!",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "test-5",
+    name: "Mian Asadullah",
+    role: "General Secretary / Owner",
+    pharmacyName: "Sargodha Retail Chemist & Medicos",
+    city: "Sargodha (University Road)",
+    rating: 5,
+    content: "The pre-loaded 10,000+ generic and brand medicine master database saved us weeks of manual data entry. Staff training took less than 15 minutes. Outstanding customer support!",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "test-6",
+    name: "Chaudhry Bilal Ahmed",
+    role: "Managing Director",
+    pharmacyName: "Green Plus Pharmacy Chain",
+    city: "Faisalabad (Satyana Road)",
+    rating: 5,
+    content: "Our 3 counters in Faisalabad run simultaneously with real-time shift reconciliation and anti-leakage cashier audits. The shortage registry auto-generates wholesale purchase orders seamlessly.",
+    verified: true,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  }
+];
+function loadTestimonialsFromDisk() {
+  try {
+    if (!import_fs16.default.existsSync(TESTIMONIALS_FILE)) {
+      import_fs16.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
+      return SEED_TESTIMONIALS;
+    }
+    const raw = import_fs16.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+    return SEED_TESTIMONIALS;
+  } catch (err) {
+    console.error("[CMS Server] Failed to read testimonials file, using seed:", err);
+    return SEED_TESTIMONIALS;
+  }
+}
+function saveTestimonialsToDisk(items) {
+  try {
+    import_fs16.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
+    return true;
+  } catch (err) {
+    console.error("[CMS Server] Failed to write testimonials file:", err);
+    return false;
+  }
+}
+cmsRouter.get("/testimonials", (req, res) => {
+  try {
+    const list = loadTestimonialsFromDisk();
+    res.json({
+      success: true,
+      count: list.length,
+      testimonials: list
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to load testimonials" });
+  }
+});
+cmsRouter.post("/testimonials", (req, res) => {
+  try {
+    const payload = req.body;
+    let list = loadTestimonialsFromDisk();
+    if (Array.isArray(payload)) {
+      list = payload;
+      saveTestimonialsToDisk(list);
+      return res.json({ success: true, message: "Testimonials list updated successfully", count: list.length, testimonials: list });
+    }
+    if (!payload.name || !payload.content) {
+      return res.status(400).json({ success: false, message: "Name and content are required" });
+    }
+    const newTestimonial = {
+      id: payload.id || `test-${Date.now()}`,
+      name: payload.name.trim(),
+      role: payload.role || "Pharmacy Owner",
+      pharmacyName: payload.pharmacyName || "Medical Store",
+      city: payload.city || "Pakistan",
+      rating: Number(payload.rating) || 5,
+      content: payload.content.trim(),
+      avatarUrl: payload.avatarUrl || "",
+      verified: payload.verified !== false,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    list = [newTestimonial, ...list];
+    saveTestimonialsToDisk(list);
+    res.status(201).json({
+      success: true,
+      message: "Testimonial added successfully",
+      testimonial: newTestimonial,
+      testimonials: list
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to add testimonial" });
+  }
+});
+cmsRouter.put("/testimonials/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let list = loadTestimonialsFromDisk();
+    const index = list.findIndex((t) => t.id === id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, message: "Testimonial not found" });
+    }
+    list[index] = {
+      ...list[index],
+      ...req.body,
+      id
+    };
+    saveTestimonialsToDisk(list);
+    res.json({ success: true, message: "Testimonial updated successfully", testimonial: list[index], testimonials: list });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to update testimonial" });
+  }
+});
+cmsRouter.delete("/testimonials/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let list = loadTestimonialsFromDisk();
+    const originalCount = list.length;
+    list = list.filter((t) => t.id !== id);
+    if (list.length === originalCount) {
+      return res.status(404).json({ success: false, message: "Testimonial not found" });
+    }
+    saveTestimonialsToDisk(list);
+    res.json({ success: true, message: "Testimonial deleted successfully", count: list.length, testimonials: list });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to delete testimonial" });
+  }
+});
+
 // server/middleware/rateLimiter.ts
 var import_express_rate_limit = __toESM(require("express-rate-limit"));
 var apiLimiter = (0, import_express_rate_limit.default)({
@@ -11372,12 +11555,12 @@ process.on("unhandledRejection", (reason) => {
   console.error("[CRASH SHIELD: UNHANDLED REJECTION]:", reason?.message || reason);
 });
 async function startServer() {
-  const app = (0, import_express16.default)();
+  const app = (0, import_express17.default)();
   const rawPort = process.env.PORT || "3000";
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
-  const syncFile11 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile11 = import_path17.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -11389,7 +11572,7 @@ async function startServer() {
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
     next();
   });
-  app.use(import_express16.default.json({ limit: "50mb" }));
+  app.use(import_express17.default.json({ limit: "50mb" }));
   app.use("/api", apiLimiter);
   app.use("/api/auth", authRouter);
   app.use("/api/tenant", tenantRouter);
@@ -11409,6 +11592,8 @@ async function startServer() {
   app.use("/api/purchases", purchaseRouter);
   app.use("/api/purchase", purchaseRouter);
   app.use("/api/whatsapp", whatsappRouter);
+  app.use("/api/site-cms", cmsRouter);
+  app.use("/api/cms", cmsRouter);
   function isSafeKey(key) {
     return key !== "__proto__" && key !== "constructor" && key !== "prototype" && /^[a-zA-Z0-9_-]+$/.test(key);
   }
@@ -11449,8 +11634,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path16.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs16.default.existsSync(ddlPath)) {
+    const ddlPath = import_path17.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs17.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -11522,8 +11707,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs16.default.existsSync(syncFile11)) {
-        memorySyncData = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
+      if (import_fs17.default.existsSync(syncFile11)) {
+        memorySyncData = JSON.parse(import_fs17.default.readFileSync(syncFile11, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -11539,8 +11724,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile11}.tmp`;
-      import_fs16.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs16.default.renameSync(tmpFile, syncFile11);
+      import_fs17.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs17.default.renameSync(tmpFile, syncFile11);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile11 }, "/api/sync/flush");
@@ -11630,8 +11815,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs16.default.existsSync(syncFile11)) {
-        const stat = import_fs16.default.statSync(syncFile11);
+      if (import_fs17.default.existsSync(syncFile11)) {
+        const stat = import_fs17.default.statSync(syncFile11);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -12531,29 +12716,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path16.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path16.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path16.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path16.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path16.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path16.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path16.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path16.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path16.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path16.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path16.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path16.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path16.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs16.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path17.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path17.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path17.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path17.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path17.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path17.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path17.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path17.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path17.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path17.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path17.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path17.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path17.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs17.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs16.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs17.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs16.default.existsSync(filePath)) {
-        return JSON.parse(import_fs16.default.readFileSync(filePath, "utf-8"));
+      if (import_fs17.default.existsSync(filePath)) {
+        return JSON.parse(import_fs17.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -12561,7 +12746,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs16.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs17.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -12579,7 +12764,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs16.default.existsSync(masterConfigFile)) {
+    if (!import_fs17.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -12914,7 +13099,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path16.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path17.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -13703,14 +13888,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs16.default.readdirSync(masterBackupsDir);
+      let files = import_fs17.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs16.default.readFileSync(import_path16.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs17.default.readFileSync(import_path17.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -13734,9 +13919,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs16.default.existsSync(masterLicensesFile)) {
+      if (import_fs17.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs16.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs17.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -13784,9 +13969,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs16.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs17.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs16.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs17.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -13802,7 +13987,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs16.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs17.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -13820,7 +14005,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path16.default.join(masterBackupsDir, fileName);
+      const filePath = import_path17.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -13840,15 +14025,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs16.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs17.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs16.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs17.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs16.default.statSync(import_path16.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs17.default.statSync(import_path17.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs16.default.unlinkSync(import_path16.default.join(masterBackupsDir, oldFile.name));
+              import_fs17.default.unlinkSync(import_path17.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -13903,11 +14088,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path16.default.join(masterBackupsDir, fileName);
-      if (!import_fs16.default.existsSync(filePath)) {
+      const filePath = import_path17.default.join(masterBackupsDir, fileName);
+      if (!import_fs17.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs16.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs17.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -13919,9 +14104,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path16.default.join(masterBackupsDir, fileName);
-      if (import_fs16.default.existsSync(filePath)) {
-        import_fs16.default.unlinkSync(filePath);
+      const filePath = import_path17.default.join(masterBackupsDir, fileName);
+      if (import_fs17.default.existsSync(filePath)) {
+        import_fs17.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -13933,14 +14118,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs16.default.readdirSync(masterBackupsDir);
+      let files = import_fs17.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs16.default.readFileSync(import_path16.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs17.default.readFileSync(import_path17.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -13990,21 +14175,21 @@ async function startServer() {
     }
   });
   const isProduction = process.env.NODE_ENV === "production";
-  const distPath = import_path16.default.join(process.cwd(), "dist");
-  if (isProduction && import_fs16.default.existsSync(import_path16.default.join(distPath, "index.html"))) {
-    app.use("/assets", import_express16.default.static(import_path16.default.join(distPath, "assets"), {
+  const distPath = import_path17.default.join(process.cwd(), "dist");
+  if (isProduction && import_fs17.default.existsSync(import_path17.default.join(distPath, "index.html"))) {
+    app.use("/assets", import_express17.default.static(import_path17.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
       fallthrough: true
     }));
-    app.use("*/assets", import_express16.default.static(import_path16.default.join(distPath, "assets"), {
+    app.use("*/assets", import_express17.default.static(import_path17.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
     }));
-    app.use(import_express16.default.static(import_path16.default.join(process.cwd(), "public"), {
+    app.use(import_express17.default.static(import_path17.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
-    app.use(import_express16.default.static(distPath, {
+    app.use(import_express17.default.static(distPath, {
       maxAge: "1d",
       setHeaders: (res, filePath) => {
         if (filePath.endsWith("index.html") || filePath.endsWith("sw.js") || filePath.endsWith("registerSW.js") || filePath.endsWith("manifest.webmanifest")) {
@@ -14017,7 +14202,7 @@ async function startServer() {
         return res.status(404).json({ error: "Endpoint not found" });
       }
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(import_path16.default.join(distPath, "index.html"));
+      res.sendFile(import_path17.default.join(distPath, "index.html"));
     });
   } else {
     const { createServer: createViteServer } = await import("vite");

@@ -25,6 +25,7 @@ import { CloudSynapseVisualWidget } from '../components/landing/CloudSynapseVisu
 import { ExpiryCalculator } from '../components/landing/ExpiryCalculator';
 import { FloatingWhatsApp } from '../components/landing/FloatingWhatsApp';
 import { PricingSection } from '../components/landing/PricingSection';
+import { ClientTestimonialsSection } from '../components/landing/ClientTestimonialsSection';
 import { PWAInstallBanner } from '../components/pwa/PWAInstallBanner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -107,7 +108,12 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          7. STANDARDIZED PRICING SECTION
+          7. 3D CLIENT TESTIMONIALS (Auto-Slides every 3s & Server-Synced)
+      ───────────────────────────────────────────────────────────── */}
+      <ClientTestimonialsSection id="testimonials" />
+
+      {/* ─────────────────────────────────────────────────────────────
+          8. STANDARDIZED PRICING SECTION
       ───────────────────────────────────────────────────────────── */}
       <PricingSection id="pricing" />
 

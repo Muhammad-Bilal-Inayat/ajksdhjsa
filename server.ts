@@ -27,6 +27,7 @@ import { checkoutRouter } from './server/routes/checkoutRoutes';
 import { auditRouter } from './server/routes/auditRoutes';
 import { purchaseRouter } from './server/routes/purchaseRoutes';
 import { whatsappRouter } from './server/routes/whatsappRoutes';
+import { cmsRouter } from './server/routes/cmsRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { testMariaDbConnection, initializeMariaDbSchema, syncRecordToMariaDb, getMariaDbTableStats, getMariaDbPool, isMariaDbAvailable } from './server/db/mariaClient';
 
@@ -80,6 +81,8 @@ async function startServer() {
   app.use('/api/purchases', purchaseRouter);
   app.use('/api/purchase', purchaseRouter);
   app.use('/api/whatsapp', whatsappRouter);
+  app.use('/api/site-cms', cmsRouter);
+  app.use('/api/cms', cmsRouter);
 
   // Helper function to sanitize keys and prevent prototype pollution
   function isSafeKey(key: string): boolean {

@@ -9,9 +9,9 @@
     "storeName": "MUHAMMAD",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T08:38:24.626Z",
+    "lastSyncTime": "2026-09-29T09:11:41.364Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T08:38:24.626Z"
+    "updatedAt": "2026-09-29T09:11:41.364Z"
   },
   {
     "id": "u_1790657839031",
@@ -64,15 +64,20 @@
     "emailOrPhone": "030000",
     "email": "aaaaaa@inventra.local",
     "phone": "030000",
-    "passcode": "aaaaaa",
-    "role": "Owner",
+    "passcode": "1234",
+    "role": "Primary Admin",
     "status": "Active",
     "isPrimaryOwner": 1,
     "is_primary_owner": 1,
     "isPrimaryAdmin": 1,
     "is_primary_admin": 1,
     "isOnline": true,
-    "is_online": 1
+    "is_online": 1,
+    "storeName": "My Pharmacy Store",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-4ADF2030-MAJTWM",
+    "lastSyncTime": "2026-09-29T09:24:26.639Z",
+    "updatedAt": "2026-09-29T09:24:26.639Z"
   },
   {
     "id": "usr_1790667685851_zj83k",

@@ -518,93 +518,57 @@ export const DEFAULT_SITE_CMS_CONFIG: SiteCmsConfig = {
   testimonials: [
     {
       id: 'test-1',
-      name: 'Dr. Muhammad Tariq',
-      role: 'Chief Pharmacist & Owner',
-      pharmacyName: 'Al-Shifa Medicos',
+      name: 'Dr. Tariq Mahmood',
+      role: 'B.Pharm, RPh • Chief Pharmacist',
+      pharmacyName: 'Al-Shifa Medicos & Heart Care',
       city: 'Lahore (DHA Phase 5)',
       rating: 5,
-      content: 'MBI Inventra transformed our busy pharmacy. The 0.2-second thermal billing and instant F2 medicine search cut customer checkout lines by more than 70%. Expiry tracking saved us thousands of rupees every single month.',
+      content: 'MBI INVENTRA cut our peak rush queue times by 70%. The 0.2s F2 quick search and thermal printing make billing effortless. The 30/60/90-day FEFO expiry radar saved our pharmacy over Rs. 180,000 in returnable stock in our very first quarter!',
     },
     {
       id: 'test-2',
-      name: 'Usman Ali Qureshi',
-      role: 'Managing Director',
-      pharmacyName: 'CarePlus Pharmacy Chain',
-      city: 'Karachi (Clifton)',
+      name: 'Hafiz Usman Ali Qureshi',
+      role: 'Managing Partner',
+      pharmacyName: 'Shaheen Chemist & Surgical',
+      city: 'Islamabad (Blue Area)',
       rating: 5,
-      content: 'We run 4 branches across Karachi. MBI Inventra’s cloud synchronization lets me check live sales and inventory transfers from my smartphone in real-time. Offline mode is a lifesaver during network glitches!',
+      content: 'Running a high-traffic 24/7 store in Islamabad requires bulletproof stability. MBI INVENTRA’s 100% offline-first architecture works smoothly through power disruptions and internet downtime without dropping a single sale.',
     },
     {
       id: 'test-3',
-      name: 'Sardar Khurram Shah',
-      role: 'Proprietor',
-      pharmacyName: 'Khyber Medicos',
-      city: 'Islamabad (Blue Area)',
+      name: 'Syed Kashif Raza',
+      role: 'Director Pharmacy Operations',
+      pharmacyName: 'Servaid Health Solutions',
+      city: 'Karachi (Clifton Block 2)',
       rating: 5,
-      content: 'MBI Inventra transformed our dispensary workflow! We were billing customers within 15 minutes of setting up. Their WhatsApp support team is exceptionally fast and polite.',
+      content: 'The multi-branch cloud sync and automated WhatsApp PDF invoice dispatch have completely digitized our customer khata management. Cash flow and recovery rates jumped by 45% within two months.',
     },
     {
       id: 'test-4',
-      name: 'Hafiz Bilal Ahmed',
-      role: 'Operations Head',
-      pharmacyName: 'Madina Pharmacy & Surgicals',
-      city: 'Faisalabad (Satyana Road)',
-      rating: 5,
-      content: 'Best pharmacy ERP software in Pakistan without a doubt. The batch expiry alerts and F2 rapid search make staff training super easy. Highly recommended for any medical store owner!',
-    },
-    {
-      id: 'test-5',
-      name: 'Dr. Faisal Hayat',
-      role: 'Director Pharmacy Services',
-      pharmacyName: 'Hayat Medical Complex Pharmacy',
-      city: 'Peshawar (University Town)',
-      rating: 5,
-      content: 'The narcotics schedule drug monitoring and double-entry profit & loss statements meet full health ministry compliance. Shift cash balancing prevents any counter leakage.',
-    },
-    {
-      id: 'test-6',
       name: 'Malik Zeeshan Awan',
-      role: 'Managing Partner',
+      role: 'Chief Executive',
       pharmacyName: 'City Care Chemist & Cosmetics',
       city: 'Rawalpindi (Saddar Cantt)',
       rating: 5,
-      content: 'Switching to MBI Inventra was the best decision for our pharmacy. Customer ledger statements send via 1-click WhatsApp with full invoice PDFs. Collection rate improved by 40%.',
+      content: 'The narcotics schedule drug monitoring, doctor referral commissions, and double-entry profit & loss reports fulfill every drug regulatory requirement. Best pharmacy ERP in Pakistan by far!',
     },
     {
-      id: 'test-7',
+      id: 'test-5',
       name: 'Mian Asadullah',
       role: 'General Secretary / Owner',
-      pharmacyName: 'Sargodha Medicos Association',
-      city: 'Sargodha (Club Road)',
+      pharmacyName: 'Sargodha Retail Chemist & Medicos',
+      city: 'Sargodha (University Road)',
       rating: 5,
-      content: 'Flawless performance even on older desktop PCs. The pre-loaded 10,000+ medicine master saved us weeks of manual data entry. Outstanding support team!',
+      content: 'The pre-loaded 10,000+ generic and brand medicine master database saved us weeks of manual data entry. Staff training took less than 15 minutes. Outstanding customer support!',
     },
     {
-      id: 'test-8',
-      name: 'Syed Ali Raza',
-      role: 'Senior Pharmacist',
-      pharmacyName: 'Ali Medicos & Surgicals',
-      city: 'Multan (Nishtar Road)',
-      rating: 5,
-      content: 'Automatic supplier purchase order generation from shortage registry solved our stockouts completely. Our suppliers receive neat POs on WhatsApp instantly.',
-    },
-    {
-      id: 'test-9',
-      name: 'Dr. Noman Bashir',
-      role: 'CEO & Head of Retail',
-      pharmacyName: 'Clinix Plus Pharmacy',
-      city: 'Sialkot (Paris Road)',
-      rating: 5,
-      content: 'The multi-user staff PIN protection and granular access control give complete peace of mind. Cashiers cannot modify bills or give excess discounts without supervisor PIN.',
-    },
-    {
-      id: 'test-10',
-      name: 'Chaudhry Rashid Mehmood',
+      id: 'test-6',
+      name: 'Chaudhry Bilal Ahmed',
       role: 'Managing Director',
-      pharmacyName: 'Chaudhry Medical Store',
-      city: 'Gujranwala (G.T. Road)',
+      pharmacyName: 'Green Plus Pharmacy Chain',
+      city: 'Faisalabad (Satyana Road)',
       rating: 5,
-      content: 'Extreme speed during peak evening rush. We scan barcodes and print 80mm thermal receipts in less than a second. 100% reliable offline architecture!',
+      content: 'Our 3 counters in Faisalabad run simultaneously with real-time shift reconciliation and anti-leakage cashier audits. The shortage registry auto-generates wholesale purchase orders seamlessly.',
     }
   ],
   faqs: [
@@ -927,5 +891,73 @@ export function rejectUserFeedback(feedbackId: string): boolean {
   window.dispatchEvent(new CustomEvent('mbi-feedback-updated', { detail: currentFeedbacks }));
   return true;
 }
+
+/**
+ * Fetch testimonials directly from server API with local storage fallback
+ */
+export async function fetchServerTestimonials(): Promise<SiteTestimonial[]> {
+  try {
+    const res = await fetch('/api/site-cms/testimonials');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && Array.isArray(data.testimonials) && data.testimonials.length > 0) {
+        // Also sync to local CMS config
+        saveSiteCmsConfig({ testimonials: data.testimonials });
+        return data.testimonials;
+      }
+    }
+  } catch (err) {
+    // Offline mode: fallback to local config
+  }
+  return getSiteCmsConfig().testimonials || DEFAULT_SITE_CMS_CONFIG.testimonials;
+}
+
+/**
+ * Add or publish a new testimonial to the server
+ */
+export async function addServerTestimonial(testimonial: Partial<SiteTestimonial>): Promise<SiteTestimonial[]> {
+  const current = getSiteCmsConfig();
+  const newT: SiteTestimonial = {
+    id: testimonial.id || `test-${Date.now()}`,
+    name: testimonial.name || 'Verified Pharmacist',
+    role: testimonial.role || 'Chief Pharmacist',
+    pharmacyName: testimonial.pharmacyName || 'Medical Store',
+    city: testimonial.city || 'Pakistan',
+    rating: testimonial.rating || 5,
+    content: testimonial.content || 'Exceptional experience using MBI INVENTRA.',
+    avatarUrl: testimonial.avatarUrl || ''
+  };
+
+  const updated = [newT, ...current.testimonials];
+  saveSiteCmsConfig({ testimonials: updated });
+
+  try {
+    await fetch('/api/site-cms/testimonials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newT)
+    });
+  } catch (err) {}
+
+  return updated;
+}
+
+/**
+ * Delete a testimonial from server & local store
+ */
+export async function deleteServerTestimonial(id: string): Promise<SiteTestimonial[]> {
+  const current = getSiteCmsConfig();
+  const updated = current.testimonials.filter(t => t.id !== id);
+  saveSiteCmsConfig({ testimonials: updated });
+
+  try {
+    await fetch(`/api/site-cms/testimonials/${id}`, {
+      method: 'DELETE'
+    });
+  } catch (err) {}
+
+  return updated;
+}
+
 
 

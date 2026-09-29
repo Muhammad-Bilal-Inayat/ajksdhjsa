@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { verifyJwt, UserJwtPayload } from '../auth/jwt';
+import { handleBatchSyncController } from '../controllers/syncController';
 
 export const syncRouter = Router();
 
@@ -152,10 +153,89 @@ syncRouter.get('/pool-stats', (req: Request, res: Response) => {
   });
 });
 
-import { handleBatchSyncController } from '../controllers/syncController';
-
 /**
  * Batch Sync Ingestion: POST /api/sync/batch
  * Handles chunked outbox sync requests (up to 200 items per chunk) with atomic delta stock updates.
  */
 syncRouter.post('/batch', handleBatchSyncController);
+
+/**
+ * Trigger Global Sync to all connected instances: POST /api/sync/trigger-all
+ */
+syncRouter.post('/trigger-all', (req: Request, res: Response) => {
+  try {
+    const { source = 'Master Server', reason = 'Admin Global Sync Pulse' } = req.body;
+    broadcastGlobalEvent({
+      type: 'GLOBAL_SYNC_TRIGGER',
+      payload: { source, reason, timestamp: new Date().toISOString() }
+    });
+    res.json({
+      success: true,
+      message: 'Global sync pulse dispatched to all connected clients',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error triggering sync' });
+  }
+});
+
+/**
+ * Trigger Tenant-specific Sync: POST /api/sync/trigger-tenant
+ */
+syncRouter.post('/trigger-tenant', (req: Request, res: Response) => {
+  try {
+    const { tenantId, source = 'Master Server' } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+    broadcastTenantEvent(tenantId, {
+      type: 'TENANT_SYNC_TRIGGER',
+      payload: { tenantId, source, timestamp: new Date().toISOString() }
+    });
+    res.json({
+      success: true,
+      message: `Sync pulse dispatched to tenant ${tenantId}`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error triggering tenant sync' });
+  }
+});
+
+/**
+ * Simulate Real-Time Telemetry Event: POST /api/sync/simulate-event
+ */
+syncRouter.post('/simulate-event', (req: Request, res: Response) => {
+  try {
+    const { tenantId = 'tenant_001', type = 'BILLING', action = 'SALE_INVOICE_CREATED', user = 'Usman Cashier', amount = 1450 } = req.body;
+    const eventPayload = {
+      id: `evt_${Date.now()}`,
+      tenantId,
+      type,
+      action,
+      user,
+      amount,
+      timestamp: new Date().toISOString()
+    };
+
+    broadcastTenantEvent(tenantId, {
+      type: 'TELEMETRY_EVENT',
+      payload: eventPayload
+    });
+
+    broadcastGlobalEvent({
+      type: 'GLOBAL_TELEMETRY_EVENT',
+      payload: eventPayload
+    });
+
+    res.json({
+      success: true,
+      message: 'Simulated telemetry event broadcasted',
+      event: eventPayload
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error simulating event' });
+  }
+});
+

@@ -1506,6 +1506,71 @@ syncRouter.get("/pool-stats", (req, res) => {
   });
 });
 syncRouter.post("/batch", handleBatchSyncController);
+syncRouter.post("/trigger-all", (req, res) => {
+  try {
+    const { source = "Master Server", reason = "Admin Global Sync Pulse" } = req.body;
+    broadcastGlobalEvent({
+      type: "GLOBAL_SYNC_TRIGGER",
+      payload: { source, reason, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      message: "Global sync pulse dispatched to all connected clients",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error triggering sync" });
+  }
+});
+syncRouter.post("/trigger-tenant", (req, res) => {
+  try {
+    const { tenantId, source = "Master Server" } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    broadcastTenantEvent(tenantId, {
+      type: "TENANT_SYNC_TRIGGER",
+      payload: { tenantId, source, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      message: `Sync pulse dispatched to tenant ${tenantId}`,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error triggering tenant sync" });
+  }
+});
+syncRouter.post("/simulate-event", (req, res) => {
+  try {
+    const { tenantId = "tenant_001", type = "BILLING", action = "SALE_INVOICE_CREATED", user = "Usman Cashier", amount = 1450 } = req.body;
+    const eventPayload = {
+      id: `evt_${Date.now()}`,
+      tenantId,
+      type,
+      action,
+      user,
+      amount,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    broadcastTenantEvent(tenantId, {
+      type: "TELEMETRY_EVENT",
+      payload: eventPayload
+    });
+    broadcastGlobalEvent({
+      type: "GLOBAL_TELEMETRY_EVENT",
+      payload: eventPayload
+    });
+    res.json({
+      success: true,
+      message: "Simulated telemetry event broadcasted",
+      event: eventPayload
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error simulating event" });
+  }
+});
 
 // server/controllers/userController.ts
 var import_uuid = require("uuid");

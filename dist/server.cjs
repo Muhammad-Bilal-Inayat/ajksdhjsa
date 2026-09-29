@@ -43,7 +43,7 @@ function base64UrlDecode(str) {
   }
   return Buffer.from(base64, "base64").toString("utf-8");
 }
-function signJwt(payload, expiresInSeconds = 86400 * 7) {
+function signJwt(payload, expiresInSeconds = 86400 * 365) {
   const header = {
     alg: "HS256",
     typ: "JWT"

@@ -49,7 +49,7 @@ function base64UrlDecode(str: string): string {
 /**
  * Creates a cryptographically signed HMAC-SHA256 JWT Token
  */
-export function signJwt(payload: Record<string, any>, expiresInSeconds: number = 86400 * 7): string {
+export function signJwt(payload: Record<string, any>, expiresInSeconds: number = 86400 * 365): string {
   const header = {
     alg: 'HS256',
     typ: 'JWT'

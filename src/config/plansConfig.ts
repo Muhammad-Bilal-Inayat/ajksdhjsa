@@ -151,10 +151,10 @@ export interface ComparisonMatrixPoint {
 export const EXACT_17_POINT_MATRIX: ComparisonMatrixPoint[] = [
   {
     id: 1,
-    feature: 'Fast POS Terminal (Barcode / FEFO)',
-    silver: '✅ Unlimited',
-    gold: '✅ Unlimited',
-    platinum: '✅ Unlimited'
+    feature: 'Fast 0.2s POS Terminal (Barcode / Thermal)',
+    silver: '✅ Unlimited Billing',
+    gold: '✅ Unlimited Billing',
+    platinum: '✅ Unlimited Billing'
   },
   {
     id: 2,
@@ -173,35 +173,30 @@ export const EXACT_17_POINT_MATRIX: ComparisonMatrixPoint[] = [
   },
   {
     id: 4,
-    feature: 'FEFO Expiry Radar (6 Horizons)',
-    silver: '✅ 30/60/90 Days',
-    gold: '✅ 7 to 180 Days Alert',
-    platinum: '✅ Full Auto-Quarantine',
+    feature: 'WhatsApp Billing & Customer Automation',
+    silver: '🖱️ 1-Click Direct (wa.me)',
+    gold: '🖱️ 1-Click Direct + Khata Alerts',
+    platinum: '⚡ Auto Background Gateway (Zero Click)',
     highlight: true
   },
   {
     id: 5,
-    feature: 'Supplier Purchase & Claims Khata',
-    silver: '✅ Basic Khata',
-    gold: '✅ Full Auto Return',
-    platinum: '✅ Central Ledger & PO'
+    feature: 'FEFO Expiry Radar (Horizon Alerts)',
+    silver: '✅ 30/60/90 Days',
+    gold: '✅ 7 to 180 Days Alert',
+    platinum: '✅ Full Auto-Quarantine & Returns',
+    highlight: true
   },
   {
     id: 6,
-    feature: 'Customer Udhar Khata & Reminders',
-    silver: '✅ Basic Ledger',
-    gold: '✅ WhatsApp Sharing',
-    platinum: '✅ Auto SMS & WhatsApp Reminders'
+    feature: 'FBR POS Digital Invoicing & Fiscal Stamps',
+    silver: '❌ Not Included',
+    gold: '❌ Not Included',
+    platinum: '✅ FBR Certified QR + Digital Stamp',
+    highlight: true
   },
   {
     id: 7,
-    feature: 'Narcotics & DRAP Controlled Drug Logs',
-    silver: '✅ Form-7 Register',
-    gold: '✅ Form-7 + Rx Audit',
-    platinum: '✅ Full Compliance Safe'
-  },
-  {
-    id: 8,
     feature: 'Wholesale & Retail Dual Pricing Engine',
     silver: '❌ Retail Only',
     gold: '✅ TP / MRP / Box Rate',
@@ -209,18 +204,26 @@ export const EXACT_17_POINT_MATRIX: ComparisonMatrixPoint[] = [
     highlight: true
   },
   {
+    id: 8,
+    feature: 'Supplier Purchase & Claims Khata',
+    silver: '✅ Basic Khata',
+    gold: '✅ Full Auto Return',
+    platinum: '✅ Central Ledger & PO Challan'
+  },
+  {
     id: 9,
-    feature: 'Smart Re-Order Engine & Min Stocks',
-    silver: '❌ Manual',
-    gold: '✅ Velocity Based',
-    platinum: '✅ Predictive AI Forecast'
+    feature: 'Customer Udhar Khata & Balance Reminders',
+    silver: '✅ Basic Ledger',
+    gold: '✅ WhatsApp Sharing',
+    platinum: '✅ Auto Background WhatsApp Reminders'
   },
   {
     id: 10,
-    feature: 'Shift Closing & Daily Cash Handover',
-    silver: '✅ Daily Summary',
-    gold: '✅ Cash Drawer Reconcile',
-    platinum: '✅ Blind Cash Audit'
+    feature: 'Digital Pharmacy Online Storefront',
+    silver: '❌ Not Included',
+    gold: '❌ Not Included',
+    platinum: '✅ E-Commerce Web POS & Orders',
+    highlight: true
   },
   {
     id: 11,
@@ -232,46 +235,46 @@ export const EXACT_17_POINT_MATRIX: ComparisonMatrixPoint[] = [
   },
   {
     id: 12,
-    feature: 'Offline POS & Background DB Sync',
-    silver: '✅ Offline IndexedDB',
-    gold: '✅ Auto Reconnect Sync',
-    platinum: '✅ Resilient Multi-Node'
+    feature: 'Narcotics & DRAP Form-7 Register Books',
+    silver: '✅ Form-7 Register',
+    gold: '✅ Form-7 + Rx Audit',
+    platinum: '✅ Full Compliance Safe'
   },
   {
     id: 13,
-    feature: 'Thermal Receipt Customization (80mm & 58mm)',
-    silver: '✅ 80mm & 58mm Standard',
-    gold: '✅ 80mm & 58mm + Logo & QR',
-    platinum: '✅ 80mm & 58mm + Custom Layout Engine'
+    feature: 'Shift Closing & Cash Drawer Handover',
+    silver: '✅ Daily Summary',
+    gold: '✅ Cash Drawer Reconcile',
+    platinum: '✅ Blind Cash Audit'
   },
   {
     id: 14,
-    feature: 'Role-Based Permissions & Pin Auth',
-    silver: '✅ Basic Cashier/Admin',
-    gold: '✅ Custom 12 Permissions',
-    platinum: '✅ 2FA + Audit Trail'
+    feature: 'Offline POS & Background DB Sync',
+    silver: '✅ 100% Offline Engine',
+    gold: '✅ Auto Reconnect Sync',
+    platinum: '✅ Resilient Multi-Node Sync'
   },
   {
     id: 15,
-    feature: 'Cloud Backup & Instant Disaster Recovery',
-    silver: '✅ Daily Backup',
-    gold: '✅ Real-time Snapshot',
-    platinum: '✅ Automated DB Vault',
-    highlight: true
+    feature: 'Role-Based Permissions & Pin Auth',
+    silver: '✅ Basic Cashier/Admin',
+    gold: '✅ Custom Permissions',
+    platinum: '✅ 2FA + Anti-Theft Audit Trail'
   },
   {
     id: 16,
-    feature: 'Hardware Fingerprint Device Locking',
-    silver: '✅ 2 Bound Devices',
-    gold: '✅ 5 Bound Devices',
-    platinum: '✅ 15 Bound Devices'
+    feature: 'Cloud Backup & Disaster Recovery',
+    silver: '✅ Daily Encrypted Local',
+    gold: '✅ Real-time Snapshot',
+    platinum: '✅ 50GB NVMe Cloud Mirroring',
+    highlight: true
   },
   {
     id: 17,
     feature: 'Priority Customer Support',
     silver: 'Standard Helpdesk',
     gold: 'Priority Support 24/7',
-    platinum: 'Dedicated VIP Onboarding',
+    platinum: 'Dedicated VIP Onboarding & SLA',
     highlight: true
   }
 ];

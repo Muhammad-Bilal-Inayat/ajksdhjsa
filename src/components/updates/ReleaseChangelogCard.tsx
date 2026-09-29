@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.5-stable',
+    version: 'v4.3.6-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Compare MBI INVENTRA Editions Feature Matrix & Integrated User Side Pricing Hub.',
+    features: [
+      {
+        text: 'Compare Editions Modal: Integrated official 17-point feature comparison matrix directly into User Plans & Licensing page.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Updated Feature Matrix: Clear comparison of 0.2s POS, WhatsApp Auto-Gateway vs 1-Click Direct, FEFO Expiry Radar, and FBR POS compliance.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Seamless User Navigation: Added direct "Compare Editions" triggers in header action bar and beneath billing duration toggles.',
+        type: 'feature',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.5-stable',
+    releaseDate: 'September 2026',
+    tag: 'Production Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: '100% Unified & Synchronized Subscription Plan Features Across Home Page, User Dashboard & Server Hub.',
     features: [

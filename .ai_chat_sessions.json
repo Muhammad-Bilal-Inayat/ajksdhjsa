@@ -1,5 +1,72 @@
 [
   {
+    "id": "sess_admin-master_1790665610165",
+    "userId": "admin-master",
+    "userName": "Bilal Inayat (Primary Admin)",
+    "userEmail": "",
+    "userPhone": "",
+    "storeName": "MBI INVENTRA",
+    "tenantId": "tenant-main-01",
+    "plan": "Pharmacy Pro",
+    "pageContext": "user",
+    "status": "active_ai",
+    "isHumanAssigned": false,
+    "totalClicks": 5,
+    "unreadCountForServer": 2,
+    "unreadCountForUser": 2,
+    "lastMessage": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+    "lastMessageSender": "ai",
+    "lastMessageAt": "2026-09-29T07:07:01.881Z",
+    "createdAt": "2026-09-29T07:06:50.210Z",
+    "updatedAt": "2026-09-29T07:07:01.881Z",
+    "messages": [
+      {
+        "id": "msg_init_1790665610210",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+        "timestamp": "2026-09-29T07:06:50.210Z",
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790665612446_06t7",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "hi",
+        "timestamp": "2026-09-29T07:06:52.446Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790665612450_s21e",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:06:52.450Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790665621879_dv3l",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "kia kar ry hho",
+        "timestamp": "2026-09-29T07:07:01.879Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790665621881_1na4",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Assistant is exclusive to Business and Enterprise plans. Please upgrade your business subscription in Settings > Subscription to unlock MBI AI Guide.",
+        "timestamp": "2026-09-29T07:07:01.881Z",
+        "isEscalation": false,
+        "status": "delivered"
+      }
+    ]
+  },
+  {
     "id": "test_session_01",
     "userId": "usr_client",
     "userName": "Pharmacy Partner",

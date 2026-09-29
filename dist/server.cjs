@@ -9767,8 +9767,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.3.5";
-var RELEASE_NOTES = "100% Unified & Synchronized Subscription Plan Features Across Home, User & Server Hub (v4.3.5)";
+var APP_VERSION2 = "4.3.6";
+var RELEASE_NOTES = "Compare MBI INVENTRA Editions Feature Matrix & User Side Pricing Integration (v4.3.6)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

@@ -1,11 +1,15 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.3.5-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.6-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.3.5
+## 🌟 What's New in v4.3.6
+- **Compare MBI INVENTRA Editions Feature Matrix & User Side Integration:**
+  - Integrated the official 17-point feature comparison modal (`PlanComparisonModal`) directly into the User Client Portal (`/pricing` - Plans & Licensing).
+  - Prominent "Compare Editions" buttons added in the header action bar and below the billing duration selectors.
+  - Fully synchronized 17-point matrix comparing 0.2s POS, WhatsApp Auto-Gateway (Enterprise) vs 1-Click Direct (Silver/Gold), FEFO Expiry Radar, FBR POS Fiscal Stamps, Wholesale Pricing, Multi-Godowns, and 50GB NVMe Cloud Mirroring.
 - **100% Unified & Synchronized Subscription Plan Features:**
   - Standardized single source of truth across all 3 portals: Public Home Page (`PricingSection`), Client Portal (`Pricing.tsx` & `PricingModal.tsx`), and Super Admin Server Station (`PlanPricingManagerPanel` & `planLimitsService.ts`).
   - **Silver Basic:** 2 Users • 2 Branches • 2 Terminals • 0.2s POS Barcode Billing • 100k+ Medicine Catalog • 1-Click WhatsApp Direct • Ledgers • 100% Offline Local Engine.

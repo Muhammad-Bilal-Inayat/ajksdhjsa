@@ -9,9 +9,9 @@
     "storeName": "aaaaaa",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-4ADF2030-MAJTWM",
-    "lastSyncTime": "2026-09-29T06:55:52.134Z",
+    "lastSyncTime": "2026-09-29T07:04:53.820Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T06:55:52.134Z"
+    "updatedAt": "2026-09-29T07:04:53.820Z"
   },
   {
     "id": "admin-master",
@@ -22,10 +22,10 @@
     "passcode": "1234",
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
-    "boundHwid": "HW-4ADF2030-MAJTWM",
-    "lastSyncTime": "2026-09-29T04:28:05.409Z",
+    "boundHwid": "HW-528EB66D-MAJTWM",
+    "lastSyncTime": "2026-09-29T07:12:07.620Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T04:28:05.409Z"
+    "updatedAt": "2026-09-29T07:12:07.620Z"
   },
   {
     "id": "u1",

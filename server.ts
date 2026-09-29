@@ -3177,39 +3177,30 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development (dynamic import to prevent loading Vite in production)
-  const isProdDistAvailable = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
-  if (process.env.NODE_ENV !== 'production' || !isProdDistAvailable) {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: false,
-      },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'))
-      ? path.join(process.cwd(), 'dist')
-      : fs.existsSync(path.join(__dirname, 'index.html'))
-      ? __dirname
-      : path.resolve(__dirname, '..', 'dist');
+  // Frontend SPA Static & Dev Serving Engine
+  const distPath = path.join(process.cwd(), 'dist');
+  const isProdDistAvailable = fs.existsSync(path.join(distPath, 'index.html'));
 
-    // Serve static assets with caching
+  if (isProdDistAvailable) {
+    // 1. Serve compiled static assets
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
       immutable: true,
       fallthrough: true
     }));
 
-    // Fallback for nested asset requests (e.g. /sale/invoices/assets/app.js)
+    // 2. Fallback for nested asset paths
     app.use('*/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
       fallthrough: true
     }));
 
-    // Serve public root files (favicon, manifest, icons, service worker)
+    // 3. Serve public directory assets (favicons, icons, manifest, database)
+    app.use(express.static(path.join(process.cwd(), 'public'), {
+      maxAge: '1d'
+    }));
+
+    // 4. Serve root build files
     app.use(express.static(distPath, {
       maxAge: '1d',
       setHeaders: (res, filePath) => {
@@ -3219,13 +3210,25 @@ async function startServer() {
       }
     }));
 
-    // SPA client-side fallback
+    // 5. Clean SPA Catch-All Route
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Endpoint not found' });
       }
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  } else {
+    // Vite middleware for development when dist has not been generated
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: true,
+      },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
   }
 
   const server = app.listen(PORT, HOST, () => {

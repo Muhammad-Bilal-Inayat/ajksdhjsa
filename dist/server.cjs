@@ -13682,19 +13682,9 @@ async function startServer() {
       });
     }
   });
-  const isProdDistAvailable = import_fs15.default.existsSync(import_path15.default.join(process.cwd(), "dist", "index.html"));
-  if (process.env.NODE_ENV !== "production" || !isProdDistAvailable) {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true,
-        hmr: false
-      },
-      appType: "spa"
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = import_fs15.default.existsSync(import_path15.default.join(process.cwd(), "dist", "index.html")) ? import_path15.default.join(process.cwd(), "dist") : import_fs15.default.existsSync(import_path15.default.join(__dirname, "index.html")) ? __dirname : import_path15.default.resolve(__dirname, "..", "dist");
+  const distPath = import_path15.default.join(process.cwd(), "dist");
+  const isProdDistAvailable = import_fs15.default.existsSync(import_path15.default.join(distPath, "index.html"));
+  if (isProdDistAvailable) {
     app.use("/assets", import_express15.default.static(import_path15.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
@@ -13703,6 +13693,9 @@ async function startServer() {
     app.use("*/assets", import_express15.default.static(import_path15.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
+    }));
+    app.use(import_express15.default.static(import_path15.default.join(process.cwd(), "public"), {
+      maxAge: "1d"
     }));
     app.use(import_express15.default.static(distPath, {
       maxAge: "1d",
@@ -13716,8 +13709,19 @@ async function startServer() {
       if (req.path.startsWith("/api/")) {
         return res.status(404).json({ error: "Endpoint not found" });
       }
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
       res.sendFile(import_path15.default.join(distPath, "index.html"));
     });
+  } else {
+    const { createServer: createViteServer } = await import("vite");
+    const vite = await createViteServer({
+      server: {
+        middlewareMode: true,
+        hmr: true
+      },
+      appType: "spa"
+    });
+    app.use(vite.middlewares);
   }
   const server = app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);

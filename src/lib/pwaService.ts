@@ -84,9 +84,14 @@ export const checkForAppVersionUpdate = async (): Promise<AppVersionInfo | null>
 export const initializePwaService = () => {
   if (typeof window === 'undefined') return;
 
-  // Poll version on boot and every 5 minutes
+  // Set current version on initial boot
+  if (!localStorage.getItem('mbi_active_version')) {
+    localStorage.setItem('mbi_active_version', CURRENT_CLIENT_VERSION);
+  }
+
+  // Poll version on boot and every 10 minutes
   checkForAppVersionUpdate();
-  const interval = setInterval(checkForAppVersionUpdate, 5 * 60 * 1000);
+  const interval = setInterval(checkForAppVersionUpdate, 10 * 60 * 1000);
 
   // Also check when window regains focus or comes online
   window.addEventListener('focus', () => checkForAppVersionUpdate());
@@ -103,11 +108,8 @@ export const initializePwaService = () => {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               waitingWorker = newWorker;
-              notifyListeners({
-                version: '4.2.1',
-                releaseNotes: 'LAN Multi-PC Counter Sync Hub, Zero-Crash Offline Throttle, Universal User Popup Broadcast & Server Direct Access',
-                isUpdateAvailable: true
-              });
+              // Check with server to verify if actual new version exists
+              checkForAppVersionUpdate();
             }
           });
         }

@@ -9,6 +9,22 @@
   "auditLogs": [],
   "appUsers": [
     {
+      "id": "u_1790657839031",
+      "name": "aaaaaa",
+      "username": "u_1790657839031",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T04:57:19.072Z",
+      "emailOrPhone": "030000@inventra.local",
+      "passcode": "1234",
+      "storeName": "aaaaaa",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-4ADF2030-MAJTWM",
+      "lastSyncTime": "2026-09-29T04:57:19.066Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T04:57:19.072Z"
+    },
+    {
       "id": "admin-master",
       "name": "Bilal Inayat (Primary Admin)",
       "username": "admin-master",
@@ -101,7 +117,23 @@
     }
   ],
   "users": [],
-  "userActivities": [],
+  "userActivities": [
+    {
+      "id": "l_1790657839088",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user aaaaaa (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790657839088,
+      "tenantId": "tenant-4ac40db2",
+      "firmId": "firm-main",
+      "createdById": "u_1790657839031",
+      "lastUpdatedById": "u_1790657839031",
+      "lastUpdatedAt": "2026-09-29T04:57:19.088Z",
+      "createdAt": "2026-09-29T04:57:19.088Z",
+      "updatedAt": "2026-09-29T04:57:19.088Z",
+      "syncStatus": "pending"
+    }
+  ],
   "bankAccounts": [],
   "cheques": [],
   "loanAccounts": [],
@@ -119,5 +151,6 @@
   "registration_leads": [],
   "tenants": [],
   "client_licenses": [],
-  "storeSettings": []
+  "storeSettings": [],
+  "_tombstones": []
 }

@@ -1,5 +1,19 @@
 [
   {
+    "id": "u_1790657839031",
+    "name": "aaaaaa",
+    "emailOrPhone": "030000@inventra.local",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "aaaaaa",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-4ADF2030-MAJTWM",
+    "lastSyncTime": "2026-09-29T05:01:07.087Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T05:01:07.087Z"
+  },
+  {
     "id": "admin-master",
     "name": "Bilal Inayat (Primary Admin)",
     "emailOrPhone": "vip123@admin.com",
@@ -26,5 +40,24 @@
     "lastSyncTime": "2026-09-27T12:15:53.324Z",
     "isOnline": true,
     "updatedAt": "2026-09-27T12:15:53.324Z"
+  },
+  {
+    "id": "usr_1790657838970_58h9p",
+    "tenantId": "tenant_1790657838970_8gu7w",
+    "tenant_id": "tenant_1790657838970_8gu7w",
+    "name": "aaaaaa",
+    "username": "aaaaaa",
+    "emailOrPhone": "030000",
+    "email": "aaaaaa@inventra.local",
+    "phone": "030000",
+    "passcode": "aaaaaa",
+    "role": "Owner",
+    "status": "Active",
+    "isPrimaryOwner": 1,
+    "is_primary_owner": 1,
+    "isPrimaryAdmin": 1,
+    "is_primary_admin": 1,
+    "isOnline": true,
+    "is_online": 1
   }
 ]

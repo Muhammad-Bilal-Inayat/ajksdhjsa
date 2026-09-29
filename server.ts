@@ -21,7 +21,9 @@ import { testMariaDbConnection, initializeMariaDbSchema, syncRecordToMariaDb, ge
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const rawPort = process.env.PORT || '3000';
+  const isNamedPipe = typeof rawPort === 'string' && (rawPort.startsWith('/') || rawPort.startsWith('\\\\') || isNaN(Number(rawPort)));
+  const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = '0.0.0.0';
   const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 
@@ -3231,9 +3233,13 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  const server = app.listen(PORT, HOST, () => {
-    console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);
-  });
+  const server = isNamedPipe
+    ? app.listen(PORT, () => {
+        console.log(`Server running on pipe/socket: ${PORT} (Node: ${process.version})`);
+      })
+    : app.listen(PORT as number, HOST, () => {
+        console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);
+      });
 
   process.on('SIGTERM', () => {
     server.close(() => {

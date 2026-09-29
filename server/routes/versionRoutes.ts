@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.2.4';
-export const RELEASE_NOTES = 'Clean Direct Home Landing Boot, Persistent Seamless Login Session & Fleet Sync';
+export const APP_VERSION = '4.2.5';
+export const RELEASE_NOTES = 'Fixed Network Icon Reference in Master Server Hub, Instant Zero-Wait Boot & Fleet Station Direct Access';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

@@ -7,7 +7,7 @@ import {
   HardDrive, Radio, Layers, Wifi, DollarSign, Search,
   Printer, Code2, BookOpen, TrendingUp, Archive, LockKeyhole,
   Download, Zap, HelpCircle, UserCheck, AlertTriangle, RotateCcw,
-  Sun, Moon, Menu, X, Sliders, ToggleLeft, ToggleRight, Check
+  Sun, Moon, Menu, X, Sliders, ToggleLeft, ToggleRight, Check, Network
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 

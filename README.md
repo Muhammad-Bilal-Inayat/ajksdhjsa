@@ -1,11 +1,12 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.2.4-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.2.5-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.2.4
+## 🌟 What's New in v4.2.5
+- **Fixed Master Server Hub Loading:** Fixed missing `Network` icon reference in `MasterServerHub.tsx`, completely resolving blank white page on `/server` and `/lan`.
 - **Clean Direct Home Landing Boot:** Restored standard direct home page loading with zero splash delays and instant first-paint.
 - **Persistent Login Sessions:** Permanent authenticated local sessions with zero automatic logouts until explicitly clicked by the user.
 - **Direct Master Hub & LAN Station Access:** Directly mounted `/server`, `/lan`, and `/server/lan` for instant opening with Master Security Key (`Ami7788!@` / `03082003`).

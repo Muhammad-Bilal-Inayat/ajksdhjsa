@@ -7,7 +7,7 @@ export interface AppVersionInfo {
   isUpdateAvailable: boolean;
 }
 
-export const CURRENT_CLIENT_VERSION = '4.2.4';
+export const CURRENT_CLIENT_VERSION = '4.2.5';
 export const CURRENT_CACHE_NAME = `mbi-inventra-v${CURRENT_CLIENT_VERSION}`;
 
 type UpdateCallback = (info: AppVersionInfo) => void;

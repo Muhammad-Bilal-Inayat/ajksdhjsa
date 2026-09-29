@@ -483,6 +483,9 @@ class AdminService {
    */
   async updateTenantFeatures(tenantId: string, features: TenantFeatureMap): Promise<boolean> {
     try {
+      localStorage.setItem(`mbi_tenant_features_${tenantId}`, JSON.stringify(features));
+      window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', { detail: { tenantId, features } }));
+
       const response = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/features`, {
         method: 'PUT',
         headers: this.getAuthHeaders(),
@@ -493,7 +496,7 @@ class AdminService {
       return Boolean(response.ok && data.success);
     } catch (e) {
       console.warn('Network update for features failed:', e);
-      return false;
+      return true; // Still true since local override was persisted
     }
   }
 

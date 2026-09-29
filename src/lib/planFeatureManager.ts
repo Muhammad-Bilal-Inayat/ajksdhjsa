@@ -573,7 +573,7 @@ export function getInheritedFeatures(tier: PlanTier): Set<string> {
 }
 
 /**
- * Checks whether a specific featureKey is included in the plan
+ * Checks whether a specific featureKey is included in the plan or custom unlocked by Master Admin
  */
 export function hasPlanFeature(featureKey: string, plan?: string | PlanTier, tenantId?: string): boolean {
   // Master Admin Override: Always allowed if Master Admin
@@ -584,6 +584,35 @@ export function hasPlanFeature(featureKey: string, plan?: string | PlanTier, ten
   // MANUAL FEATURE PATCH CHECK: If active manual patch unlocks this feature, permit immediately!
   if (manualPatchService.isFeaturePatched(featureKey, tenantId)) {
     return true;
+  }
+
+  // Check tenant custom feature toggles override from Master 173 Switchboard
+  if (tenantId) {
+    try {
+      const storedFeaturesRaw = localStorage.getItem(`mbi_tenant_features_${tenantId}`);
+      if (storedFeaturesRaw) {
+        const customMap = JSON.parse(storedFeaturesRaw);
+        if (customMap[featureKey] === true) return true;
+        if (customMap[featureKey] === false) return false;
+      }
+    } catch {}
+
+    const tenantDoc = getTenantById(tenantId);
+    if (tenantDoc) {
+      const customFeatures = (tenantDoc as any).features || (tenantDoc as any).featureToggles;
+      if (customFeatures && typeof customFeatures === 'object') {
+        if (customFeatures[featureKey] === true) return true;
+        if (customFeatures[featureKey] === false) return false;
+
+        const normalizedKey = featureKey.toLowerCase().replace(/[\s-_]/g, '');
+        for (const [k, v] of Object.entries(customFeatures)) {
+          if (k.toLowerCase().replace(/[\s-_]/g, '') === normalizedKey) {
+            if (v === true) return true;
+            if (v === false) return false;
+          }
+        }
+      }
+    }
   }
 
   const effectiveTier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
@@ -598,14 +627,6 @@ export function hasPlanFeature(featureKey: string, plan?: string | PlanTier, ten
   const normalizedKey = featureKey.toLowerCase().replace(/[\s-_]/g, '');
   for (const f of activeFeatures) {
     if (f.toLowerCase().replace(/[\s-_]/g, '') === normalizedKey) {
-      return true;
-    }
-  }
-
-  // Check tenant custom feature toggles override if set by Master Admin
-  if (tenantId) {
-    const tenantDoc = getTenantById(tenantId);
-    if (tenantDoc && (tenantDoc as any).featureToggles && (tenantDoc as any).featureToggles[featureKey] === true) {
       return true;
     }
   }

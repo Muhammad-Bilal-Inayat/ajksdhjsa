@@ -4,7 +4,7 @@ import {
   Sparkles, Crown, Shield, Layers, HelpCircle, CheckCircle2, 
   AlertCircle, DollarSign, Package, Lock, Unlock
 } from 'lucide-react';
-import { DEFAULT_173_FEATURE_MATRIX, TenantFeatureMap, getDefaultFeatureMap } from '../../types/features';
+import { DEFAULT_173_FEATURE_MATRIX, TenantFeatureMap, getDefaultFeatureMap, getFeaturesForPlan } from '../../types/features';
 import { TenantTelemetryRecord, adminService } from '../../services/adminService';
 import { emitToast } from '../../contexts/ToastContext';
 
@@ -21,7 +21,7 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
   onClose,
   onFeaturesSaved
 }) => {
-  const [editingFeatures, setEditingFeatures] = useState<TenantFeatureMap>(() => tenant.features || getDefaultFeatureMap());
+  const [editingFeatures, setEditingFeatures] = useState<TenantFeatureMap>(() => tenant.features || getFeaturesForPlan(tenant.plan || 'basic'));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isSaving, setIsSaving] = useState(false);
@@ -45,8 +45,8 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
   };
 
   const handleResetDefaults = () => {
-    setEditingFeatures(getDefaultFeatureMap());
-    emitToast(`Reset to default features for ${tenant.plan || 'Standard'} plan`, 'info');
+    setEditingFeatures(getFeaturesForPlan(tenant.plan || 'basic'));
+    emitToast(`Reset to default features for ${tenant.plan || 'Basic'} plan`, 'info');
   };
 
   const handleSave = async () => {
@@ -222,9 +222,18 @@ export const TenantFeatureMatrixModal: React.FC<TenantFeatureMatrixModalProps> =
                         }`}
                       >
                         <div className="space-y-0.5 min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
                               {feat.name}
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-extrabold uppercase border ${
+                              feat.minPlan === 'enterprise'
+                                ? 'bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                                : feat.minPlan === 'business'
+                                ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                : 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                            }`}>
+                              {feat.minPlan === 'enterprise' ? 'Enterprise' : feat.minPlan === 'business' ? 'Business' : 'Basic'}
                             </span>
                             {feat.badge && (
                               <span className="px-1.5 py-0.2 rounded-sm text-[8px] font-black uppercase bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">

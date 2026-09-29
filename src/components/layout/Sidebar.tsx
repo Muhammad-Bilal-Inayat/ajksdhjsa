@@ -83,7 +83,7 @@ const REPORT_CATEGORIES = [
 const mainNavItems: NavItem[] = RAW_NAVIGATION_ITEMS;
 
 interface ServerNavItemDef {
-  tabKey: 'clients' | 'users_control' | 'ai_support' | 'whatsapp_leads' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'storage' | 'sync_health' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices';
+  tabKey: 'clients' | 'ai_support' | 'whatsapp_leads' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'storage' | 'sync_health' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices';
   label: string;
   badge: string;
   badgeColor?: string;
@@ -92,9 +92,9 @@ interface ServerNavItemDef {
 
 const SERVER_FLEET_ITEMS: ServerNavItemDef[] = [
   { tabKey: 'master_control', label: 'Master Control (173 Switchboard)', badge: '173', badgeColor: 'bg-purple-600', icon: Sliders },
-  { tabKey: 'users_control', label: 'All Users Unified Control', badge: 'All-in-1', badgeColor: 'bg-blue-600', icon: Users },
-  { tabKey: 'ai_support', label: 'AI Assistant & Support Hub', badge: 'AI', badgeColor: 'bg-indigo-600', icon: Bot },
-  { tabKey: 'clients', label: 'All Clients & Fleet', badge: 'Fleet', icon: Building2 },
+  { tabKey: 'clients', label: 'Client Fleet & User Suite', badge: 'Fleet', badgeColor: 'bg-blue-600', icon: Building2 },
+  { tabKey: 'sync_stream', label: 'Real-Time Activity & Sync Engine', badge: 'Live', badgeColor: 'bg-indigo-600', icon: Activity },
+  { tabKey: 'ai_support', label: 'AI Assistant & Support Hub', badge: 'AI', badgeColor: 'bg-purple-600', icon: Bot },
   { tabKey: 'devices', label: 'Device Auth & Fleet Lock', badge: '1-Dev', icon: Laptop },
   { tabKey: 'security_audit', label: 'Security Audit Log & IP Block', badge: 'Audit', icon: ShieldAlert },
   { tabKey: 'whatsapp_leads', label: 'Registration Leads & WhatsApp', badge: 'Leads', icon: Phone },
@@ -103,8 +103,6 @@ const SERVER_FLEET_ITEMS: ServerNavItemDef[] = [
   { tabKey: 'sales_revenue', label: 'Global Sales & Revenue', badge: 'PKR', icon: DollarSign },
   { tabKey: 'storage', label: 'Tenant Storage Quota', badge: 'Disk', icon: HardDrive },
   { tabKey: 'sync_health', label: 'Sync Health (30-Day SLA)', badge: 'SLA', icon: BarChart3 },
-  { tabKey: 'sync_stream', label: 'Live Sync Stream', badge: 'Stream', icon: Activity },
-  { tabKey: 'activity', label: 'Activity & Real-Time IP', badge: 'Live', icon: Globe },
   { tabKey: 'cloud_health', label: 'Cloud Diagnostics', badge: 'Cloud', icon: HardDrive },
   { tabKey: 'pricing_manager', label: 'Plans & Pricing (SaaS)', badge: 'Plans', icon: CreditCard },
   { tabKey: 'seo_strategy', label: 'SEO Strategy & Schema', badge: 'SEO', icon: Sparkles },

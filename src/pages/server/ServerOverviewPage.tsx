@@ -118,7 +118,7 @@ export const ServerOverviewPage: React.FC = () => {
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'users_control' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates'>('clients');
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates'>('clients');
 
   // Dedicated Universal Search Query (for Server & Master top search)
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -1069,31 +1069,16 @@ export const ServerOverviewPage: React.FC = () => {
         {/* Secondary Quick Pill Navigation Bar */}
         <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-1.5 rounded-2xl flex items-center gap-1.5 overflow-x-auto shadow-xs">
           <button
-            onClick={() => setActiveServerTab('users_control')}
+            onClick={() => setActiveServerTab('clients')}
             className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeServerTab === 'users_control'
+              activeServerTab === 'clients'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400'
-                : 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
-            <span>Unified User Control</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-500 text-white">
-              ALL-IN-1
-            </span>
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Client Fleet &amp; User Suite</span>
           </button>
-
-            <button
-              onClick={() => setActiveServerTab('clients')}
-              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                activeServerTab === 'clients'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <Server className="w-3.5 h-3.5" />
-              <span>Clients & Fleet</span>
-            </button>
 
             <button
               onClick={() => setActiveServerTab('ai_support')}
@@ -1210,12 +1195,12 @@ export const ServerOverviewPage: React.FC = () => {
               onClick={() => setActiveServerTab('sync_stream')}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeServerTab === 'sync_stream'
-                  ? 'bg-indigo-600 text-white shadow-md'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>User Sync Stream</span>
+              <span>Real-Time Activity &amp; Sync Engine</span>
             </button>
 
             <button
@@ -1405,19 +1390,6 @@ export const ServerOverviewPage: React.FC = () => {
             </button>
           </div>
 
-      {/* RENDER TAB: UNIFIED USER CONTROL SWITCHBOARD (ALL-IN-ONE USER CONTROLS) */}
-      {activeServerTab === 'users_control' && (
-        <div className="w-full animate-in fade-in duration-150">
-          <UnifiedUserControlHub
-            onNotify={(msg) => {
-              setBackupSuccessMsg(msg);
-              setTimeout(() => setBackupSuccessMsg(null), 4000);
-            }}
-            externalSearchQuery={topSearchQuery}
-          />
-        </div>
-      )}
-
       {/* RENDER TAB: 💊 14K+ MASTER MEDICINE ALLOCATION STUDIO */}
       {activeServerTab === 'medicines_studio' && (
         <div className="w-full animate-in fade-in duration-150">
@@ -1559,16 +1531,6 @@ export const ServerOverviewPage: React.FC = () => {
           }}
           onOpenGranularModal={(user) => handleOpenGranularModal(user)}
           onOpenResetPasscodeModal={(user) => setResetUserTarget(user)}
-        />
-      )}
-
-      {/* RENDER TAB: REAL-TIME ACTIVITY FEED & IP TRACKER */}
-      {activeServerTab === 'activity' && (
-        <ServerActivityFeedPanel
-          onNotify={(msg) => {
-            setBackupSuccessMsg(msg);
-            setTimeout(() => setBackupSuccessMsg(null), 4000);
-          }}
         />
       )}
 

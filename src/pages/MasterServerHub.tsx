@@ -44,7 +44,6 @@ import { verifyTotpToken } from '../services/totpService';
 export type ServerTabKey = 
   | 'master_control'
   | 'lan_hub'
-  | 'users_control'
   | 'ai_support'
   | 'clients'
   | 'devices'
@@ -56,7 +55,6 @@ export type ServerTabKey =
   | 'storage'
   | 'sync_health'
   | 'sync_stream'
-  | 'activity'
   | 'cloud_health'
   | 'pricing_manager'
   | 'seo_strategy'
@@ -79,22 +77,20 @@ interface TabDefinition {
 const ALL_25_TABS: TabDefinition[] = [
   // 1. Core Fleet
   { id: 'master_control', label: 'Master Control', category: 'Core Fleet', icon: ShieldCheck, description: 'Granular 173-feature switchboard — toggle any user screen, menu, action or button on/off' },
+  { id: 'clients', label: 'Client Fleet & User Suite', category: 'Core Fleet', icon: Building2, description: 'Multi-company isolation, staff switchboard & live API keys' },
   { id: 'lan_hub', label: 'LAN Multi-PC & Broadcast Hub', category: 'Core Fleet', icon: Network, description: 'Connect counter laptops via LAN cable/switch & dispatch user popup announcements' },
-  { id: 'clients', label: 'Client Fleet Dashboard', category: 'Core Fleet', icon: Building2, description: 'Multi-company isolation & active pharmacy stores' },
   { id: 'whatsapp_leads', label: 'WhatsApp Trial Leads', category: 'Core Fleet', icon: Smartphone, description: 'Registration leads & 1-click WhatsApp dispatch' },
   { id: 'sales_revenue', label: 'Software Revenue & GMV', category: 'Core Fleet', icon: BarChart3, description: 'Software license subscriptions & transaction volume' },
   { id: 'pricing_manager', label: 'SaaS Pricing & Plans', category: 'Core Fleet', icon: DollarSign, description: 'Configure Basic, Business & Enterprise tiers' },
 
   // 2. Security & Users
-  { id: 'users_control', label: 'Unified User Governance', category: 'Security & Users', icon: Users, description: 'All staff accounts, passcodes & live heartbeat' },
   { id: 'devices', label: 'Device & Hardware Bindings', category: 'Security & Users', icon: Key, description: 'Hardware 1-device MAC/HWID whitelist & Laptop Transfer' },
   { id: 'security_audit', label: 'Security Audit Trail', category: 'Security & Users', icon: FileText, description: 'Suspicious logins, violation logs & IP blacklist' },
   { id: 'security_alerts', label: 'Threats & Brute-Force Alerts', category: 'Security & Users', icon: ShieldAlert, description: 'Real-time threat detection & intrusion prevention' },
-  { id: 'activity', label: 'Active Terminal Sessions', category: 'Security & Users', icon: Radio, description: 'Live cashiers, active IP addresses & heartbeats' },
 
   // 3. System & Sync
+  { id: 'sync_stream', label: 'Real-Time Activity & Sync Engine', category: 'System & Sync', icon: Activity, description: 'Live SSE telemetry stream, MariaDB central sync engine & company audit' },
   { id: 'sync_health', label: 'Sync Health & 30-Day SLA', category: 'System & Sync', icon: Wifi, description: '30-day sync uptime percentage & ping diagnostics' },
-  { id: 'sync_stream', label: 'Real-Time SSE Stream', category: 'System & Sync', icon: Activity, description: 'Live Server-Sent Events bus telemetry' },
   { id: 'cloud_health', label: 'Cloud Probes & Queue', category: 'System & Sync', icon: Server, description: 'MariaDB connection latency & queue health' },
   { id: 'storage', label: 'Disk Space & Partitions', category: 'System & Sync', icon: HardDrive, description: 'MariaDB mbi72dn storage usage & vacuuming' },
   { id: 'backup_vault', label: 'Backup Vault & Disaster Recovery', category: 'System & Sync', icon: Archive, description: 'Midnight automated snapshots & 1-click disaster recovery' },
@@ -532,16 +528,6 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
       case 'sync_health':
         return <SyncHealthVisualizer onNotify={handleNotify} />;
       case 'sync_stream':
-        return (
-          <UserSyncTelemetrySection 
-            invoices={[]} 
-            medicines={[]} 
-            onNotify={handleNotify}
-            onOpenGranularModal={() => {}}
-            onOpenResetPasscodeModal={() => {}}
-          />
-        );
-      case 'activity':
         return <ServerActivityFeedPanel onNotify={handleNotify} />;
       case 'cloud_health':
         return <SyncDiagnosticStatusCard />;

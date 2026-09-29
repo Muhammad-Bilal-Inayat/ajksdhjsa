@@ -1,6 +1,7 @@
 -- ==============================================================================
--- MBI INVENTRA 4 — ENTERPRISE ZERO-CONFLICT DATABASE SCHEMA (23 TABLES)
--- Target Database: mbi72dn (MARIADB 10.x / 11.x)
+-- MBI INVENTRA ENTERPRISE — ZERO-CONFLICT MARIADB & PHPMYADMIN MASTER DDL SCHEMA
+-- Target Database: mbi72dn (MARIADB 10.5+ / 11.x / MYSQL 8.0+ / phpMyAdmin 5.x)
+-- Multi-Tenant Zero-Data-Leakage Logical Isolation Engine
 -- ==============================================================================
 
 CREATE DATABASE IF NOT EXISTS `mbi72dn` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -10,489 +11,567 @@ SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+00:00";
 
--- 1. SaaS Subscription Plans
+-- ----------------------------------------------------------------------------
+-- 1. PLANS & TIERS
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_plans` (
-    `id` VARCHAR(64) NOT NULL,
-    `name` VARCHAR(100) NOT NULL,
-    `tier` VARCHAR(32) NOT NULL DEFAULT 'Basic',
-    `monthly_price_pkr` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `annual_price_pkr` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `max_users` INT NOT NULL DEFAULT 5,
-    `max_branches` INT NOT NULL DEFAULT 1,
-    `max_devices` INT NOT NULL DEFAULT 3,
-    `features` LONGTEXT NULL,
-    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
+  `id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `tier` VARCHAR(64) NOT NULL DEFAULT 'Basic',
+  `plan_type` VARCHAR(64) NULL DEFAULT 'basic',
+  `price_monthly` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `price_yearly` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `monthly_price_pkr` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `annual_price_pkr` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `max_users` INT NOT NULL DEFAULT 5,
+  `max_branches` INT NOT NULL DEFAULT 1,
+  `max_devices` INT NOT NULL DEFAULT 5,
+  `max_terminals` INT NOT NULL DEFAULT 5,
+  `storage_limit_mb` INT NOT NULL DEFAULT 5000,
+  `features` LONGTEXT NULL,
+  `features_json` LONGTEXT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 2. Multi-Tenant Organizations & Stores
+-- ----------------------------------------------------------------------------
+-- 2. TENANTS (COMPANIES / PHARMACIES)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_tenants` (
-    `id` VARCHAR(64) NOT NULL,
-    `organization_id` VARCHAR(64) NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `legal_name` VARCHAR(255) NULL,
-    `owner_name` VARCHAR(255) NOT NULL,
-    `owner_email` VARCHAR(255) NOT NULL,
-    `owner_phone` VARCHAR(64) NOT NULL,
-    `city` VARCHAR(100) NULL DEFAULT 'Lahore',
-    `address` TEXT NULL,
-    `drug_license_no` VARCHAR(100) NULL,
-    `tax_ntn_number` VARCHAR(100) NULL,
-    `plan_id` VARCHAR(64) NOT NULL DEFAULT 'Basic',
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
-    `app_version` VARCHAR(32) NOT NULL DEFAULT 'v4.2.0',
-    `max_users` INT NOT NULL DEFAULT 5,
-    `max_devices` INT NOT NULL DEFAULT 3,
-    `storage_limit_mb` INT NOT NULL DEFAULT 500,
-    `storage_used_mb` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `last_sync_at` DATETIME NULL,
-    PRIMARY KEY (`id`),
-    KEY `idx_tenant_status` (`status`),
-    KEY `idx_tenant_owner_email` (`owner_email`),
-    KEY `idx_tenant_org` (`organization_id`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `organization_id` VARCHAR(128) NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `legal_name` VARCHAR(255) NULL,
+  `owner_name` VARCHAR(255) NOT NULL DEFAULT 'Store Owner',
+  `owner_phone` VARCHAR(64) NOT NULL DEFAULT '',
+  `owner_email` VARCHAR(255) NULL,
+  `contact_phone` VARCHAR(64) NULL,
+  `contact_email` VARCHAR(255) NULL,
+  `city` VARCHAR(128) NOT NULL DEFAULT 'Lahore',
+  `address` TEXT NULL,
+  `drug_license_no` VARCHAR(128) NULL,
+  `ntn_number` VARCHAR(64) NULL,
+  `tax_ntn_number` VARCHAR(64) NULL,
+  `plan` VARCHAR(64) NOT NULL DEFAULT 'Basic',
+  `plan_id` VARCHAR(64) NOT NULL DEFAULT 'Basic',
+  `status` VARCHAR(64) NOT NULL DEFAULT 'Active',
+  `subscription_plan` VARCHAR(64) NOT NULL DEFAULT 'Basic',
+  `subscription_status` VARCHAR(64) NOT NULL DEFAULT 'Active',
+  `storage_limit_mb` INT NOT NULL DEFAULT 5000,
+  `storage_used_mb` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  `app_version` VARCHAR(32) NOT NULL DEFAULT 'v4.3.0',
+  `trial_expires_at` DATETIME NULL,
+  `trial_expiry_date` DATE NULL,
+  `features_json` LONGTEXT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `is_emergency_locked` TINYINT(1) NOT NULL DEFAULT 0,
+  `last_sync_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_phone` (`owner_phone`),
+  KEY `idx_tenant_status` (`status`),
+  KEY `idx_tenant_org` (`organization_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Staff Accounts & Passcodes
+-- ----------------------------------------------------------------------------
+-- 3. USERS & STAFF GOVERNANCE (MBI_USERS + STANDARD USERS)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_users` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `email_or_phone` VARCHAR(255) NOT NULL,
-    `passcode` VARCHAR(255) NOT NULL DEFAULT '0000',
-    `role` VARCHAR(64) NOT NULL DEFAULT 'Cashier',
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
-    `is_online` TINYINT(1) NOT NULL DEFAULT 0,
-    `can_edit_bill` TINYINT(1) NOT NULL DEFAULT 0,
-    `is_silent_monitored` TINYINT(1) NOT NULL DEFAULT 0,
-    `is_kill_switch_active` TINYINT(1) NOT NULL DEFAULT 0,
-    `allowed_modules` LONGTEXT NULL,
-    `totp_secret` VARCHAR(128) NULL,
-    `totp_enabled` TINYINT(1) NOT NULL DEFAULT 0,
-    `last_login_at` DATETIME NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_user_tenant` (`tenant_id`),
-    KEY `idx_user_auth` (`tenant_id`, `email_or_phone`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `username` VARCHAR(128) NULL,
+  `email_or_phone` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NULL,
+  `phone` VARCHAR(64) NULL,
+  `passcode` VARCHAR(255) NOT NULL DEFAULT '0000',
+  `role` VARCHAR(64) NOT NULL DEFAULT 'Cashier',
+  `is_primary_owner` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_primary_admin` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_online` TINYINT(1) NOT NULL DEFAULT 0,
+  `status` VARCHAR(64) NOT NULL DEFAULT 'Active',
+  `is_kill_switch_active` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_silent_monitored` TINYINT(1) NOT NULL DEFAULT 0,
+  `can_edit_bill` TINYINT(1) NOT NULL DEFAULT 0,
+  `allowed_modules` LONGTEXT NULL,
+  `permissions` LONGTEXT NULL,
+  `notes` TEXT NULL,
+  `totp_secret` VARCHAR(128) NULL,
+  `totp_enabled` TINYINT(1) NOT NULL DEFAULT 0,
+  `last_login_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mbi_user_tenant` (`tenant_id`),
+  KEY `idx_mbi_user_lookup` (`email_or_phone`, `username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Registration Leads
-CREATE TABLE IF NOT EXISTS `mbi_registration_leads` (
-    `id` VARCHAR(64) NOT NULL,
-    `store_name` VARCHAR(255) NOT NULL,
-    `owner_name` VARCHAR(255) NOT NULL,
-    `username` VARCHAR(128) NULL,
-    `phone` VARCHAR(64) NOT NULL,
-    `email` VARCHAR(255) NOT NULL,
-    `city` VARCHAR(100) NULL DEFAULT 'Lahore',
-    `address` TEXT NULL,
-    `drug_license_no` VARCHAR(100) NULL,
-    `ntn_number` VARCHAR(100) NULL,
-    `requested_plan` VARCHAR(100) NOT NULL DEFAULT 'Basic (10-Day Free Trial)',
-    `status` VARCHAR(32) NOT NULL DEFAULT 'activated',
-    `is_approved` TINYINT(1) NOT NULL DEFAULT 1,
-    `activation_key` VARCHAR(128) NULL,
-    `notes` TEXT NULL,
-    `submitted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `activated_at` DATETIME NULL,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_lead_phone` (`phone`),
-    KEY `idx_lead_email` (`email`)
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `password` VARCHAR(255) NOT NULL DEFAULT '',
+  `business_name` VARCHAR(255) NULL,
+  `role` VARCHAR(64) NOT NULL DEFAULT 'cashier',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_users` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Hardware Licenses
+-- ----------------------------------------------------------------------------
+-- 4. LICENSES & HARDWARE HWID VAULT
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_licenses` (
-    `id` VARCHAR(64) NOT NULL,
-    `license_key` VARCHAR(128) NOT NULL,
-    `client_name` VARCHAR(255) NOT NULL,
-    `owner_name` VARCHAR(255) NOT NULL,
-    `phone` VARCHAR(64) NOT NULL,
-    `city` VARCHAR(100) NULL DEFAULT 'Lahore',
-    `plan` VARCHAR(64) NOT NULL DEFAULT 'Basic',
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
-    `issue_date` DATE NOT NULL,
-    `expiry_date` DATE NOT NULL,
-    `max_devices` INT NOT NULL DEFAULT 5,
-    `sale_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `amount_paid` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `amount_due` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `bound_hardware_ids` LONGTEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_license_key` (`license_key`),
-    KEY `idx_license_phone` (`phone`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `pharmacy_name` VARCHAR(255) NULL,
+  `license_key` VARCHAR(128) NOT NULL,
+  `client_name` VARCHAR(255) NOT NULL DEFAULT 'Pharmacy Store',
+  `owner_name` VARCHAR(255) NOT NULL DEFAULT 'Store Owner',
+  `phone` VARCHAR(64) NOT NULL DEFAULT '',
+  `city` VARCHAR(128) NOT NULL DEFAULT 'Lahore',
+  `plan` VARCHAR(64) NOT NULL DEFAULT 'Basic',
+  `plan_tier` VARCHAR(64) NOT NULL DEFAULT 'Gold Business',
+  `status` VARCHAR(64) NOT NULL DEFAULT 'Active',
+  `issue_date` DATE NOT NULL,
+  `expiry_date` DATE NOT NULL,
+  `expires_at` DATETIME NULL,
+  `max_users` INT NOT NULL DEFAULT 5,
+  `max_branches` INT NOT NULL DEFAULT 5,
+  `max_devices` INT NOT NULL DEFAULT 5,
+  `max_terminals` INT NOT NULL DEFAULT 5,
+  `bound_hwid` VARCHAR(255) NULL,
+  `bound_hardware_ids` LONGTEXT NULL,
+  `sale_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `amount_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `amount_due` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_lic_key` (`license_key`),
+  KEY `idx_lic_tenant` (`tenant_id`),
+  KEY `idx_lic_hwid` (`bound_hwid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Medicine Master Catalog
+-- ----------------------------------------------------------------------------
+-- 5. MEDICINES & DRUG REGISTRY (MBI_MEDICINES + MEDICINES)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_medicines` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL DEFAULT 'global',
-    `name` VARCHAR(255) NOT NULL,
-    `generic_salt` VARCHAR(255) NULL,
-    `company` VARCHAR(255) NULL,
-    `category` VARCHAR(100) NULL DEFAULT 'General Medicine',
-    `dosage_form` VARCHAR(100) NULL DEFAULT 'Tablet',
-    `strength` VARCHAR(100) NULL,
-    `barcode` VARCHAR(128) NULL,
-    `sku` VARCHAR(128) NULL,
-    `is_narcotic` TINYINT(1) NOT NULL DEFAULT 0,
-    `is_prescription_required` TINYINT(1) NOT NULL DEFAULT 0,
-    `min_stock_level` INT NOT NULL DEFAULT 5,
-    `pack_size` INT NOT NULL DEFAULT 1,
-    `shelf_rack_location` VARCHAR(100) NULL,
-    `version` BIGINT NOT NULL DEFAULT 1,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_med_tenant` (`tenant_id`),
-    KEY `idx_med_tenant_barcode` (`tenant_id`, `barcode`),
-    KEY `idx_med_tenant_name` (`tenant_id`, `name`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `generic_salt` VARCHAR(255) NULL,
+  `company` VARCHAR(255) NULL,
+  `category` VARCHAR(128) NULL,
+  `dosage_form` VARCHAR(64) NULL,
+  `strength` VARCHAR(64) NULL,
+  `barcode` VARCHAR(128) NULL,
+  `min_stock_level` INT NOT NULL DEFAULT 5,
+  `pack_size` INT NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mbi_med_tenant` (`tenant_id`),
+  KEY `idx_mbi_med_barcode` (`barcode`),
+  KEY `idx_mbi_med_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. FEFO Inventory Batches
+CREATE TABLE IF NOT EXISTS `medicines` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `generic_salt` VARCHAR(255) NULL,
+  `company` VARCHAR(255) NULL,
+  `category` VARCHAR(128) NULL,
+  `dosage_form` VARCHAR(64) NULL,
+  `strength` VARCHAR(64) NULL,
+  `barcode` VARCHAR(128) NULL,
+  `cost_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `sale_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `stock_quantity` INT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_med_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- 6. INVENTORY BATCHES (FEFO FIRST-EXPIRY-FIRST-OUT)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_inventory_batches` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `medicine_id` VARCHAR(64) NOT NULL,
-    `batch_number` VARCHAR(128) NOT NULL,
-    `expiry_date` DATE NOT NULL,
-    `purchase_rate` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `mrp_selling_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `current_stock_quantity` INT NOT NULL DEFAULT 0,
-    `supplier_id` VARCHAR(64) NULL,
-    `godown_location` VARCHAR(100) NULL DEFAULT 'Main Store',
-    `version` BIGINT NOT NULL DEFAULT 1,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_batch_tenant` (`tenant_id`),
-    KEY `idx_batch_med` (`tenant_id`, `medicine_id`),
-    KEY `idx_batch_expiry` (`tenant_id`, `expiry_date`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `medicine_id` VARCHAR(128) NULL,
+  `medicine_name` VARCHAR(255) NOT NULL,
+  `batch_number` VARCHAR(128) NOT NULL,
+  `expiry_date` DATE NOT NULL,
+  `current_stock_quantity` INT NOT NULL DEFAULT 0,
+  `initial_stock_quantity` INT NOT NULL DEFAULT 0,
+  `cost_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `sale_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `location_rack` VARCHAR(64) NULL,
+  `supplier_id` VARCHAR(128) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_batch_tenant` (`tenant_id`),
+  KEY `idx_batch_fefo` (`expiry_date`, `current_stock_quantity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Sales POS Invoices (Zero-Conflict Idempotent)
+-- ----------------------------------------------------------------------------
+-- 7. POS INVOICES & SALES (MBI_INVOICES + SALES)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_invoices` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `device_id` VARCHAR(64) NOT NULL DEFAULT 'device-1',
-    `invoice_number` VARCHAR(100) NOT NULL,
-    `idempotency_key` VARCHAR(128) NOT NULL,
-    `customer_name` VARCHAR(255) NULL DEFAULT 'Walk-in Customer',
-    `customer_phone` VARCHAR(64) NULL,
-    `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `sub_total` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `discount_amount` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `tax_amount` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `grand_total` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `received_amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `balance_due` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `payment_method` VARCHAR(64) NOT NULL DEFAULT 'Cash',
-    `cashier_name` VARCHAR(255) NULL,
-    `is_voided` TINYINT(1) NOT NULL DEFAULT 0,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_inv_idempotency` (`tenant_id`, `idempotency_key`),
-    KEY `idx_inv_tenant_date` (`tenant_id`, `date`),
-    KEY `idx_inv_tenant_number` (`tenant_id`, `invoice_number`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `invoice_number` VARCHAR(128) NOT NULL,
+  `customer_name` VARCHAR(255) NULL DEFAULT 'Walk-in Customer',
+  `customer_phone` VARCHAR(64) NULL,
+  `subtotal` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `tax_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `grand_total` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `amount_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `change_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `balance_due` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `payment_type` VARCHAR(64) NOT NULL DEFAULT 'Cash',
+  `status` VARCHAR(64) NOT NULL DEFAULT 'Completed',
+  `is_voided` TINYINT(1) NOT NULL DEFAULT 0,
+  `cashier_name` VARCHAR(255) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_inv_tenant` (`tenant_id`),
+  KEY `idx_inv_num` (`invoice_number`),
+  KEY `idx_inv_date` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Sold Medicine Lines
+CREATE TABLE IF NOT EXISTS `sales` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `invoice_no` VARCHAR(128) NOT NULL,
+  `customer_name` VARCHAR(255) NULL,
+  `total_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `discount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `net_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `paid_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `payment_mode` VARCHAR(64) NOT NULL DEFAULT 'Cash',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_sales_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- 8. INVOICE LINE ITEMS
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_invoice_items` (
-    `id` VARCHAR(64) NOT NULL,
-    `invoice_id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `medicine_id` VARCHAR(64) NULL,
-    `medicine_name` VARCHAR(255) NOT NULL,
-    `batch_number` VARCHAR(128) NULL,
-    `expiry_date` DATE NULL,
-    `quantity` INT NOT NULL DEFAULT 1,
-    `unit` VARCHAR(32) NOT NULL DEFAULT 'Pcs',
-    `selling_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `purchase_price` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `total` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    PRIMARY KEY (`id`),
-    KEY `idx_item_inv` (`invoice_id`),
-    KEY `idx_item_tenant` (`tenant_id`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `invoice_id` VARCHAR(128) NOT NULL,
+  `medicine_id` VARCHAR(128) NULL,
+  `medicine_name` VARCHAR(255) NOT NULL,
+  `batch_number` VARCHAR(128) NULL,
+  `expiry_date` DATE NULL,
+  `quantity` INT NOT NULL DEFAULT 1,
+  `unit_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `discount_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  `total_price` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_invitem_tenant` (`tenant_id`),
+  KEY `idx_invitem_invoice` (`invoice_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Purchases & GRN
+-- ----------------------------------------------------------------------------
+-- 9. PURCHASES (MBI_PURCHASES + PURCHASES)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_purchases` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `purchase_number` VARCHAR(100) NOT NULL,
-    `supplier_id` VARCHAR(64) NULL,
-    `supplier_name` VARCHAR(255) NOT NULL,
-    `bill_date` DATE NOT NULL,
-    `total_amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `paid_amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `balance_due` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `payment_mode` VARCHAR(64) NOT NULL DEFAULT 'Cash',
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_pur_tenant` (`tenant_id`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `purchase_number` VARCHAR(128) NOT NULL,
+  `supplier_name` VARCHAR(255) NOT NULL,
+  `supplier_invoice_no` VARCHAR(128) NULL,
+  `purchase_date` DATE NOT NULL,
+  `subtotal` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `tax_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `grand_total` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `amount_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `balance_due` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `payment_status` VARCHAR(64) NOT NULL DEFAULT 'Paid',
+  `notes` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_pur_tenant` (`tenant_id`),
+  KEY `idx_pur_num` (`purchase_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. Parties Khatas
-CREATE TABLE IF NOT EXISTS `mbi_parties` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `type` VARCHAR(32) NOT NULL DEFAULT 'Customer',
-    `phone` VARCHAR(64) NULL,
-    `email` VARCHAR(255) NULL,
-    `city` VARCHAR(100) NULL DEFAULT 'Lahore',
-    `address` TEXT NULL,
-    `credit_limit` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `current_balance` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_party_tenant` (`tenant_id`),
-    KEY `idx_party_type` (`tenant_id`, `type`)
+CREATE TABLE IF NOT EXISTS `purchases` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `bill_no` VARCHAR(128) NOT NULL,
+  `supplier_name` VARCHAR(255) NOT NULL,
+  `total_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `paid_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_purchases_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. Party Transactions
-CREATE TABLE IF NOT EXISTS `mbi_party_transactions` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `party_id` VARCHAR(64) NOT NULL,
-    `transaction_type` VARCHAR(32) NOT NULL DEFAULT 'DEBIT',
-    `amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `balance_after` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `reference_id` VARCHAR(100) NULL,
-    `description` VARCHAR(255) NULL,
-    `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_pt_party` (`party_id`),
-    KEY `idx_pt_tenant` (`tenant_id`)
+-- ----------------------------------------------------------------------------
+-- 10. PARTIES & KHATA LEDGERS (CUSTOMERS, SUPPLIERS, PARTIES)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `parties` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(64) NOT NULL DEFAULT 'customer',
+  `phone` VARCHAR(64) NULL,
+  `address` TEXT NULL,
+  `balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_parties_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 13. Cashier Shifts
-CREATE TABLE IF NOT EXISTS `mbi_cashier_shifts` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `cashier_id` VARCHAR(64) NOT NULL,
-    `cashier_name` VARCHAR(255) NOT NULL,
-    `opening_cash` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `closing_cash` DECIMAL(12, 2) NULL,
-    `expected_cash` DECIMAL(12, 2) NULL,
-    `difference` DECIMAL(12, 2) NULL,
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Open',
-    `started_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `closed_at` DATETIME NULL,
-    PRIMARY KEY (`id`),
-    KEY `idx_shift_tenant` (`tenant_id`)
+CREATE TABLE IF NOT EXISTS `mbi_customers` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `phone` VARCHAR(64) NULL,
+  `city` VARCHAR(128) NULL DEFAULT 'Lahore',
+  `address` TEXT NULL,
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `current_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `credit_limit` DECIMAL(12,2) NOT NULL DEFAULT 100000.00,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_cust_tenant` (`tenant_id`),
+  KEY `idx_cust_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 14. Print Templates
-CREATE TABLE IF NOT EXISTS `mbi_print_templates` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL DEFAULT 'global',
-    `printer_type` VARCHAR(32) NOT NULL DEFAULT 'THERMAL',
-    `active_theme` VARCHAR(100) NOT NULL DEFAULT 'THERMAL_MBI_STANDARD',
-    `brand_name` VARCHAR(255) NOT NULL DEFAULT 'MBI INVENTRA 4',
-    `subtitle` VARCHAR(255) NOT NULL DEFAULT 'PHARMACY POS & ERP',
-    `phone_numbers` VARCHAR(255) NOT NULL DEFAULT '03364585863 • 03281302636',
-    `country_city` VARCHAR(255) NOT NULL DEFAULT 'Pakistan',
-    `footer_title` VARCHAR(255) NOT NULL DEFAULT 'THANK YOU FOR SHOPPING!',
-    `footer_contact` VARCHAR(255) NOT NULL DEFAULT 'Contact us : 03281302636',
-    `footer_website` VARCHAR(255) NOT NULL DEFAULT 'Pharmacy POS & ERP    www.mbiinventra.com',
-    `compact_footer` TINYINT(1) NOT NULL DEFAULT 1,
-    `is_client_locked` TINYINT(1) NOT NULL DEFAULT 1,
-    `a4_drug_warranty` TEXT NULL,
-    `a4_bank_details` TEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_print_tenant` (`tenant_id`)
+CREATE TABLE IF NOT EXISTS `mbi_suppliers` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `company_name` VARCHAR(255) NULL,
+  `phone` VARCHAR(64) NULL,
+  `city` VARCHAR(128) NULL DEFAULT 'Lahore',
+  `address` TEXT NULL,
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `current_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `drug_license_no` VARCHAR(128) NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'Active',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_supp_tenant` (`tenant_id`),
+  KEY `idx_supp_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 15. Audit Logs
-CREATE TABLE IF NOT EXISTS `mbi_audit_logs` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `user_id` VARCHAR(64) NULL,
-    `user_name` VARCHAR(255) NULL,
-    `action` VARCHAR(128) NOT NULL,
-    `category` VARCHAR(64) NOT NULL DEFAULT 'SECURITY',
-    `details` TEXT NULL,
-    `ip_address` VARCHAR(64) NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_audit_tenant` (`tenant_id`),
-    KEY `idx_audit_created` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 16. Expenses
+-- ----------------------------------------------------------------------------
+-- 11. EXPENSES (MBI_EXPENSES + EXPENSES)
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_expenses` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `title` VARCHAR(255) NOT NULL,
-    `category` VARCHAR(100) NOT NULL DEFAULT 'General',
-    `amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `payment_method` VARCHAR(64) NOT NULL DEFAULT 'Cash',
-    `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `notes` TEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_exp_tenant_date` (`tenant_id`, `date`),
-    KEY `idx_exp_category` (`tenant_id`, `category`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `category` VARCHAR(128) NOT NULL DEFAULT 'General',
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `expense_date` DATE NOT NULL,
+  `notes` TEXT NULL,
+  `created_by` VARCHAR(255) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mbi_exp_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 17. Online Store Checkout Orders
-CREATE TABLE IF NOT EXISTS `mbi_checkout_orders` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `order_number` VARCHAR(100) NOT NULL,
-    `customer_name` VARCHAR(255) NOT NULL,
-    `customer_phone` VARCHAR(64) NOT NULL,
-    `customer_email` VARCHAR(255) NULL,
-    `shipping_address` TEXT NOT NULL,
-    `city` VARCHAR(100) NOT NULL DEFAULT 'Lahore',
-    `items_json` LONGTEXT NOT NULL,
-    `sub_total` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `shipping_fee` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `grand_total` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `payment_method` VARCHAR(64) NOT NULL DEFAULT 'COD',
-    `payment_status` VARCHAR(32) NOT NULL DEFAULT 'Unpaid',
-    `order_status` VARCHAR(32) NOT NULL DEFAULT 'Pending',
-    `prescription_url` TEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_order_tenant` (`tenant_id`),
-    KEY `idx_order_number` (`order_number`)
+CREATE TABLE IF NOT EXISTS `expenses` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `category` VARCHAR(128) NOT NULL DEFAULT 'General',
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `date` DATE NOT NULL,
+  `description` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_expenses_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 18. Settings
-CREATE TABLE IF NOT EXISTS `mbi_settings` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL DEFAULT 'global',
-    `company_name` VARCHAR(255) NOT NULL DEFAULT 'MBI INVENTRA 4',
-    `tagline` VARCHAR(255) NULL,
-    `phone` VARCHAR(64) NULL,
-    `email` VARCHAR(255) NULL,
-    `address` TEXT NULL,
-    `currency` VARCHAR(16) NOT NULL DEFAULT 'PKR',
-    `invoice_prefix` VARCHAR(32) NOT NULL DEFAULT 'INV-',
-    `tax_rate_percent` DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
-    `settings_json` LONGTEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_setting_tenant` (`tenant_id`)
+-- ----------------------------------------------------------------------------
+-- 12. CASHIER SHIFTS (MBI_CASHIER_SHIFTS + SHIFTS)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_cashier_shifts` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `user_id` VARCHAR(128) NOT NULL,
+  `cashier_name` VARCHAR(255) NOT NULL,
+  `terminal_name` VARCHAR(128) NOT NULL DEFAULT 'Terminal #1',
+  `opening_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `closing_balance` DECIMAL(12,2) NULL,
+  `expected_cash` DECIMAL(12,2) NULL,
+  `total_cash_sales` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `total_card_sales` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `total_credit_sales` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `total_returns` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `opened_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `closed_at` DATETIME NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'Open',
+  PRIMARY KEY (`id`),
+  KEY `idx_mbi_shift_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 19. Stock Transfers
-CREATE TABLE IF NOT EXISTS `mbi_stock_transfers` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `transfer_number` VARCHAR(100) NOT NULL,
-    `source_godown` VARCHAR(100) NOT NULL DEFAULT 'Main Store',
-    `destination_godown` VARCHAR(100) NOT NULL,
-    `transfer_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `total_items` INT NOT NULL DEFAULT 1,
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Completed',
-    `notes` TEXT NULL,
-    `items_json` LONGTEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_st_tenant` (`tenant_id`)
+CREATE TABLE IF NOT EXISTS `shifts` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NULL,
+  `user_id` VARCHAR(128) NOT NULL,
+  `opening_cash` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `closing_cash` DECIMAL(12,2) NULL,
+  `opened_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `closed_at` DATETIME NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_shifts_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. Doctor Prescriptions
-CREATE TABLE IF NOT EXISTS `mbi_prescriptions` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `prescription_number` VARCHAR(100) NOT NULL,
-    `doctor_name` VARCHAR(255) NOT NULL,
-    `doctor_pmdc_no` VARCHAR(100) NULL,
-    `patient_name` VARCHAR(255) NOT NULL,
-    `patient_age` INT NULL,
-    `patient_gender` VARCHAR(16) NULL DEFAULT 'Male',
-    `patient_phone` VARCHAR(64) NULL,
-    `patient_cnic` VARCHAR(64) NULL,
-    `invoice_id` VARCHAR(64) NULL,
-    `prescribed_items` LONGTEXT NULL,
-    `prescription_image_url` TEXT NULL,
-    `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_presc_tenant` (`tenant_id`),
-    KEY `idx_presc_invoice` (`invoice_id`)
+-- ----------------------------------------------------------------------------
+-- 13. SECURITY AUDIT LOGS & FLEET DEVICES
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_devices` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `user_id` VARCHAR(128) NOT NULL,
+  `device_name` VARCHAR(255) NOT NULL,
+  `device_type` VARCHAR(64) NOT NULL DEFAULT 'Desktop',
+  `platform` VARCHAR(64) NOT NULL DEFAULT 'Windows',
+  `browser_info` VARCHAR(255) NULL,
+  `os` VARCHAR(128) NULL,
+  `hwid` VARCHAR(255) NOT NULL,
+  `installation_id` VARCHAR(255) NULL,
+  `authorization_key` VARCHAR(128) NULL,
+  `status` VARCHAR(64) NOT NULL DEFAULT 'Active',
+  `first_authorized_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_device_tenant` (`tenant_id`),
+  KEY `idx_device_hwid` (`hwid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 21. Supplier Returns
-CREATE TABLE IF NOT EXISTS `mbi_supplier_returns` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `debit_note_number` VARCHAR(100) NOT NULL,
-    `supplier_id` VARCHAR(64) NOT NULL,
-    `supplier_name` VARCHAR(255) NOT NULL,
-    `return_date` DATE NOT NULL,
-    `total_amount` DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    `reason` VARCHAR(255) NOT NULL DEFAULT 'Near Expiry / Expired',
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Processed',
-    `items_json` LONGTEXT NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_sreturn_tenant` (`tenant_id`)
+CREATE TABLE IF NOT EXISTS `mbi_audit_logs` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `user_id` VARCHAR(128) NULL,
+  `user_name` VARCHAR(255) NULL,
+  `action` VARCHAR(128) NOT NULL,
+  `details` LONGTEXT NULL,
+  `ip_address` VARCHAR(64) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_tenant` (`tenant_id`),
+  KEY `idx_audit_date` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 22. Discount Coupons
-CREATE TABLE IF NOT EXISTS `mbi_promotional_coupons` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL DEFAULT 'global',
-    `code` VARCHAR(64) NOT NULL,
-    `discount_type` VARCHAR(32) NOT NULL DEFAULT 'PERCENT',
-    `discount_value` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `min_order_amount` DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-    `max_discount_cap` DECIMAL(10, 2) NULL,
-    `expiry_date` DATE NOT NULL,
-    `usage_limit` INT NOT NULL DEFAULT 100,
-    `times_used` INT NOT NULL DEFAULT 0,
-    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `idx_coupon_code` (`tenant_id`, `code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 23. WhatsApp Dispatch Queue
+-- ----------------------------------------------------------------------------
+-- 14. NOTIFICATIONS, BROADCASTS & REGISTRATION LEADS
+-- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mbi_notifications` (
-    `id` VARCHAR(64) NOT NULL,
-    `tenant_id` VARCHAR(64) NOT NULL,
-    `recipient_phone` VARCHAR(64) NOT NULL,
-    `recipient_name` VARCHAR(255) NULL,
-    `notification_type` VARCHAR(64) NOT NULL DEFAULT 'WHATSAPP_INVOICE',
-    `message_body` TEXT NOT NULL,
-    `media_url` TEXT NULL,
-    `status` VARCHAR(32) NOT NULL DEFAULT 'Sent',
-    `scheduled_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `sent_at` DATETIME NULL,
-    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    KEY `idx_notif_tenant` (`tenant_id`),
-    KEY `idx_notif_status` (`status`)
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `recipient_phone` VARCHAR(64) NULL,
+  `recipient_name` VARCHAR(255) NULL,
+  `notification_type` VARCHAR(64) NOT NULL DEFAULT 'SYSTEM_UPDATE',
+  `message_body` TEXT NULL,
+  `title` VARCHAR(255) NULL,
+  `message` LONGTEXT NULL,
+  `target_scope` VARCHAR(64) NOT NULL DEFAULT 'ALL',
+  `target_tenant_id` VARCHAR(128) NULL,
+  `category` VARCHAR(64) NOT NULL DEFAULT 'SYSTEM_UPDATE',
+  `priority` VARCHAR(32) NOT NULL DEFAULT 'NORMAL',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'Sent',
+  `created_by` VARCHAR(128) NOT NULL DEFAULT 'Master Admin',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notif_tenant` (`tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Plans Seed Data
-INSERT INTO `mbi_plans` (`id`, `name`, `tier`, `monthly_price_pkr`, `annual_price_pkr`, `max_users`, `max_branches`, `max_devices`, `features`) 
-VALUES
-('Basic', 'MBI Silver (Basic Retail)', 'Basic', 2500.00, 25000.00, 2, 1, 2, '{"posBilling": true, "barcodeScanner": true, "khataLedgers": true, "offlineMode": true}'),
-('Business', 'MBI Gold (Business Wholesale)', 'Business', 4500.00, 45000.00, 5, 2, 5, '{"posBilling": true, "fefoBatches": true, "godowns": true, "purchaseOrders": true}'),
-('Enterprise', 'MBI Platinum (Enterprise Fleet)', 'Enterprise', 8500.00, 85000.00, 20, 10, 20, '{"posBilling": true, "fefoBatches": true, "onlineStore": true, "auditTrail": true}')
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
+CREATE TABLE IF NOT EXISTS `mbi_registration_leads` (
+  `id` VARCHAR(128) NOT NULL,
+  `store_name` VARCHAR(255) NOT NULL,
+  `owner_name` VARCHAR(255) NOT NULL,
+  `username` VARCHAR(128) NULL,
+  `phone` VARCHAR(64) NOT NULL,
+  `email` VARCHAR(255) NULL,
+  `city` VARCHAR(128) NOT NULL DEFAULT 'Lahore',
+  `address` TEXT NULL,
+  `drug_license_no` VARCHAR(128) NULL,
+  `ntn_number` VARCHAR(64) NULL,
+  `requested_plan` VARCHAR(128) NOT NULL DEFAULT 'Basic (10-Day Free Trial)',
+  `status` VARCHAR(64) NOT NULL DEFAULT 'activated',
+  `is_approved` TINYINT(1) NOT NULL DEFAULT 1,
+  `activation_key` VARCHAR(128) NULL,
+  `notes` TEXT NULL,
+  `submitted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `activated_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_lead_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------------------------------------------------------
+-- 15. PRINT TEMPLATES & SETTINGS
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mbi_print_templates` (
+  `id` VARCHAR(128) NOT NULL,
+  `tenant_id` VARCHAR(128) NOT NULL,
+  `template_id` VARCHAR(128) NULL,
+  `template_name` VARCHAR(255) NOT NULL,
+  `page_size` VARCHAR(64) NOT NULL DEFAULT 'thermal_80mm',
+  `config_json` LONGTEXT NULL,
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0,
+  `store_name` VARCHAR(255) NULL,
+  `phone_numbers` VARCHAR(255) NULL,
+  `country_city` VARCHAR(255) NULL,
+  `footer_title` VARCHAR(255) NULL,
+  `footer_contact` VARCHAR(255) NULL,
+  `footer_website` VARCHAR(255) NULL,
+  `compact_footer` TINYINT(1) NOT NULL DEFAULT 0,
+  `is_client_locked` TINYINT(1) NOT NULL DEFAULT 0,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_print_tenant` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mbi_settings` (
+  `setting_key` VARCHAR(128) NOT NULL,
+  `setting_value` LONGTEXT NULL,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- SEED ESSENTIAL MASTER DEFAULT DATA
+-- ============================================================================
+INSERT INTO `mbi_plans` (`id`, `name`, `tier`, `price_monthly`, `price_yearly`, `max_users`, `max_branches`, `max_devices`, `max_terminals`, `storage_limit_mb`) VALUES
+('basic', 'MBI Silver (Basic Retail)', 'Basic', 2500.00, 25000.00, 2, 1, 2, 2, 5000),
+('business', 'MBI Gold (Business Wholesale)', 'Gold', 4500.00, 45000.00, 5, 3, 5, 5, 15000),
+('enterprise', 'MBI Platinum (Enterprise Fleet)', 'Platinum', 8500.00, 85000.00, 20, 10, 20, 20, 50000)
+ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP;
+
+INSERT INTO `mbi_settings` (`setting_key`, `setting_value`) VALUES
+('app_version', '4.3.0'),
+('system_mode', 'PRODUCTION'),
+('hotline_1', '0328-1302636'),
+('hotline_2', '0336-4585863')
+ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP;
 
 SET FOREIGN_KEY_CHECKS = 1;
+-- ==============================================================================
+-- SUCCESS: MBI INVENTRA MASTER DDL & MULTI-TENANT SEED COMPLETE
+-- ==============================================================================

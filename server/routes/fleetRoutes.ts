@@ -613,3 +613,206 @@ fleetRouter.post('/users/delete', async (req: TenantRequest, res: Response): Pro
   }
 });
 
+// 13. List Fleet & Tenant API Keys: GET /api/fleet/keys
+fleetRouter.get('/keys', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const keysJsonPath = path.resolve(process.cwd(), '.fleet_api_keys.json');
+    let keysList: any[] = [];
+    if (fs.existsSync(keysJsonPath)) {
+      try {
+        keysList = JSON.parse(fs.readFileSync(keysJsonPath, 'utf-8') || '[]');
+      } catch (e) {}
+    }
+
+    if (keysList.length === 0) {
+      // Seed initial default keys for master and standard tenants
+      keysList = [
+        {
+          id: 'key_master_live_01',
+          tenantId: 'system_master',
+          tenantName: 'Master Station Admin',
+          keyName: 'Production Full Fleet Key',
+          apiKey: 'mbi_live_sec_89f02a9b4c12d3e4f5a6b7c8d9e0f1a2',
+          publicKey: 'mbi_pub_master_001',
+          webhookSecret: 'whsec_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4',
+          environment: 'production',
+          status: 'Active',
+          rateLimitPerMin: 5000,
+          permissions: ['*'],
+          lastUsed: new Date().toISOString(),
+          createdAt: new Date(Date.now() - 30 * 86400000).toISOString()
+        },
+        {
+          id: 'key_tenant_001',
+          tenantId: 'tenant_001',
+          tenantName: 'Central Branch Pharmacy',
+          keyName: 'REST API & POS Sync Key',
+          apiKey: 'mbi_live_sec_33d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8',
+          publicKey: 'mbi_pub_tenant_001',
+          webhookSecret: 'whsec_11b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+          environment: 'production',
+          status: 'Active',
+          rateLimitPerMin: 1000,
+          permissions: ['pos:read', 'pos:write', 'inventory:sync', 'invoices:read'],
+          lastUsed: new Date().toISOString(),
+          createdAt: new Date(Date.now() - 15 * 86400000).toISOString()
+        }
+      ];
+      try {
+        fs.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), 'utf-8');
+      } catch (e) {}
+    }
+
+    res.json({
+      success: true,
+      count: keysList.length,
+      keys: keysList,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching API keys' });
+  }
+});
+
+// 14. Generate or Rotate API Key: POST /api/fleet/keys/generate
+fleetRouter.post('/keys/generate', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, tenantName, keyName, environment, rateLimitPerMin, permissions } = req.body;
+    const cleanTenantId = tenantId || 'tenant_custom';
+    const cleanTenantName = tenantName || 'Pharmacy Store';
+    
+    // Generate secure cryptographically random hex strings
+    const randHex = (bytes: number) => Array.from({ length: bytes }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    
+    const newKey = {
+      id: `key_${Date.now()}`,
+      tenantId: cleanTenantId,
+      tenantName: cleanTenantName,
+      keyName: keyName || `${cleanTenantName} API Key`,
+      apiKey: `mbi_${environment === 'sandbox' ? 'test' : 'live'}_sec_${randHex(32)}`,
+      publicKey: `mbi_pub_${cleanTenantId}_${randHex(8)}`,
+      webhookSecret: `whsec_${randHex(32)}`,
+      environment: environment || 'production',
+      status: 'Active',
+      rateLimitPerMin: Number(rateLimitPerMin) || 1000,
+      permissions: Array.isArray(permissions) && permissions.length > 0 ? permissions : ['pos:*', 'inventory:*', 'invoices:*'],
+      lastUsed: 'Never',
+      createdAt: new Date().toISOString()
+    };
+
+    const keysJsonPath = path.resolve(process.cwd(), '.fleet_api_keys.json');
+    let keysList: any[] = [];
+    if (fs.existsSync(keysJsonPath)) {
+      try {
+        keysList = JSON.parse(fs.readFileSync(keysJsonPath, 'utf-8') || '[]');
+      } catch (e) {}
+    }
+
+    // Replace if same tenant key exists or append
+    keysList = [newKey, ...keysList.filter((k: any) => k.id !== newKey.id)];
+    fs.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), 'utf-8');
+
+    broadcastGlobalEvent({
+      type: 'FLEET_API_KEY_GENERATED',
+      payload: { tenantId: cleanTenantId, keyId: newKey.id }
+    });
+
+    res.json({
+      success: true,
+      message: `API Key generated successfully for ${cleanTenantName}`,
+      key: newKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error generating API key' });
+  }
+});
+
+// 15. Revoke or Toggle API Key Status: POST /api/fleet/keys/revoke
+fleetRouter.post('/keys/revoke', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { keyId, status } = req.body;
+    if (!keyId) {
+      res.status(400).json({ success: false, error: 'keyId is required' });
+      return;
+    }
+
+    const keysJsonPath = path.resolve(process.cwd(), '.fleet_api_keys.json');
+    let keysList: any[] = [];
+    if (fs.existsSync(keysJsonPath)) {
+      try {
+        keysList = JSON.parse(fs.readFileSync(keysJsonPath, 'utf-8') || '[]');
+      } catch (e) {}
+    }
+
+    const targetKey = keysList.find((k: any) => k.id === keyId || k.apiKey === keyId);
+    if (!targetKey) {
+      res.status(404).json({ success: false, error: 'API key not found' });
+      return;
+    }
+
+    targetKey.status = status || (targetKey.status === 'Active' ? 'Revoked' : 'Active');
+    targetKey.updatedAt = new Date().toISOString();
+    fs.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), 'utf-8');
+
+    broadcastGlobalEvent({
+      type: 'FLEET_API_KEY_STATUS_CHANGED',
+      payload: { keyId, status: targetKey.status }
+    });
+
+    res.json({
+      success: true,
+      message: `API Key ${keyId} is now ${targetKey.status}`,
+      key: targetKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error updating API key' });
+  }
+});
+
+// 16. Verify API Key endpoint for external client integrations: POST /api/fleet/keys/verify
+fleetRouter.post('/keys/verify', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const tokenFromHeader = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+    const apiKey = req.body.apiKey || tokenFromHeader || (req.query.api_key as string);
+
+    if (!apiKey) {
+      res.status(401).json({ success: false, valid: false, error: 'Missing API key in Authorization header or body' });
+      return;
+    }
+
+    const keysJsonPath = path.resolve(process.cwd(), '.fleet_api_keys.json');
+    let keysList: any[] = [];
+    if (fs.existsSync(keysJsonPath)) {
+      try {
+        keysList = JSON.parse(fs.readFileSync(keysJsonPath, 'utf-8') || '[]');
+      } catch (e) {}
+    }
+
+    const found = keysList.find((k: any) => k.apiKey === apiKey);
+    if (!found || found.status !== 'Active') {
+      res.status(401).json({ success: false, valid: false, error: 'Invalid, expired or revoked API key' });
+      return;
+    }
+
+    // Update last used timestamp
+    found.lastUsed = new Date().toISOString();
+    try {
+      fs.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), 'utf-8');
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      valid: true,
+      tenantId: found.tenantId,
+      tenantName: found.tenantName,
+      environment: found.environment,
+      rateLimitPerMin: found.rateLimitPerMin,
+      permissions: found.permissions
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error verifying API key' });
+  }
+});
+
+

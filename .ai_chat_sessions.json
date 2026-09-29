@@ -1,1 +1,51 @@
-[]
+[
+  {
+    "id": "sess_u_1790667685875_1790667824766",
+    "userId": "u_1790667685875",
+    "userName": "bbb",
+    "userEmail": "",
+    "userPhone": "",
+    "storeName": "MUHAMMAD",
+    "tenantId": "tenant-cf964f20",
+    "plan": "Basic",
+    "pageContext": "user",
+    "status": "active_ai",
+    "isHumanAssigned": false,
+    "totalClicks": 3,
+    "unreadCountForServer": 1,
+    "unreadCountForUser": 1,
+    "lastMessage": "MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.",
+    "lastMessageSender": "ai",
+    "lastMessageAt": "2026-09-29T07:55:33.008Z",
+    "createdAt": "2026-09-29T07:55:22.165Z",
+    "updatedAt": "2026-09-29T07:55:33.008Z",
+    "messages": [
+      {
+        "id": "msg_init_1790668522165",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+        "timestamp": "2026-09-29T07:55:22.165Z",
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790668529440_f0tu",
+        "sender": "user",
+        "senderName": "bbb",
+        "text": "hi",
+        "timestamp": "2026-09-29T07:55:29.440Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790668533008_3f7x",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.",
+        "timestamp": "2026-09-29T07:55:33.008Z",
+        "isEscalation": false,
+        "status": "delivered"
+      }
+    ]
+  }
+]

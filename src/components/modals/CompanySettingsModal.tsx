@@ -170,14 +170,20 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
               <p className="text-[11px] sm:text-xs text-slate-400">Edit business profile, logo, contact, NTN & invoice headers</p>
             </div>
           </div>
-          <button 
-            type="button"
-            onClick={onClose} 
-            className="text-slate-400 hover:text-white p-1.5 sm:p-2 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
-            title="Close"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2.5">
+            <span className="px-2.5 py-1 text-[11px] font-mono font-bold rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 shadow-2xs">
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>MBI Version 4.3.7</span>
+            </span>
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="text-slate-400 hover:text-white p-1.5 sm:p-2 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* 4 Focused Navigation Tabs */}

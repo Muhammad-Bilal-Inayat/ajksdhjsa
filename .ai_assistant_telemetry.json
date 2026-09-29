@@ -9,6 +9,33 @@
     "tenantId": "tenant-cf964f20",
     "userPlan": "Basic",
     "pageContext": "user",
+    "id": "clk_1790668529436_sekk6",
+    "timestamp": "2026-09-29T07:55:29.436Z"
+  },
+  {
+    "sessionId": "sess_u_1790667685875_1790667824766",
+    "eventType": "message_sent",
+    "eventLabel": "hi",
+    "userId": "u_1790667685875",
+    "userName": "bbb",
+    "storeName": "MUHAMMAD",
+    "tenantId": "tenant-cf964f20",
+    "userPlan": "Basic",
+    "pageContext": "user",
+    "ip": "127.0.0.1",
+    "id": "clk_1790668529428_bm3db",
+    "timestamp": "2026-09-29T07:55:29.428Z"
+  },
+  {
+    "sessionId": "sess_u_1790667685875_1790667824766",
+    "eventType": "message_sent",
+    "eventLabel": "User Msg: hi",
+    "userId": "u_1790667685875",
+    "userName": "bbb",
+    "storeName": "MUHAMMAD",
+    "tenantId": "tenant-cf964f20",
+    "userPlan": "Basic",
+    "pageContext": "user",
     "id": "clk_1790667834696_4hgmi",
     "timestamp": "2026-09-29T07:43:54.696Z"
   },

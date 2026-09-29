@@ -6,7 +6,7 @@ import {
   Search, X, Eye, Lock, ArrowRightLeft, Sparkles, Filter, Download,
   Check, AlertCircle, Phone, Mail, Building, Key, History, Cloud,
   Send, Share2, Copy, ExternalLink, PowerOff, ShieldAlert, UserX, UserMinus, 
-  Smartphone, Laptop, MessageSquare, Sliders
+  Smartphone, Laptop, MessageSquare, Sliders, Database
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AppUserRecord, UserRole, UserActivityLog } from '../types';
@@ -22,6 +22,7 @@ import { getBrandContact } from '../lib/siteCmsService';
 import { CompanyAuditLogsTab } from '../components/staff/CompanyAuditLogsTab';
 import { UserPermissionDrawer } from '../components/staff/UserPermissionDrawer';
 import { OperationalSecuritySwitches } from '../utils/rolePermissions';
+import { BackupRestoreTab } from '../components/settings/BackupRestoreTab';
 
 export const ALL_AVAILABLE_ROLES: UserRole[] = [
   'Primary Admin',
@@ -76,7 +77,7 @@ export const SyncAndShare: React.FC = () => {
   const [contact] = useState(getBrandContact);
 
   // User Management State
-  const [mainTab, setMainTab] = useState<'STAFF' | 'AUDIT_LOGS' | 'CLOUD_SYNC'>('STAFF');
+  const [mainTab, setMainTab] = useState<'STAFF' | 'AUDIT_LOGS' | 'CLOUD_SYNC' | 'BACKUP_RESTORE'>('STAFF');
   const [statusTab, setStatusTab] = useState<'ALL' | 'JOINED' | 'PENDING' | 'INACTIVE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('ALL');
@@ -503,8 +504,21 @@ export const SyncAndShare: React.FC = () => {
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>☁️ Cloud Sync & Hardware Fleet</span>
+          <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          <span>🔄 Multi-Counter Realtime Sync</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainTab('BACKUP_RESTORE')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            mainTab === 'BACKUP_RESTORE'
+              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>🛡️ Backup &amp; Restore</span>
         </button>
       </div>
 
@@ -513,7 +527,14 @@ export const SyncAndShare: React.FC = () => {
         <CompanyAuditLogsTab users={users} />
       )}
 
-      {/* TAB 2: CLOUD SYNC & HARDWARE CARDS */}
+      {/* TAB 2: BACKUP & RESTORE VIEW */}
+      {mainTab === 'BACKUP_RESTORE' && (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 border border-slate-200/90 dark:border-slate-800 shadow-sm">
+          <BackupRestoreTab />
+        </div>
+      )}
+
+      {/* TAB 3: CLOUD SYNC & HARDWARE CARDS */}
       {mainTab === 'CLOUD_SYNC' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           

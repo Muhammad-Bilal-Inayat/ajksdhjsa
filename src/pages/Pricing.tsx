@@ -230,48 +230,56 @@ export const Pricing: React.FC = () => {
     <div className="w-full max-w-7xl mx-auto space-y-8 pb-16 font-sans overflow-y-auto h-full">
       
       {/* Top Breadcrumb & Quick Action Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/')}
-            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+            type="button"
+            onClick={() => navigate('/user')}
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl transition-all flex items-center gap-2 text-xs font-bold cursor-pointer shadow-2xs active:scale-95 border border-slate-200 dark:border-slate-700"
             title="Return to Dashboard"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <span>Dashboard</span>
           </button>
           <div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              <span>Plans & Licensing</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${licenseInfo.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {licenseInfo.status === 'Active' ? `Active: ${licenseInfo.plan}` : 'Trial Version'}
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <span>Plans &amp; Licensing</span>
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                licenseInfo.status === 'Active' 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
+                  : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+              }`}>
+                {licenseInfo.status === 'Active' ? `Active: ${licenseInfo.plan}` : 'Active: Free Trial'}
               </span>
             </h1>
-            <p className="text-xs text-slate-500">Transparent pricing synced directly with central administration</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Transparent pricing synced directly with central administration
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setIsComparisonModalOpen(true)}
-            className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-blue-200 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer shadow-2xs"
           >
-            <TableProperties className="w-3.5 h-3.5 text-blue-600" />
+            <TableProperties className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Compare Editions</span>
           </button>
           <button
+            type="button"
             onClick={() => setIsLicenseModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shadow-2xs"
           >
-            <Key className="w-3.5 h-3.5 text-blue-600" />
+            <Key className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Enter License Key</span>
           </button>
           <a
             href={contact.whatsappUrl('Hello! I have a question about MBI Inventra pricing.')}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-colors cursor-pointer"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>WhatsApp {contact.displayPhone2}</span>

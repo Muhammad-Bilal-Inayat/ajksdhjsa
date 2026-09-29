@@ -1,12 +1,126 @@
 {
-  "medicines": [],
+  "medicines": [
+    {
+      "id": "med-1790668875586-1ge3",
+      "barcode": "8964393286269",
+      "name": "PANADOL",
+      "batchNumber": "B-1269",
+      "manufacturer": "General Supplier",
+      "unit": "PCS",
+      "expiryDate": "12/2028",
+      "manufacturingDate": "",
+      "quantity": 50,
+      "lowStockThreshold": 10,
+      "purchasePrice": 10,
+      "latestPurchasePrice": 10,
+      "latestPurchaseDate": "sup_general",
+      "mrp": 13,
+      "sellingPrice": 12.35,
+      "gstPercentage": 0,
+      "hsnCode": "3004.9090",
+      "rackLocation": "Rack A-1",
+      "stockStatus": "Available",
+      "batches": [
+        {
+          "id": "a31f5bcb-1d4c-43f4-a748-3293938ea091",
+          "medicineId": "med-1790668875586-1ge3",
+          "batchNumber": "B-1269",
+          "expiryDate": "12/2028",
+          "mfgDate": "",
+          "quantity": 50,
+          "purchasePrice": 10,
+          "sellingPrice": 12.35,
+          "mrp": 13,
+          "status": "Available",
+          "supplierName": "General Supplier",
+          "purchaseBillId": "PUR-1",
+          "purchaseDate": "sup_general",
+          "receivedDate": "sup_general",
+          "rackLocation": "Rack A-1"
+        }
+      ],
+      "createdAt": "sup_general",
+      "updatedAt": "sup_general",
+      "tenantId": "tenant-cf964f20",
+      "firmId": "firm-main",
+      "createdById": "u_1790667685875",
+      "lastUpdatedById": "u_1790667685875",
+      "lastUpdatedAt": "2026-09-29T08:01:15.586Z",
+      "syncStatus": "pending"
+    }
+  ],
   "invoices": [],
-  "purchaseOrders": [],
+  "purchaseOrders": [
+    {
+      "id": "f488a83c-c6f4-46a9-9297-b117a3b2b844",
+      "poNumber": "PUR-1",
+      "billNumber": "PUR-1",
+      "orderNumber": "PUR-1",
+      "date": "2026-09-29",
+      "supplierId": "sup_general",
+      "supplierName": "General Supplier",
+      "partyId": "sup_general",
+      "partyName": "General Supplier",
+      "status": "Paid",
+      "paymentType": "Cash",
+      "transactionType": "Purchase",
+      "items": [
+        {
+          "id": "poi_0_1790668875531",
+          "medicineId": "med_0_1790668875531",
+          "name": "PANADOL",
+          "hsnCode": "3004.9090",
+          "quantity": 50,
+          "freeQuantity": 0,
+          "purchasePrice": 10,
+          "mrp": 0,
+          "sellingPrice": 10,
+          "batchNumber": "B-1269",
+          "expiryDate": "12/2028",
+          "mfgDate": "",
+          "unit": "Box",
+          "discountPercentage": 0,
+          "gstPercentage": 0,
+          "total": 500
+        }
+      ],
+      "totalAmount": 500,
+      "subTotal": 500,
+      "paidAmount": 500,
+      "balanceDue": 0,
+      "description": "",
+      "createdAt": "2026-09-29T08:01:15.531Z",
+      "updatedAt": "2026-09-29T08:01:15.531Z",
+      "tenantId": "tenant-cf964f20",
+      "firmId": "firm-main",
+      "createdById": "u_1790667685875",
+      "lastUpdatedById": "u_1790667685875",
+      "lastUpdatedAt": "2026-09-29T08:01:15.531Z",
+      "syncStatus": "pending"
+    }
+  ],
   "suppliers": [],
   "partyPayments": [],
   "expenses": [],
   "bankTransactions": [],
-  "auditLogs": [],
+  "auditLogs": [
+    {
+      "id": "ebe0ebcb-bfc0-4479-ae08-4f52d551ba53",
+      "date": "2026-09-29T08:01:15.695Z",
+      "timestamp": "2026-09-29T08:01:15.696Z",
+      "action": "CREATE_PURCHASE",
+      "details": "Inward Purchase Bill #PUR-1 from General Supplier (Total: Rs. 500.00, 1 items)",
+      "userId": "Admin",
+      "tenantId": "tenant-cf964f20",
+      "firmId": "firm-main",
+      "createdById": "u_1790667685875",
+      "lastUpdatedById": "u_1790667685875",
+      "lastUpdatedAt": "2026-09-29T08:01:15.696Z",
+      "createdAt": "2026-09-29T08:01:15.696Z",
+      "updatedAt": "2026-09-29T08:01:15.696Z",
+      "syncStatus": "pending"
+    }
+  ],
   "appUsers": [
     {
       "id": "u_1790667685875",
@@ -20,9 +134,9 @@
       "storeName": "MUHAMMAD",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T07:41:55.632Z",
+      "lastSyncTime": "2026-09-29T08:01:10.994Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T07:41:55.634Z"
+      "updatedAt": "2026-09-29T08:01:11.006Z"
     },
     {
       "id": "admin-master",

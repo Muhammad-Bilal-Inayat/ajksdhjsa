@@ -28,56 +28,53 @@ export const AiAssistantPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="p-3 sm:p-5 lg:p-6 max-w-7xl mx-auto space-y-6 antialiased tracking-tight">
+    <div className="p-2 sm:p-4 max-w-7xl mx-auto space-y-3.5 antialiased tracking-tight">
       
-      {/* 1. Header Banner: Dual-Theme */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 border border-blue-800 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+      {/* 1. Compact Header Banner */}
+      <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 border border-blue-800 text-white shadow-md relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md shadow-cyan-500/20 shrink-0">
+            MBI
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
+                MBI AI Guide &amp; Knowledge Center
+              </h1>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/20 text-cyan-200 border border-cyan-400/30">
+                Multilingual AI
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              Ask anything about Pharmacy POS Billing, Batch Expiry FEFO, Ledgers, or Home Page features in Urdu, English or Roman Urdu!
+            </p>
+          </div>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-[11px] text-slate-200 shrink-0">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Isolated Pharmacy Tenant Data</span>
+        </div>
+      </div>
+
+      {/* 2. Main 1-Screen 2-Column Responsive Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
         
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 sm:gap-4">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-md shadow-cyan-500/20 shrink-0">
-              MBI
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
-                  MBI AI Guide & Knowledge Center
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-400/20 text-cyan-200 border border-cyan-400/30">
-                  Multilingual AI
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1">
-                Ask anything about Pharmacy POS Billing, Batch Expiry FEFO, Ledgers, or Home Page features in any language!
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-800/80 px-3.5 py-2 rounded-xl border border-slate-700 text-xs text-slate-200">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Isolated Pharmacy Tenant Data</span>
-          </div>
+        {/* Left Column (7.5 cols / 65% width): Interactive AI Guide Chat */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-3">
+          <InteractiveAiGuide 
+            externalPrompt={activeQuestion}
+            onClearExternalPrompt={() => setActiveQuestion('')}
+            className="h-[480px] sm:h-[500px]"
+          />
         </div>
-      </div>
 
-      {/* 2. Interactive AI Guide Chat - Full Width Hero Workspace */}
-      <div className="w-full">
-        <InteractiveAiGuide 
-          externalPrompt={activeQuestion}
-          onClearExternalPrompt={() => setActiveQuestion('')}
-        />
-      </div>
-
-      {/* 3. Support & Quick Guided Topics Placed Below Chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left (7 cols): Popular Topics & Guided Solutions */}
-        <div className="lg:col-span-7 xl:col-span-8">
+        {/* Right Column (4.5 cols / 35% width): Compact Support Shortcuts & Callback */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-3 h-[480px] sm:h-[500px] overflow-y-auto custom-scrollbar pr-0.5">
+          {/* Quick Guided Topics Accordion */}
           <PopularTopicsCard onSelectQuestion={(q) => setActiveQuestion(q)} />
-        </div>
 
-        {/* Right (5 cols): Human Call / Team Callback Request */}
-        <div className="lg:col-span-5 xl:col-span-4">
+          {/* Direct Callback Card */}
           <CallRequestCard source="AI Guide Page" />
         </div>
       </div>
@@ -86,3 +83,4 @@ export const AiAssistantPage: React.FC = () => {
 };
 
 export default AiAssistantPage;
+

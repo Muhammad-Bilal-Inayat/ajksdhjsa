@@ -1,17 +1,20 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.3.4-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.5-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.3.4
+## 🌟 What's New in v4.3.5
+- **100% Unified & Synchronized Subscription Plan Features:**
+  - Standardized single source of truth across all 3 portals: Public Home Page (`PricingSection`), Client Portal (`Pricing.tsx` & `PricingModal.tsx`), and Super Admin Server Station (`PlanPricingManagerPanel` & `planLimitsService.ts`).
+  - **Silver Basic:** 2 Users • 2 Branches • 2 Terminals • 0.2s POS Barcode Billing • 100k+ Medicine Catalog • 1-Click WhatsApp Direct • Ledgers • 100% Offline Local Engine.
+  - **Gold Business:** 5 Users • 5 Branches • 5 Terminals • FEFO Expiry Radar • Multi-Godown Storage • Live Real-Time P&L Profit Analytics • Wholesale Dual Pricing Matrix • Multi-Terminal Hardware Sync.
+  - **Platinum Enterprise:** 15 Users • 10 Branches • 15 Terminals • Automated Background WhatsApp Gateway • FBR POS Digital Invoicing & Fiscal Stamps • Multi-Branch Stock Transfers • Online Storefront • Anti-Theft Audit Logs • 50GB NVMe Cloud Mirroring.
 - **Company-Wise WhatsApp Automation Hub (100% Free & Zero-Cost):**
   - **Enterprise Background Auto-Gateway:** Automatically dispatches digital invoices, return credit notes, customer khata payment receipts, and daily shift summaries directly in the background via the pharmacy's attached WhatsApp number.
   - **Silver & Gold 1-Click WhatsApp Direct:** Allows 1-click billing dispatch via direct `wa.me` instant chat with pre-formatted invoice text without monthly subscription fees or third-party WhatsApp API costs.
   - **Live Super Admin Gateway Override:** Super Admin can dynamically toggle/override the Background WhatsApp Gateway `ON` or `OFF` for any client company at any time directly from `/server` Fleet Dashboard without modifying base subscription tiers.
-  - **Company-Specific Trigger Controls:** Each pharmacy controls exactly which alerts are sent (POS Sales, Sales Returns, Customer Khata Payments, Shift Summaries) and can customize their message header/footer templates.
-  - **Customer Phone Extraction:** Dynamically extracts customer contact numbers entered during rapid POS billing or customer khata ledger entries.
 - **Strict Master PIN Security Lockdown:** Deprecated PIN `884422` completely removed. Master Server Station (`/server`, `/lan`) is strictly authorized only with Primary Master PIN (`Ami7788!@`) and Emergency Recovery Key (`03082003`).
 - **100% Multi-Tenant Data Isolation:** Verified 20+ MariaDB database tables. Every registered client pharmacy operates as an isolated Tenant (`mbi_tenants`), and their counter staff exist as scoped sub-users (`mbi_users`).
 - **100% Real-Time Master Station & Unified Governance Sync:** Fixed registration query placeholder alignment in `mbi_tenants`. Newly registered tenants, users, and licenses immediately populate across all 25 tabs of `/server`, `/lan`, Unified Governance, and Masterboard 173 features in real time.

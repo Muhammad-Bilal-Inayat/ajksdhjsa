@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Award, Shield, Sparkles, MessageSquare, CheckCircle2, Phone, ArrowRight } from 'lucide-react';
+import { MASTER_PLANS_CONFIG, PricingDuration } from '../../config/plansConfig';
 
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type BillingInterval = 'monthly' | '1year' | '3years' | '5years';
+type BillingInterval = PricingDuration;
 
 export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) => {
   const [billingInterval, setBillingInterval] = useState<BillingInterval>('1year');
@@ -29,108 +30,37 @@ export const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose }) =
 
   if (!isOpen) return null;
 
-  const plans = [
-    {
-      name: 'Basic',
-      badge: '🟢 Basic',
-      tagline: 'Essential billing & inventory for single shops',
-      prices: {
-        monthly: 'Rs. 1,999',
-        '1year': 'Rs. 19,990',
-        '3years': 'Rs. 59,970',
-        '5years': 'Rs. 99,950',
-      },
-      popular: false,
-      color: 'border-emerald-200 bg-emerald-50/20',
-      buttonBg: 'bg-emerald-600 hover:bg-emerald-700 text-white',
-      features: [
-        'Up to 5 Users',
-        '2 Firms / Branches',
-        'POS & Billing',
-        'Inventory Management',
-        'Products & Categories',
-        'Customers & Suppliers',
-        'Sales & Purchases',
-        'Customer/Supplier Ledger',
-        'Barcode Support',
-        'Expenses',
-        'Basic Reports',
-        'Low Stock Alerts',
-        'Invoice Print/PDF',
-        'Offline Working',
-        'Local Backup & Restore'
-      ]
+  const plans = MASTER_PLANS_CONFIG.map(p => ({
+    name: p.id === 'enterprise' ? 'Enterprise' : p.id === 'business' ? 'Business' : 'Basic',
+    badge: p.badge,
+    tagline: p.tagline,
+    limits: p.limits,
+    prices: {
+      monthly: `Rs. ${p.prices.monthly.toLocaleString()}`,
+      '1year': `Rs. ${p.prices['1year'].toLocaleString()}`,
+      '3years': `Rs. ${p.prices['3years'].toLocaleString()}`,
+      '5years': `Rs. ${p.prices['5years'].toLocaleString()}`,
     },
-    {
-      name: 'Business',
-      badge: '🔵 Business ⭐',
-      tagline: 'Advanced multi-warehouse & stock management',
-      prices: {
-        monthly: 'Rs. 3,999',
-        '1year': 'Rs. 39,990',
-        '3years': 'Rs. 119,970',
-        '5years': 'Rs. 199,950',
-      },
-      popular: true,
-      color: 'border-blue-300 bg-blue-50/45 shadow-md ring-2 ring-blue-500/30',
-      buttonBg: 'bg-blue-600 hover:bg-blue-700 text-white',
-      features: [
-        'Up to 10 Users',
-        '5 Firms / Branches',
-        'Everything in Basic +',
-        'Multiple Warehouses',
-        'Batch & Expiry Tracking',
-        'Automated Purchase Reordering',
-        'Purchase Orders',
-        'Sales & Purchase Returns',
-        'Cash & Bank Management',
-        'Profit & Loss',
-        'Advanced Reports',
-        'Customer/Supplier Aging',
-        'Stock Transfers',
-        'Advanced Expenses',
-        'Advanced Dashboard',
-        'Backup & Restore',
-        'Priority Support'
-      ]
-    },
-    {
-      name: 'Premium',
-      badge: '🟣 Premium',
-      tagline: 'Enterprise-grade custom controls & audit logs',
-      prices: {
-        monthly: 'Rs. 6,999',
-        '1year': 'Rs. 69,990',
-        '3years': 'Rs. 209,970',
-        '5years': 'Rs. 349,950',
-      },
-      popular: false,
-      color: 'border-purple-200 bg-purple-50/20',
-      buttonBg: 'bg-purple-600 hover:bg-purple-700 text-white',
-      features: [
-        'Up to 20 Users',
-        '10 Firms / Branches',
-        'Everything in Business +',
-        'Online Storefront Catalog',
-        'Unlimited Warehouses',
-        'Advanced Inventory Controls',
-        'Advanced Permissions',
-        'Audit Logs',
-        'Approval System',
-        'Advanced Analytics',
-        'Custom Reports',
-        'Custom Invoice Templates',
-        'Multiple Cash Registers',
-        'Advanced Financial Reports',
-        'Advanced Backup & Restore',
-        'Premium Support'
-      ]
-    }
-  ];
+    popular: !!p.isPopular,
+    color: p.id === 'enterprise'
+      ? 'border-purple-300 bg-purple-50/30 ring-1 ring-purple-500/20'
+      : p.id === 'business'
+      ? 'border-blue-300 bg-blue-50/45 shadow-md ring-2 ring-blue-500/30'
+      : 'border-emerald-200 bg-emerald-50/20',
+    buttonBg: p.id === 'enterprise'
+      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+      : p.id === 'business'
+      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+      : 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    features: [
+      `Users: ${p.limits.users} • Firms: ${p.limits.branches}`,
+      ...p.features
+    ]
+  }));
 
   const handleSubscribe = (planName: string) => {
     setSelectedPlan(planName);
-    const whatsappNum = '923364585863';
+    const whatsappNum = '923281302636';
     const message = encodeURIComponent(`Hello! I want to subscribe to MBI Inventra — ${planName} Plan (${billingInterval.toUpperCase()}). Please guide me with activation.`);
     window.open(`https://wa.me/${whatsappNum}?text=${message}`, '_blank');
   };

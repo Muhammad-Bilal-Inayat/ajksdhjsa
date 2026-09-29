@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.4-stable',
+    version: 'v4.3.5-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: '100% Unified & Synchronized Subscription Plan Features Across Home Page, User Dashboard & Server Hub.',
+    features: [
+      {
+        text: 'Single Source of Truth: Silver Basic, Gold Business, and Platinum Enterprise features are 100% identical and synchronized across Home, User Licensing, and Server Hub.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Accurate Tier Features: Clear distinction of WhatsApp Auto-Gateway & FBR in Platinum Enterprise vs 1-Click WhatsApp Direct in Silver/Gold.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Interactive Pricing Modal Synced: User upgrade modal now pulls live from unified master plan configuration.',
+        type: 'feature',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.4-stable',
+    releaseDate: 'September 2026',
+    tag: 'Production Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Company WhatsApp Automation Hub (Enterprise Background Auto-Gateway & 1-Click Direct wa.me) + Live Super Admin Fleet Override.',
     features: [

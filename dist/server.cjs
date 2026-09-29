@@ -9767,8 +9767,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.3.4";
-var RELEASE_NOTES = "Company WhatsApp Automation Hub (Enterprise Auto-Gateway & 1-Click Direct wa.me) + Live Fleet Control (v4.3.4)";
+var APP_VERSION2 = "4.3.5";
+var RELEASE_NOTES = "100% Unified & Synchronized Subscription Plan Features Across Home, User & Server Hub (v4.3.5)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

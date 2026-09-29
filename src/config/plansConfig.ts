@@ -36,7 +36,7 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
     name: 'Silver Basic',
     badge: 'Basic Plan',
     tierIcon: '🥈',
-    tagline: 'Ideal for independent single-counter pharmacies & community clinics',
+    tagline: 'Essential billing, local receipt printing & core accounting for retail shops',
     limits: {
       users: '2 Users',
       branches: '2 Branches',
@@ -54,14 +54,14 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
       '5years': 'Save ~50%'
     },
     features: [
-      '0.2s Ultra-Fast Barcode POS Billing',
-      'Pakistan 100k+ Preloaded Medicine Catalog',
-      'Inventory & Batch Tracking (FEFO Auto-Select)',
-      'Thermal Receipt (80mm & 58mm) & WhatsApp Bill',
-      'Customer & Supplier Khata Ledgers',
+      '0.2s Ultra-Fast Barcode POS Billing & Thermal Printing (80mm/58mm)',
+      'Pakistan 100k+ Preloaded Medicine Catalog (Formulas & Generics)',
+      'Real-Time Inventory Tracking & Low Stock Alerts',
+      '1-Click WhatsApp Direct Instant Share (wa.me Formatted Bills)',
+      'Customer & Supplier Khata Ledgers with Balance Due Tracking',
       'Daily Cashier Drawer Handover & Shift Closing',
       '100% Offline-First Engine (Zero Internet Required)',
-      'Daily Encrypted Database Backup & Disaster Vault'
+      'Daily Local Encrypted Database Backup & 1-Click Offline Restore'
     ]
   },
   {
@@ -90,13 +90,14 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
     },
     features: [
       'Everything in Silver Basic +',
-      '30 / 60 / 90 Days Near-Expiry Radar with Alert Horizons',
-      'Multi-Godown Storage & Stock Bin Shelf Mapping',
-      'Live Real-Time P&L Profit Margin Analytics',
-      'Automated WhatsApp Khata Balance Reminders',
-      'Multi-Terminal Local Hardware Sync (5 Nodes)',
-      'Wholesale TP / MRP / Box Rate Dual Engine',
-      'Narcotics & DRAP Form-7 Register Books'
+      'FEFO Expiry Radar (30 / 60 / 90 / 180 Days Horizon Visual Alerts)',
+      'Multi-Godown Storage & Shelf / Bin Rack Mapping',
+      'Live Real-Time Gross Profit & Net Margin (P&L) Analytics',
+      'Wholesale Dual Pricing Matrix (TP, MRP, Box, Strip & Retail Rates)',
+      'Sales & Purchase Return Credit Management (Debit/Credit Notes)',
+      'Automated WhatsApp Khata Balance Due Reminders',
+      'Narcotics & DRAP Form-7 Registry Books',
+      'Multi-Terminal Local Hardware Sync (5 Counter Nodes)'
     ]
   },
   {
@@ -125,13 +126,15 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
     },
     features: [
       'Everything in Gold Business +',
-      'Multi-Branch Stock Transfer Delivery Challans',
-      'Digital Pharmacy WhatsApp Storefront & Online POS',
-      'Immutable Anti-Theft Cashier Audit Trail Logs & 2FA',
-      'Multi-Node Mesh Sync (Up to 15 Terminals)',
+      'Automated Background WhatsApp Gateway (Auto Invoices, Returns & Khatas)',
+      'FBR POS Digital Invoicing, Fiscal Stamps & Sales Tax Compliance',
+      'Multi-Branch Stock Transfer Delivery Challans & Central Rebalancing',
+      'Digital Pharmacy Online Storefront (E-Commerce Web POS & WhatsApp Orders)',
+      'Immutable Cashier Anti-Theft Audit Trail Logs & 2FA Staff Access',
+      'Multi-Node Mesh Sync (Up to 15 Billing Counters)',
       'Predictive AI Re-Order Velocity Forecasting',
-      '50 GB NVMe Storage with Midnight Cloud Mirroring',
-      'Dedicated VIP Onboarding & 24/7 Priority SLA'
+      '50 GB High-Speed NVMe Storage with Midnight Cloud Mirroring',
+      'Dedicated VIP Account Manager & 24/7 Priority SLA'
     ]
   }
 ];

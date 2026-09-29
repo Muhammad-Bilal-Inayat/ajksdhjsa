@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.3.4';
-export const RELEASE_NOTES = 'Company WhatsApp Automation Hub (Enterprise Auto-Gateway & 1-Click Direct wa.me) + Live Fleet Control (v4.3.4)';
+export const APP_VERSION = '4.3.5';
+export const RELEASE_NOTES = '100% Unified & Synchronized Subscription Plan Features Across Home, User & Server Hub (v4.3.5)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

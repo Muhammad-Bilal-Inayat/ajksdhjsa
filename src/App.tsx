@@ -89,6 +89,7 @@ const CustomerKhataPage = lazyWithRetry(() => import('./pages/CustomerKhataPage'
 const SupplierKhataPage = lazyWithRetry(() => import('./pages/SupplierKhataPage').then(m => ({ default: m.SupplierKhataPage })));
 const LedgersStatementsPage = lazyWithRetry(() => import('./pages/LedgersStatementsPage').then(m => ({ default: m.LedgersStatementsPage })));
 const PurchaseInvoicePage = lazyWithRetry(() => import('./pages/PurchaseInvoicePage').then(m => ({ default: m.PurchaseInvoicePage })));
+const SaleInvoicePage = lazyWithRetry(() => import('./pages/SaleInvoicePage').then(m => ({ default: m.SaleInvoicePage || m.default })));
 const PartiesManagementPage = lazyWithRetry(() => import('./pages/PartiesManagementPage').then(m => ({ default: m.PartiesManagementPage })));
 
 // Marketing, Public Storefront & Master Admin Portals

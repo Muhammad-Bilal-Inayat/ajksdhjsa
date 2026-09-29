@@ -141,6 +141,12 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     };
   }, []);
 
+  // Helper to get owner name for any user based on their company
+  const getOwnerForUser = (user: MasterActiveUser) => {
+    const targetTenant = tenants.find(t => t.id === user.tenantId || t.tenantId === user.tenantId || t.name === user.storeName);
+    return targetTenant?.ownerName || targetTenant?.primaryAdminName || 'M Bilal Inayat';
+  };
+
   // Effective search combines internal and external search bar
   const activeSearch = (externalSearchQuery || searchQuery).trim().toLowerCase();
 
@@ -161,21 +167,22 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       if (statusFilter === 'killed' && !user.isKillSwitchActive && user.status !== 'Suspended') return false;
       if (statusFilter === 'online' && !user.isOnline) return false;
 
-      // Search match
+      // Search match (Name, Contact, Role, Store, Owner, ID)
       if (activeSearch) {
         const matchesName = (user.name || '').toLowerCase().includes(activeSearch);
         const matchesContact = (user.emailOrPhone || '').toLowerCase().includes(activeSearch);
         const matchesRole = (user.role || '').toLowerCase().includes(activeSearch);
         const matchesStore = (user.storeName || '').toLowerCase().includes(activeSearch);
+        const matchesOwner = getOwnerForUser(user).toLowerCase().includes(activeSearch);
         const matchesId = (user.id || '').toLowerCase().includes(activeSearch);
-        if (!matchesName && !matchesContact && !matchesRole && !matchesStore && !matchesId) {
+        if (!matchesName && !matchesContact && !matchesRole && !matchesStore && !matchesOwner && !matchesId) {
           return false;
         }
       }
 
       return true;
     });
-  }, [users, companyFilter, roleFilter, statusFilter, activeSearch]);
+  }, [users, companyFilter, roleFilter, statusFilter, activeSearch, tenants]);
 
   // ACTION 1: SILENT SWITCH TOGGLE (Stealth Monitoring Mode)
   const handleToggleSilentSwitch = async (user: MasterActiveUser) => {
@@ -620,11 +627,15 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                               )}
                             </div>
                             
-                            {/* Prominent Company Badge */}
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
+                            {/* Prominent Company & Owner Attribution Badges */}
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
                                 <Building2 className="w-3 h-3 text-indigo-500" />
                                 <span>{user.storeName || 'MBI INVENTRA Headquarters'}</span>
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                <span className="font-bold text-slate-400">Owner:</span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-200">{getOwnerForUser(user)}</span>
                               </span>
                             </div>
                           </div>
@@ -698,9 +709,12 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                           {/* 0. 1-CLICK SILENT SHADOW SWITCH BUTTON */}
                           <button
                             type="button"
-                            onClick={() => handleSilentSwitchUser(user)}
+                            onClick={() => {
+                              onNotify(`Switching silently into ${user.name} (${user.role} - ${user.storeName})...`);
+                              handleSilentSwitchUser(user);
+                            }}
                             className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
-                            title="Open User Workspace in New Tab Silently (Shadow Mode)"
+                            title={`Open ${user.name}'s workspace in new tab silently (Shadow Mode)`}
                           >
                             ⚡ Silent Switch
                           </button>
@@ -824,6 +838,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{viewUser.storeName || 'Main Store'}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Company Owner</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{getOwnerForUser(viewUser)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact Number / Email</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{viewUser.emailOrPhone}</span>
                 </div>
@@ -831,7 +849,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Passcode / PIN</span>
                   <span className="font-mono font-bold text-amber-600 text-xs mt-0.5 block">{viewUser.passcode || '1234'}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 col-span-2">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Account Status</span>
                   <span className={`font-bold text-xs mt-0.5 block ${viewUser.isKillSwitchActive ? 'text-rose-600' : 'text-emerald-600'}`}>
                     {viewUser.isKillSwitchActive ? 'LOCKED / KILLED' : 'ACTIVE'}
@@ -857,7 +875,18 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  onNotify(`Switching silently into ${viewUser.name} (${viewUser.role} - ${viewUser.storeName})...`);
+                  handleSilentSwitchUser(viewUser);
+                  setViewUser(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
+              >
+                ⚡ Switch Into This User
+              </button>
               <button
                 type="button"
                 onClick={() => setViewUser(null)}

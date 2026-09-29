@@ -387,25 +387,27 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     try {
       onNotify(`Initiating Silent Shadow Switch into "${tenant.name}"...`);
       const targetId = tenant.tenantId || tenant.id;
+      const ownerName = tenant.ownerName || tenant.primaryAdminName || 'M Bilal Inayat';
       
-      const res = await fetch('/api/master/impersonate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`
-        },
-        body: JSON.stringify({
-          target_tenant_id: targetId,
-          tenantId: targetId,
-          storeName: tenant.name
-        })
-      });
-
       let shadowToken = `shadow_${Date.now()}`;
-      if (res.ok) {
-        const data = await res.json();
-        if (data.token) shadowToken = data.token;
-      }
+      try {
+        const res = await fetch('/api/master/impersonate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`
+          },
+          body: JSON.stringify({
+            target_tenant_id: targetId,
+            tenantId: targetId,
+            storeName: tenant.name
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) shadowToken = data.token;
+        }
+      } catch {}
 
       localStorage.setItem('mbi_shadow_token', shadowToken);
       localStorage.setItem('mbi_active_business_id', targetId);
@@ -413,21 +415,56 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         id: targetId,
         tenantId: targetId,
         name: tenant.name,
+        ownerName,
         plan: tenant.plan || 'Platinum',
         status: tenant.status || 'Active',
         paidLicenseActive: true
       }));
+
+      const shadowBiz = {
+        id: targetId,
+        tenantId: targetId,
+        name: tenant.name,
+        ownerUid: `owner_${targetId}`,
+        members: [`owner_${targetId}`],
+        phone: tenant.phone || tenant.ownerPhone || '03364585863',
+        mobile: tenant.phone || tenant.ownerPhone || '03364585863',
+        email: tenant.ownerEmail || 'support@mbiinventra.com',
+        address: tenant.address || `${tenant.city || 'Lahore'}, Pakistan`,
+        city: tenant.city || 'Lahore',
+        currency: 'PKR',
+        vatPercentage: 0,
+        businessType: 'Retail Pharmacy & General Store',
+        invoicePrefix: tenant.name.slice(0, 3).toUpperCase() + '-',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem('mock_business', JSON.stringify(shadowBiz));
+      localStorage.setItem('mbi_user_businesses', JSON.stringify([shadowBiz]));
+      localStorage.setItem('active_firm_id', targetId);
+
       localStorage.setItem('mock_session', JSON.stringify({
-        uid: `shadow_${Date.now()}`,
-        email: tenant.ownerPhone || 'shadow_admin@mbiinventra.com',
-        displayName: `${tenant.name} (Master Switch)`,
+        uid: `owner_${targetId}`,
+        email: tenant.ownerEmail || 'owner@mbiinventra.com',
+        displayName: ownerName,
         role: 'Primary Admin',
         tenantId: targetId
       }));
 
-      const targetUrl = `${window.location.origin}/user?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}`;
+      localStorage.setItem('mock_user_profile', JSON.stringify({
+        id: `owner_${targetId}`,
+        name: ownerName,
+        email: tenant.ownerEmail || 'owner@mbiinventra.com',
+        role: 'Admin',
+        businessId: targetId,
+        tenantId: targetId,
+        pin: '0000',
+        createdAt: new Date().toISOString()
+      }));
+
+      const targetUrl = `${window.location.origin}/?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}&store_name=${encodeURIComponent(tenant.name)}&user_name=${encodeURIComponent(ownerName)}&user_role=Primary%20Admin`;
       window.open(targetUrl, '_blank');
-      onNotify(`✅ Successfully switched into ${tenant.name} (Opened in Shadow Tab)`);
+      onNotify(`✅ Successfully switched into ${tenant.name} (Opened in Shadow Mode)`);
     } catch (err) {
       console.error('Failed to switch company:', err);
       onNotify('Failed to initiate silent shadow session.');

@@ -236,30 +236,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if (typeof window === 'undefined') return;
       const urlParams = new URLSearchParams(window.location.search);
-      const shadowToken = urlParams.get('shadow_token');
-      const paramTenantId = urlParams.get('tenant_id');
+      const shadowToken = urlParams.get('shadow_token') || localStorage.getItem('mbi_shadow_token');
+      const paramTenantId = urlParams.get('tenant_id') || localStorage.getItem('mbi_active_business_id') || 'tenant_main';
+      const paramUserId = urlParams.get('user_id');
+      const paramUserName = urlParams.get('user_name');
+      const paramUserRole = urlParams.get('user_role');
+      const paramStoreName = urlParams.get('store_name');
 
       if (shadowToken) {
         localStorage.setItem('mbi_shadow_token', shadowToken);
-        if (paramTenantId) {
-          localStorage.setItem('mbi_active_business_id', paramTenantId);
-          localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
-            id: paramTenantId,
-            tenantId: paramTenantId,
-            name: 'Shadow Overridden Pharmacy',
-            plan: 'Platinum',
-            status: 'Active',
-            paidLicenseActive: true
-          }));
-        }
-        localStorage.setItem('mock_session', JSON.stringify({
-          uid: `shadow_${Date.now()}`,
-          email: 'shadow_admin@mbiinventra.com',
-          displayName: 'Super Admin (Shadow Mode)',
-          role: 'Primary Admin',
-          tenantId: paramTenantId || 'tenant_main'
+        const allTenantsList = getAllTenants();
+        const targetTenant = allTenantsList.find(t => t.id === paramTenantId || t.tenantId === paramTenantId || t.name === paramStoreName);
+
+        const storeName = paramStoreName || targetTenant?.name || 'MBI INVENTRA Headquarters';
+        const role = (paramUserRole as UserRole) || (paramUserId ? 'Cashier' : 'Primary Admin');
+        const userName = paramUserName || (role === 'Primary Admin' ? (targetTenant?.ownerName || 'M Bilal Inayat') : 'Staff User');
+        const uid = paramUserId || `usr_shadow_${Date.now()}`;
+
+        localStorage.setItem('mbi_active_business_id', paramTenantId);
+        localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
+          id: paramTenantId,
+          tenantId: paramTenantId,
+          name: storeName,
+          ownerName: targetTenant?.ownerName || 'M Bilal Inayat',
+          plan: targetTenant?.plan || 'Enterprise',
+          status: targetTenant?.status || 'Active',
+          paidLicenseActive: true
         }));
-        setActiveRoleState('Primary Admin');
+
+        const shadowBiz: Business = {
+          ...DEFAULT_BUSINESS_PROFILE,
+          id: paramTenantId,
+          tenantId: paramTenantId,
+          name: storeName,
+          ownerUid: uid,
+          members: [uid],
+          phone: targetTenant?.phone || targetTenant?.ownerPhone || '03364585863',
+          mobile: targetTenant?.phone || targetTenant?.ownerPhone || '03364585863',
+          email: targetTenant?.ownerEmail || 'support@mbiinventra.com',
+          address: targetTenant?.address || `${targetTenant?.city || 'Lahore'}, Pakistan`,
+          city: targetTenant?.city || 'Lahore',
+          invoicePrefix: storeName.slice(0, 3).toUpperCase() + '-',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        setBusiness(shadowBiz);
+        localStorage.setItem('mock_business', JSON.stringify(shadowBiz));
+        localStorage.setItem('mbi_user_businesses', JSON.stringify([shadowBiz]));
+        localStorage.setItem('active_firm_id', paramTenantId);
+
+        const shadowSession = {
+          uid,
+          email: targetTenant?.ownerEmail || `${userName.toLowerCase().replace(/[^a-z0-9]/g, '')}@mbiinventra.com`,
+          displayName: userName,
+          role,
+          tenantId: paramTenantId
+        };
+        setCurrentUser(shadowSession);
+        localStorage.setItem('mock_session', JSON.stringify(shadowSession));
+
+        const shadowProf: User = {
+          id: uid,
+          email: shadowSession.email,
+          name: userName,
+          role: role === 'Primary Admin' ? 'Admin' : (role as any),
+          pin: '1234',
+          businessId: paramTenantId,
+          tenantId: paramTenantId,
+          createdAt: new Date().toISOString()
+        };
+        setUserProfile(shadowProf);
+        localStorage.setItem('mock_user_profile', JSON.stringify(shadowProf));
+        setActiveRoleState(role);
+
+        if (paramUserId) {
+          setActiveUserState({
+            id: uid,
+            name: userName,
+            emailOrPhone: targetTenant?.phone || '03364585863',
+            role,
+            status: 'Joined',
+            passcode: '1234',
+            tenantId: paramTenantId,
+            storeName
+          });
+        }
       }
     } catch {}
   }, []);

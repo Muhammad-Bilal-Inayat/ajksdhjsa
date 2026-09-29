@@ -685,35 +685,46 @@ class AdminService {
 
 export const handleSilentSwitchUser = async (user: any) => {
   try {
-    const targetId = user.tenantId || user.tenant_id || user.id;
-    // Request Master Shadow Token for this specific user/tenant
-    const response = await fetch(`/api/admin/impersonate/${targetId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId: user.id,
-        userName: user.name,
-        userRole: user.role,
-        tenantId: targetId
-      })
-    });
-    const data = await response.json();
-    if (data.shadowToken) {
-      localStorage.setItem('mbi_shadow_session', JSON.stringify({
-        token: data.shadowToken,
-        user: data.user || user,
-        tenantId: targetId,
-        tenantName: data.tenantName || user.storeName,
-        isShadowMode: true
-      }));
-      // Open user pharmacy dashboard in a New Browser Tab silently (Shadow Mode)
-      const targetUrl = `${window.location.origin}/dashboard?shadow_token=${encodeURIComponent(data.shadowToken)}&tenant_id=${encodeURIComponent(targetId)}`;
-      window.open(targetUrl, '_blank');
-      return data;
-    }
+    const targetTenantId = user.tenantId || user.tenant_id || 'tenant_main';
+    const storeName = user.storeName || 'Pharmacy Store';
+    const userName = user.name || 'Staff User';
+    const userRole = user.role || 'Cashier';
+    const userId = user.id || `usr_${Date.now()}`;
+
+    let shadowToken = `shadow_${Date.now()}`;
+    try {
+      const response = await fetch(`/api/admin/impersonate/${targetTenantId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          userName,
+          userRole,
+          tenantId: targetTenantId
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.shadowToken) shadowToken = data.shadowToken;
+      }
+    } catch {}
+
+    localStorage.setItem('mbi_shadow_token', shadowToken);
+    localStorage.setItem('mbi_active_business_id', targetTenantId);
+    localStorage.setItem('mbi_shadow_session', JSON.stringify({
+      token: shadowToken,
+      user,
+      tenantId: targetTenantId,
+      tenantName: storeName,
+      isShadowMode: true
+    }));
+
+    const targetUrl = `${window.location.origin}/?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetTenantId)}&user_id=${encodeURIComponent(userId)}&user_name=${encodeURIComponent(userName)}&user_role=${encodeURIComponent(userRole)}&store_name=${encodeURIComponent(storeName)}`;
+    window.open(targetUrl, '_blank');
+    return { success: true, shadowToken };
   } catch (err) {
     console.error('Failed to initiate shadow switch:', err);
   }

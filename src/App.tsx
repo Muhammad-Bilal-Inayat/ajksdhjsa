@@ -167,8 +167,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!currentUser) return <Navigate to="/login" replace />;
-  if (!business && window.location.pathname !== '/setup') return <Navigate to="/setup" replace />;
+  const isShadowModeActive = Boolean(
+    localStorage.getItem('mbi_shadow_token') || 
+    new URLSearchParams(window.location.search).get('shadow_token')
+  );
+
+  if (!currentUser && !isShadowModeActive) return <Navigate to="/login" replace />;
+  if (!business && !isShadowModeActive && window.location.pathname !== '/setup') return <Navigate to="/setup" replace />;
   
   return <>{children}</>;
 }

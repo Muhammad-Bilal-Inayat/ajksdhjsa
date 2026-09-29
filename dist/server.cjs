@@ -4448,7 +4448,7 @@ var adminRouter = (0, import_express2.Router)();
 var syncFile5 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
 var MASTER_PASSWORD2 = process.env.MASTER_PASSWORD || "Ami7788!@";
 var EMERGENCY_RECOVERY_KEY2 = process.env.EMERGENCY_RECOVERY_KEY || "03082003";
-var APP_VERSION = "v4.2.0";
+var APP_VERSION = "v4.2.9";
 var fleetStreamClients = /* @__PURE__ */ new Set();
 function broadcastFleetActivity(activity) {
   const sseData = `data: ${JSON.stringify(activity)}
@@ -9670,8 +9670,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.2.7";
-var RELEASE_NOTES = "Completely Removed All Auto-Reload Listeners for 100% Stable Persistent POS Session";
+var APP_VERSION2 = "4.2.9";
+var RELEASE_NOTES = "Company-Wise 5-PC LAN Multi-Terminal Configuration & Complete Multi-Tenant Data Isolation (v4.2.9)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -11069,7 +11069,9 @@ var apiLimiter = (0, import_express_rate_limit.default)({
 // server.ts
 async function startServer() {
   const app = (0, import_express15.default)();
-  const PORT = Number(process.env.PORT) || 3e3;
+  const rawPort = process.env.PORT || "3000";
+  const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
+  const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
   const syncFile11 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
@@ -13723,7 +13725,9 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   }
-  const server = app.listen(PORT, HOST, () => {
+  const server = isNamedPipe ? app.listen(PORT, () => {
+    console.log(`Server running on pipe/socket: ${PORT} (Node: ${process.version})`);
+  }) : app.listen(PORT, HOST, () => {
     console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);
   });
   process.on("SIGTERM", () => {

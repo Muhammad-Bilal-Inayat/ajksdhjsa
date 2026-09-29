@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.3.6';
-export const RELEASE_NOTES = 'Compare MBI INVENTRA Editions Feature Matrix & User Side Pricing Integration (v4.3.6)';
+export const APP_VERSION = '4.3.7';
+export const RELEASE_NOTES = 'AI Daily Quotas, Page Scroll Stability & Master Limit Overrides (v4.3.7)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

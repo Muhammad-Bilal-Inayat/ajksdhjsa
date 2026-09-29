@@ -71,42 +71,87 @@ export interface LiveChatSessionData {
   messages: LiveChatMessage[];
 }
 
-export function getAssistantPlanLimits(plan?: string): AssistantPlanLimits {
-  const normalized = (plan || 'Trial (15 Days)').toLowerCase();
+export function getAssistantPlanLimits(plan?: string, userId?: string, tenantId?: string): AssistantPlanLimits {
+  const normalized = (plan || 'Trial').toLowerCase();
 
-  if (normalized.includes('enterprise') || normalized.includes('lifetime') || normalized.includes('chain')) {
+  // Check manual server override first
+  if (typeof window !== 'undefined') {
+    try {
+      if (userId) {
+        const userOverride = localStorage.getItem(`mbi_ai_override_limit_${userId}`);
+        if (userOverride) {
+          const parsed = parseInt(userOverride, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            return {
+              planName: 'Custom Overridden Limit',
+              dailyMessageLimit: parsed,
+              hasAdvancedModules: true
+            };
+          }
+        }
+      }
+      if (tenantId) {
+        const tenantOverride = localStorage.getItem(`mbi_ai_override_limit_${tenantId}`);
+        if (tenantOverride) {
+          const parsed = parseInt(tenantOverride, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            return {
+              planName: 'Tenant Custom Limit',
+              dailyMessageLimit: parsed,
+              hasAdvancedModules: true
+            };
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 1. Enterprise (Platinum): 200 daily messages
+  if (normalized.includes('enterprise') || normalized.includes('platinum') || normalized.includes('vip')) {
     return {
-      planName: 'Enterprise',
-      dailyMessageLimit: 500,
+      planName: 'Enterprise (Platinum)',
+      dailyMessageLimit: 200,
       hasAdvancedModules: true
     };
   }
 
-  if (normalized.includes('business') || normalized.includes('pro') || normalized.includes('pharmacy pro') || normalized.includes('standard')) {
+  // 2. Business (Gold): 50 daily messages
+  if (normalized.includes('business') || normalized.includes('gold')) {
     return {
-      planName: 'Business / Pro',
-      dailyMessageLimit: 100,
+      planName: 'Business (Gold)',
+      dailyMessageLimit: 50,
       hasAdvancedModules: true
     };
   }
 
-  // Basic / Free / Trial default
+  // 3. Basic (Silver) & Trial / Free: 20 daily messages
   return {
-    planName: 'Basic / Free',
-    dailyMessageLimit: 50,
+    planName: normalized.includes('basic') || normalized.includes('silver') ? 'Basic (Silver)' : 'Trial / Guest',
+    dailyMessageLimit: 20,
     hasAdvancedModules: false
   };
 }
 
 export function getTodayUsageKey(userId: string): string {
   const today = new Date().toISOString().slice(0, 10);
-  return `mbi_ai_usage_${userId}_${today}`;
+  const cleanId = userId || getGuestAiId();
+  return `mbi_ai_usage_${cleanId}_${today}`;
 }
 
-export function getTodayMessageCount(userId: string): number {
+export function getGuestAiId(): string {
+  if (typeof window === 'undefined') return 'guest_default';
+  let guestId = localStorage.getItem('mbi_ai_guest_id');
+  if (!guestId) {
+    guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    localStorage.setItem('mbi_ai_guest_id', guestId);
+  }
+  return guestId;
+}
+
+export function getTodayMessageCount(userId?: string): number {
   if (typeof window === 'undefined') return 0;
   try {
-    const key = getTodayUsageKey(userId);
+    const key = getTodayUsageKey(userId || getGuestAiId());
     const count = parseInt(localStorage.getItem(key) || '0', 10);
     return isNaN(count) ? 0 : count;
   } catch (e) {
@@ -114,16 +159,33 @@ export function getTodayMessageCount(userId: string): number {
   }
 }
 
-export function incrementTodayMessageCount(userId: string): number {
+export function incrementTodayMessageCount(userId?: string): number {
   if (typeof window === 'undefined') return 1;
   try {
-    const key = getTodayUsageKey(userId);
+    const key = getTodayUsageKey(userId || getGuestAiId());
     const count = getTodayMessageCount(userId) + 1;
     localStorage.setItem(key, count.toString());
     return count;
   } catch (e) {
     return 1;
   }
+}
+
+export function resetUserAiUsage(userId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = getTodayUsageKey(userId);
+    localStorage.removeItem(key);
+    window.dispatchEvent(new CustomEvent('mbi-ai-quota-updated', { detail: { userId, count: 0 } }));
+  } catch {}
+}
+
+export function setUserAiCustomLimit(userId: string, limit: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(`mbi_ai_override_limit_${userId}`, limit.toString());
+    window.dispatchEvent(new CustomEvent('mbi-ai-quota-updated', { detail: { userId, customLimit: limit } }));
+  } catch {}
 }
 
 export function isHumanSupportRequested(prompt: string): boolean {

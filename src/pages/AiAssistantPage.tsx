@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bot, 
   Sparkles, 
@@ -22,6 +22,10 @@ export const AiAssistantPage: React.FC = () => {
   const { business, currentUser, tenant } = useAuth();
   const { plan, isGold, isPlatinum } = useTenantPlan();
   const [activeQuestion, setActiveQuestion] = useState<string>('');
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
 
   return (
     <div className="p-3 sm:p-5 lg:p-6 max-w-7xl mx-auto space-y-6 antialiased tracking-tight">

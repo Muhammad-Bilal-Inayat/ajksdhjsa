@@ -32,6 +32,12 @@ import {
   Layers,
   ChevronRight
 } from 'lucide-react';
+import { 
+  resetUserAiUsage, 
+  setUserAiCustomLimit, 
+  getTodayMessageCount, 
+  getAssistantPlanLimits 
+} from '../../lib/assistantKnowledgeService';
 
 interface KeyHealthMetric {
   key: string;
@@ -614,6 +620,18 @@ export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = (
             <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono">
               {analytics?.totalClicks || 0}
             </span>
+          </button>
+
+          <button
+            onClick={() => setHubTab('quotas')}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer ${
+              hubTab === 'quotas'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-300" />
+            <span>AI Quotas &amp; User Limits</span>
           </button>
 
           <button
@@ -1391,6 +1409,207 @@ export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = (
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB: AI QUOTAS & USER LIMITS MANAGEMENT */}
+      {/* ========================================================= */}
+      {hubTab === 'quotas' && (
+        <div className="space-y-6">
+          {/* 1. Plan Quota Matrix Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Trial / Guest</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Free / Home</span>
+              </div>
+              <div className="text-2xl font-black text-slate-900 dark:text-white mt-2 flex items-baseline gap-1">
+                20 <span className="text-xs font-semibold text-slate-500">msgs / day</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">1 browser/device per day. Guaranteed zero errors for new visitors.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Silver Basic</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Basic Tier</span>
+              </div>
+              <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-2 flex items-baseline gap-1">
+                20 <span className="text-xs font-semibold text-slate-500">msgs / day</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Daily AI assistance for essential pharmacy queries.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Gold Business</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">Most Popular</span>
+              </div>
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-2 flex items-baseline gap-1">
+                50 <span className="text-xs font-semibold text-slate-500">msgs / day</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Higher message capacity for active pharmacy operations.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">Platinum Enterprise</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300">Unlimited Hub</span>
+              </div>
+              <div className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-2 flex items-baseline gap-1">
+                200 <span className="text-xs font-semibold text-slate-500">msgs / day</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">High-volume multi-branch & multi-terminal heavy usage.</p>
+            </div>
+          </div>
+
+          {/* 2. Interactive User Quota Control Table */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-500" />
+                  <span>Live User AI Quotas &amp; Limit Override Control</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  View and manually reset usage to 0 or increase daily message limits for any pharmacy store or user.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search tenant / user..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 pr-3 py-1.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Quota Table */}
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="py-3 px-4">User / Pharmacy Store</th>
+                    <th className="py-3 px-4">Active Plan</th>
+                    <th className="py-3 px-4">Today Used</th>
+                    <th className="py-3 px-4">Daily Quota Limit</th>
+                    <th className="py-3 px-4 text-right">Master Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {sessions.length > 0 ? (
+                    sessions
+                      .filter(s => 
+                        !searchQuery || 
+                        s.userName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                        s.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        s.userId.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map((sess) => {
+                        const userUsage = getTodayMessageCount(sess.userId);
+                        const userLimits = getAssistantPlanLimits(sess.plan, sess.userId, sess.tenantId);
+                        const isOverridden = userLimits.isCustomOverride;
+
+                        return (
+                          <tr key={sess.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-slate-900 dark:text-white">{sess.storeName || sess.userName}</div>
+                              <div className="text-[11px] text-slate-400 font-mono">{sess.userId} • {sess.userEmail || sess.userPhone || 'No contact'}</div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                {sess.plan || 'Trial'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`font-mono font-bold ${
+                                userUsage >= userLimits.dailyMessageLimit
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : 'text-slate-800 dark:text-slate-200'
+                              }`}>
+                                {userUsage} msgs
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                  {userLimits.dailyMessageLimit} / day
+                                </span>
+                                {isOverridden && (
+                                  <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                    CUSTOM OVERRIDE
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    resetUserAiUsage(sess.userId);
+                                    if (onNotify) onNotify(`Reset today usage for ${sess.userName || sess.storeName} to 0!`);
+                                    fetchAllHubData();
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-[11px] font-bold transition cursor-pointer border border-emerald-200 dark:border-emerald-800/60"
+                                  title="Reset today usage count to 0"
+                                >
+                                  Reset to 0
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const custom = prompt(`Set custom daily message limit for ${sess.userName || sess.storeName}:`, '100');
+                                    if (custom && !isNaN(Number(custom))) {
+                                      setUserAiCustomLimit(sess.userId, Number(custom));
+                                      if (onNotify) onNotify(`Set daily limit for ${sess.userName} to ${custom} msgs/day!`);
+                                      fetchAllHubData();
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-[11px] font-bold transition cursor-pointer border border-indigo-200 dark:border-indigo-800/60"
+                                  title="Set Custom Daily Limit"
+                                >
+                                  Set Limit
+                                </button>
+
+                                {isOverridden && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setUserAiCustomLimit(sess.userId, null);
+                                      if (onNotify) onNotify(`Restored default plan limit for ${sess.userName}!`);
+                                      fetchAllHubData();
+                                    }}
+                                    className="px-2 py-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 text-[11px] font-bold transition cursor-pointer"
+                                    title="Restore plan default limit"
+                                  >
+                                    Restore Default
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-slate-400">
+                        No active user sessions found. Open AI Guide to generate activity.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

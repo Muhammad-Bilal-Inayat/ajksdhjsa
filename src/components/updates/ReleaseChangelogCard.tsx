@@ -37,10 +37,40 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.6-stable',
+    version: 'v4.3.7-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'AI Daily Quotas (Enterprise: 200, Business: 50, Basic: 20, Trial/Guest: 20 msgs/day), Scroll Jump Fixes & Server Live Limit Overrides.',
+    features: [
+      {
+        text: 'Tier-Specific Daily AI Message Quotas: Enterprise = 200 msgs/day, Business = 50 msgs/day, Basic = 20 msgs/day, Trial & Home Guest = 20 msgs/day.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Zero-Error Guest Quota Architecture: Unauthenticated home page users get 20 free daily questions per device with zero limit errors on first visit.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Zero Scroll Jumping UI/UX: Resolved page scroll down bug on mount; chat scroll strictly isolated to internal conversation container.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'Super Admin Live AI Quota Controls: Master Hub station (/server) can instantly reset usage to 0 or grant custom daily message overrides per store.',
+        type: 'feature',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.6-stable',
+    releaseDate: 'September 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Compare MBI INVENTRA Editions Feature Matrix & Integrated User Side Pricing Hub.',
     features: [

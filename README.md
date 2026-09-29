@@ -1,7 +1,19 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.3.6-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.7-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
+
+---
+
+## 🌟 What's New in v4.3.7
+- **AI Daily Message Quota Governance:**
+  - **Silver Basic Plan:** 20 questions/day.
+  - **Gold Business Plan:** 50 questions/day.
+  - **Platinum Enterprise Plan:** 200 questions/day.
+  - **Trial & Unauthenticated Guest Visitors (Home Page):** 20 free questions/day per browser/device.
+- **Zero-Error Guest Architecture:** Built-in date-keyed local device ID (`getGuestAiId()`) guarantees brand-new visitors never hit false 0-quota limit errors on first visit.
+- **Page Scroll Jump Resolution:** Eliminated disruptive page auto-scrolling on initial component mount and chat update; chat auto-scroll is strictly contained within its dedicated scrollable container, and page always initializes cleanly from top.
+- **Super Admin AI Quotas & Limit Override Control:** Added dedicated AI Quotas control tab in `/server` (Master Station) allowing Super Admin to instantly reset usage count to 0, increase daily limits, or grant custom quotas for any pharmacy or user in real time.
 
 ---
 

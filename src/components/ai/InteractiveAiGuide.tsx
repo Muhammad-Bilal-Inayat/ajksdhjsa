@@ -50,8 +50,9 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
   const { rawPlan } = useTenantPlan();
 
   const activeUserId = currentUser?.uid || 'usr_client';
-  const effectivePlan = rawPlan || (tenant as any)?.plan || (business as any)?.plan || 'Business Gold';
-  const limits = getAssistantPlanLimits(effectivePlan);
+  const tenantId = tenant?.tenantId || business?.id || 'tenant-01';
+  const effectivePlan = rawPlan || (tenant as any)?.plan || (business as any)?.plan || 'Trial';
+  const limits = getAssistantPlanLimits(effectivePlan, activeUserId, tenantId);
 
   // Persistent Session ID
   const [sessionId] = useState<string>(() => {
@@ -74,19 +75,42 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
       id: 'init_welcome',
       role: 'assistant',
       senderName: 'MBI AI Guide',
-      text: `Assalam-o-Alaikum ${currentUser?.displayName || currentUser?.email || 'Partner'}! Main MBI AI Guide & Assistant hoon.\n\nAap MBI INVENTRA ke sabhi features (POS Billing, FEFO Batch Expiry, Customer & Supplier Ledgers, Multi-terminal Sync, Thermal Receipts) ke baare me kisi bhi zubaan (Urdu, English, Roman Urdu, Arabic) me sawal pooch sakte hain!`,
+      text: `Assalam-o-Alaikum ${currentUser?.displayName || currentUser?.email || 'Partner'}! Main MBI AI Guide & Knowledge Assistant hoon.\n\nAap MBI INVENTRA ke sabhi features (0.2s POS Rapid Billing, FEFO Batch Expiry, Customer & Supplier Khata Ledgers, Multi-terminal Sync, WhatsApp Auto-Gateway) ke baare me kisi bhi zubaan (Urdu, English, Roman Urdu, Arabic) me sawal pooch sakte hain!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
 
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll
+  // Listen to live quota reset/increments from server
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const handleQuotaUpdate = () => {
+      setTodayCount(getTodayMessageCount(activeUserId));
+    };
+    window.addEventListener('mbi-ai-quota-updated', handleQuotaUpdate);
+    window.addEventListener('storage', handleQuotaUpdate);
+    return () => {
+      window.removeEventListener('mbi-ai-quota-updated', handleQuotaUpdate);
+      window.removeEventListener('storage', handleQuotaUpdate);
+    };
+  }, [activeUserId]);
+
+  // Contained Auto-scroll inside chat box only — prevents window from jumping down
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (chatScrollContainerRef.current) {
+      chatScrollContainerRef.current.scrollTo({
+        top: chatScrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [chatHistory, loading]);
 
   // Handle external prompt when user clicks a topic chip from PopularTopicsCard
@@ -273,13 +297,13 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
     <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col h-[650px] overflow-hidden transition-colors duration-200 ${className}`}>
       
       {/* 1. Header Bar: Polished Dual Theme */}
-      <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 transition-colors">
+      <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 transition-colors">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700/60 flex items-center justify-center font-black text-xs shadow-xs">
+          <div className="w-9 h-9 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-700/60 flex items-center justify-center font-black text-xs shadow-xs shrink-0">
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-1.5">
                 <span>Interactive AI Guide</span>
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -287,9 +311,18 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
               <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                 {sessionStatus === 'human_active' ? 'Human Active' : 'Multilingual'}
               </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                messagesRemaining > 5
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : messagesRemaining > 0
+                  ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                  : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 animate-pulse'
+              }`}>
+                {effectivePlan} ({messagesRemaining}/{limits.dailyMessageLimit} msgs today)
+              </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Ask in Urdu, Roman Urdu, English, Hindi, Arabic • {messagesRemaining} msgs remaining today
+              Ask in Urdu, Roman Urdu, English, Hindi, Arabic • Instant AI answers 24/7
             </p>
           </div>
         </div>
@@ -307,7 +340,10 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
       </div>
 
       {/* 2. Chat Area: Soft Dual Theme */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-950/50 transition-colors">
+      <div 
+        ref={chatScrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-slate-950/50 transition-colors scroll-smooth"
+      >
         {chatHistory.map((m) => {
           const isUser = m.role === 'user';
           const isHumanAgent = m.role === 'human_agent';
@@ -376,7 +412,6 @@ export const InteractiveAiGuide: React.FC<InteractiveAiGuideProps> = ({
             <span>MBI AI Guide is generating response...</span>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* 3. Input Box: Dual-Theme */}

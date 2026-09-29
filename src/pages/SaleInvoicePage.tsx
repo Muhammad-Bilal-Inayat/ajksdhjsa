@@ -69,9 +69,9 @@ export const SaleInvoicePage: React.FC = () => {
 
   // Grid Items State
   const [items, setItems] = useState<GridRowItem[]>(() => [
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
   ]);
 
   // Financial Bottom Totals
@@ -151,7 +151,7 @@ export const SaleInvoicePage: React.FC = () => {
   const handleAddRow = () => {
     setItems(prev => [
       ...prev,
-      { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+      { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
     ]);
   };
 
@@ -336,8 +336,8 @@ export const SaleInvoicePage: React.FC = () => {
       if (resetAfter) {
         setInvoiceNumber(`INV-${Date.now().toString().slice(-6)}`);
         setItems([
-          { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-          { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+          { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+          { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
         ]);
       } else {
         navigate('/sale/invoices');

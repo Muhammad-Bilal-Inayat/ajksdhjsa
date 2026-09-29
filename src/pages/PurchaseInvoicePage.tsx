@@ -72,10 +72,10 @@ export const PurchaseInvoicePage: React.FC = () => {
 
   // Grid Items State (Init with 4 clean rows)
   const [items, setItems] = useState<GridRowItem[]>(() => [
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-    { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+    { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
   ]);
 
   // Additional Inward Attachments & Notes
@@ -164,7 +164,7 @@ export const PurchaseInvoicePage: React.FC = () => {
   const handleAddRow = () => {
     setItems(prev => [
       ...prev,
-      { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+      { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
     ]);
   };
 
@@ -333,8 +333,8 @@ export const PurchaseInvoicePage: React.FC = () => {
       if (resetAfter) {
         setBillNumber(`PUR-${Date.now().toString().slice(-6)}`);
         setItems([
-          { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 },
-          { tempId: uuidv4(), name: '', quantity: 1, unit: 'Box', pricePerUnit: 0, total: 0 }
+          { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 },
+          { tempId: uuidv4(), name: '', quantity: 0, unit: 'Box', pricePerUnit: 0, total: 0 }
         ]);
         setDescription('');
       } else {

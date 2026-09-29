@@ -96,7 +96,7 @@ const createEmptyPurchaseRow = (): PurchaseItemRow => ({
   expiryDate: '',
   mfgDate: '',
   mrp: 0,
-  quantity: 1,
+  quantity: 0,
   freeQuantity: 0,
   discountPercentage: 0,
   unit: 'Box',
@@ -596,7 +596,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
 
   const handleAddNewRow = (focusNewRow: boolean = true) => {
     if (!currentTab) return;
-    const newRow = recalculateRow({ quantity: 1, unit: 'Box', pricePerUnit: 0, mrp: 0, total: 0 });
+    const newRow = recalculateRow({ quantity: 0, unit: 'Box', pricePerUnit: 0, mrp: 0, total: 0 });
     const newItems = [...currentTab.items, newRow];
     updateCurrentTab({ items: newItems });
 

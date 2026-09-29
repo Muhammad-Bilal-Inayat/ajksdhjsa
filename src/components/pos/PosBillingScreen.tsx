@@ -45,9 +45,9 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
 
   // Initial 3 Clean Empty Rows
   const [items, setItems] = useState<PosInvoiceRowItem[]>(() => [
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 },
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 },
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 }
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 },
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 },
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', unitPrice: 0, discount: 0, total: 0 }
   ]);
 
   useEffect(() => {

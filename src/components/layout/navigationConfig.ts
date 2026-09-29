@@ -272,9 +272,6 @@ export function getFilteredNavigation(plan: PlanTier, tenantId?: string): NavIte
     .map(item => {
       if (!item.subItems) return item;
       const filteredSubs = item.subItems.filter(sub => {
-        if (sub.path === '/top-products' || sub.label === 'Top Products') {
-          return plan === 'gold' || plan === 'platinum';
-        }
         if (sub.requiredPlan && !isPlanSufficient(plan, sub.requiredPlan)) {
           return false;
         }

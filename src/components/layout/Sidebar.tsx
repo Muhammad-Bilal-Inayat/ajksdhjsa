@@ -432,10 +432,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           if (sub.label.includes('Purchase Order') && !settings.general.salePurchaseOrder && !isOwner) return false;
           if (sub.label.includes('Delivery Challan') && !settings.general.deliveryChallan && !isOwner) return false;
 
-          if (sub.path === '/top-products' || sub.label === 'Top Products') {
-            if (activePlanTier === 'silver' || activePlanTier === 'trial') return false;
-          }
-
           if (sub.requiredPlan && !isPlanSufficient(activePlanTier, sub.requiredPlan)) {
             return false;
           }

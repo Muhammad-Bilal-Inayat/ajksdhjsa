@@ -59,9 +59,9 @@ export const PurchaseBillModal: React.FC<PurchaseBillModalProps> = ({
 
   // Items State (Start with 3 clean rows or initial order items)
   const [items, setItems] = useState<PurchaseBillItem[]>(() => [
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 },
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 },
-    { id: uuidv4(), name: '', quantity: 1, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 },
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 },
+    { id: uuidv4(), name: '', quantity: 0, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }
   ]);
 
   // Load suppliers and catalog
@@ -149,7 +149,7 @@ export const PurchaseBillModal: React.FC<PurchaseBillModalProps> = ({
   const handleDeleteItem = (index: number) => {
     setItems(prev => {
       if (prev.length <= 1) {
-        return [{ id: uuidv4(), name: '', quantity: 1, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }];
+        return [{ id: uuidv4(), name: '', quantity: 0, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }];
       }
       return prev.filter((_, idx) => idx !== index);
     });
@@ -159,7 +159,7 @@ export const PurchaseBillModal: React.FC<PurchaseBillModalProps> = ({
     const newId = uuidv4();
     setItems(prev => [
       ...prev,
-      { id: newId, name: '', quantity: 1, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }
+      { id: newId, name: '', quantity: 0, unit: 'BOX', purchasePrice: 0, salePrice: 0, total: 0 }
     ]);
 
     if (focusNewRow) {

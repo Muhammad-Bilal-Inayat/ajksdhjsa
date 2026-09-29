@@ -43,6 +43,8 @@ export const SortableDashboardWidget: React.FC<SortableDashboardWidgetProps> = R
 
   const positionNumber = index + 1;
 
+  if (!children) return null;
+
   return (
     <div
       ref={setNodeRef}

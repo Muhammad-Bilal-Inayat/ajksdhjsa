@@ -109,7 +109,7 @@ const createEmptySaleRows = () => Array.from({ length: 5 }).map(() => ({
   name: '',
   batchNumber: '',
   expiryDate: '',
-  quantity: 1,
+  quantity: 0,
   unit: 'Box',
   pricePerUnit: 0,
   sellingPrice: 0,
@@ -167,7 +167,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const [lightningQuery, setLightningQuery] = useState('');
   const [lightningResults, setLightningResults] = useState<Medicine[]>([]);
   const [lightningSelectedMed, setLightningSelectedMed] = useState<Medicine | null>(null);
-  const [lightningQty, setLightningQty] = useState<number>(1);
+  const [lightningQty, setLightningQty] = useState<number>(0);
   const [lightningUnit, setLightningUnit] = useState<string>('Box');
   const [lightningPrice, setLightningPrice] = useState<number>(0);
   const [lightningHsn, setLightningHsn] = useState('');
@@ -1075,7 +1075,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       tempId: uuidv4(),
       name: '',
       batchNumber: '',
-      quantity: 1,
+      quantity: 0,
       unit: 'Box',
       pricePerUnit: 0,
       sellingPrice: 0,
@@ -2888,7 +2888,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                           items: [{
                             tempId: `item-${Date.now()}`,
                             name: '',
-                            quantity: 1,
+                            quantity: 0,
                             pricePerUnit: 0,
                             sellingPrice: 0,
                             discountPercentage: 0,
@@ -3477,7 +3477,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                               }
                             }
                           }}
-                          placeholder="1"
+                          placeholder="0"
                           className="w-16 px-1 py-1 bg-white border border-slate-200 rounded text-xs text-center font-bold focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         />
                       </td>

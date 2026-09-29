@@ -151,6 +151,8 @@ export const PLAN_FEATURES = {
     'backup_restore',
     'shift_management',
     'notes_register',
+    'top_products_analytics',
+    'top_products',
   ],
 
   BUSINESS: [
@@ -420,8 +422,8 @@ export const ROUTE_PLAN_REQUIREMENTS: Array<{ prefix: string; requiredTier: Plan
   { prefix: '/sync-health', requiredTier: 'ENTERPRISE', label: 'Sync Health & Server Diagnostics', featureKey: 'server_diagnostics' },
   { prefix: '/sync/health', requiredTier: 'ENTERPRISE', label: 'Sync Health & Server Diagnostics', featureKey: 'server_diagnostics' },
 
-  // Business+ Routes
-  { prefix: '/top-products', requiredTier: 'BUSINESS', label: 'Top Products Analytics', featureKey: 'top_products_analytics' },
+  // Basic+ Routes
+  { prefix: '/top-products', requiredTier: 'BASIC', label: 'Top Products Analytics', featureKey: 'top_products_analytics' },
   { prefix: '/shortage-registry', requiredTier: 'BUSINESS', label: 'Shortage & Lost Demand Registry', featureKey: 'shortage_registry' },
   { prefix: '/shortages', requiredTier: 'BUSINESS', label: 'Shortage & Lost Demand Registry', featureKey: 'shortage_registry' },
   { prefix: '/shortage', requiredTier: 'BUSINESS', label: 'Shortage & Lost Demand Registry', featureKey: 'shortage_registry' },

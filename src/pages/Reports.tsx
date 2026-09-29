@@ -2520,14 +2520,14 @@ export const Reports: React.FC = () => {
             </div>
           </div>
 
-          {/* ================= SUMMARY STAT METRICS CARDS (EXACT MATCH TO SCREENSHOTS) ================= */}
+          {/* ================= SUMMARY STAT METRICS CARDS (SINGLE BALANCED ROW) ================= */}
           {(activeReportId === 'sale' || activeReportId === 'purchase') && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 sm:flex-row items-center gap-2 sm:gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-2">
               {/* Paid Box (Mint Green #dcfce7 / #a7f3d0) */}
               <button
                 type="button"
                 onClick={() => setStatusFilter(prev => prev === 'PAID' ? 'ALL' : 'PAID')}
-                className={`w-full text-left bg-[#dcfce7] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
+                className={`flex-1 w-full sm:w-auto text-left bg-[#dcfce7] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
                   statusFilter === 'PAID' ? 'border-emerald-600 ring-2 ring-emerald-500 scale-[1.01]' : 'border-emerald-300/80 hover:border-emerald-400'
                 }`}
                 title="Click to filter Paid records"
@@ -2544,13 +2544,13 @@ export const Reports: React.FC = () => {
               </button>
 
               {/* Plus Symbol */}
-              <div className="text-lg font-black text-slate-400 select-none hidden sm:block text-center">+</div>
+              <div className="text-xl font-black text-slate-400 select-none hidden sm:block shrink-0 text-center px-1">+</div>
 
               {/* Unpaid Box (Light Blue #e0f2fe / #bae6fd) */}
               <button
                 type="button"
                 onClick={() => setStatusFilter(prev => prev === 'UNPAID' ? 'ALL' : 'UNPAID')}
-                className={`w-full text-left bg-[#e0f2fe] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
+                className={`flex-1 w-full sm:w-auto text-left bg-[#e0f2fe] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
                   statusFilter === 'UNPAID' ? 'border-blue-600 ring-2 ring-blue-500 scale-[1.01]' : 'border-blue-300/80 hover:border-blue-400'
                 }`}
                 title="Click to filter Unpaid records"
@@ -2567,13 +2567,13 @@ export const Reports: React.FC = () => {
               </button>
 
               {/* Equals Symbol */}
-              <div className="text-lg font-black text-slate-400 select-none hidden sm:block text-center">=</div>
+              <div className="text-xl font-black text-slate-400 select-none hidden sm:block shrink-0 text-center px-1">=</div>
 
               {/* Total Box (Light Peach / Yellow #fed7aa / #fef08a) */}
               <button
                 type="button"
                 onClick={() => setStatusFilter('ALL')}
-                className={`w-full text-left bg-[#fed7aa] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
+                className={`flex-1 w-full sm:w-auto text-left bg-[#fed7aa] border rounded-xl p-2.5 sm:p-3.5 shadow-2xs transition-all cursor-pointer ${
                   statusFilter === 'ALL' ? 'border-amber-600 ring-2 ring-amber-400' : 'border-amber-300/80 hover:border-amber-400'
                 }`}
                 title="Click to view all records"

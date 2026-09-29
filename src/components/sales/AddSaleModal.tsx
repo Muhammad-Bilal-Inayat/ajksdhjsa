@@ -2614,147 +2614,186 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                   <span className="text-[11px] text-amber-800 font-medium">Warranty fields & auto 15% discount active</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {/* Warranty Discount Field Section */}
-                  <div className="bg-amber-100/90 p-2.5 rounded-xl border border-amber-300/90 flex flex-col justify-center">
-                    <label className="text-[11px] font-bold text-amber-950 block mb-1 flex items-center justify-between">
-                      <span>Warranty Discount (%)</span>
-                      <span className="text-[10px] bg-amber-700 text-white px-1.5 py-0.2 rounded font-black">Auto 15%</span>
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={currentTab.discountPercentage !== undefined ? currentTab.discountPercentage : 15}
-                          onChange={(e) => handleDiscountPercentChange(parseFloat(e.target.value) || 0)}
-                          className="w-full px-2.5 py-1.5 bg-white border border-amber-400 rounded-lg text-xs font-black text-amber-900 focus:ring-2 focus:ring-amber-500 font-mono pr-6"
-                        />
-                        <span className="absolute right-2 top-1.5 text-xs font-bold text-amber-800">%</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-xs font-black text-amber-900 font-mono block">
-                          -Rs. {(currentTab.discountAmount || Math.round((rawSubtotal * (currentTab.discountPercentage ?? 15)) / 100)).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                {(() => {
+                  const wConfig = settings.transaction?.warrantyFieldsConfig || {
+                    showDiscount: true,
+                    defaultDiscountPct: 15,
+                    showStartDate: true,
+                    showExpiryDate: true,
+                    showTinNtn: true,
+                    defaultTinNtn: 'TIN-982738-1',
+                    showClaimContact: true,
+                    defaultClaimContact: 'support@mbiinventra.com / 0336-4585863',
+                    showTermsConditions: true,
+                    defaultTermsConditions: 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'
+                  };
 
-                  {/* Configurable Warranty Custom Fields */}
-                  {((settings.transaction?.warrantyCustomFields || settings.item?.warrantyCustomFields || [
-                    { id: 'wcf-1', name: 'Warranty Type', enabled: true, defaultValue: 'Replacement' },
-                    { id: 'wcf-2', name: 'Warranty Period', enabled: true, defaultValue: '1 Year' }
-                  ]).filter(f => f.enabled !== false)).map(field => {
-                    const isTypeField = field.name.toLowerCase().includes('type');
-                    const isPeriodField = field.name.toLowerCase().includes('period') || field.name.toLowerCase().includes('duration');
-                    const currentValue = currentTab.warrantyCustomFieldValues?.[field.id] ?? (
-                      isTypeField ? (currentTab.warrantyType || field.defaultValue || 'Replacement') :
-                      isPeriodField ? (currentTab.warrantyPeriod || field.defaultValue || '1 Year') :
-                      (field.defaultValue || '')
-                    );
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {/* Warranty Discount Field Section (Configurable On/Off in Settings) */}
+                        {wConfig.showDiscount !== false && (
+                          <div className="bg-amber-100/90 p-2.5 rounded-xl border border-amber-300/90 flex flex-col justify-center">
+                            <label className="text-[11px] font-bold text-amber-950 block mb-1 flex items-center justify-between">
+                              <span>Warranty Discount (%)</span>
+                              <span className="text-[10px] bg-amber-700 text-white px-1.5 py-0.2 rounded font-black">
+                                Auto {wConfig.defaultDiscountPct ?? 15}%
+                              </span>
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  value={currentTab.discountPercentage !== undefined ? currentTab.discountPercentage : (wConfig.defaultDiscountPct ?? 15)}
+                                  onChange={(e) => handleDiscountPercentChange(parseFloat(e.target.value) || 0)}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-amber-400 rounded-lg text-xs font-black text-amber-900 focus:ring-2 focus:ring-amber-500 font-mono pr-6"
+                                />
+                                <span className="absolute right-2 top-1.5 text-xs font-bold text-amber-800">%</span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-xs font-black text-amber-900 font-mono block">
+                                  -Rs. {(currentTab.discountAmount || Math.round((rawSubtotal * (currentTab.discountPercentage ?? (wConfig.defaultDiscountPct ?? 15))) / 100)).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-                    return (
-                      <div key={field.id}>
-                        <label className="text-[11px] font-bold text-slate-700 block mb-1">{field.name}</label>
-                        {isTypeField ? (
-                          <select
-                            value={currentValue}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              updateCurrentTab({
-                                warrantyType: val as any,
-                                warrantyCustomFieldValues: {
-                                  ...(currentTab.warrantyCustomFieldValues || {}),
-                                  [field.id]: val
-                                }
-                              });
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                          >
-                            <option value="Replacement">Replacement</option>
-                            <option value="Repair">Repair</option>
-                            <option value="Service">Service</option>
-                            <option value="Checking Warranty">Checking Warranty</option>
-                            <option value="Comprehensive">Comprehensive</option>
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={currentValue}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const updates: Partial<SaleTabState> = {
-                                warrantyCustomFieldValues: {
-                                  ...(currentTab.warrantyCustomFieldValues || {}),
-                                  [field.id]: val
-                                }
-                              };
-                              if (isPeriodField) updates.warrantyPeriod = val;
-                              updateCurrentTab(updates);
-                            }}
-                            placeholder={field.placeholder || `Enter ${field.name}`}
-                            className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                          />
+                        {/* Configurable Warranty Custom Fields */}
+                        {((settings.transaction?.warrantyCustomFields || settings.item?.warrantyCustomFields || [
+                          { id: 'wcf-1', name: 'Warranty Type', enabled: true, defaultValue: 'Replacement' },
+                          { id: 'wcf-2', name: 'Warranty Period', enabled: true, defaultValue: '1 Year' }
+                        ]).filter(f => f.enabled !== false)).map(field => {
+                          const isTypeField = field.name.toLowerCase().includes('type');
+                          const isPeriodField = field.name.toLowerCase().includes('period') || field.name.toLowerCase().includes('duration');
+                          const currentValue = currentTab.warrantyCustomFieldValues?.[field.id] ?? (
+                            isTypeField ? (currentTab.warrantyType || field.defaultValue || 'Replacement') :
+                            isPeriodField ? (currentTab.warrantyPeriod || field.defaultValue || '1 Year') :
+                            (field.defaultValue || '')
+                          );
+
+                          return (
+                            <div key={field.id}>
+                              <label className="text-[11px] font-bold text-slate-700 block mb-1">{field.name}</label>
+                              {isTypeField ? (
+                                <select
+                                  value={currentValue}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateCurrentTab({
+                                      warrantyType: val as any,
+                                      warrantyCustomFieldValues: {
+                                        ...(currentTab.warrantyCustomFieldValues || {}),
+                                        [field.id]: val
+                                      }
+                                    });
+                                  }}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                                >
+                                  <option value="Replacement">Replacement</option>
+                                  <option value="Repair">Repair</option>
+                                  <option value="Service">Service</option>
+                                  <option value="Checking Warranty">Checking Warranty</option>
+                                  <option value="Comprehensive">Comprehensive</option>
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={currentValue}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const updates: Partial<SaleTabState> = {
+                                      warrantyCustomFieldValues: {
+                                        ...(currentTab.warrantyCustomFieldValues || {}),
+                                        [field.id]: val
+                                      }
+                                    };
+                                    if (isPeriodField) updates.warrantyPeriod = val;
+                                    updateCurrentTab(updates);
+                                  }}
+                                  placeholder={field.placeholder || `Enter ${field.name}`}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Warranty Start Date (Configurable) */}
+                        {wConfig.showStartDate !== false && (
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Start Date</label>
+                            <input
+                              type="date"
+                              value={currentTab.warrantyStartDate || new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => updateCurrentTab({ warrantyStartDate: e.target.value })}
+                              className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
+                        )}
+
+                        {/* Warranty Expiry Date (Configurable) */}
+                        {wConfig.showExpiryDate !== false && (
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Expiry Date</label>
+                            <input
+                              type="date"
+                              value={currentTab.warrantyEndDate || ''}
+                              onChange={(e) => updateCurrentTab({ warrantyEndDate: e.target.value })}
+                              className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                            />
+                          </div>
                         )}
                       </div>
-                    );
-                  })}
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Start Date</label>
-                    <input
-                      type="date"
-                      value={currentTab.warrantyStartDate || new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => updateCurrentTab({ warrantyStartDate: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
+                      {/* Secondary Info Grid */}
+                      {(wConfig.showTinNtn !== false || wConfig.showClaimContact !== false) && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          {wConfig.showTinNtn !== false && (
+                            <div>
+                              <label className="text-[11px] font-bold text-slate-700 block mb-1">TIN / NTN Number</label>
+                              <input
+                                type="text"
+                                value={currentTab.tinNtn || wConfig.defaultTinNtn || 'TIN-982738-1'}
+                                onChange={(e) => updateCurrentTab({ tinNtn: e.target.value })}
+                                placeholder="Enter TIN or NTN"
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
+                              />
+                            </div>
+                          )}
+                          {wConfig.showClaimContact !== false && (
+                            <div>
+                              <label className="text-[11px] font-bold text-slate-700 block mb-1">Claim Contact Details</label>
+                              <input
+                                type="text"
+                                value={currentTab.claimContact || wConfig.defaultClaimContact || 'support@mbiinventra.com / 0336-4585863'}
+                                onChange={(e) => updateCurrentTab({ claimContact: e.target.value })}
+                                placeholder="Support phone / email"
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Expiry Date</label>
-                    <input
-                      type="date"
-                      value={currentTab.warrantyEndDate || ''}
-                      onChange={(e) => updateCurrentTab({ warrantyEndDate: e.target.value })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">TIN / NTN Number</label>
-                    <input
-                      type="text"
-                      value={currentTab.tinNtn || 'TIN-982738-1'}
-                      onChange={(e) => updateCurrentTab({ tinNtn: e.target.value })}
-                      placeholder="Enter TIN or NTN"
-                      className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-1">Claim Contact Details</label>
-                    <input
-                      type="text"
-                      value={currentTab.claimContact || 'support@mbiinventra.com / 0336-4585863'}
-                      onChange={(e) => updateCurrentTab({ claimContact: e.target.value })}
-                      placeholder="Support phone / email"
-                      className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Terms & Conditions</label>
-                  <textarea
-                    rows={2}
-                    value={currentTab.warrantyTerms || 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'}
-                    onChange={(e) => updateCurrentTab({ warrantyTerms: e.target.value })}
-                    className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
+                      {/* Terms & Conditions (Configurable) */}
+                      {wConfig.showTermsConditions !== false && (
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 block mb-1">Warranty Terms &amp; Conditions</label>
+                          <textarea
+                            rows={2}
+                            value={currentTab.warrantyTerms || wConfig.defaultTermsConditions || 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'}
+                            onChange={(e) => updateCurrentTab({ warrantyTerms: e.target.value })}
+                            className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-medium text-slate-900 focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 

@@ -4,9 +4,12 @@ import {
   Layers, Lock, Sparkles, Hash, Plus, Trash2, X, ShieldAlert, Edit2, Check
 } from 'lucide-react';
 import { useSettings, WarrantyCustomField } from '../../contexts/SettingsContext';
+import { useTenantPlan } from '../../context/TenantPlanContext';
 
 export const TransactionTab: React.FC = () => {
   const { settings, updateTransaction, updateItem, updatePrint } = useSettings();
+  const { isEnterprise, isPlatinum } = useTenantPlan();
+  const hasEnterpriseAccess = isEnterprise || isPlatinum;
 
   // Submodals state
   const [isCountModalOpen, setIsCountModalOpen] = useState(false);
@@ -446,67 +449,69 @@ export const TransactionTab: React.FC = () => {
                 <span title="Calculate due dates automatically based on credit terms"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
 
-              {/* Booker / Biller Assignment in Billing */}
-              <div className="bg-indigo-50/60 dark:bg-indigo-950/40 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={settings.transaction.enableBookerBiller !== false}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        updateTransaction({ enableBookerBiller: val });
-                        showToast(val ? 'Booker & Biller field enabled on sales & billing' : 'Booker & Biller field disabled');
-                      }}
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                    />
-                    <div>
-                      <span className="text-slate-900 font-bold text-xs flex items-center gap-1.5">
-                        <span>Enable Booker / Biller Assignment in Sales & Billing</span>
-                        <span className="text-[9px] px-1.5 py-0.2 bg-indigo-600 text-white rounded font-bold uppercase">ENTERPRISE</span>
-                      </span>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Assign field salesmen/bookers to orders, track commissions, and maintain individual agent khatas
-                      </p>
-                    </div>
-                  </label>
-                  <span title="Toggles the Booker / Biller selector on Sale Invoice and Purchases"><Info className="w-3.5 h-3.5 text-indigo-600" /></span>
-                </div>
-
-                {settings.transaction.enableBookerBiller !== false && (
-                  <div className="pl-6 pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-indigo-100 dark:border-indigo-900 text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
+              {/* Booker / Biller Assignment in Billing (Strictly Gated to Enterprise Plan) */}
+              {hasEnterpriseAccess && (
+                <div className="bg-indigo-50/60 dark:bg-indigo-950/40 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
                       <input
                         type="checkbox"
-                        checked={settings.transaction.showBookerInSales !== false}
-                        onChange={(e) => updateTransaction({ showBookerInSales: e.target.checked })}
-                        className="w-3.5 h-3.5 text-indigo-600 rounded"
+                        checked={settings.transaction.enableBookerBiller !== false}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          updateTransaction({ enableBookerBiller: val });
+                          showToast(val ? 'Booker & Biller field enabled on sales & billing' : 'Booker & Biller field disabled');
+                        }}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                       />
-                      <span className="text-slate-700 font-medium text-[11.5px]">Show on Sales</span>
+                      <div>
+                        <span className="text-slate-900 font-bold text-xs flex items-center gap-1.5">
+                          <span>Enable Booker / Biller Assignment in Sales & Billing</span>
+                          <span className="text-[9px] px-1.5 py-0.2 bg-indigo-600 text-white rounded font-bold uppercase">ENTERPRISE</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Assign field salesmen/bookers to orders, track commissions, and maintain individual agent khatas
+                        </p>
+                      </div>
                     </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={settings.transaction.showBookerInPurchases !== false}
-                        onChange={(e) => updateTransaction({ showBookerInPurchases: e.target.checked })}
-                        className="w-3.5 h-3.5 text-indigo-600 rounded"
-                      />
-                      <span className="text-slate-700 font-medium text-[11.5px]">Show on Purchases</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={settings.transaction.showBookerInPrint !== false}
-                        onChange={(e) => updateTransaction({ showBookerInPrint: e.target.checked })}
-                        className="w-3.5 h-3.5 text-indigo-600 rounded"
-                      />
-                      <span className="text-slate-700 font-medium text-[11.5px]">Print on Invoices</span>
-                    </label>
+                    <span title="Toggles the Booker / Biller selector on Sale Invoice and Purchases"><Info className="w-3.5 h-3.5 text-indigo-600" /></span>
                   </div>
-                )}
-              </div>
+
+                  {settings.transaction.enableBookerBiller !== false && (
+                    <div className="pl-6 pt-1 grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-indigo-100 dark:border-indigo-900 text-xs">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={settings.transaction.showBookerInSales !== false}
+                          onChange={(e) => updateTransaction({ showBookerInSales: e.target.checked })}
+                          className="w-3.5 h-3.5 text-indigo-600 rounded"
+                        />
+                        <span className="text-slate-700 font-medium text-[11.5px]">Show on Sales</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={settings.transaction.showBookerInPurchases !== false}
+                          onChange={(e) => updateTransaction({ showBookerInPurchases: e.target.checked })}
+                          className="w-3.5 h-3.5 text-indigo-600 rounded"
+                        />
+                        <span className="text-slate-700 font-medium text-[11.5px]">Show on Purchases</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={settings.transaction.showBookerInPrint !== false}
+                          onChange={(e) => updateTransaction({ showBookerInPrint: e.target.checked })}
+                          className="w-3.5 h-3.5 text-indigo-600 rounded"
+                        />
+                        <span className="text-slate-700 font-medium text-[11.5px]">Print on Invoices</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Show Profit while making Sale Invoice */}
               <div className="flex items-center justify-between">
@@ -1036,25 +1041,173 @@ export const TransactionTab: React.FC = () => {
         </div>
       )}
 
-      {/* Warranty Custom Fields Configuration Modal */}
-      {isWarrantyFieldsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-amber-600" />
-                <span>Warranty & Guarantee Custom Fields</span>
-              </h3>
-              <button onClick={() => setIsWarrantyFieldsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* Warranty Custom & Standard Fields Configuration Modal */}
+      {isWarrantyFieldsModalOpen && (() => {
+        const wConfig = settings.transaction.warrantyFieldsConfig || {
+          showDiscount: true,
+          defaultDiscountPct: 15,
+          showStartDate: true,
+          showExpiryDate: true,
+          showTinNtn: true,
+          defaultTinNtn: 'TIN-982738-1',
+          showClaimContact: true,
+          defaultClaimContact: 'support@mbiinventra.com / 0336-4585863',
+          showTermsConditions: true,
+          defaultTermsConditions: 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'
+        };
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Add, remove, or rename custom fields for warranty details (e.g. Warranty Type, Warranty Period, Serial Codes). These fields appear during sales checkout when warranty is active.
-            </p>
+        const updateWConfig = (patch: Partial<typeof wConfig>) => {
+          updateTransaction({
+            warrantyFieldsConfig: {
+              ...wConfig,
+              ...patch
+            }
+          });
+        };
 
-            {/* Add New Field Box */}
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-amber-600" />
+                  <span>Warranty Bill Fields &amp; Guarantee Settings</span>
+                </h3>
+                <button onClick={() => setIsWarrantyFieldsModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Control which warranty fields appear during sales billing when Warranty Bill Mode is active. You can turn standard fields ON/OFF, adjust their default values, or add unlimited custom fields.
+              </p>
+
+              {/* 1. Standard Core Warranty Fields (On / Off & Defaults) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block border-b border-slate-200 pb-1">
+                  Standard Warranty Fields
+                </span>
+
+                {/* Warranty Discount (%) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={wConfig.showDiscount !== false}
+                      onChange={(e) => updateWConfig({ showDiscount: e.target.checked })}
+                      className="w-4 h-4 text-amber-600 rounded"
+                    />
+                    <span className="font-bold text-xs text-slate-800">Warranty Auto Discount (%)</span>
+                  </label>
+                  {wConfig.showDiscount !== false && (
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                      <span className="text-[11px] text-slate-500 font-semibold">Default %:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={wConfig.defaultDiscountPct ?? 15}
+                        onChange={(e) => updateWConfig({ defaultDiscountPct: parseFloat(e.target.value) || 0 })}
+                        className="w-16 px-2 py-1 bg-amber-50 border border-amber-300 rounded font-bold text-xs font-mono text-center"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Start & Expiry Dates */}
+                <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={wConfig.showStartDate !== false && wConfig.showExpiryDate !== false}
+                      onChange={(e) => updateWConfig({ showStartDate: e.target.checked, showExpiryDate: e.target.checked })}
+                      className="w-4 h-4 text-amber-600 rounded"
+                    />
+                    <div>
+                      <span className="font-bold text-xs text-slate-800">Warranty Start &amp; Expiry Date Pickers</span>
+                      <span className="text-[10px] text-slate-400 block">Allows cashier to select claim coverage date range</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* TIN / NTN */}
+                <div className="space-y-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={wConfig.showTinNtn !== false}
+                        onChange={(e) => updateWConfig({ showTinNtn: e.target.checked })}
+                        className="w-4 h-4 text-amber-600 rounded"
+                      />
+                      <span className="font-bold text-xs text-slate-800">TIN / NTN Tax Number</span>
+                    </label>
+                  </div>
+                  {wConfig.showTinNtn !== false && (
+                    <input
+                      type="text"
+                      placeholder="Default TIN / NTN number"
+                      value={wConfig.defaultTinNtn || ''}
+                      onChange={(e) => updateWConfig({ defaultTinNtn: e.target.value })}
+                      className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-mono"
+                    />
+                  )}
+                </div>
+
+                {/* Claim Contact Details */}
+                <div className="space-y-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={wConfig.showClaimContact !== false}
+                        onChange={(e) => updateWConfig({ showClaimContact: e.target.checked })}
+                        className="w-4 h-4 text-amber-600 rounded"
+                      />
+                      <span className="font-bold text-xs text-slate-800">Claim Contact Helpline</span>
+                    </label>
+                  </div>
+                  {wConfig.showClaimContact !== false && (
+                    <input
+                      type="text"
+                      placeholder="Default helpline / email (e.g. 0336-4585863)"
+                      value={wConfig.defaultClaimContact || ''}
+                      onChange={(e) => updateWConfig({ defaultClaimContact: e.target.value })}
+                      className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded text-xs"
+                    />
+                  )}
+                </div>
+
+                {/* Warranty Terms & Conditions */}
+                <div className="space-y-1.5 p-2 bg-white rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={wConfig.showTermsConditions !== false}
+                        onChange={(e) => updateWConfig({ showTermsConditions: e.target.checked })}
+                        className="w-4 h-4 text-amber-600 rounded"
+                      />
+                      <span className="font-bold text-xs text-slate-800">Warranty Terms &amp; Conditions</span>
+                    </label>
+                  </div>
+                  {wConfig.showTermsConditions !== false && (
+                    <textarea
+                      rows={2}
+                      placeholder="Default Terms & Conditions printed on invoice"
+                      value={wConfig.defaultTermsConditions || ''}
+                      onChange={(e) => updateWConfig({ defaultTermsConditions: e.target.value })}
+                      className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-medium"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Custom Warranty Fields Section */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                  Add Custom Warranty Fields
+                </span>
             <div className="space-y-2 bg-amber-50/70 p-3 rounded-xl border border-amber-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
@@ -1177,8 +1330,9 @@ export const TransactionTab: React.FC = () => {
                 ))
               )}
             </div>
+          </div>
 
-            <div className="pt-2 flex justify-end">
+          <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setIsWarrantyFieldsModalOpen(false)}
                 className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-xs"
@@ -1188,7 +1342,8 @@ export const TransactionTab: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
+      );
+    })()}
 
     </div>
   );

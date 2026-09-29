@@ -318,13 +318,13 @@ export const SaleInvoicePage: React.FC = () => {
               price: Number(it.pricePerUnit) || 0, 
               total: it.total 
             })),
-            subTotal: subtotal,
-            discountAmount: discountAmount,
-            taxAmount: taxAmount,
+            subtotal: subtotal,
+            discount: discountAmount,
+            tax: taxAmount,
             grandTotal: finalGrandTotal,
             paidAmount: Number(paidAmount) || 0,
             balanceDue: balanceDue,
-            businessName: business?.name || 'Inventra Pharmacy'
+            storeName: business?.name || 'Inventra Pharmacy'
           }, tenantId).then(waRes => {
             if (waRes.success && waRes.mode === 'auto_background') {
               emitToast(waRes.message, 'success');

@@ -17,6 +17,8 @@ export interface TenantPlanContextType {
   isSilver: boolean;
   isGold: boolean;
   isPlatinum: boolean;
+  isEnterprise: boolean;
+  currentPlan: string;
   isModuleAllowed: (moduleKey: string) => boolean;
   isRouteAllowed: (route: string) => boolean;
   isReportAllowed: (reportId: string) => boolean;
@@ -67,14 +69,17 @@ export const TenantPlanProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const isSilver = plan === 'silver' || plan === 'trial';
     const isGold = plan === 'gold';
     const isPlatinum = plan === 'platinum';
+    const isEnterprise = isPlatinum || /enterprise|platinum|pro/i.test(rawPlan);
 
     return {
       plan,
       rawPlan,
+      currentPlan: rawPlan,
       isTrial,
       isSilver,
       isGold,
       isPlatinum,
+      isEnterprise,
       isModuleAllowed: (moduleKey: string) => isModuleAllowed(moduleKey, tenantId || undefined, rawPlan),
       isRouteAllowed: (route: string) => isRouteAllowed(route, tenantId || undefined, rawPlan),
       isReportAllowed: (reportId: string) => isReportAllowed(reportId, tenantId || undefined, rawPlan),

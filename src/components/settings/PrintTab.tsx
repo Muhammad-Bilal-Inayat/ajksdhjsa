@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Printer, CheckCircle2, ChevronRight, Palette, Layout as LayoutIcon, 
   FileText, Download, QrCode, Building, Phone, Mail, MapPin, 

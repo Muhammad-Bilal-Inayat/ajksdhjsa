@@ -24,6 +24,7 @@ export interface WhatsAppInvoiceData {
   tax?: number;
   grandTotal: number;
   paidAmount?: number;
+  balanceDue?: number;
   changeAmount?: number;
   paymentMethod?: string;
   notes?: string;

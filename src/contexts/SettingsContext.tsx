@@ -225,6 +225,18 @@ export interface AppSettings {
     showInvoiceNumberAndDate?: boolean;
     showTopBarcodeVoiceTools?: boolean;
     warrantyCustomFields?: WarrantyCustomField[];
+    warrantyFieldsConfig?: {
+      showDiscount: boolean;
+      defaultDiscountPct: number;
+      showStartDate: boolean;
+      showExpiryDate: boolean;
+      showTinNtn: boolean;
+      defaultTinNtn?: string;
+      showClaimContact: boolean;
+      defaultClaimContact?: string;
+      showTermsConditions: boolean;
+      defaultTermsConditions?: string;
+    };
   };
   print: {
     printerType: 'REGULAR' | 'THERMAL';
@@ -532,6 +544,18 @@ export const defaultSettings: AppSettings = {
       { id: 'wcf-1', name: 'Warranty Type', enabled: true, defaultValue: 'Replacement', placeholder: 'e.g. Replacement / Repair / Service' },
       { id: 'wcf-2', name: 'Warranty Period', enabled: true, defaultValue: '1 Year', placeholder: 'e.g. 1 Year / 6 Months / 30 Days' },
     ],
+    warrantyFieldsConfig: {
+      showDiscount: true,
+      defaultDiscountPct: 15,
+      showStartDate: true,
+      showExpiryDate: true,
+      showTinNtn: true,
+      defaultTinNtn: 'TIN-982738-1',
+      showClaimContact: true,
+      defaultClaimContact: 'support@mbiinventra.com / 0336-4585863',
+      showTermsConditions: true,
+      defaultTermsConditions: 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'
+    },
   },
   print: {
     printerType: 'REGULAR',

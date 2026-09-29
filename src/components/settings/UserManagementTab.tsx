@@ -106,7 +106,18 @@ export const UserManagementTab: React.FC = () => {
     e.preventDefault();
     if (!editingUser) return;
 
-    await updateAppUser(editingUser);
+    // Strict Guard: Primary Admin is permanent and cannot be modified or downgraded from user side
+    const userToSave = { ...editingUser };
+    if (editingUser.role === 'Primary Admin') {
+      userToSave.role = 'Primary Admin';
+      userToSave.status = 'Joined';
+      const existing = appUsers.find(u => u.id === editingUser.id);
+      if (existing?.passcode) {
+        userToSave.passcode = existing.passcode;
+      }
+    }
+
+    await updateAppUser(userToSave);
     setIsEditUserModalOpen(false);
     setEditingUser(null);
     showToast(`User ${editingUser.name} updated successfully`);
@@ -240,22 +251,34 @@ export const UserManagementTab: React.FC = () => {
                       </td>
                       <td className="p-3 text-slate-600">{user?.emailOrPhone || '—'}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-bold text-[10.5px]">
-                          {user?.role || 'User'}
-                        </span>
+                        {user?.role === 'Primary Admin' ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-850 font-black text-[10.5px] border border-purple-200 flex items-center gap-1 w-fit shadow-2xs">
+                            👑 Primary Admin (Owner)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 font-bold text-[10.5px]">
+                            {user?.role || 'User'}
+                          </span>
+                        )}
                       </td>
                       <td className="p-3">
-                        <div className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
-                          <span>{isRevealed ? (user.passcode || '0000') : '••••'}</span>
-                          <button
-                            type="button"
-                            onClick={() => setShowPins(prev => ({ ...prev, [user.id]: !prev[user.id] }))}
-                            className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
-                            title={isRevealed ? 'Hide PIN' : 'View PIN'}
-                          >
-                            {isRevealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                          </button>
-                        </div>
+                        {user?.role === 'Primary Admin' ? (
+                          <span className="text-[10.5px] font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-flex items-center gap-1" title="Passcode/PIN is managed via Master Server (/server)">
+                            <Lock className="w-3 h-3 text-purple-500" /> Server Managed
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5 font-mono text-xs text-slate-600">
+                            <span>{isRevealed ? (user.passcode || '0000') : '••••'}</span>
+                            <button
+                              type="button"
+                              onClick={() => setShowPins(prev => ({ ...prev, [user.id]: !prev[user.id] }))}
+                              className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                              title={isRevealed ? 'Hide PIN' : 'View PIN'}
+                            >
+                              {isRevealed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
@@ -534,51 +557,83 @@ export const UserManagementTab: React.FC = () => {
                 />
               </div>
 
+              {editingUser.role === 'Primary Admin' && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-950 text-xs flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold block">Permanent Pharmacy Owner &amp; Primary Admin</span>
+                    <p className="text-[11px] text-purple-800 mt-0.5">
+                      Primary Admin cannot be demoted, deactivated, or deleted from user settings. Its Device PIN, Passcode, and company assignment are strictly managed from Master Server Hub (<code className="font-bold font-mono">/server</code>).
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Role</label>
-                <select
-                  value={editingUser.role}
-                  onChange={(e: any) => setEditingUser({ ...editingUser, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
-                >
-                  <option value="Primary Admin">Primary Admin (Account Owner)</option>
-                  <option value="Secondary Admin">Secondary Admin</option>
-                  <option value="Pharmacist">Pharmacist</option>
-                  <option value="Cashier">Cashier</option>
-                  <option value="Accountant">Accountant</option>
-                  <option value="CA/Accountant">CA / Accountant</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Store Manager">Store Manager</option>
-                  <option value="Inventory Manager">Inventory Manager</option>
-                  <option value="Stock Keeper">Stock Keeper</option>
-                  <option value="Salesman">Salesman</option>
-                  <option value="Sales Staff">Sales Staff</option>
-                  <option value="Biller">Biller</option>
-                  <option value="Viewer">Viewer</option>
-                </select>
+                {editingUser.role === 'Primary Admin' ? (
+                  <div className="px-3 py-2 bg-purple-100/60 border border-purple-200 rounded-xl font-bold text-xs text-purple-900 flex items-center justify-between">
+                    <span>👑 Primary Admin (Permanent Owner)</span>
+                    <span className="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.2 rounded font-mono">PROTECTED</span>
+                  </div>
+                ) : (
+                  <select
+                    value={editingUser.role}
+                    onChange={(e: any) => setEditingUser({ ...editingUser, role: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
+                  >
+                    <option value="Secondary Admin">Secondary Admin</option>
+                    <option value="Pharmacist">Pharmacist</option>
+                    <option value="Cashier">Cashier</option>
+                    <option value="Accountant">Accountant</option>
+                    <option value="CA/Accountant">CA / Accountant</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Store Manager">Store Manager</option>
+                    <option value="Inventory Manager">Inventory Manager</option>
+                    <option value="Stock Keeper">Stock Keeper</option>
+                    <option value="Salesman">Salesman</option>
+                    <option value="Sales Staff">Sales Staff</option>
+                    <option value="Biller">Biller</option>
+                    <option value="Viewer">Viewer</option>
+                  </select>
+                )}
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Status</label>
-                <select
-                  value={editingUser.status || 'Joined'}
-                  onChange={(e: any) => setEditingUser({ ...editingUser, status: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-xs"
-                >
-                  <option value="Joined">Joined / Active</option>
-                  <option value="Pending">Pending Invite</option>
-                  <option value="Inactive">Inactive / Suspended</option>
-                </select>
+                {editingUser.role === 'Primary Admin' ? (
+                  <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl font-bold text-xs text-emerald-800 flex items-center justify-between">
+                    <span>Joined / Active (Permanent)</span>
+                    <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded font-mono">LOCKED</span>
+                  </div>
+                ) : (
+                  <select
+                    value={editingUser.status || 'Joined'}
+                    onChange={(e: any) => setEditingUser({ ...editingUser, status: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-xs"
+                  >
+                    <option value="Joined">Joined / Active</option>
+                    <option value="Pending">Pending Invite</option>
+                    <option value="Inactive">Inactive / Suspended</option>
+                  </select>
+                )}
               </div>
 
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Passcode / PIN</label>
-                <input
-                  type="text"
-                  value={editingUser.passcode || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, passcode: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold tracking-widest text-center"
-                />
+                {editingUser.role === 'Primary Admin' ? (
+                  <div className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-mono text-xs flex items-center justify-between">
+                    <span>•••••• (Controlled from /server)</span>
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={editingUser.passcode || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, passcode: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold tracking-widest text-center"
+                  />
+                )}
               </div>
 
               <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">

@@ -2,7 +2,7 @@ import express, { Response } from 'express';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import { getMariaDbPool, getMariaDbTableStats, testMariaDbConnection } from '../db/mariaClient';
+import { getMariaDbPool, getMariaDbTableStats, testMariaDbConnection, isMariaDbAvailable } from '../db/mariaClient';
 import { signJwt } from '../auth/jwt';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';

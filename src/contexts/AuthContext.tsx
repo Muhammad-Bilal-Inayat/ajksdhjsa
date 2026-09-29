@@ -268,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handlePermissionsUpdated = (e?: any) => {
       // Ignore background ping and unrelated storage writes to prevent re-render cascading
       if (e instanceof StorageEvent) {
-        if (!e.key || e.key === 'mbi_active_user_ping' || (!e.key.startsWith('mbi_user_access') && !e.key.startsWith('mbi_permissions'))) {
+        if (!e.key || e.key === 'mbi_active_user_ping' || (!e.key.startsWith('mbi_user_access') && !e.key.startsWith('mbi_permissions') && !e.key.startsWith('mbi_active') && !e.key.startsWith('mbi_effective'))) {
           return;
         }
       }

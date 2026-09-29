@@ -352,19 +352,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const menuIdMap: Record<string, string> = {
       dashboard: 'dashboard',
       parties: 'parties',
-      items: 'inventory',
+      items: 'items',
+      inventory: 'items',
       onlineStore: 'onlineStore',
       sale: 'sale',
       shifts: 'shifts',
-      purchase: 'purchases',
+      purchase: 'purchase',
+      purchases: 'purchase',
       expenses: 'expenses',
       bank: 'bank',
       notes: 'aiNotes',
       reports: 'reports',
       aiGuide: 'aiNotes',
-      utilities: 'barcode',
-      shortage: 'shortage',
-      barcode: 'barcode'
+      utilities: 'utilities',
+      shortage: 'items',
+      barcode: 'utilities',
+      sync: 'utilities',
+      backupRestore: 'utilities',
+      pricing: 'settings'
     };
 
     const filtered = mainNavItems

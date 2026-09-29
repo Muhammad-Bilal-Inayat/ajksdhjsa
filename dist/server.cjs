@@ -229,7 +229,7 @@ async function testMariaDbConnection() {
     };
   }
 }
-async function isMariaDbAvailable2() {
+async function isMariaDbAvailable() {
   const now = Date.now();
   if (isConnected && now - lastPingTime < 3e4) {
     return true;
@@ -247,7 +247,7 @@ async function isMariaDbAvailable2() {
 }
 async function initializeMariaDbSchema() {
   try {
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (!isAvailable) {
       return false;
     }
@@ -271,7 +271,7 @@ async function initializeMariaDbSchema() {
 }
 async function seedMariaDbDefaults(currentPool) {
   try {
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (!isAvailable) return;
     const p = currentPool || getMariaDbPool();
     await p.query(`
@@ -341,7 +341,7 @@ async function getMariaDbTableStats() {
     "mbi_ai_chat_history"
   ];
   try {
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (!isAvailable) return stats;
     const currentPool = getMariaDbPool();
     for (const table of tables) {
@@ -360,7 +360,7 @@ async function getMariaDbTableStats() {
 }
 async function syncRecordToMariaDb(collectionName, record) {
   if (!record || !record.id) return false;
-  const isAvailable = await isMariaDbAvailable2();
+  const isAvailable = await isMariaDbAvailable();
   if (!isAvailable) return false;
   try {
     const currentPool = getMariaDbPool();
@@ -969,7 +969,7 @@ async function syncRecordToMariaDb(collectionName, record) {
   }
 }
 async function saveAiChatLogToMariaDb(data) {
-  const isAvailable = await isMariaDbAvailable2();
+  const isAvailable = await isMariaDbAvailable();
   if (!isAvailable) return false;
   try {
     const currentPool = getMariaDbPool();
@@ -1022,7 +1022,7 @@ async function saveAiChatLogToMariaDb(data) {
   }
 }
 async function getAiChatHistoryFromMariaDb(options) {
-  const isAvailable = await isMariaDbAvailable2();
+  const isAvailable = await isMariaDbAvailable();
   if (!isAvailable) return [];
   try {
     const currentPool = getMariaDbPool();
@@ -3763,7 +3763,7 @@ function generate14kMasterCatalog() {
 var masterCatalogCache = generate14kMasterCatalog();
 async function initDatabaseTablesAndIndexes() {
   try {
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (!isAvailable) return;
     const pool2 = getMariaDbPool();
     await pool2.query(`
@@ -6168,7 +6168,7 @@ async function loginController(req, res) {
       return;
     }
     let authenticatedUser = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -6263,7 +6263,7 @@ async function loginController(req, res) {
       return;
     }
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || "tenant_main_pharmacy";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         pool2.execute(
@@ -6405,7 +6405,7 @@ async function registerTrialController(req, res) {
       offlineSync: true,
       expensesManagement: true
     };
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         try {
@@ -7837,7 +7837,7 @@ var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -7894,7 +7894,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
     const { id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number } = req.body;
     const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -7946,7 +7946,7 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
@@ -7961,7 +7961,7 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
 fleetRouter.get("/leads", async (req, res) => {
   try {
     let leads = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
@@ -8131,7 +8131,7 @@ fleetRouter.post("/tenants/register", async (req, res) => {
 fleetRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -8193,7 +8193,7 @@ fleetRouter.post("/users/save", async (req, res) => {
     const cleanId = id || `u_${Date.now()}`;
     const cleanTenantId = tenantId || "tenant_main";
     const cleanRole = role || "Cashier";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8275,7 +8275,7 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       res.status(400).json({ success: false, error: "userId and newPasscode are required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8312,7 +8312,7 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
     const { userId, isKilled } = req.body;
     const flag = isKilled ? 1 : 0;
     const statusVal = isKilled ? "Suspended" : "Active";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -8351,7 +8351,7 @@ fleetRouter.post("/users/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "userId is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
@@ -9808,7 +9808,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
     const trialEndsAt = trialEndsAtDate.toISOString();
     const licenseId = `lic_trial_${Date.now()}`;
     const licenseKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -9895,7 +9895,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     let maxDevices = 10;
     let licenseFound = false;
     let licenseRecordId = "";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -9940,7 +9940,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     boundHardwareIds = Array.from(new Set(boundHardwareIds.map((h) => String(h).trim().toUpperCase()).filter(Boolean)));
     if (boundHardwareIds.length === 0) {
       boundHardwareIds = [clientHwid];
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool2 = getMariaDbPool();
           if (licenseRecordId) {
@@ -9988,7 +9988,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     }
     if (boundHardwareIds.length < maxDevices) {
       boundHardwareIds.push(clientHwid);
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool2 = getMariaDbPool();
           if (licenseRecordId) {
@@ -10039,7 +10039,7 @@ licenseRouter.post("/bind-device", async (req, res) => {
     const clientHwid = (hwid || "HWID-DEVICE-1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10086,7 +10086,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
     const clientHwid = (hwid || deviceId || "HWID-DEV1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10166,7 +10166,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
     let licenseKey = "";
     let plan = "Basic";
     let status = "Active";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10217,7 +10217,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     }
     let isDbMatched = false;
     let matchedLicense = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10263,7 +10263,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     const now = /* @__PURE__ */ new Date();
     const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
     const planId = planTier === "Platinum" ? "Premium" : planTier === "Gold" ? "Business" : "Basic";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -10310,7 +10310,7 @@ licenseRouter.get("/status", async (req, res) => {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
     let dbTenant = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -10688,7 +10688,7 @@ async function getAuditLogs(req, res) {
     const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || "tenant_main_pharmacy";
     const { module: moduleFilter, staff, dateRange, startDate, endDate, search, limit = "200" } = req.query;
     const maxRows = Math.min(Number(limit) || 200, 1e3);
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     let records = [];
     if (isAvailable) {
       try {
@@ -10798,7 +10798,7 @@ async function createAuditLog(req, res) {
       ip_address: req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
       created_at: timestamp ? new Date(timestamp).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
     };
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (isAvailable) {
       try {
         const pool2 = getMariaDbPool();
@@ -10867,7 +10867,7 @@ var import_uuid2 = require("uuid");
 async function getPurchases(req, res) {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (!isOnline) {
       return res.json({
         success: true,
@@ -10894,7 +10894,7 @@ async function getPurchases(req, res) {
 async function getPurchaseById(req, res) {
   try {
     const { id } = req.params;
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (!isOnline) {
       return res.status(404).json({ success: false, message: "Database offline" });
     }
@@ -10936,7 +10936,7 @@ async function createPurchaseOrder(req, res) {
     const items = Array.isArray(purchaseData.items) ? purchaseData.items : [];
     const userId = purchaseData.userId || req.body.userId || "admin";
     const userName = purchaseData.cashierName || purchaseData.userName || "Admin / Operator";
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (isOnline) {
       const pool2 = getMariaDbPool();
       const connection = await pool2.getConnection();
@@ -11166,7 +11166,7 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
     let config = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -11215,7 +11215,7 @@ whatsappRouter.post("/settings", async (req, res) => {
       customKhataTemplate: customKhataTemplate || "",
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -11254,7 +11254,7 @@ whatsappRouter.post("/send", async (req, res) => {
       status: "DELIVERED",
       deliveryMode: "Auto-Background Gateway"
     });
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
@@ -11308,7 +11308,7 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -11700,7 +11700,7 @@ async function startServer() {
   }
   app.get(["/api/health", "/health"], async (req, res) => {
     try {
-      const isOnline = await isMariaDbAvailable2();
+      const isOnline = await isMariaDbAvailable();
       res.json({
         status: "OK",
         database: isOnline ? "Connected" : "Offline Cache Mode",

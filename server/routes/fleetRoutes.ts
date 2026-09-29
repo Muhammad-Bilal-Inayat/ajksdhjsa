@@ -815,4 +815,76 @@ fleetRouter.post('/keys/verify', async (req: TenantRequest, res: Response): Prom
   }
 });
 
+// 17. Cascading Company Lock & Auto-Lock All Sub-Users: POST /api/fleet/tenants/toggle-lock
+fleetRouter.post('/tenants/toggle-lock', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, lockStatus } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    const isLocking = lockStatus === 'Suspended' || lockStatus === true || lockStatus === 'Locked';
+    const newTenantStatus = isLocking ? 'Suspended' : 'Active';
+    const newUserStatus = isLocking ? 'Suspended' : 'Active';
+    const killSwitchVal = isLocking ? 1 : 0;
+
+    // 1. Update in MariaDB if available
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        // Update Tenant
+        await pool.query(
+          `UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? OR tenant_id = ?;`,
+          [newTenantStatus, tenantId, tenantId]
+        );
+        // Cascading Lock All Users belonging to this Tenant
+        await pool.query(
+          `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;`,
+          [newUserStatus, killSwitchVal, tenantId]
+        );
+      } catch (dbErr) {
+        console.warn('[CASCADING LOCK DB WARNING]:', dbErr);
+      }
+    }
+
+    // 2. Update Fallback Storage
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        const usersList = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        usersList.forEach((u: any) => {
+          if (u.tenant_id === tenantId || u.tenantId === tenantId || u.id?.startsWith(`usr_${tenantId}`)) {
+            u.status = newUserStatus;
+            u.isKillSwitchActive = isLocking;
+          }
+        });
+        fs.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    // 3. Broadcast Real-Time SSE Event
+    broadcastGlobalEvent({
+      type: isLocking ? 'TENANT_EMERGENCY_LOCKOUT' : 'TENANT_ACCESS_RESTORED',
+      payload: {
+        tenantId,
+        isLocked: isLocking,
+        usersAffected: 'ALL_TENANT_SUB_USERS',
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: isLocking
+        ? `Company ${tenantId} and all sub-users have been LOCKED and Suspended.`
+        : `Company ${tenantId} and all sub-users have been RESTORED to Active status.`,
+      tenantStatus: newTenantStatus,
+      isKillSwitchActive: isLocking
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error executing cascading lock' });
+  }
+});
+
 

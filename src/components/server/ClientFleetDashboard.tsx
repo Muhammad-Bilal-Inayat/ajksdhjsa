@@ -382,21 +382,117 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     }, 800);
   };
 
-  // Handle remote lockout / kill switch
-  const handleToggleLock = (tenant: Tenant) => {
-    const isCurrentlySuspended = tenant.status === 'Suspended';
-    if (isCurrentlySuspended) {
-      updateTenantStatus(tenant.id, 'Active');
-      unlockRemoteInstance(tenant.id);
-      refreshAllFleetData();
-      onNotify(`Terminal unlocked for ${tenant.name}. Normal access restored.`);
-    } else {
-      if (window.confirm(`Are you sure you want to remotely LOCK terminal for ${tenant.name}? Staff will see payment/license lock screen.`)) {
-        updateTenantStatus(tenant.id, 'Suspended');
-        executeRemoteKillSwitch(tenant.id, 'emergency_lock', 'License Expired / Master Admin Lock');
-        refreshAllFleetData();
-        onNotify(`Terminal remotely LOCKED for ${tenant.name}!`);
+  // Handle silent switch / impersonation into company workspace
+  const handleSilentSwitchCompany = async (tenant: Tenant) => {
+    try {
+      onNotify(`Initiating Silent Shadow Switch into "${tenant.name}"...`);
+      const targetId = tenant.tenantId || tenant.id;
+      
+      const res = await fetch('/api/master/impersonate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`
+        },
+        body: JSON.stringify({
+          target_tenant_id: targetId,
+          tenantId: targetId,
+          storeName: tenant.name
+        })
+      });
+
+      let shadowToken = `shadow_${Date.now()}`;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.token) shadowToken = data.token;
       }
+
+      localStorage.setItem('mbi_shadow_token', shadowToken);
+      localStorage.setItem('mbi_active_business_id', targetId);
+      localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
+        id: targetId,
+        tenantId: targetId,
+        name: tenant.name,
+        plan: tenant.plan || 'Platinum',
+        status: tenant.status || 'Active',
+        paidLicenseActive: true
+      }));
+      localStorage.setItem('mock_session', JSON.stringify({
+        uid: `shadow_${Date.now()}`,
+        email: tenant.ownerPhone || 'shadow_admin@mbiinventra.com',
+        displayName: `${tenant.name} (Master Switch)`,
+        role: 'Primary Admin',
+        tenantId: targetId
+      }));
+
+      const targetUrl = `${window.location.origin}/user?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}`;
+      window.open(targetUrl, '_blank');
+      onNotify(`✅ Successfully switched into ${tenant.name} (Opened in Shadow Tab)`);
+    } catch (err) {
+      console.error('Failed to switch company:', err);
+      onNotify('Failed to initiate silent shadow session.');
+    }
+  };
+
+  // Handle remote lockout / kill switch with Cascading Lock to all Sub-Users
+  const handleToggleLock = async (tenant: Tenant) => {
+    const isCurrentlySuspended = tenant.status === 'Suspended';
+    const nextStatus = isCurrentlySuspended ? 'Active' : 'Suspended';
+
+    if (!isCurrentlySuspended && !window.confirm(`Are you sure you want to remotely LOCK "${tenant.name}"? This will automatically lock out the company AND ALL of its sub-users immediately.`)) {
+      return;
+    }
+
+    try {
+      // 1. Post to Server API for DB & Multi-device Lock
+      await fetch('/api/fleet/tenants/toggle-lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: tenant.id || tenant.tenantId,
+          lockStatus: nextStatus
+        })
+      });
+
+      // 2. Update Local Tenant Status
+      updateTenantStatus(tenant.id, nextStatus);
+      if (isCurrentlySuspended) {
+        unlockRemoteInstance(tenant.id);
+      } else {
+        executeRemoteKillSwitch(tenant.id, 'emergency_lock', 'Master Admin Company Lockout');
+      }
+
+      // 3. Cascading Auto-Lock / Unlock of all Sub-Users belonging to this Company
+      try {
+        const usersStored = localStorage.getItem('mbi_master_active_users');
+        if (usersStored) {
+          const currentUsers = JSON.parse(usersStored);
+          if (Array.isArray(currentUsers)) {
+            const updatedUsers = currentUsers.map((u: any) => {
+              const matchCompany = u.storeName === tenant.name || u.tenant_id === tenant.id || u.tenantId === tenant.id;
+              if (matchCompany) {
+                return {
+                  ...u,
+                  status: nextStatus,
+                  isKillSwitchActive: !isCurrentlySuspended,
+                  isOnline: isCurrentlySuspended ? u.isOnline : false
+                };
+              }
+              return u;
+            });
+            localStorage.setItem('mbi_master_active_users', JSON.stringify(updatedUsers));
+            window.dispatchEvent(new CustomEvent('mbi-users-updated'));
+          }
+        }
+      } catch (e) {}
+
+      refreshAllFleetData();
+      onNotify(isCurrentlySuspended 
+        ? `✅ Company "${tenant.name}" & all sub-users have been RESTORED and unlocked!` 
+        : `🛑 Company "${tenant.name}" & all sub-users have been LOCKED and suspended!`
+      );
+    } catch (e) {
+      onNotify('Failed to execute remote lockout.');
     }
   };
 
@@ -850,6 +946,16 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                   {/* ACTION TOOLBAR PER CLIENT */}
                   <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-1.5 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* 0. 1-CLICK SILENT SWITCH INTO COMPANY WORKSPACE */}
+                      <button
+                        onClick={() => handleSilentSwitchCompany(t)}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs hover:scale-105 cursor-pointer"
+                        title={`Silently switch into ${t.name} and open store POS in new tab`}
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Switch Workspace</span>
+                      </button>
+
                       {/* 1-Click Jump to User Control for this Pharmacy */}
                       <button
                         onClick={() => {

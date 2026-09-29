@@ -59,6 +59,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'silent' | 'killed' | 'online'>('all');
+  const [companyFilter, setCompanyFilter] = useState<string>('all');
 
   // Modal States
   const [viewUser, setViewUser] = useState<MasterActiveUser | null>(null);
@@ -68,6 +69,16 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   const [confirmPasscode, setConfirmPasscode] = useState('');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [syncingUserId, setSyncingUserId] = useState<string | null>(null);
+
+  // Distinct Companies & User Counts breakdown
+  const companyStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    users.forEach(u => {
+      const store = u.storeName || 'MBI INVENTRA Headquarters';
+      counts.set(store, (counts.get(store) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [users]);
 
   // New User Form State
   const [newUserForm, setNewUserForm] = useState({
@@ -136,6 +147,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // Filtered Users List
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
+      // Company / Store filter
+      if (companyFilter !== 'all' && (user.storeName || 'MBI INVENTRA Headquarters') !== companyFilter) {
+        return false;
+      }
+
       // Role filter
       if (roleFilter !== 'all' && user.role !== roleFilter) return false;
 
@@ -159,7 +175,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
       return true;
     });
-  }, [users, roleFilter, statusFilter, activeSearch]);
+  }, [users, companyFilter, roleFilter, statusFilter, activeSearch]);
 
   // ACTION 1: SILENT SWITCH TOGGLE (Stealth Monitoring Mode)
   const handleToggleSilentSwitch = async (user: MasterActiveUser) => {
@@ -517,6 +533,20 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               Killed / Suspended ({users.filter(u => u.isKillSwitchActive || u.status === 'Suspended').length})
             </button>
 
+            {/* Company / Pharmacy Filter Dropdown */}
+            <select
+              value={companyFilter}
+              onChange={(e) => setCompanyFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 focus:outline-none cursor-pointer"
+            >
+              <option value="all">🏢 All Companies ({users.length} Users)</option>
+              {companyStats.map(c => (
+                <option key={c.name} value={c.name}>
+                  🏢 {c.name} ({c.count} {c.count === 1 ? 'User' : 'Users'})
+                </option>
+              ))}
+            </select>
+
             {/* Role dropdown filter */}
             <select
               value={roleFilter}
@@ -539,7 +569,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">User &amp; Store Details</th>
+                <th className="px-4 py-3.5">User &amp; Company Attribution</th>
                 <th className="px-4 py-3.5">Role &amp; Terminal</th>
                 <th className="px-4 py-3.5">Contact / Passcode</th>
                 <th className="px-4 py-3.5">Status &amp; Stealth Mode</th>
@@ -551,8 +581,8 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
-                    <p className="font-bold">No users found matching your search or filters.</p>
-                    <p className="text-[11px] mt-1">Try clearing your search query or reset status filter.</p>
+                    <p className="font-bold">No users found matching your search or company filter.</p>
+                    <p className="text-[11px] mt-1">Try selecting "All Companies" or reset status filter.</p>
                   </td>
                 </tr>
               ) : (
@@ -568,7 +598,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                         isKilled ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
                       }`}
                     >
-                      {/* 1. User & Store */}
+                      {/* 1. User & Company Attribution */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
@@ -589,9 +619,13 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
-                              <Building2 className="w-3 h-3 text-slate-400" />
-                              <span className="truncate max-w-[180px]">{user.storeName || 'Main Pharmacy'}</span>
+                            
+                            {/* Prominent Company Badge */}
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
+                                <Building2 className="w-3 h-3 text-indigo-500" />
+                                <span>{user.storeName || 'MBI INVENTRA Headquarters'}</span>
+                              </span>
                             </div>
                           </div>
                         </div>

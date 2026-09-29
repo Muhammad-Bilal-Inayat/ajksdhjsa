@@ -8890,6 +8890,65 @@ fleetRouter.post("/keys/verify", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error verifying API key" });
   }
 });
+fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
+  try {
+    const { tenantId, lockStatus } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    const isLocking = lockStatus === "Suspended" || lockStatus === true || lockStatus === "Locked";
+    const newTenantStatus = isLocking ? "Suspended" : "Active";
+    const newUserStatus = isLocking ? "Suspended" : "Active";
+    const killSwitchVal = isLocking ? 1 : 0;
+    if (await isMariaDbAvailable2()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? OR tenant_id = ?;`,
+          [newTenantStatus, tenantId, tenantId]
+        );
+        await pool2.query(
+          `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;`,
+          [newUserStatus, killSwitchVal, tenantId]
+        );
+      } catch (dbErr) {
+        console.warn("[CASCADING LOCK DB WARNING]:", dbErr);
+      }
+    }
+    try {
+      const usersJsonPath = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs9.default.existsSync(usersJsonPath)) {
+        const usersList = JSON.parse(import_fs9.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        usersList.forEach((u) => {
+          if (u.tenant_id === tenantId || u.tenantId === tenantId || u.id?.startsWith(`usr_${tenantId}`)) {
+            u.status = newUserStatus;
+            u.isKillSwitchActive = isLocking;
+          }
+        });
+        import_fs9.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: isLocking ? "TENANT_EMERGENCY_LOCKOUT" : "TENANT_ACCESS_RESTORED",
+      payload: {
+        tenantId,
+        isLocked: isLocking,
+        usersAffected: "ALL_TENANT_SUB_USERS",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    });
+    res.json({
+      success: true,
+      message: isLocking ? `Company ${tenantId} and all sub-users have been LOCKED and Suspended.` : `Company ${tenantId} and all sub-users have been RESTORED to Active status.`,
+      tenantStatus: newTenantStatus,
+      isKillSwitchActive: isLocking
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error executing cascading lock" });
+  }
+});
 
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));

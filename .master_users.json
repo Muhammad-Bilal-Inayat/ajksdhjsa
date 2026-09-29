@@ -1,5 +1,19 @@
 [
   {
+    "id": "usr_1790683617168_53um",
+    "name": "2312312312 (Primary Admin)",
+    "emailOrPhone": "2312312312",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "My Pharmacy Store",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-4ADF2030-MAJTWM",
+    "lastSyncTime": "2026-09-29T12:13:24.639Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T12:13:24.639Z"
+  },
+  {
     "id": "u_1790667685875",
     "name": "bbb",
     "emailOrPhone": "03281302636@inventra.local",
@@ -76,8 +90,8 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-4ADF2030-MAJTWM",
-    "lastSyncTime": "2026-09-29T11:54:41.226Z",
-    "updatedAt": "2026-09-29T11:54:41.226Z"
+    "lastSyncTime": "2026-09-29T12:04:18.251Z",
+    "updatedAt": "2026-09-29T12:04:18.251Z"
   },
   {
     "id": "usr_1790667685851_zj83k",

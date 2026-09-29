@@ -11,6 +11,7 @@ import { EXACT_PRICING_PLANS, PricingInterval } from '../components/landing/Pric
 import { PaymentAccountsCard, OFFICIAL_PAYMENT_CHANNELS } from '../components/checkout/PaymentAccountsCard';
 import { emitToast } from '../contexts/ToastContext';
 import { saveCheckoutOrder, CheckoutOrder } from '../lib/checkoutOrderService';
+import { saveRegistrationLeadLocal } from '../lib/registrationLeadsService';
 
 export const CheckoutPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -211,7 +212,7 @@ export const CheckoutPage: React.FC = () => {
         status: 'pending'
       };
 
-      // 2. Also save to client-side localStorage store
+      // 2. Save to client-side localStorage store
       saveCheckoutOrder({
         businessName: finalOrder.businessName,
         ownerName: finalOrder.ownerName,
@@ -229,6 +230,30 @@ export const CheckoutPage: React.FC = () => {
         notes: finalOrder.notes
       });
 
+      // 3. Save to Registration Leads store so WhatsApp Leads Panel on /server displays it immediately
+      saveRegistrationLeadLocal({
+        id: finalOrder.id,
+        storeName: finalOrder.businessName,
+        ownerName: finalOrder.ownerName,
+        username: finalOrder.username,
+        password: orderPayload.password,
+        phone: finalOrder.whatsapp,
+        email: finalOrder.email,
+        city: finalOrder.city,
+        address: `${finalOrder.city} (${finalOrder.paymentMethod || 'Online'})`,
+        requestedPlan: `${finalOrder.planName} (${finalOrder.billingInterval})`,
+        status: 'pending_activation',
+        isApproved: false,
+        submittedAt: finalOrder.createdAt || new Date().toISOString(),
+        notes: `Checkout Order: ${finalOrder.id} | Amount: PKR ${finalOrder.amountRupees} | Trx: ${finalOrder.trxId}`
+      });
+
+      // 4. Dispatch live update events for all /server dashboards
+      window.dispatchEvent(new CustomEvent('mbi-registration-leads-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-checkout-orders-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-fleet-updated'));
+      window.dispatchEvent(new Event('storage'));
+
       setSubmittedOrder(finalOrder);
       setShowSuccessModal(true);
       emitToast('✨ Order Submitted! Temporary 10-day trial activated.', 'success');
@@ -242,6 +267,27 @@ export const CheckoutPage: React.FC = () => {
         status: 'pending' as const
       };
       saveCheckoutOrder(fallbackOrder as any);
+      saveRegistrationLeadLocal({
+        id: fallbackOrder.id,
+        storeName: fallbackOrder.businessName,
+        ownerName: fallbackOrder.ownerName,
+        username: fallbackOrder.username,
+        password: orderPayload.password,
+        phone: fallbackOrder.whatsapp,
+        email: fallbackOrder.email,
+        city: fallbackOrder.city,
+        address: `${fallbackOrder.city} (${fallbackOrder.paymentMethod || 'Online'})`,
+        requestedPlan: `${fallbackOrder.planName} (${fallbackOrder.billingInterval})`,
+        status: 'pending_activation',
+        isApproved: false,
+        submittedAt: fallbackOrder.createdAt,
+        notes: `Checkout Order: ${fallbackOrder.id} | Amount: PKR ${fallbackOrder.amountRupees} | Trx: ${fallbackOrder.trxId}`
+      });
+      window.dispatchEvent(new CustomEvent('mbi-registration-leads-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-checkout-orders-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-fleet-updated'));
+      window.dispatchEvent(new Event('storage'));
+
       setSubmittedOrder(fallbackOrder);
       setShowSuccessModal(true);
       emitToast('✨ Order Submitted locally! Please confirm on WhatsApp.', 'success');

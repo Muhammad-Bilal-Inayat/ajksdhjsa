@@ -123,6 +123,27 @@
   ],
   "appUsers": [
     {
+      "id": "usr_1790683617168_53um",
+      "name": "2312312312 (Primary Admin)",
+      "username": "2312312312",
+      "emailOrPhone": "2312312312",
+      "email": "2312312312@pharma.pk",
+      "role": "Primary Admin",
+      "status": "Active",
+      "passcode": "1234",
+      "canEditInvoices": true,
+      "canDeleteInvoices": true,
+      "canReprintInvoices": true,
+      "createdAt": "2026-09-29T12:06:57.168Z",
+      "tenantId": "tenant-demo-01",
+      "updatedAt": "2026-09-29T12:06:57.190Z",
+      "storeName": "My Pharmacy Store",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-4ADF2030-MAJTWM",
+      "lastSyncTime": "2026-09-29T12:06:57.189Z",
+      "isOnline": true
+    },
+    {
       "id": "usr_1790657838970_58h9p",
       "name": "aaaaaa",
       "username": "usr_1790657838970_58h9p",
@@ -134,9 +155,9 @@
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-29T10:11:00.955Z",
+      "lastSyncTime": "2026-09-29T12:04:18.247Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T10:11:20.329Z"
+      "updatedAt": "2026-09-29T12:04:18.249Z"
     },
     {
       "id": "admin-master",
@@ -150,9 +171,9 @@
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T10:06:24.628Z",
+      "lastSyncTime": "2026-09-29T10:24:34.342Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T10:06:24.633Z",
+      "updatedAt": "2026-09-29T10:24:34.399Z",
       "allowedModules": {
         "sales": true,
         "purchases": true,
@@ -264,6 +285,21 @@
   ],
   "users": [],
   "userActivities": [
+    {
+      "id": "l_1790683617172",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user 2312312312 (Primary Admin) (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790683617172,
+      "tenantId": "tenant-demo-01",
+      "firmId": "firm-main",
+      "createdById": "usr_active",
+      "lastUpdatedById": "usr_active",
+      "lastUpdatedAt": "2026-09-29T12:06:57.172Z",
+      "createdAt": "2026-09-29T12:06:57.172Z",
+      "updatedAt": "2026-09-29T12:06:57.172Z",
+      "syncStatus": "pending"
+    },
     {
       "id": "l_1790667685905",
       "userName": "Admin",

@@ -93,22 +93,83 @@ export function getAllRegistrationLeads(): RegistrationLead[] {
   }
 }
 
+export function normalizeRegistrationLead(raw: any): RegistrationLead | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = String(raw.id || raw.lead_id || raw.order_id || `lead_${Date.now()}`);
+  const storeName = raw.storeName || raw.store_name || raw.businessName || raw.business_name || 'Medical Store';
+  const ownerName = raw.ownerName || raw.owner_name || 'Owner';
+  const username = raw.username || raw.user_name || '';
+  const phone = raw.phone || raw.whatsapp || raw.mobile || raw.owner_phone || '';
+  const email = raw.email || raw.owner_email || (phone ? `${phone}@inventra.local` : 'store@inventra.local');
+  const city = raw.city || 'Lahore';
+  const address = raw.address || '';
+  const drugLicenseNo = raw.drugLicenseNo || raw.drug_license_no || '';
+  const ntnNumber = raw.ntnNumber || raw.ntn_number || '';
+  const requestedPlan = raw.requestedPlan || raw.requested_plan || raw.selected_plan || raw.planName || raw.plan || 'Standard POS';
+  const statusRaw = String(raw.status || 'pending_activation').toLowerCase();
+  const status: RegistrationLead['status'] = 
+    statusRaw.includes('appr') || statusRaw.includes('act') ? 'activated' :
+    statusRaw.includes('cont') ? 'contacted' :
+    statusRaw.includes('rej') ? 'rejected' : 'pending_activation';
+  const isApproved = status === 'activated' || !!raw.isApproved;
+  const activationKey = raw.activationKey || raw.activation_key || raw.licenseKeyGenerated || '';
+  const submittedAt = raw.submittedAt || raw.submitted_at || raw.createdAt || raw.created_at || new Date().toISOString();
+  const notes = raw.notes || '';
+
+  return {
+    id,
+    storeName,
+    ownerName,
+    username,
+    password: raw.password || '',
+    phone,
+    email,
+    city,
+    address,
+    drugLicenseNo,
+    ntnNumber,
+    requestedPlan,
+    status,
+    isApproved,
+    activationKey,
+    submittedAt,
+    notes,
+    ipAddress: raw.ipAddress || raw.ip_address || ''
+  };
+}
+
 export async function syncRegistrationLeadsFromFirestore(): Promise<RegistrationLead[]> {
   try {
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      return getAllRegistrationLeads();
-    }
-
     const localLeads = getAllRegistrationLeads();
     const deletedIds = getDeletedLeadIds();
     const leadMap = new Map<string, RegistrationLead>();
 
-    // Load local non-deleted leads
+    // 0. Load local non-deleted leads
     localLeads.forEach(l => {
-      if (l && l.id && !deletedIds.has(l.id)) leadMap.set(l.id, l);
+      const normalized = normalizeRegistrationLead(l);
+      if (normalized && !deletedIds.has(normalized.id)) leadMap.set(normalized.id, normalized);
     });
 
-    // 1. Fetch from Central Node Express Server Sync & Fleet APIs
+    // 1. Also load local checkout orders (from customer checkout portal)
+    try {
+      const rawOrders = localStorage.getItem('mbi_checkout_orders');
+      if (rawOrders) {
+        const parsedOrders = JSON.parse(rawOrders);
+        if (Array.isArray(parsedOrders)) {
+          parsedOrders.forEach((o: any) => {
+            const lead = normalizeRegistrationLead(o);
+            if (lead && !deletedIds.has(lead.id)) {
+              const existing = leadMap.get(lead.id);
+              if (!existing || new Date(lead.submittedAt) >= new Date(existing.submittedAt)) {
+                leadMap.set(lead.id, lead);
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 2. Fetch from MariaDB Central Node Express Server Fleet Leads API (/api/fleet/leads)
     try {
       const fleetRes = await fetch('/api/fleet/leads', { cache: 'no-store' });
       if (fleetRes.ok) {
@@ -116,10 +177,11 @@ export async function syncRegistrationLeadsFromFirestore(): Promise<Registration
         const serverLeads = fleetJson?.leads;
         if (Array.isArray(serverLeads)) {
           serverLeads.forEach((sl: any) => {
-            if (sl && sl.id && !deletedIds.has(sl.id)) {
-              const existing = leadMap.get(sl.id);
-              if (!existing || new Date(sl.submittedAt || 0) >= new Date(existing.submittedAt || 0)) {
-                leadMap.set(sl.id, sl);
+            const lead = normalizeRegistrationLead(sl);
+            if (lead && !deletedIds.has(lead.id)) {
+              const existing = leadMap.get(lead.id);
+              if (!existing || new Date(lead.submittedAt) >= new Date(existing.submittedAt)) {
+                leadMap.set(lead.id, lead);
               }
             }
           });
@@ -127,6 +189,27 @@ export async function syncRegistrationLeadsFromFirestore(): Promise<Registration
       }
     } catch (e) {}
 
+    // 3. Fetch from Backend Checkout Orders API (/api/checkout/orders)
+    try {
+      const checkoutRes = await fetch('/api/checkout/orders', { cache: 'no-store' });
+      if (checkoutRes.ok) {
+        const checkoutJson = await checkoutRes.json();
+        const checkoutOrders = checkoutJson?.orders;
+        if (Array.isArray(checkoutOrders)) {
+          checkoutOrders.forEach((co: any) => {
+            const lead = normalizeRegistrationLead(co);
+            if (lead && !deletedIds.has(lead.id)) {
+              const existing = leadMap.get(lead.id);
+              if (!existing || new Date(lead.submittedAt) >= new Date(existing.submittedAt)) {
+                leadMap.set(lead.id, lead);
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 4. Fetch from Central Node Sync Stream (/api/sync)
     try {
       const res = await fetch('/api/sync', { cache: 'no-store' });
       if (res.ok) {
@@ -134,10 +217,11 @@ export async function syncRegistrationLeadsFromFirestore(): Promise<Registration
         const serverLeads = json?.data?.registration_leads;
         if (Array.isArray(serverLeads)) {
           serverLeads.forEach((sl: any) => {
-            if (sl && sl.id && !deletedIds.has(sl.id)) {
-              const existing = leadMap.get(sl.id);
-              if (!existing || new Date(sl.submittedAt || 0) >= new Date(existing.submittedAt || 0)) {
-                leadMap.set(sl.id, sl);
+            const lead = normalizeRegistrationLead(sl);
+            if (lead && !deletedIds.has(lead.id)) {
+              const existing = leadMap.get(lead.id);
+              if (!existing || new Date(lead.submittedAt) >= new Date(existing.submittedAt)) {
+                leadMap.set(lead.id, lead);
               }
             }
           });
@@ -145,19 +229,20 @@ export async function syncRegistrationLeadsFromFirestore(): Promise<Registration
       }
     } catch (e) {}
 
-    // 2. Fetch from Cloud Firestore
+    // 5. Fetch from Cloud Firestore
     try {
       const cloudLeads = await fetchCollectionFromFirestore('registration_leads');
       if (cloudLeads && Array.isArray(cloudLeads)) {
         cloudLeads.forEach((cl: any) => {
-          if (cl && cl.id) {
-            if (deletedIds.has(cl.id)) {
-              deleteRecordFromFirestore('registration_leads', cl.id).catch(() => {});
+          const lead = normalizeRegistrationLead(cl);
+          if (lead) {
+            if (deletedIds.has(lead.id)) {
+              deleteRecordFromFirestore('registration_leads', lead.id).catch(() => {});
               return;
             }
-            const existing = leadMap.get(cl.id);
-            if (!existing || new Date(cl.submittedAt || 0) >= new Date(existing.submittedAt || 0)) {
-              leadMap.set(cl.id, cl);
+            const existing = leadMap.get(lead.id);
+            if (!existing || new Date(lead.submittedAt) >= new Date(existing.submittedAt)) {
+              leadMap.set(lead.id, lead);
             }
           }
         });

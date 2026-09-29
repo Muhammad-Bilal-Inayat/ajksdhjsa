@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="favMbiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#004CE8"/>
+      <stop offset="55%" stop-color="#0080FF"/>
+      <stop offset="100%" stop-color="#00B8FF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Clean White Squircle Favicon Base -->
+  <rect x="2" y="2" width="124" height="124" rx="28" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5"/>
+
+  <!-- High-legibility Centered MBI Text -->
+  <text x="64" y="81" 
+        text-anchor="middle"
+        font-family="system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif" 
+        font-size="52" 
+        font-weight="900" 
+        letter-spacing="-0.04em" 
+        fill="url(#favMbiGrad)">MBI</text>
+</svg>

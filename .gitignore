@@ -1,9 +1,11 @@
 node_modules/
 build/
-dist/
 coverage/
 .DS_Store
 *.log
 *.zip
 .env*
 !.env.example
+.master_client_backups/
+.master_audit_logs.json
+

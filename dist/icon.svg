@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Vibrant Blue to Electric Cyan Gradient for MBI App Icon -->
+    <linearGradient id="iconMbiGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#004CE8"/>
+      <stop offset="55%" stop-color="#0080FF"/>
+      <stop offset="100%" stop-color="#00B8FF"/>
+    </linearGradient>
+    <!-- Subtle shadow on squircle container for clean contrast -->
+    <filter id="iconCardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Clean Rounded Square Container (Squircle with 24% radius) -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="#FFFFFF" filter="url(#iconCardShadow)" stroke="#F1F5F9" stroke-width="2"/>
+
+  <!-- Centered Bold MBI Typography -->
+  <text x="256" y="316" 
+        text-anchor="middle"
+        font-family="system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif" 
+        font-size="196" 
+        font-weight="900" 
+        letter-spacing="-0.04em" 
+        fill="url(#iconMbiGrad)">MBI</text>
+</svg>

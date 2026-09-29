@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 100" width="540" height="100">
+  <defs>
+    <linearGradient id="mbiGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0052FF"/>
+      <stop offset="60%" stop-color="#0088FF"/>
+      <stop offset="100%" stop-color="#00B8FF"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    .mbi-brand-text {
+      font-family: system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif;
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      fill: url(#mbiGradient);
+    }
+    .mbi-divider {
+      fill: #94A3B8;
+    }
+    .inventra-text {
+      font-family: system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif;
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      fill: #1E293B;
+    }
+    @media (prefers-color-scheme: dark) {
+      .inventra-text {
+        fill: #FFFFFF;
+      }
+      .mbi-divider {
+        fill: #64748B;
+      }
+    }
+  </style>
+
+  <g transform="translate(10, 68)">
+    <text x="0" y="0" class="mbi-brand-text">MBI</text>
+    <rect x="156" y="-52" width="3.5" height="54" rx="1.75" class="mbi-divider"/>
+    <text x="178" y="0" class="inventra-text">INVENTRA</text>
+  </g>
+</svg>

@@ -137,11 +137,12 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'multi-godowns': 'gold',
   'wholesale-matrix': 'gold',
   'advanced-reports': 'gold',
-  'tax-fbr': 'gold',
   'quotations': 'gold',
   'orders-challans': 'gold',
 
-  // Platinum Modules (Locked in Silver & Gold)
+  // Platinum / Enterprise Modules (Locked in Silver & Gold)
+  'tax-fbr': 'platinum',
+  'fbr-pos': 'platinum',
   'bookers': 'platinum',
   'booker-biller': 'platinum',
   'online-store': 'platinum',

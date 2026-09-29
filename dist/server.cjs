@@ -4448,7 +4448,7 @@ var adminRouter = (0, import_express2.Router)();
 var syncFile5 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
 var MASTER_PASSWORD2 = process.env.MASTER_PASSWORD || "Ami7788!@";
 var EMERGENCY_RECOVERY_KEY2 = process.env.EMERGENCY_RECOVERY_KEY || "03082003";
-var APP_VERSION = "v4.2.9";
+var APP_VERSION = "v4.3.0";
 var fleetStreamClients = /* @__PURE__ */ new Set();
 function broadcastFleetActivity(activity) {
   const sseData = `data: ${JSON.stringify(activity)}
@@ -9670,8 +9670,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.2.9";
-var RELEASE_NOTES = "Company-Wise 5-PC LAN Multi-Terminal Configuration & Complete Multi-Tenant Data Isolation (v4.2.9)";
+var APP_VERSION2 = "4.3.0";
+var RELEASE_NOTES = "Silent Background Hardware Auto-Binding & Enterprise FBR POS Plan Restrictions (v4.3.0)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

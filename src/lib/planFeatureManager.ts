@@ -197,8 +197,7 @@ export const PLAN_FEATURES = {
     'stock_summary_by_category',
     'category_profit_heatmap',
 
-    // Tax & FBR Reports
-    'tax_fbr_reports',
+    // Tax & Compliance Standard Reports
     'tax_report',
     'tax_rate_report',
     'form_27eq',
@@ -228,6 +227,13 @@ export const PLAN_FEATURES = {
   ],
 
   ENTERPRISE: [
+    // FBR POS Integration & Digital Invoicing (Strictly Enterprise Only)
+    'tax_fbr_reports',
+    'fbr_pos_integration',
+    'pos_tax_fbr_pos_integration',
+    'fbr_digital_tax_stamps',
+    'fbr_sales_tax_invoicing',
+
     // Enterprise Warehouses & Branches
     'unlimited_godowns',
     'branch_to_branch_transfers',

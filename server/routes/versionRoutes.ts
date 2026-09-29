@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.2.9';
-export const RELEASE_NOTES = 'Company-Wise 5-PC LAN Multi-Terminal Configuration & Complete Multi-Tenant Data Isolation (v4.2.9)';
+export const APP_VERSION = '4.3.0';
+export const RELEASE_NOTES = 'Silent Background Hardware Auto-Binding & Enterprise FBR POS Plan Restrictions (v4.3.0)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

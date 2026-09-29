@@ -18,7 +18,7 @@ export const HardwareBindingGuard: React.FC<HardwareBindingGuardProps> = ({
   onAuthorized
 }) => {
   const { tenant, business, currentUser, loading } = useAuth();
-  const [isChecking, setIsChecking] = useState(true);
+  const [isChecking, setIsChecking] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [lockReason, setLockReason] = useState<string>('');
   const [currentHwid, setCurrentHwid] = useState<string>('');
@@ -216,15 +216,6 @@ export const HardwareBindingGuard: React.FC<HardwareBindingGuardProps> = ({
       setIsChecking(false);
     }
   };
-
-  if (isChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white text-xs space-x-2">
-        <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
-        <span>Verifying Terminal...</span>
-      </div>
-    );
-  }
 
   if (isLocked) {
     return (

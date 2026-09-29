@@ -1,11 +1,13 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.2.9-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.0-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.2.9
+## 🌟 What's New in v4.3.0
+- **Silent Background Hardware Auto-Binding:** Fixed registration onboarding glitch — eliminated flickering/flashing device binding popups on registration. Device HWID is now silently auto-detected and bound seamlessly in the background.
+- **Enterprise-Restricted FBR POS Digital Invoicing:** FBR POS integration, digital sales tax stamps, STRN/NTN compliance, and FBR audit reports are strictly governed and accessible under the Enterprise / Platinum tier.
 - **Company-Wise LAN Multi-Terminal Configuration:** Configure up to 5 dedicated counter PCs per company (e.g. Retail POS, Wholesale B2B, Stock Inward, Godown Delivery, Mobile Tablet POS) with static LAN IP binding and hardware HWID locks.
 - **100% Cryptographic Multi-Tenant Data Isolation:** Strict database and network partition ensuring every company's sales, purchases, inventory, batches, and customers are strictly locked to that company's 5 terminals, with zero cross-company data leakage.
 - **Client-Side Server Updates Segregation:** Completely removed server updates and internal server tools from client/user navigation and Settings (`User Manual & Guides`), preserving `/server` and `/lan` strictly for Super Admin with Master PIN (`Ami7788!@` / `03082003`).

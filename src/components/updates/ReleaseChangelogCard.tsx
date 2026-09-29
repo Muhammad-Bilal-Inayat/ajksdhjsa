@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.2.9-stable',
+    version: 'v4.3.0-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Silent Background Hardware Auto-Binding, Enterprise-Restricted FBR POS Digital Invoicing, and 5 Core Pillars Hardening.',
+    features: [
+      {
+        text: 'Silent Background Hardware Auto-Binding: Eliminated flickering device bind popups on new user registration.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'FBR POS & Digital Invoicing Module restricted strictly to Enterprise Plan tier.',
+        type: 'feature',
+        minPlan: 'platinum'
+      },
+      {
+        text: 'Enterprise-grade Multi-Tenant Hardware Whitelist and Auto-Configured 1-Device Integrity.',
+        type: 'security',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.2.9-stable',
+    releaseDate: 'September 2026',
+    tag: 'Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Company-Wise 5-PC LAN Multi-Terminal Configuration, Strict Multi-Tenant Data Lock & Isolation, and Client-Side Server Updates Segregation.',
     features: [

@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.2.1';
-export const RELEASE_NOTES = 'LAN Multi-PC Counter Sync Hub, Zero-Crash Offline Throttle, Universal User Popup Broadcast & Server Direct Access';
+export const APP_VERSION = '4.2.3';
+export const RELEASE_NOTES = 'Instant Zero-Wait App Boot, Optimized Code Splitting, High-Speed Asset Streaming & Master Server Hub Direct Serving';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

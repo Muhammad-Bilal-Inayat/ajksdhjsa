@@ -286,7 +286,7 @@ export const DocumentationTab: React.FC = () => {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>Software Updates (v2.4)</span>
+              <span>Software Updates (v4.2)</span>
             </button>
           </div>
         </div>

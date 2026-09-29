@@ -22,7 +22,7 @@ interface VersionRelease {
 
 const BASE_RELEASE_HISTORY: VersionRelease[] = [
   {
-    version: 'v2.4.0 (Enterprise Gold)',
+    version: 'v4.2.0 (Enterprise Gold)',
     releaseDate: 'September 2026',
     tag: 'Latest Production Release',
     isLatest: true,
@@ -40,7 +40,7 @@ const BASE_RELEASE_HISTORY: VersionRelease[] = [
     ]
   },
   {
-    version: 'v2.3.5',
+    version: 'v4.1.8',
     releaseDate: 'August 2026',
     tag: 'Stable',
     isLatest: false,
@@ -62,7 +62,7 @@ export const SystemUpdatesTab: React.FC = () => {
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [installedVersion, setInstalledVersion] = useState('v2.4.0');
+  const [installedVersion, setInstalledVersion] = useState('v4.2.0');
   const [pendingUpdates, setPendingUpdates] = useState<PendingSystemUpdate[]>([]);
   const [installingUpdateId, setInstallingUpdateId] = useState<string | null>(null);
 

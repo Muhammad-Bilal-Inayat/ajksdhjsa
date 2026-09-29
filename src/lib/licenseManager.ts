@@ -113,7 +113,7 @@ export async function verifyLicenseWithHardware(): Promise<{
         const installationId = getInstallationId();
         const storedProfile = localStorage.getItem('mbi_system_hwid_profile_v2');
         const isSameSession = !!storedProfile || !!localStorage.getItem('mock_session');
-        
+
         // If same installation or allowed device pool (< 3 devices per seat), bind gracefully
         if (isSameSession || matchedMasterLicense.boundHardwareIds.length < 3) {
           matchedMasterLicense.boundHardwareIds.push(currentHwid);
@@ -169,8 +169,8 @@ export function getLicenseInfo(): LicenseInfo {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      return { 
-        ...parsed, 
+      return {
+        ...parsed,
         installationId,
         currentHwid,
         totalActiveMinutes: getTotalActiveMinutes()
@@ -217,7 +217,7 @@ export function saveLicenseInfo(info: LicenseInfo) {
   } catch {
     try {
       localStorage.removeItem('mbi_master_installations_registry');
-    } catch {}
+    } catch { }
   }
 }
 

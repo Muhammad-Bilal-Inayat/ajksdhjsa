@@ -189,10 +189,10 @@ export function ServerGlobalSearch({
     }
   };
 
-  const totalHits = (results?.tenants.length || 0) + 
-                    (results?.licenses.length || 0) + 
-                    (results?.users.length || 0) + 
-                    (results?.logs.length || 0) +
+  const totalHits = (results?.tenants?.length || 0) + 
+                    (results?.licenses?.length || 0) + 
+                    (results?.users?.length || 0) + 
+                    (results?.logs?.length || 0) +
                     matchedTabs.length;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -236,7 +236,7 @@ export function ServerGlobalSearch({
       </div>
 
       {/* Results Dropdown */}
-      {isOpen && (matchedTabs.length > 0 || results) && (
+      {isOpen && (matchedTabs.length > 0 || (results && totalHits > 0) || (!loading && query.trim().length >= 2)) && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-50 max-h-[75vh] overflow-y-auto divide-y divide-slate-800/80 animate-in fade-in slide-in-from-top-2 duration-150">
           {/* Header Summary */}
           <div className="px-4 py-2.5 bg-slate-950/80 flex items-center justify-between text-[11px] font-bold text-slate-400">
@@ -291,7 +291,7 @@ export function ServerGlobalSearch({
           )}
 
           {/* 1. Pharmacy Tenants / Stores */}
-          {results.tenants.length > 0 && (
+          {results?.tenants && results.tenants.length > 0 && (
             <div className="p-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
                 <Building2 className="w-3.5 h-3.5 text-blue-400" />
@@ -334,7 +334,7 @@ export function ServerGlobalSearch({
           )}
 
           {/* 2. License Keys & Hardware HWID */}
-          {results.licenses.length > 0 && (
+          {results?.licenses && results.licenses.length > 0 && (
             <div className="p-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
                 <Key className="w-3.5 h-3.5 text-amber-400" />
@@ -394,7 +394,7 @@ export function ServerGlobalSearch({
           )}
 
           {/* 3. Global Staff Users */}
-          {results.users.length > 0 && (
+          {results?.users && results.users.length > 0 && (
             <div className="p-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
@@ -435,7 +435,7 @@ export function ServerGlobalSearch({
           )}
 
           {/* 4. Security Audit Logs */}
-          {results.logs.length > 0 && (
+          {results?.logs && results.logs.length > 0 && (
             <div className="p-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
                 <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />

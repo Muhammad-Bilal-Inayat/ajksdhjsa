@@ -127,6 +127,10 @@ export const Billing: React.FC = () => {
     return 'invoices';
   }, [location.pathname]);
 
+  const currentSubMenu = useMemo(() => {
+    return SALE_SUBMENUS.find(m => m.id === activeSubView) || SALE_SUBMENUS[0];
+  }, [activeSubView]);
+
   // Database Data States
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<PartyPayment[]>([]);
@@ -153,6 +157,15 @@ export const Billing: React.FC = () => {
   const [isControlledSaleOpen, setIsControlledSaleOpen] = useState(false);
   const [isAddPaymentInOpen, setIsAddPaymentInOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+
+  const handleOpenCreateModal = () => {
+    if (activeSubView === 'payment-in') {
+      setIsAddPaymentInOpen(true);
+    } else {
+      setEditingInvoice(null);
+      setIsAddSaleOpen(true);
+    }
+  };
 
   // Keep Transaction Dock in sync: auto-hide floating task dock while bill is active
   useEffect(() => {
@@ -402,11 +415,6 @@ export const Billing: React.FC = () => {
     }
     return map;
   }, [medicines]);
-
-  // Filter Transactions by active subview, dates, firm, user & search
-  const currentSubMenu = useMemo(() => {
-    return SALE_SUBMENUS.find(s => s.id === activeSubView) || SALE_SUBMENUS[0];
-  }, [activeSubView]);
 
   const filteredInvoices = useMemo(() => {
     if (activeSubView === 'payment-in') return [];
@@ -1363,7 +1371,7 @@ export const Billing: React.FC = () => {
         <div className="flex items-center gap-2">
           {activeSubView === 'invoices' && (
             <button
-              onClick={() => setIsSpecialSaleOpen(true)}
+              onClick={() => setIsControlledSaleOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer shadow-2xs"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />

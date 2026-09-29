@@ -377,8 +377,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
 
+        // 1. Check if item's menu is explicitly blocked in Master Control / 173-Feature Switchboard
+        const targetMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
+        if (targetMenuId) {
+          const isMenuAllowed = evaluatePermission({
+            userId: effectiveUserId,
+            role: activeRole,
+            plan: effectivePlan,
+            tenantId: effectiveTenantId,
+            menuId: targetMenuId
+          });
+          if (!isMenuAllowed) return false;
+        }
+
         // SAFE MENU PERMISSION FALLBACK:
-        // If user is Primary Owner or allowed_modules is uninitialized, NEVER hide core baseline operational menus
+        // For non-owner staff roles, check granular module and role permissions
         if (!isOwner) {
           if (!canAccess(item.moduleKey as any) && !isCoreModule) return false;
           if (item.id && userVis[item.id] === false && !isCoreModule) return false;
@@ -399,19 +412,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const assignedMenuKey = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
           if (assignedMenuKey && Array.isArray(assignedUserMenus) && !assignedUserMenus.includes(assignedMenuKey)) {
             return false;
-          }
-
-          // Check if item's menu is blocked in 173-Feature Switchboard
-          const targetMenuId = menuIdMap[item.id || ''] || (item.moduleKey as string);
-          if (targetMenuId && !isCoreModule) {
-            const isMenuAllowed = evaluatePermission({
-              userId: effectiveUserId,
-              role: activeRole,
-              plan: effectivePlan,
-              tenantId: effectiveTenantId,
-              menuId: targetMenuId
-            });
-            if (!isMenuAllowed) return false;
           }
         }
 
@@ -444,7 +444,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }
 
           // Check granular switchboard route access for each sub-menu item
-          if (sub.path && !isOwner) {
+          if (sub.path) {
             const routeCheck = checkGranularRouteAccess(sub.path, {
               userId: effectiveUserId,
               role: activeRole,

@@ -178,6 +178,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     const serialized = JSON.stringify(newProfile);
     localStorage.setItem('mbi_active_user_access_profile', serialized);
     localStorage.setItem('mbi_user_access_profile_user_usr_active', serialized);
+    localStorage.setItem(`mbi_user_access_profile_user_${newProfile.userId}`, serialized);
     localStorage.setItem('mbi_master_control_last_selected_user', newProfile.userId);
 
     const effective = computeEffectivePermissions(newProfile);
@@ -454,6 +455,60 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     }, `All features deactivated for ${selectedUser.name} (Hidden from Sidebar & blocked)`);
   };
 
+  const handleApplyPlanPreset = (preset: 'BASIC' | 'SILVER' | 'GOLD' | 'ENTERPRISE') => {
+    const menus: Record<string, boolean> = {};
+    const submenus: Record<string, boolean> = {};
+    const functions: Record<string, boolean> = {};
+    const actions: Record<string, boolean> = {};
+
+    const isEnterprise = preset === 'ENTERPRISE';
+    const isGoldOrHigher = preset === 'GOLD' || isEnterprise;
+    const isSilverOrHigher = preset === 'SILVER' || isGoldOrHigher;
+
+    SYSTEM_MENU_TREE.forEach(menu => {
+      let isMenuEnabled = true;
+      if (menu.id === 'onlineStore' || menu.id === 'bookers') {
+        isMenuEnabled = isEnterprise;
+      }
+      if (menu.id === 'syncShare') {
+        isMenuEnabled = isGoldOrHigher;
+      }
+      menus[menu.id] = isMenuEnabled;
+
+      menu.submenus.forEach(sub => {
+        let isSubEnabled = isMenuEnabled;
+        if (sub.id === 'topProducts') {
+          isSubEnabled = isGoldOrHigher;
+        }
+        if (sub.id === 'deliveryChallan' || sub.id === 'saleOrder' || sub.id === 'estimateQuotation' || sub.id === 'purchaseOrder' || sub.id === 'cheques' || sub.id === 'loanAccounts') {
+          isSubEnabled = isSilverOrHigher;
+        }
+        submenus[sub.id] = isSubEnabled;
+
+        sub.functions.forEach(fn => {
+          let isFnEnabled = isSubEnabled;
+          if (fn.id === 'viewProfitLoss' || fn.id === 'antiTheftAudit' || fn.id === 'aiExpiryLossPrevention') {
+            isFnEnabled = isGoldOrHigher;
+          }
+          functions[fn.id] = isFnEnabled;
+
+          fn.actions.forEach(act => {
+            actions[act.id] = isFnEnabled;
+          });
+        });
+      });
+    });
+
+    commitProfile({
+      ...profile,
+      isCustomOverrideActive: true,
+      menuToggles: menus,
+      submenuToggles: submenus,
+      functionToggles: functions,
+      actionToggles: actions
+    }, `⚡ Applied ${preset} Plan Feature Preset for ${selectedUser.name}!`);
+  };
+
   const handleResetToRole = () => {
     const reset = resetUserToRoleDefaults(
       selectedUser.id,
@@ -698,13 +753,35 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
             <span>Passcode: <code className="text-amber-400 font-mono font-bold">{selectedUser.passcode || '1234'}</code></span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-400 mr-1">1-Click Presets:</span>
             <button
-              onClick={handleActivateAll}
-              className="px-2.5 py-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 text-[11px] font-bold transition-all cursor-pointer"
-              title="Turn ON all 173 features"
+              onClick={() => handleApplyPlanPreset('BASIC')}
+              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-all cursor-pointer"
+              title="Apply Basic Plan (Standard Retail Billing, Inventory, Khatas)"
             >
-              Activate All (173)
+              ⚡ Basic (Starter)
+            </button>
+            <button
+              onClick={() => handleApplyPlanPreset('SILVER')}
+              className="px-2.5 py-1 rounded-lg bg-slate-700/70 hover:bg-slate-700 text-slate-100 border border-slate-600 text-[11px] font-bold transition-all cursor-pointer"
+              title="Apply Silver Pro (Shifts, Reports, WhatsApp, Barcode)"
+            >
+              🥈 Silver Pro
+            </button>
+            <button
+              onClick={() => handleApplyPlanPreset('GOLD')}
+              className="px-2.5 py-1 rounded-lg bg-amber-950/60 hover:bg-amber-900 text-amber-300 border border-amber-700/60 text-[11px] font-bold transition-all cursor-pointer"
+              title="Apply Gold Business (Top Products, Profit Analytics, Multi-Terminal)"
+            >
+              🥇 Gold Business
+            </button>
+            <button
+              onClick={() => handleApplyPlanPreset('ENTERPRISE')}
+              className="px-2.5 py-1 rounded-lg bg-indigo-950/70 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 text-[11px] font-bold transition-all cursor-pointer"
+              title="Apply Enterprise & Platinum (100% All Features + Order Bookers + Online Store)"
+            >
+              💎 Enterprise (All 173)
             </button>
             <button
               onClick={handleDeactivateAll}

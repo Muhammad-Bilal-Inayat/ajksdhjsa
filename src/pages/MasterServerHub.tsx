@@ -534,7 +534,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
       case 'site_cms':
         return <SiteCmsEditorPanel />;
       case 'sales_revenue':
-        return <SoftwareSalesRevenueDashboard />;
+        return <SoftwareSalesRevenueDashboard onNotify={handleNotify} />;
       case 'storage':
         return <TenantStorageMonitor onNotify={handleNotify} />;
       case 'sync_health':

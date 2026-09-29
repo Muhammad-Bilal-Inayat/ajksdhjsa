@@ -1,5 +1,32 @@
 [
   {
+    "sessionId": "sess_admin-master_1790665610165",
+    "eventType": "message_sent",
+    "eventLabel": "User Msg: WhatsApp Invoice Direct",
+    "userId": "admin-master",
+    "userName": "Bilal Inayat (Primary Admin)",
+    "storeName": "MBI INVENTRA",
+    "tenantId": "tenant-main-01",
+    "userPlan": "Pharmacy Pro",
+    "pageContext": "user",
+    "id": "clk_1790674971588_4kd2i",
+    "timestamp": "2026-09-29T09:42:51.588Z"
+  },
+  {
+    "sessionId": "sess_admin-master_1790665610165",
+    "eventType": "prompt_chip_click",
+    "eventLabel": "WhatsApp Invoice Direct",
+    "userId": "admin-master",
+    "userName": "Bilal Inayat (Primary Admin)",
+    "storeName": "MBI INVENTRA",
+    "tenantId": "tenant-main-01",
+    "userPlan": "Pharmacy Pro",
+    "pageContext": "user",
+    "ip": "127.0.0.1",
+    "id": "clk_1790674971569_gowsv",
+    "timestamp": "2026-09-29T09:42:51.570Z"
+  },
+  {
     "sessionId": "sess_u_1790667685875_1790667824766",
     "eventType": "message_sent",
     "eventLabel": "User Msg: hi",

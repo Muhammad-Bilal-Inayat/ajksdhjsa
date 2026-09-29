@@ -24,9 +24,10 @@ import { MasterBroadcastCenterTab } from '../components/admin/MasterBroadcastCen
 import { MasterGlobalSearchBar } from '../components/admin/MasterGlobalSearchBar';
 import { Master2faSettingsModal } from '../components/admin/Master2faSettingsModal';
 import { CheckoutLeadsTab } from '../components/admin/CheckoutLeadsTab';
+import { MasterTenantBackupRestorePanel } from '../components/admin/MasterTenantBackupRestorePanel';
 import { emitToast } from '../contexts/ToastContext';
 
-type TabType = 'stream' | 'broadcast' | 'stores' | 'checkout_orders' | 'database_studio' | 'predictions' | 'vault' | 'ai_support' | 'traffic' | 'subdomains' | 'devices' | '2fa';
+type TabType = 'stream' | 'broadcast' | 'stores' | 'checkout_orders' | 'database_studio' | 'backup_vault' | 'predictions' | 'vault' | 'ai_support' | 'traffic' | 'subdomains' | 'devices' | '2fa';
 
 export const MasterCommandCenter: React.FC = () => {
   const navigate = useNavigate();
@@ -572,6 +573,19 @@ export const MasterCommandCenter: React.FC = () => {
 
         <button
           type="button"
+          onClick={() => setActiveTab('backup_vault')}
+          className={`px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+            activeTab === 'backup_vault'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-600/30'
+              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <HardDrive className="w-4 h-4 text-indigo-400" />
+          <span>4. 💾 Tenant Disaster Recovery &amp; Backup Vault</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('predictions')}
           className={`px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
             activeTab === 'predictions'
@@ -901,6 +915,11 @@ export const MasterCommandCenter: React.FC = () => {
       {/* TAB 3: 23-TABLE MARIADB DATA STUDIO */}
       {activeTab === 'database_studio' && (
         <MasterDbExplorerTab tenants={tenants} />
+      )}
+
+      {/* TAB 4: TENANT DISASTER RECOVERY & BACKUP VAULT */}
+      {activeTab === 'backup_vault' && (
+        <MasterTenantBackupRestorePanel />
       )}
 
       {/* TAB 4: AI PREDICTIVE STOCK DEPLETION ENGINE */}

@@ -11,14 +11,14 @@
     "pageContext": "user",
     "status": "active_ai",
     "isHumanAssigned": false,
-    "totalClicks": 1,
-    "unreadCountForServer": 0,
-    "unreadCountForUser": 0,
-    "lastMessage": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+    "totalClicks": 3,
+    "unreadCountForServer": 1,
+    "unreadCountForUser": 1,
+    "lastMessage": "MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.",
     "lastMessageSender": "ai",
-    "lastMessageAt": "2026-09-29T09:29:29.032Z",
+    "lastMessageAt": "2026-09-29T09:43:58.904Z",
     "createdAt": "2026-09-29T09:29:29.032Z",
-    "updatedAt": "2026-09-29T09:29:29.032Z",
+    "updatedAt": "2026-09-29T09:43:58.904Z",
     "messages": [
       {
         "id": "msg_init_1790674169032",
@@ -26,6 +26,24 @@
         "senderName": "MBI AI Guide",
         "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
         "timestamp": "2026-09-29T09:29:29.032Z",
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790674971604_h9ka",
+        "sender": "user",
+        "senderName": "Bilal Inayat (Primary Admin)",
+        "text": "WhatsApp Invoice Direct",
+        "timestamp": "2026-09-29T09:42:51.604Z",
+        "isEscalation": false,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790675038904_xgz5",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.",
+        "timestamp": "2026-09-29T09:43:58.904Z",
+        "isEscalation": true,
         "status": "delivered"
       }
     ]

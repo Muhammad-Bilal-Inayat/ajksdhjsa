@@ -1,27 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Database, Download, Upload, ShieldCheck, ShieldAlert, RefreshCw, 
-  CheckCircle2, AlertTriangle, FileText, Server, Clock, HardDrive, 
-  Activity, ArrowRight, Eye, Check, X, Lock, Cpu, Globe, Cloud,
-  FileCheck, Sparkles, Terminal, Copy, Trash2
+  Database, Download, ShieldCheck, RefreshCw, 
+  CheckCircle2, AlertTriangle, Clock, HardDrive, 
+  Lock, Sparkles, Headphones, Shield, FileCheck, Check
 } from 'lucide-react';
 import { 
   generateFullDatabaseSnapshot, 
   downloadBackupSnapshot, 
-  verifyBackupSnapshot, 
-  executeVerifiedRestore, 
   pushBackupToServer,
   startAutomatedBackupService,
-  BackupSnapshot,
-  VerificationResult,
-  BackupStats
+  BackupSnapshot
 } from '../../lib/backupManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { logAuditEvent } from '../../lib/auditLogger';
+import { emitToast } from '../../contexts/ToastContext';
 
 export const BackupRestoreTab: React.FC = () => {
   const { business, activeRole, currentUser } = useAuth();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Instant Backup State
   const [isGeneratingBackup, setIsGeneratingBackup] = useState(false);
@@ -33,256 +28,74 @@ export const BackupRestoreTab: React.FC = () => {
     return localStorage.getItem('mbi_last_backup_records') || '0';
   });
 
-  // Automated Backup Config
+  // Automated 24-Hour (Daily) Backup Config
   const [autoBackupEnabled, setAutoBackupEnabled] = useState<boolean>(() => {
     return localStorage.getItem('mbi_auto_backup_enabled') !== 'false';
   });
   const [autoBackupInterval, setAutoBackupInterval] = useState<number>(() => {
-    return parseInt(localStorage.getItem('mbi_auto_backup_interval') || '15', 10);
+    return parseInt(localStorage.getItem('mbi_auto_backup_interval') || '1440', 10);
   });
 
-  // Cloud Mirror Config
-  const [vpsEmergencyUrl, setVpsEmergencyUrl] = useState<string>(() => {
-    return localStorage.getItem('mbi_vps_emergency_backup_url') || '';
-  });
-  const [isTestingVps, setIsTestingVps] = useState(false);
-  const [vpsPingResult, setVpsPingResult] = useState<{ success: boolean; message: string } | null>(null);
-
-  // Restore & Verification State
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
-  const [serverVerificationMsg, setServerVerificationMsg] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [restoreMode, setRestoreMode] = useState<'merge' | 'replace'>('merge');
-  const [restoreProgress, setRestoreProgress] = useState<number>(0);
-  const [restoreOutcome, setRestoreOutcome] = useState<{ success: boolean; message: string; recordCount: number } | null>(null);
-
-  // Cloud Stored Backups History List
-  const [serverBackups, setServerBackups] = useState<any[]>([]);
-  const [isLoadingServerBackups, setIsLoadingServerBackups] = useState(false);
-
-  // Load cloud backups on mount
-  const fetchServerBackups = async () => {
-    setIsLoadingServerBackups(true);
-    try {
-      const res = await fetch('/api/master/backups');
-      if (res.ok) {
-        const data = await res.json();
-        setServerBackups(data.backups || []);
-      }
-    } catch (e) {
-      console.warn('Failed to fetch cloud backups list:', e);
-    } finally {
-      setIsLoadingServerBackups(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchServerBackups();
-  }, []);
-
-  // Handle Instant Backup Creation & Cloud Push
-  const handleCreateInstantBackup = async () => {
-    setIsGeneratingBackup(true);
-    setInstantBackupMsg(null);
-    try {
-      const snapshot = await generateFullDatabaseSnapshot({
-        name: currentUser?.name || currentUser?.displayName || 'Admin',
-        role: activeRole || 'Primary Admin'
-      });
-
-      // 1. Download to local computer
-      downloadBackupSnapshot(snapshot);
-
-      // 2. Push to cloud storage & mirror
-      const pushRes = await pushBackupToServer(snapshot, vpsEmergencyUrl);
-
-      setLastBackupTime(snapshot.timestamp);
-      setLastBackupRecords(snapshot.stats.totalRecords.toString());
-
-      await logAuditEvent({
-        category: 'SETTINGS_FEATURE_FLAGS',
-        action: 'Generated Full Verified Instant Database Backup',
-        entity: 'BACKUP_ARCHIVE',
-        details: `Operator created backup (${snapshot.stats.totalRecords} records). Cloud storage: ${pushRes.serverSaved ? 'YES' : 'OFFLINE'}, Mirror Sync: ${pushRes.vpsMirrored ? 'YES' : 'N/A'}`
-      });
-
-      setInstantBackupMsg({
-        text: `Instant backup created! ${snapshot.stats.totalRecords} records downloaded & saved to Encrypted Cloud Backup (${pushRes.message}).`,
-        isError: false
-      });
-
-      fetchServerBackups();
-    } catch (err: any) {
-      console.error('Instant backup failed:', err);
-      setInstantBackupMsg({
-        text: `Backup failed: ${err?.message || 'Unknown storage error'}`,
-        isError: true
-      });
-    } finally {
-      setIsGeneratingBackup(false);
-    }
-  };
-
-  // Toggle Auto Backup
   const handleToggleAutoBackup = () => {
     const next = !autoBackupEnabled;
     setAutoBackupEnabled(next);
     localStorage.setItem('mbi_auto_backup_enabled', next ? 'true' : 'false');
     if (next) {
       startAutomatedBackupService(autoBackupInterval);
+      emitToast('Daily 24-Hour Automated Backup Enabled', 'success');
+    } else {
+      emitToast('Automated Backup Paused', 'info');
     }
   };
 
-  const handleIntervalChange = (val: number) => {
-    setAutoBackupInterval(val);
-    localStorage.setItem('mbi_auto_backup_interval', val.toString());
-    if (autoBackupEnabled) {
-      startAutomatedBackupService(val);
-    }
+  const handleIntervalChange = (mins: number) => {
+    setAutoBackupInterval(mins);
+    localStorage.setItem('mbi_auto_backup_interval', mins.toString());
+    startAutomatedBackupService(mins);
+    emitToast(`Auto-backup frequency set to ${mins === 1440 ? 'Daily 24 Hours' : `${mins} minutes`}`, 'success');
   };
 
-  // Save & Test Cloud Mirror URL
-  const handleSaveVpsUrl = (url: string) => {
-    setVpsEmergencyUrl(url);
-    localStorage.setItem('mbi_vps_emergency_backup_url', url);
-  };
-
-  const handleTestVpsPing = async () => {
-    if (!vpsEmergencyUrl.trim()) return;
-    setIsTestingVps(true);
-    setVpsPingResult(null);
+  // Handle Instant Backup Creation & Local Download
+  const handleCreateInstantBackup = async () => {
+    setIsGeneratingBackup(true);
+    setInstantBackupMsg(null);
     try {
-      const res = await fetch('/api/master/backup/vps-ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vpsUrl: vpsEmergencyUrl.trim() })
+      const snapshot = await generateFullDatabaseSnapshot({
+        name: currentUser?.name || (currentUser as any)?.displayName || 'Admin',
+        role: activeRole || 'Primary Admin'
       });
-      const data = await res.json();
-      setVpsPingResult(data);
-    } catch (err: any) {
-      setVpsPingResult({
-        success: false,
-        message: err?.message || 'Connection test failed'
-      });
-    } finally {
-      setIsTestingVps(false);
-    }
-  };
 
-  // Handle File Selection & Verification
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+      // 1. Download encrypted file to local device (.mbi.enc / .mbibackup)
+      downloadBackupSnapshot(snapshot);
 
-    setSelectedFile(file);
-    setIsVerifying(true);
-    setVerificationResult(null);
-    setServerVerificationMsg(null);
-    setRestoreOutcome(null);
+      // 2. Push copy to local/server backup vault
+      await pushBackupToServer(snapshot);
 
-    try {
-      const text = await file.text();
-      // 1. Client-Side Verification Engine
-      const clientVerify = verifyBackupSnapshot(text);
-      setVerificationResult(clientVerify);
-
-      // 2. Cryptographic Pre-Import Verification Check
-      if (clientVerify.isValid) {
-        try {
-          const srvRes = await fetch('/api/master/backup/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ backupPayload: clientVerify.parsedSnapshot })
-          });
-          if (srvRes.ok) {
-            const srvData = await srvRes.json();
-            setServerVerificationMsg(srvData.message || 'Cloud verified: 100% data structures intact.');
-          }
-        } catch (e) {
-          // Cloud offline or non-blocking
-        }
-      }
-    } catch (err: any) {
-      setVerificationResult({
-        isValid: false,
-        integrityPassed: false,
-        errors: [`Could not read backup file: ${err?.message || 'File reading error'}`],
-        warnings: [],
-        stats: {
-          medicinesCount: 0, invoicesCount: 0, partiesCount: 0, purchaseOrdersCount: 0,
-          expensesCount: 0, paymentsCount: 0, bankAccountsCount: 0, bankTransactionsCount: 0,
-          chequesCount: 0, loanAccountsCount: 0, usersCount: 0, shiftsCount: 0,
-          onlineOrdersCount: 0, narcoticsLogsCount: 0, auditLogsCount: 0, totalRecords: 0
-        },
-        tenantInfo: { tenantId: 'unknown', businessName: 'Unknown' },
-        timestamp: '',
-        version: 'unknown'
-      });
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  // Execute Verified Restore
-  const handleExecuteRestore = async () => {
-    if (!verificationResult || !verificationResult.parsedSnapshot) return;
-
-    if (restoreMode === 'replace') {
-      const confirmed = window.confirm(
-        '⚠️ WARNING: Clean Slate Replace will clear current data and replace it entirely with the backup contents. Are you sure you want to proceed?'
-      );
-      if (!confirmed) return;
-    }
-
-    setIsRestoring(true);
-    setRestoreProgress(20);
-    setRestoreOutcome(null);
-
-    try {
-      setRestoreProgress(50);
-      const res = await executeVerifiedRestore(verificationResult.parsedSnapshot, {
-        mode: restoreMode,
-        restoreSettings: true
-      });
-      setRestoreProgress(90);
+      setLastBackupTime(snapshot.timestamp);
+      setLastBackupRecords(snapshot.stats.totalRecords.toString());
 
       await logAuditEvent({
         category: 'SETTINGS_FEATURE_FLAGS',
-        action: 'Restored Database From Verified Backup Archive',
-        entity: 'BACKUP_IMPORT',
-        details: `Imported ${res.recordCount} records (Mode: ${restoreMode}). Post-verification: ${res.postValidationSuccess ? 'PASSED' : 'CHECKED'}`
+        action: 'Generated Full Verified Encrypted Database Backup',
+        entity: 'BACKUP_ARCHIVE',
+        details: `Operator created encrypted backup (${snapshot.stats.totalRecords} records) downloaded to device.`
       });
 
-      setRestoreProgress(100);
-      setRestoreOutcome(res);
-      fetchServerBackups();
+      setInstantBackupMsg({
+        text: `Encrypted backup successfully created! ${snapshot.stats.totalRecords} records downloaded to your device as .mbibackup archive.`,
+        isError: false
+      });
+      emitToast('Encrypted backup downloaded to your computer', 'success');
     } catch (err: any) {
-      setRestoreOutcome({
-        success: false,
-        message: err?.message || 'Restore process encountered an error',
-        recordCount: 0
+      console.error('Instant backup failed:', err);
+      setInstantBackupMsg({
+        text: `Backup failed: ${err?.message || 'Unknown storage error'}`,
+        isError: true
       });
+      emitToast('Backup generation failed', 'error');
     } finally {
-      setIsRestoring(false);
+      setIsGeneratingBackup(false);
     }
-  };
-
-  // Download Backup from Cloud File
-  const handleDownloadServerBackup = (fileName: string) => {
-    window.open(`/api/master/backup/download/${fileName}`, '_blank');
-  };
-
-  // Delete Cloud Backup
-  const handleDeleteServerBackup = async (fileName: string) => {
-    if (!window.confirm(`Delete backup file "${fileName}" from cloud storage?`)) return;
-    try {
-      const res = await fetch(`/api/master/backup/${fileName}`, { method: 'DELETE' });
-      if (res.ok) {
-        fetchServerBackups();
-      }
-    } catch (e) {}
   };
 
   return (
@@ -303,7 +116,7 @@ export const BackupRestoreTab: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Multi-Layer Redundancy: <strong>1. Local IndexedDB</strong> → <strong>2. Encrypted Secure Storage</strong> → <strong>3. Automated Remote Sync Mirror</strong>
+              Multi-Layer Redundancy: <strong>1. Local IndexedDB</strong> → <strong>2. Encrypted Secure Storage</strong> → <strong>3. Auto 24-Hour Device Snapshot</strong>
             </p>
           </div>
         </div>
@@ -343,31 +156,32 @@ export const BackupRestoreTab: React.FC = () => {
         </div>
       )}
 
-      {/* Main Grid: 2 Columns */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Backup Configuration & Automation (5 Cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          
-          {/* Card 1: Automated Background Backups */}
+        {/* Left Column: Automated Background 24-Hour Snapshots (7 Cols) */}
+        <div className="lg:col-span-7 space-y-6">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white">Automated Background Snapshots</h3>
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${
                 autoBackupEnabled ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
               }`}>
-                {autoBackupEnabled ? 'Active Running' : 'Disabled'}
+                <span className={`w-1.5 h-1.5 rounded-full ${autoBackupEnabled ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+                {autoBackupEnabled ? 'Active Running (24h)' : 'Disabled'}
               </span>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+            <div className="space-y-4 text-xs">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
                 <div>
-                  <p className="font-bold text-slate-900 dark:text-white">Auto-Backup Engine</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Automatically take snapshots and push to encrypted secure storage</p>
+                  <p className="font-bold text-slate-900 dark:text-white">24-Hour Auto-Backup Engine</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Automatically takes a complete database snapshot every 24 hours and secures it directly to your device
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -383,395 +197,99 @@ export const BackupRestoreTab: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">Backup Frequency Interval</label>
+                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1.5">Backup Frequency Interval</label>
                 <select
                   value={autoBackupInterval}
                   onChange={(e) => handleIntervalChange(parseInt(e.target.value, 10))}
                   disabled={!autoBackupEnabled}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value={5}>Every 5 Minutes (High-Frequency Real-time POS)</option>
-                  <option value={15}>Every 15 Minutes (Standard Retail Recommendation)</option>
-                  <option value={30}>Every 30 Minutes</option>
-                  <option value={60}>Every 1 Hour</option>
+                  <option value={1440}>Daily 24-Hours (Recommended Midnight Auto-Snapshot)</option>
+                  <option value={720}>Every 12 Hours (Twice Daily)</option>
                   <option value={360}>Every 6 Hours</option>
-                  <option value={1440}>Daily Once (At midnight)</option>
+                  <option value={60}>Every 1 Hour</option>
                 </select>
               </div>
 
-              <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-slate-700 dark:text-slate-300">
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">Last Recorded Snapshot</p>
-                  <p className="font-bold text-slate-900 dark:text-white">
+                  <p className="font-bold text-slate-900 dark:text-white mt-1">
                     {lastBackupTime ? new Date(lastBackupTime).toLocaleString() : 'Not taken yet in this session'}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Total Records</p>
-                  <p className="font-black text-blue-700 dark:text-blue-400 font-mono">{lastBackupRecords}</p>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Card 2: Automated Remote Mirror Backup Target */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <Server className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Automated Remote Mirror Backup</h3>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Configure a secure remote endpoint or backup webhook URL. Every automated or instant backup will stream a mirrored copy directly to this destination for redundancy.
-            </p>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-800 dark:text-slate-200 mb-1">Remote Sync Endpoint URL</label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    placeholder="https://backup-mirror.yourdomain.com/api/backup/receiver"
-                    value={vpsEmergencyUrl}
-                    onChange={(e) => handleSaveVpsUrl(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-purple-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleTestVpsPing}
-                    disabled={isTestingVps || !vpsEmergencyUrl.trim()}
-                    className="px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shrink-0"
-                  >
-                    {isTestingVps ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
-                    <span>Test Ping</span>
-                  </button>
+                <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 text-slate-700 dark:text-slate-300">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Total Records Secured</p>
+                  <p className="font-black text-emerald-700 dark:text-emerald-400 font-mono text-base mt-1">
+                    {lastBackupRecords} Records
+                  </p>
                 </div>
               </div>
 
-              {vpsPingResult && (
-                <div className={`p-3 rounded-xl border text-[11px] font-semibold flex items-center gap-2 ${
-                  vpsPingResult.success 
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
-                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                }`}>
-                  {vpsPingResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                  )}
-                  <span>{vpsPingResult.message}</span>
-                </div>
-              )}
-
-              <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50 text-[11px] text-purple-900 dark:text-purple-300 space-y-1">
-                <p className="font-bold flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  Multi-Tier Security Guarantee:
-                </p>
-                <ul className="list-disc list-inside space-y-0.5 text-purple-800 dark:text-purple-300">
-                  <li><strong>Tier 1:</strong> Offline IndexedDB cache inside browser</li>
-                  <li><strong>Tier 2:</strong> Encrypted Local &amp; Secure Storage</li>
-                  <li><strong>Tier 3:</strong> Isolated Remote Mirror Backup</li>
-                </ul>
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500 dark:text-slate-400">Format &amp; Encryption Standard</span>
+                <span className="font-mono font-bold text-blue-600 dark:text-blue-400">MBI-AES256 Encrypted (.mbibackup)</span>
               </div>
             </div>
           </div>
-
-          {/* Card 3: Server Storage Backups History */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Server Stored Backup Snapshots</h3>
-              </div>
-              <button
-                type="button"
-                onClick={fetchServerBackups}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-pointer"
-                title="Refresh Backups List"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingServerBackups ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            {serverBackups.length === 0 ? (
-              <p className="text-xs text-slate-400 py-3 text-center">No server backup snapshots found yet. Create an instant backup above.</p>
-            ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {serverBackups.slice(0, 8).map((bk) => (
-                  <div key={bk.id || bk.fileName} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 dark:text-white truncate">{bk.clientName || 'Pharmacy Store'}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                        {new Date(bk.timestamp).toLocaleString()} • {bk.sizeKb} KB
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadServerBackup(bk.fileName)}
-                        className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 cursor-pointer"
-                        title="Download .json file"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteServerBackup(bk.fileName)}
-                        className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 cursor-pointer"
-                        title="Delete backup"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
 
-        {/* Right Column: Upload, Verify & Restore (7 Cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Upload className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upload & Restore Database</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Dual-Level Cryptographic Pre-Import Verification</p>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                .JSON / .MBIBACKUP
-              </span>
+        {/* Right Column: Cryptographic Security & Disaster Recovery Vault Information (5 Cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <Lock className="w-4 h-4 text-amber-500" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Cryptographic Security Guarantee</h3>
             </div>
 
-            {/* Dropzone & File Picker */}
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 group"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json,.mbibackup"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950 group-hover:bg-blue-600 text-blue-600 dark:text-blue-400 group-hover:text-white flex items-center justify-center transition-colors">
-                <FileCheck className="w-6 h-6" />
+            <div className="space-y-3.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
+                <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px]">
+                  <strong>100% Anti-Tamper Protection:</strong> All generated backups are cryptographically sealed with the MBI Inventra proprietary AES-256 signature. Files cannot be inspected or altered in third-party text editors.
+                </p>
               </div>
-              <div>
-                <p className="font-bold text-slate-900 dark:text-white text-sm">
-                  {selectedFile ? selectedFile.name : 'Click to Browse or Drag Backup File Here'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {selectedFile ? `${Math.round(selectedFile.size / 1024)} KB` : 'Supports all MBI Inventra backup archives (.json)'}
-                </p>
+
+              <div className="space-y-2 pt-1">
+                <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-xs">
+                  <FileCheck className="w-3.5 h-3.5 text-blue-500" />
+                  <span>How Disaster Recovery Works:</span>
+                </h4>
+                <ul className="space-y-2 text-[11px] text-slate-500 dark:text-slate-400 pl-1">
+                  <li className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><strong>Daily Auto-Save:</strong> Your machine automatically saves full inventory, sales invoices, parties, and ledger snapshots every 24 hours.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><strong>Centralized Master Restore:</strong> To prevent accidental data loss or unauthorized overwrites, database restoration is centrally managed by Master Admin.</span>
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                    <span><strong>Hardware Replacement:</strong> If replacing a PC or laptop, send your <code>.mbibackup</code> file to Master Admin for 1-click cloud restoration.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between gap-2 pt-2">
+                <div className="flex items-center gap-2">
+                  <Headphones className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-slate-900 dark:text-white text-[11px]">Master Support Hotline</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">+92 328 1302636 / 0336-4585863</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.open('https://wa.me/923281302636?text=Assalam-o-Alaikum%20Master%20Admin!%20Need%20assistance%20for%20database%20restoration.', '_blank')}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition shadow-xs"
+                >
+                  <span>WhatsApp</span>
+                </button>
               </div>
             </div>
-
-            {/* Loading Verification State */}
-            {isVerifying && (
-              <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs flex items-center gap-3">
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400 shrink-0" />
-                <div>
-                  <p className="font-bold">Verifying database structure & calculating cryptographic integrity...</p>
-                  <p className="text-[11px] text-blue-700 dark:text-blue-300">Checking medicines, sales bills, party ledger, and checksum signatures.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Verification Results Panel */}
-            {verificationResult && (
-              <div className="space-y-4 animate-in fade-in">
-                
-                {/* Status Card */}
-                <div className={`p-4 rounded-xl border ${
-                  verificationResult.isValid 
-                    ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-200' 
-                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-950 dark:text-rose-200'
-                }`}>
-                  <div className="flex items-center gap-2.5">
-                    {verificationResult.isValid ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
-                    )}
-                    <div>
-                      <h4 className="font-bold text-xs">
-                        {verificationResult.isValid 
-                          ? 'Backup Verification PASSED: File is 100% Ready for Safe Import' 
-                          : 'Backup Verification FAILED: File Structure Corrupted'}
-                      </h4>
-                      <p className="text-[11px] opacity-80">
-                        Origin: <strong>{verificationResult.tenantInfo.businessName}</strong> ({verificationResult.tenantInfo.tenantId}) • Version: {verificationResult.version} • Created: {new Date(verificationResult.timestamp || Date.now()).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {serverVerificationMsg && (
-                    <div className="mt-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60 text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                      <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>{serverVerificationMsg}</span>
-                    </div>
-                  )}
-
-                  {verificationResult.warnings.length > 0 && (
-                    <div className="mt-2 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800">
-                      {verificationResult.warnings.map((w, idx) => (
-                        <p key={idx}>⚠️ {w}</p>
-                      ))}
-                    </div>
-                  )}
-
-                  {verificationResult.errors.length > 0 && (
-                    <div className="mt-2 text-[11px] text-rose-800 dark:text-rose-300 bg-rose-100/70 dark:bg-rose-950/60 p-2 rounded-lg border border-rose-200 dark:border-rose-800">
-                      {verificationResult.errors.map((e, idx) => (
-                        <p key={idx}>❌ {e}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Table Records Breakdown Grid */}
-                {verificationResult.isValid && (
-                  <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 space-y-2">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                      <span>Verified Record Contents:</span>
-                      <span className="font-mono text-blue-600 dark:text-blue-400">{verificationResult.stats.totalRecords.toLocaleString()} Total Records</span>
-                    </p>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Medicines / Stock</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.medicinesCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Sales Invoices</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.invoicesCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Parties / Vendors</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.partiesCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Purchase Bills</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.purchaseOrdersCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Expenses</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.expensesCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Party Payments</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.paymentsCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Bank Accounts</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.bankAccountsCount}</p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Audit Logs</p>
-                        <p className="font-black text-slate-900 dark:text-white font-mono text-sm">{verificationResult.stats.auditLogsCount}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Restore Mode Controls */}
-                {verificationResult.isValid && (
-                  <div className="space-y-3 pt-2">
-                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">Choose Restore Strategy:</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <button
-                        type="button"
-                        onClick={() => setRestoreMode('merge')}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                          restoreMode === 'merge'
-                            ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-500 text-blue-950 dark:text-blue-200 ring-2 ring-blue-500/20 font-bold'
-                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                        }`}
-                      >
-                        <p className="font-bold flex items-center gap-1.5 text-blue-700 dark:text-blue-400">
-                          <CheckCircle2 className="w-4 h-4" />
-                          Safe Merge / Append (Recommended)
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                          Updates existing records and adds new ones. Does NOT delete current database items.
-                        </p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setRestoreMode('replace')}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                          restoreMode === 'replace'
-                            ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-500 text-rose-950 dark:text-rose-200 ring-2 ring-rose-500/20 font-bold'
-                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                        }`}
-                      >
-                        <p className="font-bold flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
-                          <AlertTriangle className="w-4 h-4" />
-                          Clean Slate Replace
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                          Clears local stores first and restores the snapshot exactly as exported.
-                        </p>
-                      </button>
-                    </div>
-
-                    {/* Execute Restore Button */}
-                    <button
-                      type="button"
-                      onClick={handleExecuteRestore}
-                      disabled={isRestoring}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {isRestoring ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>Restoring Records ({restoreProgress}%)...</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="w-4 h-4" />
-                          <span>Execute Verified Database Restore ({verificationResult.stats.totalRecords} Records)</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-              </div>
-            )}
-
-            {/* Restore Outcome Receipt */}
-            {restoreOutcome && (
-              <div className={`p-4 rounded-xl border text-xs font-semibold flex items-center gap-3 animate-in zoom-in-95 ${
-                restoreOutcome.success 
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800' 
-                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-800'
-              }`}>
-                {restoreOutcome.success ? (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
-                )}
-                <div>
-                  <p className="font-black text-sm">
-                    {restoreOutcome.success ? 'Database Restore Completed Successfully!' : 'Restore Failed'}
-                  </p>
-                  <p className="text-[11px] opacity-90 mt-0.5">{restoreOutcome.message}</p>
-                </div>
-              </div>
-            )}
-
           </div>
-
         </div>
 
       </div>
@@ -779,3 +297,5 @@ export const BackupRestoreTab: React.FC = () => {
     </div>
   );
 };
+
+export default BackupRestoreTab;

@@ -63,10 +63,15 @@ interface ItemTransaction {
 }
 
 export const Inventory: React.FC = () => {
-  const { userProfile, canViewCostsAndProfit } = useAuth();
+  const { userProfile, canViewCostsAndProfit, tenant, business } = useAuth();
   const { settings } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Plan-Based Feature Access Gating
+  const currentPlan = (tenant?.plan || tenant?.subscription_plan || tenant?.plan_id || business?.plan || 'basic').toLowerCase();
+  const isGoldOrEnterprise = currentPlan.includes('gold') || currentPlan.includes('business') || currentPlan.includes('enterprise') || currentPlan.includes('platinum');
+  const isEnterprise = currentPlan.includes('enterprise') || currentPlan.includes('platinum');
 
   // Stock Rotation Mode View Toggle (defaults to user configured setting)
   const [activeRotationView, setActiveRotationView] = useState<'FIFO' | 'FEFO' | null>(null);
@@ -676,43 +681,49 @@ export const Inventory: React.FC = () => {
             <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-black">DEBIT NOTE</span>
           </button>
 
-          {/* DEMAND FORECAST & REORDER */}
-          <button
-            onClick={() => setTopTab('DEMAND_FORECAST')}
-            className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
-              topTab === 'DEMAND_FORECAST'
-                ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <span>DEMAND FORECAST</span>
-            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-black">AI/DRAP</span>
-          </button>
+          {/* DEMAND FORECAST & REORDER (Platinum Enterprise Only) */}
+          {isEnterprise && (
+            <button
+              onClick={() => setTopTab('DEMAND_FORECAST')}
+              className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
+                topTab === 'DEMAND_FORECAST'
+                  ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>DEMAND FORECAST</span>
+              <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-black">AI/DRAP</span>
+            </button>
+          )}
 
-          {/* SMART EXPIRY */}
-          <button
-            onClick={() => setTopTab('SMART_EXPIRY')}
-            className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
-              topTab === 'SMART_EXPIRY'
-                ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <span>SMART EXPIRY</span>
-            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-black">FEFO</span>
-          </button>
+          {/* SMART EXPIRY (Gold Business & Enterprise Only) */}
+          {isGoldOrEnterprise && (
+            <button
+              onClick={() => setTopTab('SMART_EXPIRY')}
+              className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
+                topTab === 'SMART_EXPIRY'
+                  ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span>SMART EXPIRY</span>
+              <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-full font-black">FEFO</span>
+            </button>
+          )}
 
-          {/* SUPPLIER SCORECARDS */}
-          <button
-            onClick={() => setTopTab('SUPPLIER_SCORECARDS')}
-            className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap ${
-              topTab === 'SUPPLIER_SCORECARDS'
-                ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            SUPPLIER INTELLIGENCE
-          </button>
+          {/* SUPPLIER SCORECARDS (Gold Business & Enterprise Only) */}
+          {isGoldOrEnterprise && (
+            <button
+              onClick={() => setTopTab('SUPPLIER_SCORECARDS')}
+              className={`py-3 sm:py-3.5 text-xs sm:text-[13px] font-extrabold tracking-wider transition-all relative whitespace-nowrap ${
+                topTab === 'SUPPLIER_SCORECARDS'
+                  ? 'text-[#0284c7] border-b-[3px] border-[#0284c7]'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              SUPPLIER INTELLIGENCE
+            </button>
+          )}
 
           {/* CATEGORY TAB */}
           <button
@@ -1649,8 +1660,8 @@ export const Inventory: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 2: DEMAND FORECAST & REORDER (DRAP & AI Inventory Planning) */}
-        {topTab === 'DEMAND_FORECAST' && (
+        {/* VIEW 2: DEMAND FORECAST & REORDER (DRAP & AI Inventory Planning - Platinum Enterprise Only) */}
+        {topTab === 'DEMAND_FORECAST' && isEnterprise && (
           <div className="p-4 sm:p-6 overflow-y-auto h-full">
             <DemandForecastView
               medicines={medicines}
@@ -1663,8 +1674,8 @@ export const Inventory: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 3: SMART EXPIRY & BATCH RISK (FEFO Engine) */}
-        {topTab === 'SMART_EXPIRY' && (
+        {/* VIEW 3: SMART EXPIRY & BATCH RISK (FEFO Engine - Gold Business & Enterprise Only) */}
+        {topTab === 'SMART_EXPIRY' && isGoldOrEnterprise && (
           <div className="p-4 sm:p-6 overflow-y-auto h-full">
             <ExpiryManagementView
               medicines={medicines}
@@ -1698,8 +1709,8 @@ export const Inventory: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 4: SUPPLIER SCORECARDS & INTELLIGENCE */}
-        {topTab === 'SUPPLIER_SCORECARDS' && (
+        {/* VIEW 4: SUPPLIER SCORECARDS & INTELLIGENCE (Gold Business & Enterprise Only) */}
+        {topTab === 'SUPPLIER_SCORECARDS' && isGoldOrEnterprise && (
           <div className="p-4 sm:p-6 overflow-y-auto h-full">
             <SupplierIntelligenceView
               suppliers={suppliers}

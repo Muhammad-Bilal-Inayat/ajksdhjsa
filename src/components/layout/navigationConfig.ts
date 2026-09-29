@@ -119,9 +119,9 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasAdd: true,
     subItems: [
       { label: 'Stock Inventory', path: '/inventory', addPath: '/items?action=add', hasAdd: true },
+      { label: 'Top Selling Medicines', path: '/top-products', hasAdd: false },
       { label: 'Shortage Register', path: '/shortage-registry', addPath: '/shortage-registry?action=add', hasAdd: false },
       { label: 'QR & Barcode Generator', path: '/settings?tab=QR%20CODE%20GENERATOR', hasAdd: false },
-      { label: 'Top Products', path: '/top-products', requiredPlan: 'gold', hasAdd: false },
     ]
   },
   { 

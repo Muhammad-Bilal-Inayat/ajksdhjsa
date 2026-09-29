@@ -272,59 +272,61 @@ export const HelpSupportModal: React.FC<HelpSupportModalProps> = ({
           </button>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 px-4 sm:px-6 pt-2 gap-2 text-xs font-bold overflow-x-auto no-scrollbar shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('guides')}
-            className={`pb-2.5 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'guides' 
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black' 
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Plan Guides & Docs</span>
-          </button>
+        {/* Navigation Tabs (Modern Segmented Pill Bar) */}
+        <div className="bg-slate-100/80 dark:bg-slate-950/80 p-2 sm:px-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-200/70 dark:bg-slate-900 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setActiveTab('guides')}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'guides' 
+                  ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm font-black' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-blue-500" />
+              <span className="truncate">Plan Guides</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('contact')}
-            className={`pb-2.5 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'contact' 
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black' 
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <Phone className="w-4 h-4 text-emerald-500" />
-            <span>Direct Helplines</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('contact')}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'contact' 
+                  ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm font-black' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Phone className="w-4 h-4 text-emerald-500" />
+              <span className="truncate">Direct Helplines</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('faqs')}
-            className={`pb-2.5 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'faqs' 
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black' 
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <HelpCircle className="w-4 h-4 text-indigo-500" />
-            <span>Frequently Asked Questions</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('faqs')}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'faqs' 
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm font-black' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <HelpCircle className="w-4 h-4 text-indigo-500" />
+              <span className="truncate">FAQs</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('plans')}
-            className={`pb-2.5 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'plans' 
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400 font-black' 
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            <Award className="w-4 h-4 text-amber-500" />
-            <span>Plan Features</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('plans')}
+              className={`py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'plans' 
+                  ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-sm font-black' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Award className="w-4 h-4 text-amber-500" />
+              <span className="truncate">Plan Features</span>
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}

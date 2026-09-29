@@ -193,6 +193,46 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
   const [isMaximized, setIsMaximized] = useState(true);
   const [internalMinimized, setInternalMinimized] = useState(false);
   const isMinimized = isDockMinimized !== undefined ? isDockMinimized : internalMinimized;
+  const isJustSavedRef = useRef<boolean>(false);
+
+  // Sync active invoice editing state with task dock so dock never overlays billing action buttons
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      dockCtx?.setIsEditingInvoice(true);
+      return () => {
+        dockCtx?.setIsEditingInvoice(false);
+      };
+    } else {
+      dockCtx?.setIsEditingInvoice(false);
+    }
+  }, [isOpen, isMinimized, dockCtx]);
+
+  const clearActiveDraft = () => {
+    try {
+      const draftKey = `mbi_purchase_draft_${tenant?.id || business?.id || 'demo'}`;
+      localStorage.removeItem(draftKey);
+      isJustSavedRef.current = true;
+    } catch (e) {}
+  };
+
+  // Auto-save active draft purchase bill tabs for session / power interrupt protection
+  useEffect(() => {
+    if (isJustSavedRef.current) {
+      isJustSavedRef.current = false;
+      return;
+    }
+    if (purchaseTabs.length > 0) {
+      try {
+        const draftKey = `mbi_purchase_draft_${tenant?.id || business?.id || 'demo'}`;
+        const hasValidDraft = purchaseTabs.some(t => t.items && t.items.some(i => i.name && i.name.trim().length > 0));
+        if (hasValidDraft) {
+          localStorage.setItem(draftKey, JSON.stringify(purchaseTabs));
+        } else {
+          localStorage.removeItem(draftKey);
+        }
+      } catch (e) {}
+    }
+  }, [purchaseTabs, tenant, business]);
 
   // 2. REPLICATE EXACT RAPID ADD ROW STATE (Screenshot 1 & 2)
   const [rapidMode, setRapidMode] = useState<boolean>(true);
@@ -308,37 +348,56 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
           setActiveTabId(initialTab.id);
           if (initialOrder.description) setShowDescription(true);
         } else {
-          const defaultTab: PurchaseBillTab = {
-            id: uuidv4(),
-            tabName: 'Purchase PUR-1',
-            transactionType: transactionType as any || 'Purchase',
-            isCredit: false,
-            mode: 'cash',
-            selectedSupplierId: '',
-            supplier: null,
-            supplierName: '',
-            billingName: '',
-            supplierPhone: '',
-            supplierBillNumber: `PUR-1`,
-            billDate: todayStr,
-            poNumber: `PO-${Date.now().toString().slice(-5)}`,
-            poDate: todayStr,
-            paymentTerms: 'Due on Receipt',
-            dueDate: todayStr,
-            items: createEmptyPurchaseRows(5),
-            customFields: {},
-            description: '',
-            discountPercentage: 0,
-            discountAmount: 0,
-            taxPercentage: 0,
-            freightAmount: 0,
-            isRoundOff: false,
-            roundOffAmount: 0,
-            paidAmount: 0,
-            paymentMode: 'Cash'
-          };
-          setPurchaseTabs([defaultTab]);
-          setActiveTabId(defaultTab.id);
+          // Check if there is an unsaved purchase draft from session / power interruption
+          let restoredDraftTabs: PurchaseBillTab[] | null = null;
+          try {
+            const draftKey = `mbi_purchase_draft_${tenant?.id || business?.id || 'demo'}`;
+            const rawDraft = localStorage.getItem(draftKey);
+            if (rawDraft) {
+              const parsed = JSON.parse(rawDraft);
+              if (Array.isArray(parsed) && parsed.length > 0 && parsed.some((t: any) => t.items && t.items.some((i: any) => i.name && i.name.trim().length > 0))) {
+                restoredDraftTabs = parsed;
+              }
+            }
+          } catch (e) {}
+
+          if (restoredDraftTabs) {
+            setPurchaseTabs(restoredDraftTabs);
+            setActiveTabId(restoredDraftTabs[0].id);
+            emitToast('⚡ Restored active purchase draft after session/power interruption!', 'info');
+          } else {
+            const defaultTab: PurchaseBillTab = {
+              id: uuidv4(),
+              tabName: 'Purchase PUR-1',
+              transactionType: transactionType as any || 'Purchase',
+              isCredit: false,
+              mode: 'cash',
+              selectedSupplierId: '',
+              supplier: null,
+              supplierName: '',
+              billingName: '',
+              supplierPhone: '',
+              supplierBillNumber: `PUR-1`,
+              billDate: todayStr,
+              poNumber: `PO-${Date.now().toString().slice(-5)}`,
+              poDate: todayStr,
+              paymentTerms: 'Due on Receipt',
+              dueDate: todayStr,
+              items: createEmptyPurchaseRows(5),
+              customFields: {},
+              description: '',
+              discountPercentage: 0,
+              discountAmount: 0,
+              taxPercentage: 0,
+              freightAmount: 0,
+              isRoundOff: false,
+              roundOffAmount: 0,
+              paidAmount: 0,
+              paymentMode: 'Cash'
+            };
+            setPurchaseTabs([defaultTab]);
+            setActiveTabId(defaultTab.id);
+          }
         }
       } catch (err) {
         console.warn('Failed to load purchase modal dependencies:', err);
@@ -623,6 +682,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
   const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (purchaseTabs.length === 1) {
+      clearActiveDraft();
       onClose();
       return;
     }
@@ -955,6 +1015,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
         window.dispatchEvent(new Event('mbi-local-db-change'));
       }
 
+      clearActiveDraft();
       emitToast(`✅ Purchase Bill #${currentTab.supplierBillNumber} saved & stock inward complete!`, 'success');
       onSaved(purchaseOrderRecord);
 
@@ -1015,6 +1076,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
           <X 
             onClick={(e) => {
               e.stopPropagation();
+              clearActiveDraft();
               onClose();
             }} 
             className="w-3.5 h-3.5 hover:text-rose-400" 
@@ -1166,7 +1228,10 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
             {/* Close Workspace */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                clearActiveDraft();
+                onClose();
+              }}
               className="p-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white transition cursor-pointer"
               title="Close Workspace (Esc)"
             >
@@ -2179,7 +2244,10 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
         <div className="shrink-0 bg-slate-900 border-t border-slate-800 px-4 py-2.5 flex items-center justify-between text-white">
           <button 
             type="button" 
-            onClick={onClose} 
+            onClick={() => {
+              clearActiveDraft();
+              onClose();
+            }} 
             className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
           >
             Cancel

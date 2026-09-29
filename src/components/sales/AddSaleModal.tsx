@@ -18,6 +18,7 @@ import { InvoicePrintModal } from './InvoicePrintModal';
 import { KeyboardShortcutsCheatSheetModal } from '../common/KeyboardShortcutsCheatSheetModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useTransactionDock } from '../../contexts/TransactionDockContext';
 import { getRecentSalePrices, getAuthoritativeLatestPurchasePrice } from '../../lib/inventoryCosting';
 import { getFEFOBatches } from '../../lib/enterprisePharma';
 import { 
@@ -134,6 +135,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const effectiveDefaultType = defaultTransactionType || (transactionType as any) || 'Sale';
   const { business, tenant, tenantId, currentUser, activeUser } = useAuth();
   const { settings, updateTransaction } = useSettings();
+  let dockCtx: ReturnType<typeof useTransactionDock> | null = null;
+  try {
+    dockCtx = useTransactionDock();
+  } catch {}
   const [isSaving, setIsSaving] = useState(false);
   
   // Master lists
@@ -214,6 +219,18 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       onMinimizeChange(val);
     }
   };
+
+  // Sync active invoice editing state with task dock so dock never overlays billing action buttons
+  useEffect(() => {
+    if (isOpen && !isMinimized) {
+      dockCtx?.setIsEditingInvoice(true);
+      return () => {
+        dockCtx?.setIsEditingInvoice(false);
+      };
+    } else {
+      dockCtx?.setIsEditingInvoice(false);
+    }
+  }, [isOpen, isMinimized, dockCtx]);
 
   const customerInputRef = useRef<HTMLInputElement>(null);
   const lightningInputRef = useRef<HTMLInputElement>(null);
@@ -500,10 +517,20 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     return hasItems || hasCustomer || hasLightning || hasReceived;
   }, [currentTab, lightningQuery]);
 
+  const clearActiveDraft = () => {
+    try {
+      const draftKey = `mbi_pos_draft_${tenantId || 'demo'}`;
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem('mbi_sale_active_draft_v1');
+      isJustSavedRef.current = true;
+    } catch (e) {}
+  };
+
   const handleRequestClose = () => {
     if (hasUnsavedChanges) {
       setShowCloseConfirm(true);
     } else {
+      clearActiveDraft();
       onClose();
     }
   };
@@ -2411,42 +2438,49 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 )}
               </div>
 
-              {/* Order Booker / Biller (Enterprise Feature) */}
-              {settings.transaction?.enableBookerBiller !== false && settings.transaction?.showBookerInSales !== false && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                      <span>Order Booker / Biller</span>
-                      <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 text-[9.5px] font-black uppercase">ENTERPRISE</span>
-                    </label>
-                    {currentTab.bookerCommissionPercent ? (
-                      <span className="text-[11px] font-bold text-indigo-600 font-mono">
-                        {currentTab.bookerCommissionPercent}% Comm
-                      </span>
-                    ) : null}
+              {/* Order Booker / Biller (Enterprise & Platinum Feature Only) */}
+              {(() => {
+                const userPlan = ((tenant as any)?.planTier || tenant?.plan || tenant?.trialPlan || (business as any)?.plan || 'Basic').toString().toUpperCase();
+                const isEnterpriseOrPlatinum = userPlan.includes('ENTERPRISE') || userPlan.includes('PLATINUM');
+                if (!isEnterpriseOrPlatinum || settings.transaction?.enableBookerBiller === false || settings.transaction?.showBookerInSales === false) {
+                  return null;
+                }
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <span>Order Booker / Biller</span>
+                        <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 text-[9.5px] font-black uppercase">ENTERPRISE</span>
+                      </label>
+                      {currentTab.bookerCommissionPercent ? (
+                        <span className="text-[11px] font-bold text-indigo-600 font-mono">
+                          {currentTab.bookerCommissionPercent}% Comm
+                        </span>
+                      ) : null}
+                    </div>
+                    <select
+                      value={currentTab.bookerId || ''}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        const selectedB = bookers.find(b => b.id === selectedId);
+                        updateCurrentTab({
+                          bookerId: selectedId,
+                          bookerName: selectedB ? selectedB.name : '',
+                          bookerCommissionPercent: selectedB ? (selectedB.commissionPercentage || 0) : 0,
+                        });
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                    >
+                      <option value="">-- No Booker (Direct Counter / Walk-in) --</option>
+                      {bookers.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.role}) {b.area ? `• ${b.area}` : ''} {b.phone ? `• ${b.phone}` : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={currentTab.bookerId || ''}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      const selectedB = bookers.find(b => b.id === selectedId);
-                      updateCurrentTab({
-                        bookerId: selectedId,
-                        bookerName: selectedB ? selectedB.name : '',
-                        bookerCommissionPercent: selectedB ? (selectedB.commissionPercentage || 0) : 0,
-                      });
-                    }}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                  >
-                    <option value="">-- No Booker (Direct Counter / Walk-in) --</option>
-                    {bookers.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.role}) {b.area ? `• ${b.area}` : ''} {b.phone ? `• ${b.phone}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Billing Name (Optional) */}
               {settings.transaction?.billingNameOfParties && (
@@ -4756,6 +4790,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 type="button"
                 onClick={() => {
                   setShowCloseConfirm(false);
+                  clearActiveDraft();
                   onClose();
                 }}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition-colors cursor-pointer flex items-center gap-1.5"

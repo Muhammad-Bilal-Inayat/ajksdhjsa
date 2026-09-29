@@ -1,5 +1,19 @@
 [
   {
+    "id": "usr_1790690918346_a2wt",
+    "name": "Aaaaaa (Primary Admin)",
+    "emailOrPhone": "aaaaaa@pharma.pk",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "MUHAMMAD",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-528EB66D-MAJTWM",
+    "lastSyncTime": "2026-09-29T14:20:59.644Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T14:20:59.644Z"
+  },
+  {
     "id": "u_1790686624787",
     "name": "new test 1",
     "emailOrPhone": "jahskjahdkj@gmail.com",
@@ -9,9 +23,9 @@
     "storeName": "new test 1",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T13:38:44.639Z",
+    "lastSyncTime": "2026-09-29T14:42:29.631Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T13:38:44.639Z"
+    "updatedAt": "2026-09-29T14:42:29.631Z"
   },
   {
     "id": "usr_1790685492027_n5tb",
@@ -39,9 +53,9 @@
     "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-4ADF2030-MAJTWM",
-    "lastSyncTime": "2026-09-29T13:38:40.339Z",
+    "lastSyncTime": "2026-09-29T14:21:40.212Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T13:38:40.339Z"
+    "updatedAt": "2026-09-29T14:21:40.212Z"
   },
   {
     "id": "u_1790667685875",

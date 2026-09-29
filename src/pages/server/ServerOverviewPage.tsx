@@ -108,7 +108,6 @@ import { MariaDbDatabaseManagerPanel } from '../../components/server/MariaDbData
 import { SyncConflictsResolverPanel } from '../../components/server/SyncConflictsResolverPanel';
 import { SyncDiagnosticStatusCard } from '../../components/server/SyncDiagnosticStatusCard';
 import { AiHumanSupportMasterHub } from '../../components/server/AiHumanSupportMasterHub';
-import { MasterServerControlModal } from '../../components/admin/MasterServerControlModal';
 import { UnifiedUserControlHub } from '../../components/server/UnifiedUserControlHub';
 import { MasterBroadcastCenterTab } from '../../components/admin/MasterBroadcastCenterTab';
 import { MasterMedicineSeederTab } from '../../components/admin/MasterMedicineSeederTab';
@@ -119,7 +118,7 @@ export const ServerOverviewPage: React.FC = () => {
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'users_control' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'master_super' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates'>('clients');
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'users_control' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates'>('clients');
 
   // Dedicated Universal Search Query (for Server & Master top search)
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -128,8 +127,8 @@ export const ServerOverviewPage: React.FC = () => {
   useEffect(() => {
     const handleSetTab = (e: any) => {
       if (e.detail) {
-        if (e.detail === 'master_super' || e.detail === 'open-master' || e.detail === 'open_master') {
-          setActiveServerTab('master_super');
+        if (e.detail === 'master_super' || e.detail === 'open-master' || e.detail === 'open_master' || e.detail === 'master_control') {
+          setActiveServerTab('master_control');
           setShowHiddenMasterModal(false);
         } else {
           setActiveServerTab(e.detail);
@@ -149,8 +148,8 @@ export const ServerOverviewPage: React.FC = () => {
     const handleServerAction = (e: any) => {
       const action = e.detail?.action;
       if (!action) return;
-      if (action === 'open-master' || action === 'open_master' || action === 'master_super') {
-        setActiveServerTab('master_super');
+      if (action === 'open-master' || action === 'open_master' || action === 'master_super' || action === 'master_control') {
+        setActiveServerTab('master_control');
         setShowHiddenMasterModal(false);
       } else if (action === 'change-pass') {
         setShowChangeServerPassModal(true);
@@ -965,13 +964,13 @@ export const ServerOverviewPage: React.FC = () => {
 
           {/* Mobile & Tablet Master Control Panel Trigger Button */}
           <button
-            onClick={() => setActiveServerTab('master_super')}
+            onClick={() => setActiveServerTab('master_control')}
             className={`lg:hidden px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer ${
-              activeServerTab === 'master_super'
+              activeServerTab === 'master_control'
                 ? 'bg-gradient-to-r from-purple-700 to-indigo-700 text-white ring-2 ring-purple-400'
                 : 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700/60 hover:bg-purple-100'
             }`}
-            title="Open Master Fleet Control Center"
+            title="Open Master Control Switchboard"
           >
             <Shield className="w-3.5 h-3.5 text-purple-400" />
             <span>Master Control</span>
@@ -1081,21 +1080,6 @@ export const ServerOverviewPage: React.FC = () => {
             <span>Unified User Control</span>
             <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-500 text-white">
               ALL-IN-1
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveServerTab('master_super')}
-            className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-              activeServerTab === 'master_super'
-                ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-blue-700 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400'
-                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50 hover:bg-purple-100 dark:hover:bg-purple-900/50'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5 text-purple-400" />
-            <span>Master Fleet Control</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-400/40">
-              MASTER
             </span>
           </button>
 
@@ -1445,17 +1429,6 @@ export const ServerOverviewPage: React.FC = () => {
       {activeServerTab === 'broadcast' && (
         <div className="w-full animate-in fade-in duration-150">
           <MasterBroadcastCenterTab />
-        </div>
-      )}
-
-      {/* RENDER TAB: MASTER FLEET CONTROL CENTER (FULL PAGE COMMAND CENTER - NO POPUP) */}
-      {activeServerTab === 'master_super' && (
-        <div className="w-full animate-in fade-in duration-150">
-          <MasterServerControlModal
-            isOpen={true}
-            onClose={() => setActiveServerTab('clients')}
-            isFullPage={true}
-          />
         </div>
       )}
 

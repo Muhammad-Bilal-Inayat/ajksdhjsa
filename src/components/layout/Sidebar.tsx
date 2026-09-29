@@ -83,7 +83,7 @@ const REPORT_CATEGORIES = [
 const mainNavItems: NavItem[] = RAW_NAVIGATION_ITEMS;
 
 interface ServerNavItemDef {
-  tabKey: 'clients' | 'users_control' | 'master_super' | 'ai_support' | 'whatsapp_leads' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'storage' | 'sync_health' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices';
+  tabKey: 'clients' | 'users_control' | 'ai_support' | 'whatsapp_leads' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'storage' | 'sync_health' | 'sync_stream' | 'activity' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices';
   label: string;
   badge: string;
   badgeColor?: string;
@@ -91,14 +91,13 @@ interface ServerNavItemDef {
 }
 
 const SERVER_FLEET_ITEMS: ServerNavItemDef[] = [
-  { tabKey: 'master_super', label: 'Master Fleet Control', badge: 'Super', badgeColor: 'bg-purple-600', icon: Shield },
+  { tabKey: 'master_control', label: 'Master Control (173 Switchboard)', badge: '173', badgeColor: 'bg-purple-600', icon: Sliders },
   { tabKey: 'users_control', label: 'All Users Unified Control', badge: 'All-in-1', badgeColor: 'bg-blue-600', icon: Users },
   { tabKey: 'ai_support', label: 'AI Assistant & Support Hub', badge: 'AI', badgeColor: 'bg-indigo-600', icon: Bot },
   { tabKey: 'clients', label: 'All Clients & Fleet', badge: 'Fleet', icon: Building2 },
   { tabKey: 'devices', label: 'Device Auth & Fleet Lock', badge: '1-Dev', icon: Laptop },
   { tabKey: 'security_audit', label: 'Security Audit Log & IP Block', badge: 'Audit', icon: ShieldAlert },
   { tabKey: 'whatsapp_leads', label: 'Registration Leads & WhatsApp', badge: 'Leads', icon: Phone },
-  { tabKey: 'master_control', label: 'Master Switchboard (173)', badge: '173', icon: Sliders },
   { tabKey: 'database', label: 'Medicine DB Initialization', badge: 'Data', icon: Database },
   { tabKey: 'site_cms', label: 'Site CMS & Landing', badge: 'Website', icon: Store },
   { tabKey: 'sales_revenue', label: 'Global Sales & Revenue', badge: 'PKR', icon: DollarSign },
@@ -627,31 +626,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation Items: Server Hub vs Store Menu */}
         {isServerRoute ? (
           <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-3 no-scrollbar text-[13px]">
-            {/* UNHIDDEN Master Super Panel Header Item */}
+            {/* Master Control Switchboard Header Item */}
             <div className="group relative px-0.5">
               <button
                 type="button"
                 onClick={() => {
-                  setActiveServerTab('master_super');
-                  window.dispatchEvent(new CustomEvent('mbi-set-server-tab', { detail: 'master_super' }));
-                  window.dispatchEvent(new CustomEvent('mbi-server-action', { detail: { action: 'open-master' } }));
+                  setActiveServerTab('master_control');
+                  window.dispatchEvent(new CustomEvent('mbi-set-server-tab', { detail: 'master_control' }));
+                  window.dispatchEvent(new CustomEvent('mbi-server-action', { detail: { action: 'open_master' } }));
                   setIsOpen(false);
                 }}
                 className={cn(
                   'w-full flex items-center transition-colors duration-150 font-bold cursor-pointer rounded-xl bg-gradient-to-r from-purple-100 via-indigo-100 to-purple-100 dark:from-purple-950/90 dark:via-indigo-950/90 dark:to-purple-950/90 hover:from-purple-200 hover:to-indigo-200 dark:hover:from-purple-900 dark:hover:to-indigo-900 text-purple-900 dark:text-purple-100 border border-purple-200 dark:border-purple-500/60 shadow-xs group',
                   isCollapsed ? 'justify-center p-2.5 mx-auto' : 'justify-between px-3 py-2 min-h-[38px]'
                 )}
-                title={isCollapsed ? "Master Super Panel" : undefined}
+                title={isCollapsed ? "Master Control" : undefined}
               >
                 <div className={cn("flex items-center flex-1 min-w-0", isCollapsed ? "justify-center" : "gap-2.5")}>
                   <div className="w-7 h-7 rounded-lg bg-purple-200/80 dark:bg-purple-950/80 flex items-center justify-center flex-shrink-0 text-purple-700 dark:text-purple-300 group-hover:scale-110 transition-transform">
-                    <Shield className="w-4 h-4" />
+                    <Sliders className="w-4 h-4" />
                   </div>
                   {!isCollapsed && (
                     <>
-                      <span className="truncate text-[12px] font-black tracking-normal flex-1 text-purple-950 dark:text-purple-100 text-left">Master Super Panel</span>
+                      <span className="truncate text-[12px] font-black tracking-normal flex-1 text-purple-950 dark:text-purple-100 text-left">Master Control</span>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-200 dark:bg-purple-950 text-purple-900 dark:text-purple-200 border border-purple-300 dark:border-purple-400/50">
-                        UNHIDDEN
+                        173
                       </span>
                     </>
                   )}

@@ -33,13 +33,13 @@ adminMasterRouter.post('/verify-pin', async (req: TenantRequest, res: Response):
       success: true,
       token: masterSessionToken,
       isRecoverySession: isRecoveryKey,
-      message: isRecoveryKey 
-        ? 'Emergency Disaster Recovery Access Authorized' 
-        : 'Master Command Access Authorized (MBI INVENTRA 4 Master Station)'
+      message: isRecoveryKey
+      ? 'Emergency Disaster Recovery Access Authorized'
+      : 'Master Command Access Authorized (MBI INVENTRA 4 Master Station)'
     });
   } else {
-    res.status(401).json({ success: false, error: 'Access Denied: Invalid Master Security Key' });
-  }
+  res.status(401).json({ success: false, error: 'Access Denied: Invalid Master Security Key' });
+}
 });
 
 // 2. Dedicated Server-Wide Global Search API (MariaDB + Local Sync Cache Fallback)
@@ -133,9 +133,9 @@ adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Prom
         if (Array.isArray(localUsers)) {
           for (const u of localUsers) {
             const match = (u.name && u.name.toLowerCase().includes(qLower)) ||
-                          (u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower)) ||
-                          (u.storeName && u.storeName.toLowerCase().includes(qLower)) ||
-                          (u.boundHwid && u.boundHwid.toLowerCase().includes(qLower));
+              (u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower)) ||
+              (u.storeName && u.storeName.toLowerCase().includes(qLower)) ||
+              (u.boundHwid && u.boundHwid.toLowerCase().includes(qLower));
             if (match && !users.some(existing => existing.id === u.id || existing.email_or_phone === u.emailOrPhone)) {
               users.push({
                 id: u.id,
@@ -182,10 +182,10 @@ adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Prom
       }
     });
   } catch (err: any) {
-    res.json({ 
-      success: true, 
-      query: (req.query.q as string) || '', 
-      results: { tenants: [], licenses: [], users: [], logs: [] } 
+    res.json({
+      success: true,
+      query: (req.query.q as string) || '',
+      results: { tenants: [], licenses: [], users: [], logs: [] }
     });
   }
 });
@@ -243,7 +243,7 @@ adminMasterRouter.post('/backup/midnight-cron', async (req: TenantRequest, res: 
   try {
     const pool = getMariaDbPool();
     const [tenants]: any = await pool.query('SELECT tenant_id, name FROM mbi_tenants WHERE status = "Active";');
-    
+
     const snapshots: Array<{ tenantId: string; name: string; recordCount: number; timestamp: string }> = [];
 
     for (const t of tenants) {
@@ -350,7 +350,7 @@ adminMasterRouter.get('/users', async (req: TenantRequest, res: Response): Promi
             });
           }
         }
-      } catch (dbErr) {}
+      } catch (dbErr) { }
     }
 
     // 2. Merge with fallback storage from .master_users.json & .sync_data.json
@@ -381,7 +381,7 @@ adminMasterRouter.get('/users', async (req: TenantRequest, res: Response): Promi
           }
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const users = Array.from(usersMap.values());
     res.json({
@@ -412,7 +412,7 @@ adminMasterRouter.get('/tenants', async (req: TenantRequest, res: Response): Pro
         if (Array.isArray(rows)) {
           tenants = rows;
         }
-      } catch (dbErr) {}
+      } catch (dbErr) { }
     }
 
     res.json({
@@ -547,7 +547,7 @@ adminMasterRouter.post('/impersonate', async (req: TenantRequest, res: Response)
     const tenantObj = tRows?.[0] || { name: 'Client Store', tenant_id: effectiveTenantId };
 
     const [uRows]: any = await pool.query(
-      "SELECT * FROM mbi_users WHERE tenant_id = ? AND role LIKE '%Admin%' LIMIT 1;", 
+      "SELECT * FROM mbi_users WHERE tenant_id = ? AND role LIKE '%Admin%' LIMIT 1;",
       [effectiveTenantId]
     );
     const targetUser = uRows?.[0] || {
@@ -704,15 +704,15 @@ adminMasterRouter.post('/tenants/delete-wipe', async (req: TenantRequest, res: R
 
     if (action === 'delete_permanent') {
       const tables = [
-        'mbi_invoices', 'mbi_invoice_items', 'mbi_inventory_batches', 
-        'mbi_medicines', 'mbi_parties', 'mbi_party_transactions', 
+        'mbi_invoices', 'mbi_invoice_items', 'mbi_inventory_batches',
+        'mbi_medicines', 'mbi_parties', 'mbi_party_transactions',
         'mbi_expenses', 'mbi_users', 'mbi_licenses', 'mbi_tenants'
       ];
 
       for (const tbl of tables) {
         try {
           await pool.query(`DELETE FROM ${tbl} WHERE tenant_id = ?;`, [target_tenant_id]);
-        } catch (tblErr) {}
+        } catch (tblErr) { }
       }
 
       res.json({
@@ -781,10 +781,10 @@ adminMasterRouter.post('/emergency-lock', async (req: TenantRequest, res: Respon
 // 17. Quick Action: Force Full Sync
 adminMasterRouter.post('/force-sync', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       timestamp: new Date().toISOString(),
-      message: 'Global synchronization broadcast dispatched to all connected terminal nodes.' 
+      message: 'Global synchronization broadcast dispatched to all connected terminal nodes.'
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error triggering sync' });
@@ -835,7 +835,7 @@ adminMasterRouter.get('/tenants/feature-overrides/:tenantId', async (req: Tenant
     if (rows && rows.length > 0 && rows[0].data) {
       try {
         overrides = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     res.json({ success: true, tenantId, overrides });
@@ -1090,7 +1090,7 @@ adminMasterRouter.get('/lan/status', async (req: TenantRequest, res: Response): 
           }
           companies = Array.from(storeMap.values());
         }
-      } catch (err2) {}
+      } catch (err2) { }
     }
 
     if (companies.length === 0) {
@@ -1189,12 +1189,12 @@ adminMasterRouter.post('/lan/broadcast', async (req: TenantRequest, res: Respons
       if (fs.existsSync(bcastHistoryPath)) {
         try {
           history = JSON.parse(fs.readFileSync(bcastHistoryPath, 'utf8') || '[]');
-        } catch (e) {}
+        } catch (e) { }
       }
       history.unshift(broadcastRecord);
       if (history.length > 50) history = history.slice(0, 50);
       fs.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), 'utf8');
-    } catch (fsErr) {}
+    } catch (fsErr) { }
 
     // Dispatch via SSE to all or targeted tenants
     if (targetTenantId && targetTenantId !== 'all') {
@@ -1222,7 +1222,7 @@ adminMasterRouter.post('/lan/broadcast', async (req: TenantRequest, res: Respons
           req.socket.remoteAddress || '127.0.0.1'
         ]
       );
-    } catch (dbLogErr) {}
+    } catch (dbLogErr) { }
 
     res.json({
       success: true,
@@ -1246,7 +1246,7 @@ adminMasterRouter.get('/lan/active-broadcasts', async (req: TenantRequest, res: 
       if (fs.existsSync(bcastHistoryPath)) {
         history = JSON.parse(fs.readFileSync(bcastHistoryPath, 'utf8') || '[]');
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // Filter relevant unexpired broadcasts
     const now = new Date().toISOString();

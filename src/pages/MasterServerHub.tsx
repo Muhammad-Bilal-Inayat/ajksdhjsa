@@ -42,7 +42,7 @@ import { Master2faSettingsModal } from '../components/admin/Master2faSettingsMod
 import { verifyTotpToken } from '../services/totpService';
 
 export type ServerTabKey = 
-  | 'master_super'
+  | 'master_control'
   | 'lan_hub'
   | 'users_control'
   | 'ai_support'
@@ -50,7 +50,6 @@ export type ServerTabKey =
   | 'devices'
   | 'security_audit'
   | 'whatsapp_leads'
-  | 'master_control'
   | 'database'
   | 'site_cms'
   | 'sales_revenue'
@@ -79,7 +78,7 @@ interface TabDefinition {
 
 const ALL_25_TABS: TabDefinition[] = [
   // 1. Core Fleet
-  { id: 'master_super', label: 'Master Super Control', category: 'Core Fleet', icon: ShieldCheck, description: 'Global tenant controls & emergency remote lock' },
+  { id: 'master_control', label: 'Master Control', category: 'Core Fleet', icon: ShieldCheck, description: 'Granular 173-feature switchboard — toggle any user screen, menu, action or button on/off' },
   { id: 'lan_hub', label: 'LAN Multi-PC & Broadcast Hub', category: 'Core Fleet', icon: Network, description: 'Connect counter laptops via LAN cable/switch & dispatch user popup announcements' },
   { id: 'clients', label: 'Client Fleet Dashboard', category: 'Core Fleet', icon: Building2, description: 'Multi-company isolation & active pharmacy stores' },
   { id: 'whatsapp_leads', label: 'WhatsApp Trial Leads', category: 'Core Fleet', icon: Smartphone, description: 'Registration leads & 1-click WhatsApp dispatch' },
@@ -101,7 +100,6 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'backup_vault', label: 'Backup Vault & Disaster Recovery', category: 'System & Sync', icon: Archive, description: 'Midnight automated snapshots & 1-click disaster recovery' },
 
   // 4. Commerce & CMS
-  { id: 'master_control', label: '173 Feature Switchboard', category: 'Commerce & CMS', icon: Settings, description: 'Global and tenant-wise enterprise feature toggles' },
   { id: 'database', label: 'Database & Catalog Seeder', category: 'Commerce & CMS', icon: Database, description: '15,000+ Pakistani pharma catalog & DDL migrations' },
   { id: 'site_cms', label: 'Public Site & CMS Editor', category: 'Commerce & CMS', icon: Globe, description: 'Landing page editor, banners & announcements' },
   { id: 'printer_templates', label: 'Master Printer Presets', category: 'Commerce & CMS', icon: Printer, description: '80mm/58mm thermal receipts & A4 tax invoices' },
@@ -123,7 +121,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
   const [pinInput, setPinInput] = useState('');
   const [totpInput, setTotpInput] = useState('');
   const [pinError, setPinError] = useState('');
-  const [activeTab, setActiveTab] = useState<ServerTabKey>(initialTab || 'master_super');
+  const [activeTab, setActiveTab] = useState<ServerTabKey>(initialTab || 'master_control');
   const [tabSearch, setTabSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   
@@ -502,12 +500,8 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
   // Active Tab Component Renderer
   const renderActiveTabContent = () => {
     switch (activeTab) {
-      case 'master_super':
-        return (
-          <div className="space-y-6">
-            <MasterControlSection />
-          </div>
-        );
+      case 'master_control':
+        return <MasterControlSection onNotify={handleNotify} />;
       case 'lan_hub':
         return <LanMultiTerminalHub onNotify={handleNotify} />;
       case 'users_control':
@@ -522,8 +516,6 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
         return <SecurityAuditLogPanel />;
       case 'whatsapp_leads':
         return <WhatsAppLeadsManagerPanel showToast={(msg: string) => handleNotify(msg)} />;
-      case 'master_control':
-        return <MasterControlSection />;
       case 'database':
         return (
           <div className="space-y-6">

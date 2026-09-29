@@ -660,7 +660,14 @@ export function MasterServerHub() {
 
         {/* Global Server Search Bar */}
         <div className="flex-1 max-w-xl mx-0 md:mx-4">
-          <ServerGlobalSearch onSelectTab={tab => setActiveTab(tab)} onNotify={handleNotify} />
+          <ServerGlobalSearch 
+            onSelectTab={tab => setActiveTab(tab)} 
+            onNotify={handleNotify} 
+            tabs={ALL_25_TABS}
+            searchValue={tabSearch}
+            onSearchChange={val => setTabSearch(val)}
+            onSelectCategory={cat => setSelectedCategory(cat)}
+          />
         </div>
 
         <div className="hidden md:flex items-center gap-2.5 justify-end">
@@ -777,7 +784,7 @@ export function MasterServerHub() {
         </div>
       )}
 
-      {/* Tabs Selector & Search Header */}
+      {/* Tabs Selector & Category Header */}
       <div className={`border-b ${theme === 'dark' ? 'border-slate-800/80 bg-slate-900/40' : 'border-slate-200 bg-slate-100/70'} px-4 sm:px-8 py-3 space-y-3`}>
         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           {/* Category Chips */}
@@ -796,18 +803,6 @@ export function MasterServerHub() {
                 {cat}
               </button>
             ))}
-          </div>
-
-          {/* Quick Filter */}
-          <div className="relative w-full md:w-72">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Filter 25 master tabs..."
-              value={tabSearch}
-              onChange={e => setTabSearch(e.target.value)}
-              className={`w-full pl-8 pr-3 py-1.5 rounded-xl border ${theme === 'dark' ? 'border-slate-800 bg-slate-950 text-slate-200' : 'border-slate-200 bg-white text-slate-800'} text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium`}
-            />
           </div>
         </div>
 

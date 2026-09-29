@@ -1556,24 +1556,66 @@ export function getMasterActiveUsers(): MasterActiveUser[] {
     } catch (e) {}
   }
 
-  // Automatic cleanup if ghost users accumulated (> 20 entries)
-  if (userList.length > 20) {
-    const seenEmails = new Set<string>();
-    const deduplicated: MasterActiveUser[] = [];
-    for (const u of userList) {
-      const key = (u.emailOrPhone || u.id || '').toLowerCase();
-      if (!seenEmails.has(key)) {
-        seenEmails.add(key);
-        deduplicated.push(u);
+  // Seamlessly merge all registered companies/tenants from getAllTenants()
+  try {
+    const rawTenants = localStorage.getItem(MASTER_TENANTS_KEY);
+    if (rawTenants) {
+      const parsedTenants: Tenant[] = JSON.parse(rawTenants);
+      if (Array.isArray(parsedTenants)) {
+        for (const t of parsedTenants) {
+          if (!t || (!t.id && !t.tenantId)) continue;
+          const tid = t.tenantId || t.id;
+          const cleanTid = tid.replace(/[^a-zA-Z0-9_]/g, '_');
+          
+          // Ensure tenant has API key
+          if (!t.apiKey) {
+            const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+            t.apiKey = `mbi_live_key_${cleanTid.slice(-6)}_${randomHex}`;
+          }
+
+          const existingUserIdx = userList.findIndex(
+            u => (u.tenantId && u.tenantId === tid) || 
+                 (u.storeName && t.name && u.storeName.toLowerCase() === t.name.toLowerCase())
+          );
+
+          const tenantAdminUser: MasterActiveUser = {
+            id: existingUserIdx >= 0 ? userList[existingUserIdx].id : `usr_${cleanTid}_admin`,
+            name: t.ownerName || `${t.name} (Primary Admin)`,
+            emailOrPhone: t.ownerPhone || t.ownerEmail || '03364585863',
+            role: 'Primary Admin',
+            status: t.status === 'Suspended' ? 'Suspended' : 'Active',
+            passcode: '1234',
+            storeName: t.name || 'Store Branch',
+            tenantId: tid,
+            installationId: `INST-${cleanTid}`,
+            boundHwid: 'HWID-DEVICE-AUTHORIZED',
+            lastSyncTime: t.lastSyncAt || new Date().toISOString(),
+            isOnline: true,
+            totalTransactions: t.totalInvoicesCount || 0,
+            sessionDurationMinutes: 180,
+            totalActiveHours: 48,
+            allowedModules: { ...DEFAULT_MODULES },
+            permissions: { ...DEFAULT_USER_PERMISSIONS, canManageUsers: true, canVoidInvoice: true, canDeleteTransaction: true },
+            createdAt: t.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          if (existingUserIdx >= 0) {
+            userList[existingUserIdx] = {
+              ...tenantAdminUser,
+              ...userList[existingUserIdx],
+              storeName: t.name,
+              tenantId: tid
+            };
+          } else {
+            userList.push(tenantAdminUser);
+          }
+        }
       }
     }
-    userList = deduplicated.slice(0, 15);
-    try {
-      localStorage.setItem(MASTER_USERS_KEY, JSON.stringify(userList));
-    } catch (e) {}
-  }
+  } catch (e) {}
 
-  // If empty, seed initial operator
+  // If still empty, seed initial operator
   if (userList.length === 0) {
     userList = [
       {
@@ -2175,8 +2217,13 @@ export function saveTenant(tenant: Tenant): Tenant[] {
   const tenants = getAllTenants();
   const idx = tenants.findIndex(t => t.id === tenant.id || t.tenantId === tenant.tenantId);
 
+  const tid = tenant.tenantId || tenant.id;
+  const cleanTid = tid.replace(/[^a-zA-Z0-9_]/g, '_');
+  const apiKey = tenant.apiKey || `mbi_live_key_${cleanTid.slice(-6)}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
   const updatedTenant: Tenant = {
     ...tenant,
+    apiKey,
     updatedAt: new Date().toISOString(),
   };
 
@@ -2187,6 +2234,10 @@ export function saveTenant(tenant: Tenant): Tenant[] {
   }
 
   localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(tenants));
+  try {
+    localStorage.setItem(`mbi_tenant_apikey_${tid}`, apiKey);
+  } catch (e) {}
+
   logMasterAudit('Tenant Updated', 'FLEET', `Tenant ${tenant.name} (${tenant.tenantId}) details updated`, tenant.name);
 
   // Sync to server fleet API
@@ -2208,6 +2259,9 @@ export function saveTenant(tenant: Tenant): Tenant[] {
       }
     }
   } catch (e) {}
+
+  window.dispatchEvent(new CustomEvent('mbi-tenants-updated', { detail: tenants }));
+  window.dispatchEvent(new CustomEvent('mbi-users-updated'));
 
   return tenants;
 }

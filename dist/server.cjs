@@ -267,6 +267,11 @@ async function initializeMariaDbSchema() {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) AFTER email;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT 'cashier';",
+      "ALTER TABLE mbi_tenants ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER ntn_number;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER license_key;",
+      "ALTER TABLE mbi_users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER passcode;",
+      "ALTER TABLE mbi_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER hardware_fingerprint;",
+      "ALTER TABLE mbi_settings ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER tenant_id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS pharmacy_name VARCHAR(255) AFTER tenant_id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(64) DEFAULT 'Gold Business';",
@@ -282,6 +287,8 @@ async function initializeMariaDbSchema() {
       "ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
       "CREATE INDEX IF NOT EXISTS idx_tenant_users ON users (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_license_tenant ON mbi_licenses (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_tenant_api_key ON mbi_tenants (api_key);",
+      "CREATE INDEX IF NOT EXISTS idx_license_api_key ON mbi_licenses (api_key);",
       "CREATE INDEX IF NOT EXISTS idx_med_tenant ON medicines (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_sales_tenant ON sales (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);",
@@ -336,6 +343,39 @@ async function seedMariaDbDefaults(currentPool) {
     try {
       await p.query("UPDATE mbi_tenants SET tenant_id = id WHERE tenant_id IS NULL OR tenant_id = '';");
       await p.query("UPDATE mbi_tenants SET organization_id = id WHERE organization_id IS NULL OR organization_id = '';");
+      const [duplicateRows] = await p.query(`
+        SELECT LOWER(TRIM(name)) as clean_name, COUNT(*) as count 
+        FROM mbi_tenants 
+        GROUP BY LOWER(TRIM(name)) 
+        HAVING count > 1;
+      `);
+      if (Array.isArray(duplicateRows) && duplicateRows.length > 0) {
+        for (const dup of duplicateRows) {
+          const [allDupTenants] = await p.query(
+            "SELECT * FROM mbi_tenants WHERE LOWER(TRIM(name)) = ? ORDER BY (owner_phone IS NOT NULL AND owner_phone != '') DESC, (owner_name IS NOT NULL AND owner_name != 'Store Admin') DESC, created_at DESC;",
+            [dup.clean_name]
+          );
+          if (Array.isArray(allDupTenants) && allDupTenants.length > 1) {
+            const canonical = allDupTenants[0];
+            const duplicateIds = allDupTenants.slice(1).map((t) => t.id);
+            for (const dupId of duplicateIds) {
+              const canonTid = canonical.tenant_id || canonical.id;
+              await p.query("UPDATE IGNORE mbi_users SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
+              });
+              await p.query("UPDATE IGNORE mbi_licenses SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
+              });
+              await p.query("UPDATE IGNORE mbi_invoices SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
+              });
+              await p.query("UPDATE IGNORE mbi_medicines SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
+              });
+              await p.query("UPDATE IGNORE mbi_settings SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
+              });
+              await p.query("DELETE FROM mbi_tenants WHERE id = ?;", [dupId]).catch(() => {
+              });
+            }
+          }
+        }
+      }
       await p.query("UPDATE mbi_licenses SET tenant_id = (SELECT id FROM mbi_tenants WHERE mbi_tenants.id = mbi_licenses.tenant_id OR mbi_tenants.name = mbi_licenses.client_name LIMIT 1) WHERE tenant_id IS NULL OR tenant_id = '';");
       await p.query("UPDATE mbi_users u JOIN mbi_tenants t ON (u.email_or_phone = t.owner_phone OR u.phone = t.owner_phone OR u.email = t.owner_email OR u.tenant_id = t.id) SET u.tenant_id = t.id WHERE u.tenant_id IS NULL OR u.tenant_id = '';");
     } catch (repairErr) {
@@ -8279,16 +8319,57 @@ fleetRouter.get("/tenants", async (req, res) => {
 });
 fleetRouter.post("/tenants/save", async (req, res) => {
   try {
-    const { id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number } = req.body;
-    const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
+    const {
+      id,
+      tenant_id,
+      tenantId,
+      name,
+      owner_name,
+      ownerName,
+      owner_phone,
+      ownerPhone,
+      phone,
+      owner_email,
+      ownerEmail,
+      email,
+      city,
+      address,
+      plan,
+      status,
+      drug_license_no,
+      ntn_number,
+      api_key,
+      apiKey,
+      features,
+      customFeatures,
+      features_json,
+      trial_expiry_date,
+      trialExpiryDate
+    } = req.body;
+    const cleanTenantId = tenant_id || tenantId || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
+    const cleanApiKey = api_key || apiKey || `mbi_live_key_${cleanTenantId.slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+    const cleanFeaturesJson = typeof features_json === "string" ? features_json : JSON.stringify(features || customFeatures || {});
+    const cleanExpiry = trial_expiry_date || trialExpiryDate || null;
     if (await isMariaDbAvailable2()) {
       try {
         const pool2 = getMariaDbPool();
+        const [existingRows] = await pool2.query(
+          "SELECT id, tenant_id FROM mbi_tenants WHERE (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ? AND tenant_id != ?) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ? AND id != ? AND tenant_id != ?) LIMIT 1;",
+          [name || "", cleanId, cleanTenantId, owner_phone || ownerPhone || phone || "", cleanId, cleanTenantId]
+        );
+        let finalId = cleanId;
+        let finalTenantId = cleanTenantId;
+        if (Array.isArray(existingRows) && existingRows.length > 0) {
+          finalId = existingRows[0].id;
+          finalTenantId = existingRows[0].tenant_id || existingRows[0].id;
+        }
         await pool2.query(
-          `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expiry_date, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
+             tenant_id = COALESCE(tenant_id, VALUES(tenant_id)),
+             organization_id = COALESCE(organization_id, VALUES(organization_id)),
              name = VALUES(name),
              owner_name = VALUES(owner_name),
              owner_phone = VALUES(owner_phone),
@@ -8299,20 +8380,27 @@ fleetRouter.post("/tenants/save", async (req, res) => {
              status = VALUES(status),
              drug_license_no = VALUES(drug_license_no),
              ntn_number = VALUES(ntn_number),
+             api_key = VALUES(api_key),
+             features_json = VALUES(features_json),
+             trial_expiry_date = VALUES(trial_expiry_date),
              updated_at = CURRENT_TIMESTAMP;`,
           [
-            cleanId,
-            cleanTenantId,
+            finalId,
+            finalTenantId,
+            finalTenantId,
             name || "Pharmacy Store",
-            owner_name || "Store Admin",
-            owner_phone || "",
-            owner_email || "",
+            owner_name || ownerName || "Store Admin",
+            owner_phone || ownerPhone || phone || "",
+            owner_email || ownerEmail || email || "",
             city || "Lahore",
             address || "",
             plan || "Business",
             status || "Active",
             drug_license_no || "",
-            ntn_number || ""
+            ntn_number || "",
+            cleanApiKey,
+            cleanFeaturesJson,
+            cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : null
           ]
         );
       } catch (dbErr) {
@@ -8320,8 +8408,9 @@ fleetRouter.post("/tenants/save", async (req, res) => {
     }
     res.json({
       success: true,
-      message: `Tenant ${name} saved successfully`,
-      tenantId: cleanTenantId
+      message: `Tenant ${name} saved successfully with API Key`,
+      tenantId: cleanTenantId,
+      apiKey: cleanApiKey
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error saving fleet tenant" });
@@ -11127,32 +11216,66 @@ checkoutRouter.post("/orders", async (req, res) => {
             `Trx: ${orderRecord.trxId} | Method: ${orderRecord.paymentMethod} | Amount: PKR ${orderRecord.amountRupees}`
           ]
         );
-        await pool2.query(
-          `INSERT INTO mbi_tenants (
-            id, name, owner_name, phone, email, city, plan, status, trial_ends_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'Active', DATE_ADD(NOW(), INTERVAL 10 DAY), NOW())
-          ON DUPLICATE KEY UPDATE updated_at = NOW();`,
-          [
-            tenantId,
-            orderRecord.businessName,
-            orderRecord.ownerName,
-            orderRecord.whatsapp,
-            orderRecord.email,
-            orderRecord.city
-          ]
+        const [existingTenantRows] = await pool2.query(
+          "SELECT id, tenant_id FROM mbi_tenants WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ?) LIMIT 1;",
+          [orderRecord.businessName, orderRecord.whatsapp]
         );
+        let effectiveTenantId = tenantId;
+        if (Array.isArray(existingTenantRows) && existingTenantRows.length > 0) {
+          effectiveTenantId = existingTenantRows[0].tenant_id || existingTenantRows[0].id;
+          await pool2.query(
+            `UPDATE mbi_tenants SET 
+              tenant_id = COALESCE(tenant_id, id, ?),
+              organization_id = COALESCE(organization_id, id, ?),
+              name = ?, owner_name = ?, phone = ?, owner_phone = ?, email = ?, owner_email = ?, city = ?, updated_at = NOW() 
+             WHERE id = ? OR tenant_id = ?;`,
+            [
+              effectiveTenantId,
+              effectiveTenantId,
+              orderRecord.businessName,
+              orderRecord.ownerName,
+              orderRecord.whatsapp,
+              orderRecord.whatsapp,
+              orderRecord.email,
+              orderRecord.email,
+              orderRecord.city,
+              effectiveTenantId,
+              effectiveTenantId
+            ]
+          );
+        } else {
+          await pool2.query(
+            `INSERT INTO mbi_tenants (
+              id, tenant_id, organization_id, name, owner_name, owner_phone, phone, email, owner_email, city, plan, status, trial_ends_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'Active', DATE_ADD(NOW(), INTERVAL 10 DAY), NOW(), NOW())
+            ON DUPLICATE KEY UPDATE updated_at = NOW();`,
+            [
+              tenantId,
+              tenantId,
+              tenantId,
+              orderRecord.businessName,
+              orderRecord.ownerName,
+              orderRecord.whatsapp,
+              orderRecord.whatsapp,
+              orderRecord.email,
+              orderRecord.email,
+              orderRecord.city
+            ]
+          );
+        }
         await pool2.query(
           `INSERT INTO mbi_users (
-            id, tenant_id, name, username, phone, email, password_hash, role, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Admin', 'Active', NOW())
+            id, tenant_id, name, username, phone, email, email_or_phone, passcode, role, status, is_primary_admin, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Primary Admin', 'Active', 1, NOW())
           ON DUPLICATE KEY UPDATE updated_at = NOW();`,
           [
-            `usr_${tenantId}`,
-            tenantId,
+            `usr_${effectiveTenantId}`,
+            effectiveTenantId,
             orderRecord.ownerName,
             orderRecord.username,
             orderRecord.whatsapp,
             orderRecord.email,
+            orderRecord.whatsapp || orderRecord.email,
             password || "123456"
           ]
         );

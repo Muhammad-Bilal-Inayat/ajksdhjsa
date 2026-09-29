@@ -100,6 +100,22 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     }
   }, [selectedUserId]);
 
+  // Listen to live tenant and user creation events so new companies show up immediately
+  useEffect(() => {
+    const handleUpdate = () => {
+      const refreshedUsers = getMasterActiveUsers();
+      setUsers(refreshedUsers);
+    };
+
+    window.addEventListener('mbi-users-updated', handleUpdate);
+    window.addEventListener('mbi-tenants-updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('mbi-users-updated', handleUpdate);
+      window.removeEventListener('mbi-tenants-updated', handleUpdate);
+    };
+  }, []);
+
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -168,7 +184,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     return { totalFeatures, activeFeatures, inactiveFeatures, percentage };
   }, [profile]);
 
-  // Helper to commit profile state and immediately persist + sync to sidebar
+  // Helper to commit profile state and immediately persist + sync to sidebar and tenant features
   const commitProfile = (newProfile: UserAccessControlProfile, changeNotice?: string) => {
     newProfile.isCustomOverrideActive = true;
     setProfile(newProfile);
@@ -180,6 +196,34 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     localStorage.setItem('mbi_user_access_profile_user_usr_active', serialized);
     localStorage.setItem(`mbi_user_access_profile_user_${newProfile.userId}`, serialized);
     localStorage.setItem('mbi_master_control_last_selected_user', newProfile.userId);
+
+    // Also mirror to tenant-level feature store so all subusers inherit immediately
+    const targetTenantId = selectedUser.tenantId || newProfile.tenantId;
+    if (targetTenantId) {
+      try {
+        const tenantFeatureMap: Record<string, boolean> = {
+          fefo_expiry_management: newProfile.functionToggles['fefoAllocation'] !== false,
+          fefo_expiry_alerts: newProfile.functionToggles['fefoAllocation'] !== false,
+          godowns: newProfile.submenuToggles['godowns'] !== false,
+          shortage_registry: newProfile.submenuToggles['shortageRegistry'] !== false,
+          narcotics_register: newProfile.submenuToggles['narcoticsRegister'] !== false,
+          fbr_pos_integration: newProfile.functionToggles['fbrIntegration'] !== false,
+          online_storefront: newProfile.menuToggles['onlineStore'] !== false,
+          top_products: newProfile.submenuToggles['topProducts'] !== false,
+          top_products_analytics: newProfile.submenuToggles['topProducts'] !== false,
+          journal_vouchers: newProfile.submenuTouchers?.['journalVouchers'] !== false || newProfile.menuToggles['accounts'] !== false,
+          full_audit_trail: newProfile.submenuToggles['auditTrail'] !== false,
+          booker_biller_management: newProfile.submenuToggles['bookers'] !== false,
+          live_profit_margin: newProfile.functionToggles['viewCostsAndMargins'] !== false,
+          batch_management: newProfile.functionToggles['batchTracking'] !== false,
+          custom_item_fields: newProfile.functionToggles['itemCustomFields'] !== false,
+        };
+        localStorage.setItem(`mbi_tenant_features_${targetTenantId}`, JSON.stringify(tenantFeatureMap));
+        window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', {
+          detail: { tenantId: targetTenantId, features: tenantFeatureMap }
+        }));
+      } catch (e) {}
+    }
 
     const effective = computeEffectivePermissions(newProfile);
     window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: newProfile } }));

@@ -1665,10 +1665,58 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
+const noop = () => {};
+const noopAsync = async () => {};
+
+export const fallbackSettingsContext: SettingsContextType = {
+  settings: defaultSettings,
+  userPreferences: defaultUiPreferences,
+  updateUserPreferences: noop,
+  dashboardWidgets: DEFAULT_DASHBOARD_WIDGET_VISIBILITY,
+  dashboardMainOrder: DEFAULT_DASHBOARD_MAIN_SECTIONS,
+  dashboardSidebarOrder: DEFAULT_DASHBOARD_SIDEBAR_SECTIONS,
+  updateDashboardWidgetVisibility: noop,
+  updateDashboardWidgetOrder: noop,
+  reorderDashboardSection: noop,
+  moveDashboardWidgetZone: noop,
+  resetDashboardWidgets: noop,
+  currentScope: { userId: 'user-default', tenantId: 'tenant-default', firmId: 'firm-1' },
+  theme: 'light',
+  isDarkMode: false,
+  toggleTheme: noop,
+  setTheme: noop,
+  updateSettings: noop,
+  updateGeneral: noop,
+  updateFeatureFlags: noop,
+  updateSafetyRules: noop,
+  updatePeriodLock: noop,
+  updateTransaction: noop,
+  updateTransactionSettings: noop,
+  updatePrint: noop,
+  updatePrintSettings: noop,
+  updateTaxes: noop,
+  updateParty: noop,
+  updateItem: noop,
+  updatePricing: noop,
+  updateControlledAndGeneric: noop,
+  updateModules: noop,
+  addTaxRate: noop,
+  deleteTaxRate: noop,
+  addTaxGroup: noop,
+  deleteTaxGroup: noop,
+  addFirm: noop,
+  updateFirm: noop,
+  deleteFirm: noop,
+  setDefaultFirm: noop,
+  resetToDefaults: noop,
+};
+
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
+    console.warn('[MBI Settings Context Guard] useSettings invoked outside of active SettingsProvider. Utilizing resilient fallback context.');
+    return fallbackSettingsContext;
   }
   return context;
 };
+

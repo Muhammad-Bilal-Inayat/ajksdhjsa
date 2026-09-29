@@ -70,17 +70,63 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
 // 2. Save or update a fleet tenant in mbi_tenants
 fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const { id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number } = req.body;
-    const cleanTenantId = tenant_id || id || `tenant_${Date.now()}`;
+    const { 
+      id, 
+      tenant_id, 
+      tenantId,
+      name, 
+      owner_name, 
+      ownerName,
+      owner_phone, 
+      ownerPhone,
+      phone,
+      owner_email, 
+      ownerEmail,
+      email,
+      city, 
+      address, 
+      plan, 
+      status, 
+      drug_license_no, 
+      ntn_number,
+      api_key,
+      apiKey,
+      features,
+      customFeatures,
+      features_json,
+      trial_expiry_date,
+      trialExpiryDate
+    } = req.body;
+
+    const cleanTenantId = tenant_id || tenantId || id || `tenant_${Date.now()}`;
     const cleanId = id || cleanTenantId;
+    const cleanApiKey = api_key || apiKey || `mbi_live_key_${cleanTenantId.slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+    const cleanFeaturesJson = typeof features_json === 'string' ? features_json : JSON.stringify(features || customFeatures || {});
+    const cleanExpiry = trial_expiry_date || trialExpiryDate || null;
 
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
+
+        // Check if existing tenant matches by name or phone
+        const [existingRows]: any = await pool.query(
+          "SELECT id, tenant_id FROM mbi_tenants WHERE (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ? AND tenant_id != ?) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ? AND id != ? AND tenant_id != ?) LIMIT 1;",
+          [name || '', cleanId, cleanTenantId, owner_phone || ownerPhone || phone || '', cleanId, cleanTenantId]
+        );
+
+        let finalId = cleanId;
+        let finalTenantId = cleanTenantId;
+        if (Array.isArray(existingRows) && existingRows.length > 0) {
+          finalId = existingRows[0].id;
+          finalTenantId = existingRows[0].tenant_id || existingRows[0].id;
+        }
+
         await pool.query(
-          `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          `INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expiry_date, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
+             tenant_id = COALESCE(tenant_id, VALUES(tenant_id)),
+             organization_id = COALESCE(organization_id, VALUES(organization_id)),
              name = VALUES(name),
              owner_name = VALUES(owner_name),
              owner_phone = VALUES(owner_phone),
@@ -91,20 +137,27 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
              status = VALUES(status),
              drug_license_no = VALUES(drug_license_no),
              ntn_number = VALUES(ntn_number),
+             api_key = VALUES(api_key),
+             features_json = VALUES(features_json),
+             trial_expiry_date = VALUES(trial_expiry_date),
              updated_at = CURRENT_TIMESTAMP;`,
           [
-            cleanId,
-            cleanTenantId,
+            finalId,
+            finalTenantId,
+            finalTenantId,
             name || 'Pharmacy Store',
-            owner_name || 'Store Admin',
-            owner_phone || '',
-            owner_email || '',
+            owner_name || ownerName || 'Store Admin',
+            owner_phone || ownerPhone || phone || '',
+            owner_email || ownerEmail || email || '',
             city || 'Lahore',
             address || '',
             plan || 'Business',
             status || 'Active',
             drug_license_no || '',
-            ntn_number || ''
+            ntn_number || '',
+            cleanApiKey,
+            cleanFeaturesJson,
+            cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : null
           ]
         );
       } catch (dbErr) {}
@@ -112,8 +165,9 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
 
     res.json({
       success: true,
-      message: `Tenant ${name} saved successfully`,
-      tenantId: cleanTenantId
+      message: `Tenant ${name} saved successfully with API Key`,
+      tenantId: cleanTenantId,
+      apiKey: cleanApiKey
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error saving fleet tenant' });

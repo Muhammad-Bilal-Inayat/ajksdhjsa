@@ -238,6 +238,11 @@ export async function initializeMariaDbSchema(): Promise<boolean> {
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) AFTER email;",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT 'cashier';",
+      "ALTER TABLE mbi_tenants ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER ntn_number;",
+      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER license_key;",
+      "ALTER TABLE mbi_users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER passcode;",
+      "ALTER TABLE mbi_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER hardware_fingerprint;",
+      "ALTER TABLE mbi_settings ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER tenant_id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS pharmacy_name VARCHAR(255) AFTER tenant_id;",
       "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(64) DEFAULT 'Gold Business';",
@@ -253,6 +258,8 @@ export async function initializeMariaDbSchema(): Promise<boolean> {
       "ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
       "CREATE INDEX IF NOT EXISTS idx_tenant_users ON users (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_license_tenant ON mbi_licenses (tenant_id);",
+      "CREATE INDEX IF NOT EXISTS idx_tenant_api_key ON mbi_tenants (api_key);",
+      "CREATE INDEX IF NOT EXISTS idx_license_api_key ON mbi_licenses (api_key);",
       "CREATE INDEX IF NOT EXISTS idx_med_tenant ON medicines (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_sales_tenant ON sales (tenant_id);",
       "CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);",
@@ -317,10 +324,43 @@ export async function seedMariaDbDefaults(currentPool?: mysql.Pool): Promise<voi
       is_default = VALUES(is_default)
     `);
 
-    // 4. Auto-repair tenant_id & organization_id for any NULL rows
+    // 4. Auto-repair and deduplicate mbi_tenants
     try {
       await p.query("UPDATE mbi_tenants SET tenant_id = id WHERE tenant_id IS NULL OR tenant_id = '';");
       await p.query("UPDATE mbi_tenants SET organization_id = id WHERE organization_id IS NULL OR organization_id = '';");
+
+      // Merge and clean up duplicate tenants by exact lowercase name
+      const [duplicateRows]: any = await p.query(`
+        SELECT LOWER(TRIM(name)) as clean_name, COUNT(*) as count 
+        FROM mbi_tenants 
+        GROUP BY LOWER(TRIM(name)) 
+        HAVING count > 1;
+      `);
+
+      if (Array.isArray(duplicateRows) && duplicateRows.length > 0) {
+        for (const dup of duplicateRows) {
+          const [allDupTenants]: any = await p.query(
+            "SELECT * FROM mbi_tenants WHERE LOWER(TRIM(name)) = ? ORDER BY (owner_phone IS NOT NULL AND owner_phone != '') DESC, (owner_name IS NOT NULL AND owner_name != 'Store Admin') DESC, created_at DESC;",
+            [dup.clean_name]
+          );
+          if (Array.isArray(allDupTenants) && allDupTenants.length > 1) {
+            const canonical = allDupTenants[0];
+            const duplicateIds = allDupTenants.slice(1).map((t: any) => t.id);
+            for (const dupId of duplicateIds) {
+              const canonTid = canonical.tenant_id || canonical.id;
+              // Re-point users, invoices, medicines, licenses, settings from duplicate id to canonical id
+              await p.query("UPDATE IGNORE mbi_users SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {});
+              await p.query("UPDATE IGNORE mbi_licenses SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {});
+              await p.query("UPDATE IGNORE mbi_invoices SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {});
+              await p.query("UPDATE IGNORE mbi_medicines SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {});
+              await p.query("UPDATE IGNORE mbi_settings SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {});
+              // Delete the redundant duplicate tenant row
+              await p.query("DELETE FROM mbi_tenants WHERE id = ?;", [dupId]).catch(() => {});
+            }
+          }
+        }
+      }
+
       await p.query("UPDATE mbi_licenses SET tenant_id = (SELECT id FROM mbi_tenants WHERE mbi_tenants.id = mbi_licenses.tenant_id OR mbi_tenants.name = mbi_licenses.client_name LIMIT 1) WHERE tenant_id IS NULL OR tenant_id = '';");
       await p.query("UPDATE mbi_users u JOIN mbi_tenants t ON (u.email_or_phone = t.owner_phone OR u.phone = t.owner_phone OR u.email = t.owner_email OR u.tenant_id = t.id) SET u.tenant_id = t.id WHERE u.tenant_id IS NULL OR u.tenant_id = '';");
     } catch (repairErr: any) {

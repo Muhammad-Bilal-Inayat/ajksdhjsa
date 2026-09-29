@@ -134,9 +134,41 @@
       "storeName": "MBI INVENTRA Headquarters",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T16:01:58.147Z",
+      "lastSyncTime": "2026-09-29T16:12:58.619Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T16:01:58.479Z"
+      "updatedAt": "2026-09-29T16:12:58.627Z"
+    },
+    {
+      "id": "usr_1790697923730",
+      "name": "jahskjahdkj",
+      "username": "usr_1790697923730",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T16:05:23.747Z",
+      "emailOrPhone": "jahskjahdkj@gmail.com",
+      "passcode": "1234",
+      "storeName": "My Pharmacy Store",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-528EB66D-MAJTWM",
+      "lastSyncTime": "2026-09-29T16:12:24.629Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T16:12:24.654Z"
+    },
+    {
+      "id": "usr_1790695150002",
+      "name": "jahskjahdkj",
+      "username": "usr_1790695150002",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-29T15:19:10.018Z",
+      "emailOrPhone": "jahskjahdkj@gmail.com",
+      "passcode": "1234",
+      "storeName": "MBI INVENTRA",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-528EB66D-MAJTWM",
+      "lastSyncTime": "2026-09-29T16:05:15.622Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-29T16:05:15.624Z"
     },
     {
       "id": "usr_shadow_1790696276786",
@@ -153,22 +185,6 @@
       "lastSyncTime": "2026-09-29T16:01:58.073Z",
       "isOnline": true,
       "updatedAt": "2026-09-29T16:01:58.376Z"
-    },
-    {
-      "id": "usr_1790695150002",
-      "name": "jahskjahdkj",
-      "username": "usr_1790695150002",
-      "role": "Primary Admin",
-      "status": "Active",
-      "createdAt": "2026-09-29T15:19:10.018Z",
-      "emailOrPhone": "jahskjahdkj@gmail.com",
-      "passcode": "1234",
-      "storeName": "MBI INVENTRA",
-      "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T15:44:40.617Z",
-      "isOnline": true,
-      "updatedAt": "2026-09-29T15:44:40.679Z"
     },
     {
       "id": "usr_shadow_1790696242278",

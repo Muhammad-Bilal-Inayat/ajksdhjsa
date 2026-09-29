@@ -109,35 +109,71 @@ checkoutRouter.post('/orders', async (req: Request, res: Response) => {
           ]
         );
 
-        // Auto-provision trial tenant in mbi_tenants so user can log in immediately
-        await pool.query(
-          `INSERT INTO mbi_tenants (
-            id, name, owner_name, phone, email, city, plan, status, trial_ends_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'Active', DATE_ADD(NOW(), INTERVAL 10 DAY), NOW())
-          ON DUPLICATE KEY UPDATE updated_at = NOW();`,
-          [
-            tenantId,
-            orderRecord.businessName,
-            orderRecord.ownerName,
-            orderRecord.whatsapp,
-            orderRecord.email,
-            orderRecord.city
-          ]
+        // Check if tenant with this name or phone already exists
+        const [existingTenantRows]: any = await pool.query(
+          "SELECT id, tenant_id FROM mbi_tenants WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ?) LIMIT 1;",
+          [orderRecord.businessName, orderRecord.whatsapp]
         );
+
+        let effectiveTenantId = tenantId;
+        if (Array.isArray(existingTenantRows) && existingTenantRows.length > 0) {
+          effectiveTenantId = existingTenantRows[0].tenant_id || existingTenantRows[0].id;
+          await pool.query(
+            `UPDATE mbi_tenants SET 
+              tenant_id = COALESCE(tenant_id, id, ?),
+              organization_id = COALESCE(organization_id, id, ?),
+              name = ?, owner_name = ?, phone = ?, owner_phone = ?, email = ?, owner_email = ?, city = ?, updated_at = NOW() 
+             WHERE id = ? OR tenant_id = ?;`,
+            [
+              effectiveTenantId,
+              effectiveTenantId,
+              orderRecord.businessName,
+              orderRecord.ownerName,
+              orderRecord.whatsapp,
+              orderRecord.whatsapp,
+              orderRecord.email,
+              orderRecord.email,
+              orderRecord.city,
+              effectiveTenantId,
+              effectiveTenantId
+            ]
+          );
+        } else {
+          // Auto-provision trial tenant in mbi_tenants so user can log in immediately
+          await pool.query(
+            `INSERT INTO mbi_tenants (
+              id, tenant_id, organization_id, name, owner_name, owner_phone, phone, email, owner_email, city, plan, status, trial_ends_at, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'Active', DATE_ADD(NOW(), INTERVAL 10 DAY), NOW(), NOW())
+            ON DUPLICATE KEY UPDATE updated_at = NOW();`,
+            [
+              tenantId,
+              tenantId,
+              tenantId,
+              orderRecord.businessName,
+              orderRecord.ownerName,
+              orderRecord.whatsapp,
+              orderRecord.whatsapp,
+              orderRecord.email,
+              orderRecord.email,
+              orderRecord.city
+            ]
+          );
+        }
 
         // Auto-create user in mbi_users
         await pool.query(
           `INSERT INTO mbi_users (
-            id, tenant_id, name, username, phone, email, password_hash, role, status, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Admin', 'Active', NOW())
+            id, tenant_id, name, username, phone, email, email_or_phone, passcode, role, status, is_primary_admin, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Primary Admin', 'Active', 1, NOW())
           ON DUPLICATE KEY UPDATE updated_at = NOW();`,
           [
-            `usr_${tenantId}`,
-            tenantId,
+            `usr_${effectiveTenantId}`,
+            effectiveTenantId,
             orderRecord.ownerName,
             orderRecord.username,
             orderRecord.whatsapp,
             orderRecord.email,
+            orderRecord.whatsapp || orderRecord.email,
             password || '123456'
           ]
         );

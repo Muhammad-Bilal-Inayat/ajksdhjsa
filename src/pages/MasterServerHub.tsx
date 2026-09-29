@@ -183,15 +183,9 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
       return;
     }
 
-    // Emergency direct recovery key bypasses all
-    if (cleanPin === '03082003') {
-      sessionStorage.setItem('mbi_master_session_unlocked', 'true');
-      setUnlocked(true);
-      return;
-    }
-
+    // STRICT MASTER PASSCODES: Only Ami7788!@ and 03082003 are authorized
     let isPasswordValid = false;
-    if (cleanPin === 'Ami7788!@') {
+    if (cleanPin === 'Ami7788!@' || cleanPin === '03082003') {
       isPasswordValid = true;
     } else {
       try {
@@ -206,7 +200,14 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
     }
 
     if (!isPasswordValid) {
-      setPinError('Access Denied: Invalid Master Credentials');
+      setPinError('Access Denied: Invalid Master Credentials. Only authorized master keys permitted.');
+      return;
+    }
+
+    // Emergency direct recovery key bypasses 2FA
+    if (cleanPin === '03082003') {
+      sessionStorage.setItem('mbi_master_session_unlocked', 'true');
+      setUnlocked(true);
       return;
     }
 

@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `mbi_tenants` (
   `drug_license_no` VARCHAR(128) NULL,
   `ntn_number` VARCHAR(64) NULL,
   `tax_ntn_number` VARCHAR(64) NULL,
+  `api_key` VARCHAR(255) NULL,
   `plan` VARCHAR(64) NOT NULL DEFAULT 'Basic',
   `plan_id` VARCHAR(64) NOT NULL DEFAULT 'Basic',
   `status` VARCHAR(64) NOT NULL DEFAULT 'Active',
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS `mbi_tenants` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_phone` (`owner_phone`),
   KEY `idx_tenant_status` (`status`),
+  KEY `idx_tenant_api_key` (`api_key`),
   KEY `idx_tenant_org` (`organization_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -89,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `mbi_users` (
   `email` VARCHAR(255) NULL,
   `phone` VARCHAR(64) NULL,
   `passcode` VARCHAR(255) NOT NULL DEFAULT '0000',
+  `api_key` VARCHAR(255) NULL,
   `role` VARCHAR(64) NOT NULL DEFAULT 'Cashier',
   `is_primary_owner` TINYINT(1) NOT NULL DEFAULT 0,
   `is_primary_admin` TINYINT(1) NOT NULL DEFAULT 0,
@@ -131,6 +134,7 @@ CREATE TABLE IF NOT EXISTS `mbi_licenses` (
   `tenant_id` VARCHAR(128) NULL,
   `pharmacy_name` VARCHAR(255) NULL,
   `license_key` VARCHAR(128) NOT NULL,
+  `api_key` VARCHAR(255) NULL,
   `client_name` VARCHAR(255) NOT NULL DEFAULT 'Pharmacy Store',
   `owner_name` VARCHAR(255) NOT NULL DEFAULT 'Store Owner',
   `phone` VARCHAR(64) NOT NULL DEFAULT '',
@@ -155,6 +159,7 @@ CREATE TABLE IF NOT EXISTS `mbi_licenses` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_lic_key` (`license_key`),
   KEY `idx_lic_tenant` (`tenant_id`),
+  KEY `idx_lic_api_key` (`api_key`),
   KEY `idx_lic_hwid` (`bound_hwid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

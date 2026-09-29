@@ -117,12 +117,17 @@ export interface Tenant {
     auditLogsMb: number;
   };
   // Software Sale & Revenue Tracking
+  apiKey?: string;
+  customFeatures?: Record<string, boolean>;
+  features?: Record<string, boolean>;
+  isManualOverride?: boolean;
   salePrice?: number;
   amountPaid?: number;
   amountDue?: number;
   saleStatus?: 'Paid' | 'Partial' | 'Pending' | 'Complimentary / Trial';
   paymentMethod?: 'Cash' | 'Bank Transfer' | 'EasyPaisa / JazzCash' | 'Cheque' | 'Other';
   saleDate?: string;
+  saleNotes?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;

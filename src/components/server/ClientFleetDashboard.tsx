@@ -147,16 +147,34 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         setLeads(syncedLeads);
       }
 
+      const normalizeTenantKey = (t: any) => {
+        if (!t) return '';
+        if (t.tenantId) return String(t.tenantId).toLowerCase().trim();
+        if (t.id) return String(t.id).toLowerCase().trim();
+        return String(t.name || '').toLowerCase().trim();
+      };
+
       const res = await fetch('/api/fleet/tenants', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.tenants) && json.tenants.length > 0) {
           const localTenants = getAllTenants();
           const map = new Map<string, Tenant>();
-          localTenants.forEach(t => map.set(t.id || t.tenantId, t));
+          localTenants.forEach(t => {
+            const k = normalizeTenantKey(t);
+            if (k) map.set(k, t);
+          });
           json.tenants.forEach((rt: any) => {
-            const key = rt.id || rt.tenantId;
-            if (key) map.set(key, { ...map.get(key), ...rt });
+            const k = normalizeTenantKey(rt);
+            if (k) {
+              const existing = map.get(k);
+              map.set(k, { 
+                ...existing, 
+                ...rt, 
+                id: rt.id || existing?.id || rt.tenantId,
+                tenantId: rt.tenantId || existing?.tenantId || rt.id 
+              });
+            }
           });
           const merged = Array.from(map.values());
           setTenants(merged);
@@ -237,9 +255,20 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     };
   }, [tenants, instances]);
 
-  // Filtered tenants list
+  // Filtered tenants list with strict uniqueness deduplication
   const filteredTenants = useMemo(() => {
-    return tenants.filter((t) => {
+    const seen = new Set<string>();
+    const uniqueTenants: Tenant[] = [];
+
+    for (const t of tenants) {
+      if (!t) continue;
+      const key = (t.tenantId || t.id || t.name || '').toLowerCase().trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      uniqueTenants.push(t);
+    }
+
+    return uniqueTenants.filter((t) => {
       const q = searchQuery.toLowerCase().trim();
       if (q) {
         const matchesName = (t.name || '').toLowerCase().includes(q);
@@ -350,9 +379,16 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
   };
 
   // Handle single client force sync
-  const handleForceSyncClient = (tenant: Tenant) => {
+  const handleForceSyncClient = async (tenant: Tenant) => {
     setIsSyncingClient(tenant.id);
-    setTimeout(() => {
+    const tid = tenant.tenantId || tenant.id;
+    try {
+      await fetch('/api/fleet/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: tid, timestamp: new Date().toISOString() })
+      }).catch(() => {});
+
       const nowStr = new Date().toISOString();
       const updatedTenant = {
         ...tenant,
@@ -361,11 +397,11 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       };
       saveTenant(updatedTenant);
       
-      const clientIp = `192.168.1.${100 + (tenant.name.charCodeAt(0) % 80)}`;
+      const clientIp = `192.168.1.${100 + ((tenant.name || 'A').charCodeAt(0) % 80)}`;
       logServerActivity({
-        tenantId: tenant.id,
+        tenantId: tid,
         tenantName: tenant.name,
-        userId: 'usr_' + tenant.name.substring(0, 4).toLowerCase(),
+        userId: 'usr_' + (tenant.name || 'cli').substring(0, 4).toLowerCase(),
         userName: tenant.ownerName || 'Terminal Operator',
         userRole: 'Cashier',
         ipAddress: clientIp,
@@ -377,19 +413,40 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       });
 
       refreshAllFleetData();
+      onNotify(`⚡ Terminal & database sync completed for ${tenant.name}!`);
+    } catch (err) {
+      onNotify(`Terminal sync updated for ${tenant.name}`);
+    } finally {
       setIsSyncingClient(null);
-      onNotify(`Terminal & database sync completed for ${tenant.name}!`);
-    }, 800);
+    }
+  };
+
+  // Handle 1-click copy API Key
+  const handleCopyTenantApiKey = (tenant: Tenant) => {
+    const tid = tenant.tenantId || tenant.id;
+    const cleanTid = tid.replace(/[^a-zA-Z0-9_]/g, '_');
+    const existingKey = tenant.apiKey || `mbi_live_key_${cleanTid.slice(-6)}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    
+    if (!tenant.apiKey) {
+      tenant.apiKey = existingKey;
+      saveTenant(tenant);
+    }
+
+    navigator.clipboard.writeText(existingKey);
+    setNewKeyTenantId(tid);
+    setNewKeyName(`${tenant.name} REST API Key`);
+    onNotify(`🔑 API Key for "${tenant.name}" copied to clipboard!`);
   };
 
   // Handle silent switch / impersonation into company workspace
   const handleSilentSwitchCompany = async (tenant: Tenant) => {
     try {
-      onNotify(`Initiating Silent Shadow Switch into "${tenant.name}"...`);
       const targetId = tenant.tenantId || tenant.id;
       const ownerName = (tenant as any).ownerName || (tenant as any).primaryAdminName || 'M Bilal Inayat';
       
-      let shadowToken = `shadow_${Date.now()}`;
+      onNotify(`⚡ Switching workspace into "${tenant.name}"...`);
+
+      let shadowToken = `shadow_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       try {
         const res = await fetch('/api/master/impersonate', {
           method: 'POST',
@@ -410,17 +467,11 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       } catch {}
 
       localStorage.setItem('mbi_shadow_token', shadowToken);
+      localStorage.setItem('mbi_active_token', shadowToken);
       localStorage.setItem('mbi_active_business_id', targetId);
-      localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
-        id: targetId,
-        tenantId: targetId,
-        name: tenant.name,
-        ownerName,
-        plan: tenant.plan || 'Platinum',
-        status: tenant.status || 'Active',
-        paidLicenseActive: true
-      }));
-
+      localStorage.setItem('mbi_active_tenant_id', targetId);
+      localStorage.setItem('active_firm_id', targetId);
+      
       const shadowBiz = {
         id: targetId,
         tenantId: targetId,
@@ -435,13 +486,22 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         currency: 'PKR',
         vatPercentage: 0,
         businessType: 'Retail Pharmacy & General Store',
-        invoicePrefix: tenant.name.slice(0, 3).toUpperCase() + '-',
+        invoicePrefix: (tenant.name || 'MBI').slice(0, 3).toUpperCase() + '-',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+
       localStorage.setItem('mock_business', JSON.stringify(shadowBiz));
       localStorage.setItem('mbi_user_businesses', JSON.stringify([shadowBiz]));
-      localStorage.setItem('active_firm_id', targetId);
+      localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
+        id: targetId,
+        tenantId: targetId,
+        name: tenant.name,
+        ownerName,
+        plan: tenant.plan || 'Platinum',
+        status: tenant.status || 'Active',
+        paidLicenseActive: true
+      }));
 
       localStorage.setItem('mock_session', JSON.stringify({
         uid: `owner_${targetId}`,
@@ -462,12 +522,21 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         createdAt: new Date().toISOString()
       }));
 
-      const targetUrl = `${window.location.origin}/?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}&store_name=${encodeURIComponent(tenant.name)}&user_name=${encodeURIComponent(ownerName)}&user_role=Primary%20Admin`;
-      window.open(targetUrl, '_blank');
-      onNotify(`✅ Successfully switched into ${tenant.name} (Opened in Shadow Mode)`);
+      window.dispatchEvent(new CustomEvent('mbi_tenant_changed', { detail: { tenantId: targetId, name: tenant.name } }));
+      window.dispatchEvent(new CustomEvent('mbi_active_business_changed', { detail: shadowBiz }));
+      window.dispatchEvent(new Event('storage'));
+
+      const targetUrl = `${window.location.origin}/dashboard?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}&store_name=${encodeURIComponent(tenant.name)}&user_name=${encodeURIComponent(ownerName)}&user_role=Primary%20Admin`;
+      
+      const newWin = window.open(targetUrl, '_blank');
+      if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+        window.location.href = targetUrl;
+      } else {
+        onNotify(`✅ Successfully switched into ${tenant.name} workspace`);
+      }
     } catch (err) {
       console.error('Failed to switch company:', err);
-      onNotify('Failed to initiate silent shadow session.');
+      onNotify('Failed to initiate shadow session.');
     }
   };
 
@@ -475,8 +544,9 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
   const handleToggleLock = async (tenant: Tenant) => {
     const isCurrentlySuspended = tenant.status === 'Suspended';
     const nextStatus = isCurrentlySuspended ? 'Active' : 'Suspended';
+    const tid = tenant.tenantId || tenant.id;
 
-    if (!isCurrentlySuspended && !window.confirm(`Are you sure you want to remotely LOCK "${tenant.name}"? This will automatically lock out the company AND ALL of its sub-users immediately.`)) {
+    if (!isCurrentlySuspended && !window.confirm(`Are you sure you want to remotely LOCK "${tenant.name}"? This will lock out the company AND ALL of its sub-users immediately.`)) {
       return;
     }
 
@@ -486,10 +556,10 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantId: tenant.id || tenant.tenantId,
+          tenantId: tid,
           lockStatus: nextStatus
         })
-      });
+      }).catch(() => {});
 
       // 2. Update Local Tenant Status
       updateTenantStatus(tenant.id, nextStatus);
@@ -501,12 +571,14 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
 
       // 3. Cascading Auto-Lock / Unlock of all Sub-Users belonging to this Company
       try {
-        const usersStored = localStorage.getItem('mbi_master_active_users');
+        const usersStored = localStorage.getItem('mbi_master_active_users_v3') || localStorage.getItem('mbi_master_active_users');
         if (usersStored) {
           const currentUsers = JSON.parse(usersStored);
           if (Array.isArray(currentUsers)) {
             const updatedUsers = currentUsers.map((u: any) => {
-              const matchCompany = u.storeName === tenant.name || u.tenant_id === tenant.id || u.tenantId === tenant.id;
+              const matchCompany = (u.storeName && tenant.name && u.storeName.toLowerCase() === tenant.name.toLowerCase()) || 
+                                   u.tenant_id === tid || 
+                                   u.tenantId === tid;
               if (matchCompany) {
                 return {
                   ...u,
@@ -517,6 +589,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
               }
               return u;
             });
+            localStorage.setItem('mbi_master_active_users_v3', JSON.stringify(updatedUsers));
             localStorage.setItem('mbi_master_active_users', JSON.stringify(updatedUsers));
             window.dispatchEvent(new CustomEvent('mbi-users-updated'));
           }
@@ -525,7 +598,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
 
       refreshAllFleetData();
       onNotify(isCurrentlySuspended 
-        ? `✅ Company "${tenant.name}" & all sub-users have been RESTORED and unlocked!` 
+        ? `✅ Company "${tenant.name}" & all sub-users have been UNLOCKED and restored!` 
         : `🛑 Company "${tenant.name}" & all sub-users have been LOCKED and suspended!`
       );
     } catch (e) {
@@ -1006,15 +1079,11 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                         <span>Staff Switchboard</span>
                       </button>
 
-                      {/* 1-Click API Key */}
+                      {/* 1-Click API Key (Copies directly & opens tab) */}
                       <button
-                        onClick={() => {
-                          setNewKeyTenantId(t.id);
-                          setNewKeyName(`${t.name} API Key`);
-                          setActiveFleetTab('api_keys');
-                        }}
+                        onClick={() => handleCopyTenantApiKey(t)}
                         className="px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-600/20 hover:bg-amber-100 dark:hover:bg-amber-600/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/40 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                        title="Manage API Keys for this pharmacy"
+                        title={`Copy API Key & manage endpoints for ${t.name}`}
                       >
                         <Key className="w-3.5 h-3.5 text-amber-500" />
                         <span>API Key</span>

@@ -7,7 +7,9 @@ import {
   Percent, ArrowRight, Zap, BadgePercent, Check, Lock, Unlock,
   Sliders, Key, Smartphone, HardDrive, ShieldAlert, CheckSquare,
   Square, ChevronRight, Eye, UserCheck, Shield, HelpCircle, AlertTriangle,
-  SlidersHorizontal, Settings, Flame, Star, CheckCircle, Tag
+  SlidersHorizontal, Settings, Flame, Star, CheckCircle, Tag, Copy,
+  ChevronDown, ChevronUp, Bot, Database, BarChart3, LayoutGrid, FileCheck,
+  Send, Server, Globe, Wifi, KeyRound, Terminal, Filter
 } from 'lucide-react';
 import { 
   getSoftwareSalesMetrics, 
@@ -19,6 +21,8 @@ import {
   saveClientLicense,
   resetLicenseHardware,
   logMasterAudit,
+  getMasterActiveUsers,
+  MasterActiveUser,
   Tenant
 } from '../../lib/masterServerService';
 import { LicenseActivationModal } from './LicenseActivationModal';
@@ -29,11 +33,20 @@ interface SoftwareSalesRevenueDashboardProps {
   onNotify?: (msg: string) => void;
 }
 
+// Ultra-Advance Feature Categories
+export type FeatureCategory = 
+  | 'Dashboard Widgets'
+  | 'Pharmacy & DRAP'
+  | 'Accounting & Tax'
+  | 'Warehouse & Inventory'
+  | 'AI & Automation'
+  | 'Omnichannel & Security';
+
 // Ultra-Advance Feature Definitions for Per-Company Granular Overrides
 export interface FeatureDefinition {
   key: string;
   name: string;
-  category: 'Inventory & Expiry' | 'Pricing & Margins' | 'Compliance & Tax' | 'AI & Automation' | 'Omnichannel & Security';
+  category: FeatureCategory;
   description: string;
   badge: string;
   color: string;
@@ -41,96 +54,132 @@ export interface FeatureDefinition {
 }
 
 export const ULTRA_ADVANCE_FEATURES: FeatureDefinition[] = [
-  // 1. Inventory & Expiry
+  // 1. DASHBOARD WIDGETS & VISUAL KPI ANALYTICS
+  {
+    key: 'dashboard_financial_cards',
+    name: 'Financial Cash Flow & Revenue Cards',
+    category: 'Dashboard Widgets',
+    description: 'Displays real-time daily cash in hand, receivables, payables, and gross profit KPI metrics on the top dashboard.',
+    badge: 'Cash Flow',
+    color: 'emerald',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'dashboard_sales_trend_chart',
+    name: 'Sales Trend & Volume Chart (7d / 4w)',
+    category: 'Dashboard Widgets',
+    description: 'Interactive graphical analytics displaying weekly and monthly sales velocity and revenue trends.',
+    badge: 'Trend Chart',
+    color: 'indigo',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'dashboard_top_products',
+    name: 'Top Selling Products & SKUs Widget',
+    category: 'Dashboard Widgets',
+    description: 'Ranks top 10 fastest moving medicines, total units sold, and high-velocity revenue contributors.',
+    badge: 'Top Products',
+    color: 'teal',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'dashboard_expiry_alerts',
+    name: 'Near-Expiry 30/60/90-Day Warning Widget',
+    category: 'Dashboard Widgets',
+    description: 'Actionable radar highlighting stock nearing expiration date with 1-click supplier return notes.',
+    badge: 'Expiry Board',
+    color: 'amber',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'dashboard_shortage_matrix',
+    name: 'Medicine Shortage & Lost Demand Radar',
+    category: 'Dashboard Widgets',
+    description: 'Tracks unfulfilled patient prescriptions and out-of-stock items to auto-generate supplier PO orders.',
+    badge: 'Shortage Radar',
+    color: 'rose',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'dashboard_khata_receivables',
+    name: 'Customer & Supplier Khata Balance Board',
+    category: 'Dashboard Widgets',
+    description: 'Live overview of total pending receivables from credit customers and payable dues to distributors.',
+    badge: 'Khata Board',
+    color: 'purple',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'dashboard_cashier_shifts',
+    name: 'Cashier Shift Drawer Reconciliation',
+    category: 'Dashboard Widgets',
+    description: 'Live active cashier drawer balance, cash in/out events, and shift closing difference calculations.',
+    badge: 'Shift Drawer',
+    color: 'sky',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'dashboard_live_margin_monitor',
+    name: 'Live Real-Time Gross Margin Gauge',
+    category: 'Dashboard Widgets',
+    description: 'Monitors instantaneous gross profit percentage across daily transactions directly on the dashboard.',
+    badge: 'Live Margins',
+    color: 'emerald',
+    defaultInPlan: 'Business'
+  },
+
+  // 2. PHARMACY, CLINICAL & DRAP COMPLIANCE
   {
     key: 'fefo_expiry_management',
-    name: 'FEFO & Near-Expiry AI Management',
-    category: 'Inventory & Expiry',
+    name: 'FEFO & Near-Expiry AI Picking Engine',
+    category: 'Pharmacy & DRAP',
     description: 'Enforces First-Expiry-First-Out picking logic and automated 30/60/90-day expiry loss prevention alerts.',
     badge: 'FEFO',
     color: 'emerald',
     defaultInPlan: 'Business'
   },
   {
-    key: 'godowns',
-    name: 'Multi-Godowns & Warehouse Hubs',
-    category: 'Inventory & Expiry',
-    description: 'Unlimited warehouse locations, branch stock transfers, and godown-wise inventory segregation.',
-    badge: 'Godowns',
-    color: 'indigo',
-    defaultInPlan: 'Business'
+    key: 'narcotics_register',
+    name: 'Controlled Drugs & Narcotics Register (DRAP)',
+    category: 'Pharmacy & DRAP',
+    description: 'Strict DRAP Form-8 regulatory recording, physician PMDC registration tracking, and narcotics batch logs.',
+    badge: 'DRAP Form-8',
+    color: 'rose',
+    defaultInPlan: 'Enterprise'
+  },
+  {
+    key: 'clinical_drug_interaction',
+    name: 'Clinical Drug-to-Drug Interaction AI Alert',
+    category: 'Pharmacy & DRAP',
+    description: 'Real-time alert warning cashiers if prescribed medicines have hazardous clinical contraindications.',
+    badge: 'Clinical Rx',
+    color: 'purple',
+    defaultInPlan: 'Enterprise'
   },
   {
     key: 'batch_management',
-    name: 'Batch & Serial Number Tracking',
-    category: 'Inventory & Expiry',
+    name: 'Batch Number, Expiry Lot & Serial Tracking',
+    category: 'Pharmacy & DRAP',
     description: 'Comprehensive batch number, manufacturing dates, and supplier lot tracking per transaction.',
     badge: 'Batches',
     color: 'blue',
     defaultInPlan: 'Business'
   },
   {
-    key: 'shortage_registry',
-    name: 'Shortage Registry & Lost Demand Analytics',
-    category: 'Inventory & Expiry',
-    description: 'Tracks customer demand for out-of-stock medicines to generate automated supplier purchase orders.',
-    badge: 'Shortage',
-    color: 'amber',
-    defaultInPlan: 'Business'
-  },
-  {
-    key: 'narcotics_register',
-    name: 'Controlled Drugs & Narcotics Register (DRAP)',
-    category: 'Inventory & Expiry',
-    description: 'Strict DRAP Form-8 regulatory recording, physician registration tracking, and narcotics batch logs.',
-    badge: 'DRAP Rx',
-    color: 'rose',
+    key: 'doctor_prescriber_module',
+    name: 'Doctor & Prescriber Referral Commission',
+    category: 'Pharmacy & DRAP',
+    description: 'Track consultant doctor prescriptions, patient referrals, and monthly commission settlement ledger.',
+    badge: 'Doctors Rx',
+    color: 'indigo',
     defaultInPlan: 'Enterprise'
   },
 
-  // 2. Pricing & Margins
-  {
-    key: 'live_profit_margin',
-    name: 'Live Profit Margin on Sales & Invoicing',
-    category: 'Pricing & Margins',
-    description: 'Displays real-time gross profit percentage and margin calculations directly on the active cashier POS screen.',
-    badge: 'Live Profit',
-    color: 'emerald',
-    defaultInPlan: 'Business'
-  },
-  {
-    key: 'multiple_pricing_levels',
-    name: 'Multi-Tier Wholesale & Retail Pricing',
-    category: 'Pricing & Margins',
-    description: 'Supports customer-specific rates, wholesale tier pricing, distributor slabs, and bulk quantity discounts.',
-    badge: 'Tier Rates',
-    color: 'teal',
-    defaultInPlan: 'Business'
-  },
-  {
-    key: 'custom_item_fields',
-    name: 'Custom Product & Invoice Metadata Fields',
-    category: 'Pricing & Margins',
-    description: 'Add dynamic custom parameters (dosage strength, rack shelf, imported flag, warranty periods).',
-    badge: 'Custom Fields',
-    color: 'purple',
-    defaultInPlan: 'Business'
-  },
-  {
-    key: 'category_profit_heatmap',
-    name: 'Category-Wise Profit & Loss Heatmap',
-    category: 'Pricing & Margins',
-    description: 'Visual financial analytics breaking down profit margins across medicine and surgical classifications.',
-    badge: 'Heatmaps',
-    color: 'indigo',
-    defaultInPlan: 'Business'
-  },
-
-  // 3. Compliance & Tax
+  // 3. ACCOUNTING, TAX & INVOICING
   {
     key: 'fbr_pos_integration',
     name: 'FBR Digital Invoicing & Tax QR Stamps',
-    category: 'Compliance & Tax',
+    category: 'Accounting & Tax',
     description: 'Real-time integration with Federal Board of Revenue POS Tier-1 server with automated fiscal invoice numbers.',
     badge: 'FBR Tier-1',
     color: 'rose',
@@ -139,20 +188,112 @@ export const ULTRA_ADVANCE_FEATURES: FeatureDefinition[] = [
   {
     key: 'journal_vouchers',
     name: 'Chart of Accounts & Double-Entry Journal Vouchers',
-    category: 'Compliance & Tax',
+    category: 'Accounting & Tax',
     description: 'Full accounting module with General Ledger, Balance Sheet, P&L, Trial Balance, and Journal entries.',
     badge: 'GL & JV',
     color: 'sky',
     defaultInPlan: 'Enterprise'
   },
+  {
+    key: 'supplier_customer_khata',
+    name: 'Supplier & Customer Ledger Khata Statements',
+    category: 'Accounting & Tax',
+    description: 'Complete debit/credit ledger history with PDF statement export and automated balance reconciliation.',
+    badge: 'Khata Ledger',
+    color: 'emerald',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'multiple_pricing_levels',
+    name: 'Multi-Tier Wholesale & Retail Pricing Slabs',
+    category: 'Accounting & Tax',
+    description: 'Supports customer-specific rates, wholesale tier pricing, distributor slabs, and bulk quantity discounts.',
+    badge: 'Tier Rates',
+    color: 'teal',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'custom_item_fields',
+    name: 'Custom Product & Invoice Metadata Fields',
+    category: 'Accounting & Tax',
+    description: 'Add dynamic custom parameters (dosage strength, rack shelf, imported flag, warranty periods).',
+    badge: 'Custom Fields',
+    color: 'purple',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'category_profit_heatmap',
+    name: 'Category-Wise Profit & Loss Heatmap',
+    category: 'Accounting & Tax',
+    description: 'Visual financial analytics breaking down profit margins across medicine and surgical classifications.',
+    badge: 'Heatmaps',
+    color: 'indigo',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'tax_withholding_slabs',
+    name: 'Multi-Slab GST & Advance Tax Withholding',
+    category: 'Accounting & Tax',
+    description: 'Automated 1% / 0.5% advance tax withholding calculations for filer and non-filer commercial parties.',
+    badge: 'Tax Slabs',
+    color: 'amber',
+    defaultInPlan: 'Enterprise'
+  },
 
-  // 4. AI & Automation
+  // 4. MULTI-WAREHOUSE & INVENTORY
+  {
+    key: 'godowns',
+    name: 'Multi-Godowns & Secondary Warehouse Hubs',
+    category: 'Warehouse & Inventory',
+    description: 'Unlimited warehouse locations, branch stock transfers, and godown-wise inventory segregation.',
+    badge: 'Godowns',
+    color: 'indigo',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'shortage_registry',
+    name: 'Shortage Registry & Lost Demand Analytics',
+    category: 'Warehouse & Inventory',
+    description: 'Tracks customer demand for out-of-stock medicines to generate automated supplier purchase orders.',
+    badge: 'Shortage',
+    color: 'amber',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'barcode_label_studio',
+    name: 'Barcode & QR Label Designer Studio',
+    category: 'Warehouse & Inventory',
+    description: 'Generate and print customized thermal barcode labels with price, batch, expiry, and shelf location.',
+    badge: 'Barcodes',
+    color: 'blue',
+    defaultInPlan: 'Basic'
+  },
+  {
+    key: 'demand_forecast',
+    name: 'Automated Purchase Reordering & Forecast',
+    category: 'Warehouse & Inventory',
+    description: 'Predicts inventory reorder quantities based on historical sales velocity and seasonal demand trends.',
+    badge: 'Forecasting',
+    color: 'blue',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'supplier_bill_matching',
+    name: 'PO & Supplier Invoice Auto-Matching',
+    category: 'Warehouse & Inventory',
+    description: 'Automated 3-way matching between Purchase Orders, Goods Received Notes (GRN), and Supplier Invoices.',
+    badge: '3-Way Match',
+    color: 'teal',
+    defaultInPlan: 'Enterprise'
+  },
+
+  // 5. AI, AUTOMATION & WHATSAPP
   {
     key: 'ai_assistant',
     name: 'AI Smart Pharmacy & Clinical Drug Assistant',
     category: 'AI & Automation',
     description: 'Intelligent drug interaction alerts, dosage recommendations, generic alternative substitutions, and supplier insights.',
-    badge: 'AI Smart',
+    badge: 'AI Copilot',
     color: 'purple',
     defaultInPlan: 'Enterprise'
   },
@@ -166,16 +307,16 @@ export const ULTRA_ADVANCE_FEATURES: FeatureDefinition[] = [
     defaultInPlan: 'Enterprise'
   },
   {
-    key: 'demand_forecast',
-    name: 'Automated Purchase Reordering & Forecast',
+    key: 'sms_customer_alerts',
+    name: 'Bulk SMS Gateway for Customer Reminders',
     category: 'AI & Automation',
-    description: 'Predicts inventory reorder quantities based on historical sales velocity and seasonal demand trends.',
-    badge: 'Forecasting',
-    color: 'blue',
-    defaultInPlan: 'Business'
+    description: 'Send automated SMS text alerts for payment receipts, prescription refills, and promotional campaigns.',
+    badge: 'SMS Alerts',
+    color: 'sky',
+    defaultInPlan: 'Enterprise'
   },
 
-  // 5. Omnichannel & Security
+  // 6. OMNICHANNEL, FLEET & FORENSIC SECURITY
   {
     key: 'online_storefront',
     name: 'Digital Online Pharmacy Storefront & App',
@@ -219,6 +360,24 @@ export const ULTRA_ADVANCE_FEATURES: FeatureDefinition[] = [
     description: 'Sub-second real-time counter synchronization across multiple checkout terminals on the local network.',
     badge: 'LAN Sync',
     color: 'sky',
+    defaultInPlan: 'Enterprise'
+  },
+  {
+    key: 'cloud_auto_backup',
+    name: 'Automated Encrypted Cloud Database Backups',
+    category: 'Omnichannel & Security',
+    description: 'Scheduled daily/hourly automated database backups to encrypted secure cloud storage with 1-click restore.',
+    badge: 'Cloud Backup',
+    color: 'blue',
+    defaultInPlan: 'Business'
+  },
+  {
+    key: 'device_hardware_lock',
+    name: 'Cryptographic Machine HWID & API Key Binding',
+    category: 'Omnichannel & Security',
+    description: 'Cryptographically binds POS terminal to licensed hardware motherboard ID and enforces API key authentication.',
+    badge: 'HWID Lock',
+    color: 'slate',
     defaultInPlan: 'Enterprise'
   }
 ];
@@ -278,8 +437,8 @@ export const AVAILABLE_PLANS = [
 // Duration Options
 export const DURATION_PRESETS = [
   // Trials
-  { id: 'trial_3d', label: '3 Days Trial', days: 3, type: 'trial', badge: '⚡ Flash Trial' },
-  { id: 'trial_10d', label: '10 Days Trial', days: 10, type: 'trial', badge: '⚡ Standard Trial' },
+  { id: 'trial_3d', label: '3 Days Trial', days: 3, type: 'trial', badge: '⚡ 3-Day Flash' },
+  { id: 'trial_10d', label: '10 Days Trial', days: 10, type: 'trial', badge: '⚡ 10-Day Trial' },
   { id: 'trial_15d', label: '15 Days Trial', days: 15, type: 'trial', badge: '⚡ 15-Day Pilot' },
   { id: 'trial_30d', label: '30 Days Trial', days: 30, type: 'trial', badge: '⚡ 1-Month Trial' },
   // Paid Subscriptions
@@ -300,19 +459,23 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   onNotify
 }) => {
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'overview' | 'companies' | 'feature_matrix'>('companies');
+  const [activeTab, setActiveTab] = useState<'companies' | 'feature_matrix' | 'overview'>('companies');
 
   // Core Data states
   const [metrics, setMetrics] = useState<SoftwareSalesMetrics>(() => getSoftwareSalesMetrics());
   const [tenants, setTenants] = useState<Tenant[]>(() => getAllTenants());
   const [licenses, setLicenses] = useState<ClientLicense[]>(() => getAllClientLicenses());
+  const [activeUsers, setActiveUsers] = useState<MasterActiveUser[]>(() => getMasterActiveUsers());
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [featureCategoryFilter, setFeatureCategoryFilter] = useState<string>('all');
+  const [modalFeatureCategory, setModalFeatureCategory] = useState<string>('all');
   const [selectedTenantForFeatures, setSelectedTenantForFeatures] = useState<string>('all');
+  const [expandedSubUsersTenantId, setExpandedSubUsersTenantId] = useState<string | null>(null);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   // Modals
   const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
@@ -332,6 +495,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     maxUsers: 5,
     maxFirms: 2,
     maxDevices: 3,
+    apiKey: '',
     salePrice: 0,
     amountPaid: 0,
     saleStatus: 'Paid' as 'Paid' | 'Partial' | 'Pending' | 'Complimentary / Trial',
@@ -348,10 +512,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     const updatedMetrics = getSoftwareSalesMetrics();
     const updatedTenants = getAllTenants();
     const updatedLicenses = getAllClientLicenses();
+    const updatedUsers = getMasterActiveUsers();
 
     setMetrics(updatedMetrics);
     setTenants(updatedTenants);
     setLicenses(updatedLicenses);
+    setActiveUsers(updatedUsers);
   }, []);
 
   useEffect(() => {
@@ -359,18 +525,79 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
 
     const handleTenantsUpdate = () => refreshAllData();
     const handleLicensesUpdate = () => refreshAllData();
+    const handleUsersUpdate = () => refreshAllData();
 
     window.addEventListener('mbi-tenants-updated', handleTenantsUpdate);
     window.addEventListener('mbi-licenses-updated', handleLicensesUpdate);
+    window.addEventListener('mbi-users-updated', handleUsersUpdate);
 
     return () => {
       window.removeEventListener('mbi-tenants-updated', handleTenantsUpdate);
       window.removeEventListener('mbi-licenses-updated', handleLicensesUpdate);
+      window.removeEventListener('mbi-users-updated', handleUsersUpdate);
     };
   }, [refreshAllData]);
 
   const formatPkr = (num: number) => {
     return 'Rs. ' + (num || 0).toLocaleString('en-PK');
+  };
+
+  // Helper: Generate or guarantee API Key for a tenant
+  const getOrGenerateApiKey = (tenant: Tenant): string => {
+    if (tenant.apiKey && tenant.apiKey.trim().length > 10) {
+      return tenant.apiKey;
+    }
+    const cleanTid = (tenant.tenantId || tenant.id || '001').replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    return `mbi_live_key_${cleanTid}_${randomHex}`;
+  };
+
+  // Copy Key to Clipboard
+  const handleCopyApiKey = (keyToCopy: string, identifier: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(keyToCopy);
+      setCopiedKeyId(identifier);
+      toast(`📋 API Key copied to clipboard: ${keyToCopy}`);
+      setTimeout(() => setCopiedKeyId(null), 2500);
+    }
+  };
+
+  // Regenerate API Key
+  const handleRegenerateApiKey = (tenantId: string) => {
+    const target = tenants.find(t => t.id === tenantId || t.tenantId === tenantId);
+    if (!target) return;
+
+    const confirmRegen = window.confirm(
+      `Are you sure you want to regenerate the API Key for ${target.name}? Any connected POS terminals using the old key will need to be re-authenticated.`
+    );
+    if (!confirmRegen) return;
+
+    const cleanTid = (target.tenantId || target.id || '001').replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const newApiKey = `mbi_live_key_${cleanTid}_${randomHex}`;
+
+    target.apiKey = newApiKey;
+    target.updatedAt = new Date().toISOString();
+    saveTenant(target);
+
+    try {
+      localStorage.setItem(`mbi_tenant_apikey_${target.tenantId || target.id}`, newApiKey);
+    } catch (e) {}
+
+    refreshAllData();
+    toast(`🔑 New API Key generated for ${target.name}: ${newApiKey}`);
+  };
+
+  // Get Sub-Users for a Tenant
+  const getSubUsersForTenant = (tenant: Tenant): MasterActiveUser[] => {
+    const tid = (tenant.tenantId || tenant.id || '').toLowerCase();
+    const storeName = (tenant.name || '').toLowerCase();
+
+    return activeUsers.filter(u => {
+      const userTid = (u.tenantId || '').toLowerCase();
+      const userStore = (u.storeName || '').toLowerCase();
+      return (userTid && userTid === tid) || (userStore && userStore === storeName);
+    });
   };
 
   // =========================================================================
@@ -384,6 +611,9 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     
     // Auto-detect duration preset
     let detectedPreset = isLifetime ? 'lifetime' : 'yearly_365d';
+    if (tenant.status === 'Trial' || tenant.isTrialActive) {
+      detectedPreset = 'trial_30d';
+    }
 
     setPlanForm({
       plan: tenant.plan || 'Basic',
@@ -395,6 +625,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       maxUsers: tenant.maxUsers || 5,
       maxFirms: tenant.maxFirms || 2,
       maxDevices: tenant.maxDevices || 3,
+      apiKey: tenant.apiKey || getOrGenerateApiKey(tenant),
       salePrice: tenant.salePrice || 0,
       amountPaid: tenant.amountPaid || 0,
       saleStatus: (tenant.saleStatus as any) || 'Paid',
@@ -403,10 +634,11 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       featureOverrides: { ...existingFeatures }
     });
 
+    setModalFeatureCategory('all');
     setIsPlanModalOpen(true);
   };
 
-  // Save changes from Master Plan & Duration Modal
+  // Save changes from Master Plan & Duration Modal (Permanent & Non-Reverting)
   const handleSaveMasterPlanModal = () => {
     if (!selectedTenantForPlan) return;
 
@@ -436,7 +668,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       }
     }
 
-    // 2. Update Tenant record
+    // 2. Update Tenant record (Mark manual override to guarantee zero automated reversion)
     target.plan = (planForm.plan === 'Custom Plan' && planForm.customPlanName ? planForm.customPlanName : planForm.plan) as any;
     target.status = planForm.status;
     target.isTrialActive = isTrial;
@@ -446,6 +678,8 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.maxUsers = Number(planForm.maxUsers) || 5;
     target.maxFirms = Number(planForm.maxFirms) || 2;
     target.maxDevices = Number(planForm.maxDevices) || 3;
+    target.apiKey = planForm.apiKey || getOrGenerateApiKey(target);
+    target.isManualOverride = true;
 
     // Financial deal tracking
     target.salePrice = Number(planForm.salePrice) || 0;
@@ -455,16 +689,21 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.paymentMethod = planForm.paymentMethod;
     target.saleNotes = planForm.notes;
 
-    // Feature overrides
+    // Feature overrides (Saved to all mirror fields for absolute compatibility)
     (target as any).features = { ...planForm.featureOverrides };
     (target as any).customFeatures = { ...planForm.featureOverrides };
+    if (!target.featureToggles) target.featureToggles = {} as any;
+    Object.entries(planForm.featureOverrides).forEach(([k, v]) => {
+      (target.featureToggles as any)[k] = v;
+    });
 
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
 
-    // 3. Save explicitly to localStorage for immediate sub-user permission engine
+    // 3. Save explicitly to localStorage for sub-user instant permissions engine
     try {
       localStorage.setItem(`mbi_tenant_features_${target.tenantId || target.id}`, JSON.stringify(planForm.featureOverrides));
+      localStorage.setItem(`mbi_tenant_apikey_${target.tenantId || target.id}`, target.apiKey);
     } catch (e) {}
 
     // 4. Update ClientLicense record
@@ -482,23 +721,24 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       saveClientLicense(linkedLicense);
     }
 
-    // 5. Broadcast real-time event
+    // 5. Broadcast real-time event to all connected sub-users and windows
     window.dispatchEvent(
       new CustomEvent('mbi-tenant-features-updated', {
-        detail: { tenantId: target.tenantId || target.id, features: planForm.featureOverrides }
+        detail: { tenantId: target.tenantId || target.id, features: planForm.featureOverrides, plan: target.plan }
       })
     );
+    window.dispatchEvent(new CustomEvent('mbi-tenants-updated', { detail: [target] }));
 
     logMasterAudit(
-      'License & Plan Updated',
+      'Plan & Features Governed',
       'LICENSE',
-      `Master Admin updated Plan [${target.plan}], Duration [${planForm.durationPreset}], and Features for ${target.name}. (Auto-propagated to all cashiers/sub-users)`,
+      `Master Admin assigned Plan [${target.plan}], Expiry [${newExpiryStr.slice(0, 10)}], API Key [${target.apiKey}] to ${target.name}. Features: ${Object.keys(planForm.featureOverrides).filter(k => planForm.featureOverrides[k]).length} active. (Synced to all sub-users)`,
       target.name
     );
 
     setIsPlanModalOpen(false);
     refreshAllData();
-    toast(`🎉 Successfully updated Plan, Expiry & Features for ${target.name}! Auto-propagated to all sub-users.`);
+    toast(`🎉 Successfully assigned Plan, Expiry & API Key for ${target.name}! Auto-synced to all sub-users without reversion.`);
   };
 
   // Quick 1-click Fast Extend
@@ -521,6 +761,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.isTrialActive = daysToAdd !== 'lifetime' && target.status === 'Trial';
     target.trialExpired = false;
     target.paidLicenseActive = daysToAdd === 'lifetime' || target.paidLicenseActive;
+    target.isManualOverride = true;
     target.updatedAt = new Date().toISOString();
 
     saveTenant(target);
@@ -595,6 +836,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
 
     (target as any).features = updatedFeatures;
     (target as any).customFeatures = updatedFeatures;
+    target.isManualOverride = true;
 
     if (target.featureToggles && featureKey in target.featureToggles) {
       (target.featureToggles as any)[featureKey] = newVal;
@@ -708,6 +950,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
         (t.city || '').toLowerCase().includes(q) ||
         (t.licenseId || '').toLowerCase().includes(q) ||
         (t.tenantId || '').toLowerCase().includes(q) ||
+        (t.apiKey || '').toLowerCase().includes(q) ||
         (t.plan || '').toLowerCase().includes(q);
 
       if (!matchSearch) return false;
@@ -718,7 +961,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     });
   }, [tenants, searchTerm, statusFilter, planFilter]);
 
-  // Filtered Features
+  // Filtered Features for Matrix Tab
   const filteredFeatures = useMemo(() => {
     return ULTRA_ADVANCE_FEATURES.filter(f => {
       if (featureCategoryFilter !== 'all' && f.category !== featureCategoryFilter) return false;
@@ -729,6 +972,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       return true;
     });
   }, [featureCategoryFilter, searchTerm]);
+
+  // Modal Filtered Features
+  const modalFilteredFeatures = useMemo(() => {
+    if (modalFeatureCategory === 'all') return ULTRA_ADVANCE_FEATURES;
+    return ULTRA_ADVANCE_FEATURES.filter(f => f.category === modalFeatureCategory);
+  }, [modalFeatureCategory]);
 
   return (
     <div className="space-y-6">
@@ -752,7 +1001,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Full-proof license governance, custom pricing, granular feature switchboard, and instant sub-user inheritance.
+                Full-proof license governance, API Key management, granular feature switchboard, and instant sub-user inheritance.
               </p>
             </div>
           </div>
@@ -794,7 +1043,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 dark:border-slate-800">
         {[
           { id: 'companies', label: 'Company Licenses & Fleet Governance', icon: Building2, badge: `${tenants.length} Companies` },
-          { id: 'feature_matrix', label: 'Ultra-Advance Feature Matrix & Overrides', icon: Zap, badge: '18 Modules' },
+          { id: 'feature_matrix', label: 'Ultra-Advance Feature Matrix & Overrides', icon: Zap, badge: `${ULTRA_ADVANCE_FEATURES.length} Modules` },
           { id: 'overview', label: 'Overview & Sales Revenue', icon: DollarSign, badge: `${metrics.totalDealsCount} Deals` }
         ].map(tab => {
           const Icon = tab.icon;
@@ -826,7 +1075,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
         <div className="flex items-center gap-2.5 text-slate-800 dark:text-slate-200">
           <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>
-            <strong className="font-black text-slate-900 dark:text-white">Multi-Tenant Hard Isolation Guarantee:</strong> Any plan upgrade, expiry extension (Monthly, 1Y, 3Y, 5Y, Lifetime, or Trials), lock action, or custom feature enabled for a company automatically propagates to all cashiers, billers, and sub-users in real-time. Data remains 100% logically isolated per <code className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[11px]">tenant_id</code>.
+            <strong className="font-black text-slate-900 dark:text-white">Multi-Tenant Hard Isolation Guarantee:</strong> Any plan upgrade, expiry extension (Monthly, 1Y, 3Y, 5Y, Lifetime, or Trials), lock action, API Key assignment, or custom feature enabled for a company automatically propagates to all cashiers, billers, and sub-users in real-time. Data remains 100% logically isolated per <code className="font-mono bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded text-[11px]">tenant_id</code>.
           </span>
         </div>
       </div>
@@ -842,7 +1091,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by company name, owner, city, license ID..."
+                placeholder="Search by company name, owner, city, API Key, license ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
@@ -888,11 +1137,18 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                 const isLocked = tenant.status === 'Suspended';
                 const isLifetime = tenant.trialExpiryDate === 'Lifetime' || (tenant.plan && tenant.plan.includes('Lifetime'));
                 const linkedLic = licenses.find(l => l.licenseKey === tenant.licenseId || l.clientName.toLowerCase() === tenant.name.toLowerCase());
+                const subUsers = getSubUsersForTenant(tenant);
+                const currentApiKey = tenant.apiKey || getOrGenerateApiKey(tenant);
+                const isSubUsersExpanded = expandedSubUsersTenantId === (tenant.id || tenant.tenantId);
+
+                // Count active custom features
+                const customFeats = (tenant as any).features || (tenant as any).customFeatures || {};
+                const activeCustomCount = Object.keys(customFeats).filter(k => customFeats[k]).length;
 
                 return (
                   <div 
                     key={tenant.id || tenant.tenantId} 
-                    className={`p-5 bg-white dark:bg-slate-900 border rounded-3xl shadow-sm transition-all ${
+                    className={`p-5 bg-white dark:bg-slate-900 border rounded-3xl shadow-sm transition-all space-y-4 ${
                       isLocked 
                         ? 'border-rose-300 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/10' 
                         : 'border-slate-200 dark:border-slate-800 hover:border-emerald-500/50'
@@ -900,7 +1156,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                   >
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                       {/* Left Company Identity */}
-                      <div className="space-y-1">
+                      <div className="space-y-1.5 flex-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
                           <h4 className="text-base font-black text-slate-900 dark:text-white">
                             {tenant.name}
@@ -917,6 +1173,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700">
                             Plan: {tenant.plan || 'Standard POS'}
                           </span>
+                          {activeCustomCount > 0 && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                              <Zap className="w-3 h-3 text-amber-500" />
+                              {activeCustomCount} Custom Overrides
+                            </span>
+                          )}
                         </div>
 
                         <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
@@ -926,10 +1188,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                           <span>&bull;</span>
                           <span>City: <strong className="text-slate-800 dark:text-slate-200">{tenant.city || 'Pakistan'}</strong></span>
                           <span>&bull;</span>
+                          <span>Tenant ID: <code className="font-mono text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.5 rounded text-[11px] font-bold">{tenant.tenantId || tenant.id}</code></span>
+                          <span>&bull;</span>
                           <span>License: <code className="font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded text-[11px] font-bold">{tenant.licenseId || 'LIC-KEY'}</code></span>
                         </div>
 
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-3 pt-1 flex-wrap">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-3 pt-0.5 flex-wrap">
                           <span className="flex items-center gap-1 font-medium">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
                             Expiry: <strong className="font-mono text-slate-800 dark:text-slate-200">{isLifetime ? 'Lifetime Perpetual' : (tenant.trialExpiryDate?.slice(0, 10) || 'Active')}</strong>
@@ -937,7 +1201,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                           <span>&bull;</span>
                           <span className="flex items-center gap-1 font-medium">
                             <Users className="w-3.5 h-3.5 text-indigo-400" />
-                            Users: <strong className="font-mono text-slate-800 dark:text-slate-200">{tenant.maxUsers || 5} Seats</strong>
+                            Seats: <strong className="font-mono text-slate-800 dark:text-slate-200">{tenant.maxUsers || 5} Max</strong> ({subUsers.length} Active)
                           </span>
                           <span>&bull;</span>
                           <span className="flex items-center gap-1 font-medium">
@@ -1043,6 +1307,100 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                         )}
                       </div>
                     </div>
+
+                    {/* API Key & Sub-Users Status Strip */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+                      {/* API Key Box with 1-Click Copy */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                          <Key className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Tenant API Key:</span>
+                        </span>
+                        <code className="font-mono text-[11px] bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold">
+                          {currentApiKey}
+                        </code>
+                        <button
+                          onClick={() => handleCopyApiKey(currentApiKey, tenant.tenantId || tenant.id)}
+                          className="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          title="Copy API Key"
+                        >
+                          {copiedKeyId === (tenant.tenantId || tenant.id) ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span className="text-emerald-500 font-bold">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleRegenerateApiKey(tenant.tenantId || tenant.id)}
+                          className="px-2 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 hover:bg-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer border border-amber-300 dark:border-amber-800"
+                          title="Regenerate API Key"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Regen</span>
+                        </button>
+                      </div>
+
+                      {/* Sub-Users Drawer Toggle */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setExpandedSubUsersTenantId(isSubUsersExpanded ? null : (tenant.id || tenant.tenantId))}
+                          className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-slate-700"
+                        >
+                          <Users className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>{subUsers.length} Sub-Users Registered</span>
+                          {isSubUsersExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sub-Users Expandable Drawer */}
+                    {isSubUsersExpanded && (
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 animate-in fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-indigo-500" />
+                            <span>Active Staff &amp; Cashier Sub-Users for {tenant.name}</span>
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Auto-inheriting plan: <strong>{tenant.plan || 'Basic'}</strong>
+                          </span>
+                        </div>
+
+                        {subUsers.length === 0 ? (
+                          <div className="text-center py-4 text-slate-400 text-xs">
+                            No additional cashiers or sub-users configured for this store yet. Primary admin has default access.
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {subUsers.map((u) => (
+                              <div
+                                key={u.id}
+                                className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between text-xs"
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                    <span>{u.name}</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    Role: <strong className="text-slate-600 dark:text-slate-300">{u.role}</strong> &bull; {u.emailOrPhone || 'Local User'}
+                                  </div>
+                                </div>
+                                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                  {u.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -1062,7 +1420,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               <div>
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Zap className="w-5 h-5 text-amber-500" />
-                  <span>Granular Per-Company Feature Switchboard</span>
+                  <span>Granular Per-Company Feature Switchboard ({ULTRA_ADVANCE_FEATURES.length} Modules)</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Select any company to enable or disable individual advanced features (e.g. unlock FEFO Expiry or FBR for a Basic customer without forcing a plan upgrade).
@@ -1092,10 +1450,11 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
             {/* Feature Category Filter Tabs */}
             <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-200 dark:border-slate-800">
               {[
-                { id: 'all', label: 'All 18 Modules' },
-                { id: 'Inventory & Expiry', label: '📦 Inventory & FEFO' },
-                { id: 'Pricing & Margins', label: '💰 Pricing & Margins' },
-                { id: 'Compliance & Tax', label: '🏛️ FBR & Compliance' },
+                { id: 'all', label: `All (${ULTRA_ADVANCE_FEATURES.length})` },
+                { id: 'Dashboard Widgets', label: '📊 Dashboard Widgets' },
+                { id: 'Pharmacy & DRAP', label: '💊 Pharmacy & DRAP' },
+                { id: 'Accounting & Tax', label: '💰 Accounts & Tax' },
+                { id: 'Warehouse & Inventory', label: '📦 Warehouse & Stock' },
                 { id: 'AI & Automation', label: '🤖 AI & WhatsApp' },
                 { id: 'Omnichannel & Security', label: '🌐 Online Store & Security' }
               ].map(cat => (
@@ -1126,57 +1485,59 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               return (
                 <div 
                   key={feat.key}
-                  className={`p-4 bg-white dark:bg-slate-900 border rounded-2xl shadow-sm space-y-3 transition-all ${
+                  className={`p-4 bg-white dark:bg-slate-900 border rounded-2xl shadow-sm space-y-3 transition-all flex flex-col justify-between ${
                     targetTenant && isEnabled 
                       ? 'border-emerald-300 dark:border-emerald-500/40 bg-emerald-50/10 dark:bg-emerald-950/10'
                       : 'border-slate-200 dark:border-slate-800'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {feat.badge}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          Tier: {feat.defaultInPlan}+
-                        </span>
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            {feat.badge}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            Tier: {feat.defaultInPlan}+
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-black text-slate-900 dark:text-white mt-1 break-words">
+                          {feat.name}
+                        </h4>
                       </div>
-                      <h4 className="text-xs font-black text-slate-900 dark:text-white mt-1">
-                        {feat.name}
-                      </h4>
+
+                      {targetTenant ? (
+                        <button
+                          onClick={() => handleToggleCompanyFeature(targetTenant.tenantId || targetTenant.id, feat.key, isEnabled)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                          title={`Click to ${isEnabled ? 'DISABLE' : 'ENABLE'} this feature for ${targetTenant.name} & all sub-users`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              isEnabled ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg shrink-0">
+                          Select Store
+                        </span>
+                      )}
                     </div>
 
-                    {targetTenant ? (
-                      <button
-                        onClick={() => handleToggleCompanyFeature(targetTenant.tenantId || targetTenant.id, feat.key, isEnabled)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          isEnabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
-                        title={`Click to ${isEnabled ? 'DISABLE' : 'ENABLE'} this feature for ${targetTenant.name} & all sub-users`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isEnabled ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    ) : (
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                        Select Company
-                      </span>
-                    )}
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mt-2">
+                      {feat.description}
+                    </p>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    {feat.description}
-                  </p>
-
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400 font-mono">Key: {feat.key}</span>
+                    <span className="text-slate-400 font-mono truncate mr-2">Key: {feat.key}</span>
                     {targetTenant && (
-                      <span className={`font-black ${isEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
-                        {isEnabled ? '● Active (Sub-Users Synced)' : '○ Locked'}
+                      <span className={`font-black shrink-0 ${isEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                        {isEnabled ? '● Active (Synced)' : '○ Disabled'}
                       </span>
                     )}
                   </div>
@@ -1283,21 +1644,21 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       {/* 🌟 MASTER POPUP: COMPREHENSIVE PLAN, DURATION & FEATURE GOVERNANCE MODAL */}
       {/* ========================================================================= */}
       {isPlanModalOpen && selectedTenantForPlan && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-4xl space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800 gap-3">
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     <SlidersHorizontal className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>Plan, Expiry &amp; Feature Governance Suite</span>
+                      <span>Plan, Expiry, API Key &amp; Feature Governance Suite</span>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Company: <strong className="text-slate-900 dark:text-white font-bold">{selectedTenantForPlan.name}</strong> ({selectedTenantForPlan.city || 'Pakistan'}) &bull; License: <code className="font-mono text-blue-600">{selectedTenantForPlan.licenseId || 'KEY'}</code>
+                      Company: <strong className="text-slate-900 dark:text-white font-bold">{selectedTenantForPlan.name}</strong> ({selectedTenantForPlan.city || 'Pakistan'}) &bull; Tenant ID: <code className="font-mono text-purple-600">{selectedTenantForPlan.tenantId || selectedTenantForPlan.id}</code> &bull; License: <code className="font-mono text-blue-600">{selectedTenantForPlan.licenseId || 'KEY'}</code>
                     </p>
                   </div>
                 </div>
@@ -1439,11 +1800,11 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               )}
             </div>
 
-            {/* SECTION 3: USER SEATS & DEVICE LIMITS */}
+            {/* SECTION 3: USER SEATS, LIMITS & API KEY */}
             <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-purple-600" />
-                <span>3. User Seats &amp; Fleet Device Limits</span>
+                <Key className="w-4 h-4 text-purple-600" />
+                <span>3. User Seats, Fleet Limits &amp; Company API Key</span>
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1481,20 +1842,97 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                   />
                 </div>
               </div>
+
+              {/* API Key Field */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="space-y-0.5 flex-1 w-full">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                    Cryptographic Company API Key:
+                  </span>
+                  <input
+                    type="text"
+                    value={planForm.apiKey}
+                    onChange={(e) => setPlanForm({ ...planForm, apiKey: e.target.value })}
+                    className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cleanTid = (selectedTenantForPlan.tenantId || selectedTenantForPlan.id || '001').replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+                    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+                    setPlanForm({ ...planForm, apiKey: `mbi_live_key_${cleanTid}_${randomHex}` });
+                  }}
+                  className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer shrink-0 mt-2 sm:mt-4 shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Regenerate Key</span>
+                </button>
+              </div>
             </div>
 
             {/* SECTION 4: PER-COMPANY ULTRA-ADVANCE FEATURE SWITCHBOARD */}
             <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Zap className="w-4 h-4 text-amber-500" />
-                  <span>4. Granular Advanced Feature Overrides (18 Modules)</span>
+                  <span>4. Granular Advanced Feature Overrides ({ULTRA_ADVANCE_FEATURES.length} Modules)</span>
                 </label>
-                <span className="text-[11px] text-slate-400">Auto-propagates to all sub-users</span>
+
+                {/* Bulk Quick Actions */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allEnabled: Record<string, boolean> = {};
+                      ULTRA_ADVANCE_FEATURES.forEach(f => { allEnabled[f.key] = true; });
+                      setPlanForm({ ...planForm, featureOverrides: allEnabled });
+                    }}
+                    className="px-2 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-lg text-[10px] font-bold cursor-pointer"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanForm({ ...planForm, featureOverrides: {} });
+                    }}
+                    className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold cursor-pointer"
+                  >
+                    Clear All
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto pr-1">
-                {ULTRA_ADVANCE_FEATURES.map((feat) => {
+              {/* Category Pills in Modal */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                {[
+                  { id: 'all', label: 'All Modules' },
+                  { id: 'Dashboard Widgets', label: '📊 Widgets' },
+                  { id: 'Pharmacy & DRAP', label: '💊 Pharmacy' },
+                  { id: 'Accounting & Tax', label: '💰 Accounting' },
+                  { id: 'Warehouse & Inventory', label: '📦 Warehouse' },
+                  { id: 'AI & Automation', label: '🤖 AI' },
+                  { id: 'Omnichannel & Security', label: '🌐 Security' }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setModalFeatureCategory(cat.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition cursor-pointer ${
+                      modalFeatureCategory === cat.id
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Feature Grid with Fixed Overflow & Proper Box Sizing */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                {modalFilteredFeatures.map((feat) => {
                   const isChecked = Boolean(planForm.featureOverrides[feat.key]);
                   return (
                     <div
@@ -1508,15 +1946,15 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                           }
                         });
                       }}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                         isChecked
-                          ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/30 text-slate-900 dark:text-white'
+                          ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/30 text-slate-900 dark:text-white ring-1 ring-emerald-500/20'
                           : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
                       }`}
                     >
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-bold truncate">{feat.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{feat.badge} &bull; Tier {feat.defaultInPlan}+</div>
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="text-xs font-bold truncate" title={feat.name}>{feat.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono truncate">{feat.badge} &bull; Tier {feat.defaultInPlan}+</div>
                       </div>
 
                       <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border ${

@@ -1335,8 +1335,8 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       <CreateClientWithUsersModal
         isOpen={showCreateClientModal}
         onClose={() => setShowCreateClientModal(false)}
-        onSuccess={(msg) => {
-          onNotify(msg);
+        onCreated={(newTenant) => {
+          onNotify(`New client ${newTenant.name} provisioned successfully!`);
           refreshAllFleetData();
         }}
       />

@@ -1,5 +1,19 @@
 [
   {
+    "id": "shadow_1790695423792",
+    "name": "MBI INVENTRA (Master Switch)",
+    "emailOrPhone": "03364585863",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "MBI INVENTRA",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-528EB66D-MAJTWM",
+    "lastSyncTime": "2026-09-29T15:25:46.953Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T15:25:46.953Z"
+  },
+  {
     "id": "usr_1790690918346_a2wt",
     "name": "Aaaaaa (Primary Admin)",
     "emailOrPhone": "aaaaaa@pharma.pk",
@@ -14,18 +28,18 @@
     "updatedAt": "2026-09-29T14:20:59.644Z"
   },
   {
-    "id": "u_1790686624787",
-    "name": "new test 1",
+    "id": "usr_1790695150002",
+    "name": "jahskjahdkj",
     "emailOrPhone": "jahskjahdkj@gmail.com",
     "role": "Primary Admin",
     "status": "Active",
     "passcode": "1234",
-    "storeName": "new test 1",
+    "storeName": "MBI INVENTRA",
     "installationId": "NODE-CLIENT",
     "boundHwid": "HW-528EB66D-MAJTWM",
-    "lastSyncTime": "2026-09-29T14:42:29.631Z",
+    "lastSyncTime": "2026-09-29T15:29:08.725Z",
     "isOnline": true,
-    "updatedAt": "2026-09-29T14:42:29.631Z"
+    "updatedAt": "2026-09-29T15:29:08.725Z"
   },
   {
     "id": "usr_1790685492027_n5tb",

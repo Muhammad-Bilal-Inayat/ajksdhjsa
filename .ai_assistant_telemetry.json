@@ -2,6 +2,14 @@
   {
     "sessionId": "sess_admin-master_1790665610165",
     "eventType": "message_sent",
+    "eventLabel": "User Msg: hi",
+    "pageContext": "user",
+    "id": "clk_1790695012561_08x8c",
+    "timestamp": "2026-09-29T15:16:52.561Z"
+  },
+  {
+    "sessionId": "sess_admin-master_1790665610165",
+    "eventType": "message_sent",
     "eventLabel": "User Msg: WhatsApp Invoice Direct",
     "userId": "admin-master",
     "userName": "Bilal Inayat (Primary Admin)",

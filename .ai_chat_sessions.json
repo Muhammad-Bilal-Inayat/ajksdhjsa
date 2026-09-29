@@ -9,16 +9,16 @@
     "tenantId": "tenant-main-01",
     "plan": "Pharmacy Pro",
     "pageContext": "user",
-    "status": "active_ai",
-    "isHumanAssigned": false,
-    "totalClicks": 3,
-    "unreadCountForServer": 1,
-    "unreadCountForUser": 1,
-    "lastMessage": "MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.",
-    "lastMessageSender": "ai",
-    "lastMessageAt": "2026-09-29T09:43:58.904Z",
+    "status": "human_active",
+    "isHumanAssigned": true,
+    "totalClicks": 4,
+    "unreadCountForServer": 0,
+    "unreadCountForUser": 2,
+    "lastMessage": "hi",
+    "lastMessageSender": "human_agent",
+    "lastMessageAt": "2026-09-29T15:16:52.565Z",
     "createdAt": "2026-09-29T09:29:29.032Z",
-    "updatedAt": "2026-09-29T09:43:58.904Z",
+    "updatedAt": "2026-09-29T15:16:52.565Z",
     "messages": [
       {
         "id": "msg_init_1790674169032",
@@ -45,8 +45,18 @@
         "timestamp": "2026-09-29T09:43:58.904Z",
         "isEscalation": true,
         "status": "delivered"
+      },
+      {
+        "id": "msg_1790695012565_k3mw",
+        "sender": "human_agent",
+        "senderName": "MBI Sargodha Desk",
+        "text": "hi",
+        "timestamp": "2026-09-29T15:16:52.565Z",
+        "isEscalation": false,
+        "status": "delivered"
       }
-    ]
+    ],
+    "assignedAgentName": "MBI Sargodha Desk"
   },
   {
     "id": "sess_u_1790667685875_1790667824766",

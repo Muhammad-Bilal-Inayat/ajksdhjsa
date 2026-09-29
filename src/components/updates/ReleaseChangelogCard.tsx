@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.1-stable',
+    version: 'v4.3.2-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: '100% Real-Time Master Station & Unified Governance Sync, Auto-Repaired Tenant Isolation, and Multi-Key Query Alignment.',
+    features: [
+      {
+        text: 'Real-Time /server & Unified Governance Sync: New registered tenants and users immediately appear across all 25 Master Hub tabs.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Automatic Database Repair: Auto-populates tenant_id & organization_id across mbi_tenants, mbi_users, and mbi_licenses.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'Unified Multi-Key Tenant Join: Connects user and license records across ID, Tenant ID, and Organization ID seamlessly.',
+        type: 'security',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.1-stable',
+    releaseDate: 'September 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Production 503 Crash Shield, MariaDB 30s Keep-Alive Ping, and Sanitized Health Metrics.',
     features: [

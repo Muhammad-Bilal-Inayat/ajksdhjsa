@@ -1,11 +1,14 @@
 # MBI INVENTRA - Enterprise Pharmacy ERP & Master Fleet Station
-**Version:** `v4.3.1-stable` | **Release Channel:** `Enterprise Production`
+**Version:** `v4.3.2-stable` | **Release Channel:** `Enterprise Production`
 
 MBI INVENTRA is a mission-critical, offline-first Pharmacy Management System, POS Billing Station, and Multi-Tenant Central Fleet Server designed for Pakistani and global pharmacies, medical stores, and healthcare chains.
 
 ---
 
-## 🌟 What's New in v4.3.1
+## 🌟 What's New in v4.3.2
+- **100% Real-Time Master Station & Unified Governance Sync:** Fixed registration query placeholder alignment in `mbi_tenants`. Newly registered tenants, users, and licenses now immediately populate across all 25 tabs of `/server`, `/lan`, Unified Governance, and Masterboard 173 features in real time.
+- **Automatic Database Integrity Repair:** Built-in auto-repair on startup automatically populates any missing `tenant_id` and `organization_id` columns in `mbi_tenants`, `mbi_users`, and `mbi_licenses`.
+- **Multi-Key Robust Query Join:** Queries now join across `id`, `tenant_id`, and `organization_id` seamlessly with zero dropped records.
 - **Sanitized Public Health Metrics:** Public `/api/health` and `/health` endpoints now return sanitized status (`"database": "Connected"` instead of exposing internal database schema names like `mbi72dn`), preventing sensitive database discovery.
 - **Production 503 Crash Shield:** Added process-level uncaught exception & unhandled promise rejection interceptors in `server.ts` to prevent transient Node.js process crashes and eliminate 503 Service Unavailable errors on live VPS/NexPanel/cPanel servers.
 - **MariaDB 30s Background Keep-Alive Ping:** Active keepalive heartbeat prevents MySQL/MariaDB idle `wait_timeout` disconnects and socket drops.

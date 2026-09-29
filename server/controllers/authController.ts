@@ -440,16 +440,19 @@ export async function registerTrialController(req: TenantRequest, res: Response)
                expiry_date = VALUES(expiry_date);`,
             [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
           ).catch(() => {});
-        }        // Insert Tenant with Basic Plan and Active Status
+        }
+        // Insert Tenant with Basic Plan and Active Status
         await pool.query(
           `INSERT INTO mbi_tenants (
              id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
              plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
            ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
              'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?, CURRENT_TIMESTAMP
            )
            ON DUPLICATE KEY UPDATE 
+             tenant_id = COALESCE(VALUES(tenant_id), tenant_id, id),
+             organization_id = COALESCE(VALUES(organization_id), organization_id, id),
              name = VALUES(name),
              plan = 'Basic',
              plan_id = 'Basic',
@@ -459,7 +462,9 @@ export async function registerTrialController(req: TenantRequest, res: Response)
              trial_expires_at = VALUES(trial_expires_at),
              updated_at = CURRENT_TIMESTAMP;`,
           [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
-        ).catch(() => {});
+        ).catch((err) => {
+          console.warn('[REGISTER TENANT DB NOTICE]:', err?.message);
+        });
 
         // Insert Primary Admin User
         await pool.query(

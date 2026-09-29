@@ -322,16 +322,68 @@ adminMasterRouter.post('/backup/restore-latest', async (req: TenantRequest, res:
 // 6. Global Users List across all Companies / Tenants
 adminMasterRouter.get('/users', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const pool = getMariaDbPool();
-    const [users]: any = await pool.query(
-      `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone, u.passcode, u.role, 
-              u.status, u.is_kill_switch_active, u.is_online, u.last_login_at, u.created_at,
-              t.name as tenant_name, t.city, t.plan
-       FROM mbi_users u
-       LEFT JOIN mbi_tenants t ON u.tenant_id = t.tenant_id
-       ORDER BY u.created_at DESC;`
-    );
+    const usersMap = new Map<string, any>();
 
+    // 1. Query MariaDB mbi_users with robust multi-key tenant join
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [rows]: any = await pool.query(
+          `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone, u.email, u.phone, 
+                  u.passcode, u.role, u.status, u.is_kill_switch_active, u.is_online, 
+                  u.last_login_at, u.created_at,
+                  COALESCE(t.name, 'Pharmacy Store') as tenant_name, 
+                  COALESCE(t.name, 'Pharmacy Store') as storeName,
+                  COALESCE(t.city, 'Pakistan') as city, 
+                  COALESCE(t.plan, 'Basic') as plan
+           FROM mbi_users u
+           LEFT JOIN mbi_tenants t ON (u.tenant_id = t.tenant_id OR u.tenant_id = t.id OR u.tenant_id = t.organization_id)
+           ORDER BY u.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          for (const r of rows) {
+            usersMap.set(r.id, {
+              ...r,
+              emailOrPhone: r.email_or_phone || r.email || r.phone || r.username,
+              isKillSwitchActive: r.is_kill_switch_active === 1 || r.is_kill_switch_active === true,
+              isOnline: r.is_online === 1 || r.is_online === true
+            });
+          }
+        }
+      } catch (dbErr) {}
+    }
+
+    // 2. Merge with fallback storage from .master_users.json & .sync_data.json
+    try {
+      const masterUsersPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(masterUsersPath)) {
+        const localList = JSON.parse(fs.readFileSync(masterUsersPath, 'utf8') || '[]');
+        if (Array.isArray(localList)) {
+          for (const lu of localList) {
+            if (lu && lu.id && !usersMap.has(lu.id)) {
+              usersMap.set(lu.id, {
+                id: lu.id,
+                tenant_id: lu.tenantId || lu.tenant_id || lu.installationId || 'default',
+                name: lu.name || lu.storeName || 'Store Admin',
+                username: lu.username || lu.name,
+                email_or_phone: lu.emailOrPhone || lu.email || lu.phone,
+                emailOrPhone: lu.emailOrPhone || lu.email || lu.phone,
+                passcode: lu.passcode || '1234',
+                role: lu.role || 'Primary Owner',
+                status: lu.status || 'Active',
+                is_kill_switch_active: 0,
+                is_online: 1,
+                tenant_name: lu.storeName || 'MBI INVENTRA',
+                storeName: lu.storeName || 'MBI INVENTRA',
+                created_at: lu.createdAt || new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    const users = Array.from(usersMap.values());
     res.json({
       success: true,
       count: users.length,
@@ -339,6 +391,37 @@ adminMasterRouter.get('/users', async (req: TenantRequest, res: Response): Promi
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error fetching users' });
+  }
+});
+
+// 6b. Global Tenants List (GET /api/master/tenants)
+adminMasterRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    let tenants: any[] = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [rows]: any = await pool.query(
+          `SELECT t.*, 
+            COALESCE(t.tenant_id, t.id) as tenant_id,
+            (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id OR u.tenant_id = t.organization_id) as user_count,
+            (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id OR i.tenant_id = t.organization_id) as invoice_count
+           FROM mbi_tenants t
+           ORDER BY t.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          tenants = rows;
+        }
+      } catch (dbErr) {}
+    }
+
+    res.json({
+      success: true,
+      count: tenants.length,
+      tenants
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching master tenants' });
   }
 });
 
@@ -401,9 +484,9 @@ adminMasterRouter.get('/licenses', async (req: TenantRequest, res: Response): Pr
   try {
     const pool = getMariaDbPool();
     const [licenses]: any = await pool.query(
-      `SELECT l.*, t.name as tenant_name, t.city, t.owner_phone 
+      `SELECT l.*, COALESCE(t.name, l.client_name, 'Pharmacy Store') as tenant_name, t.city, t.owner_phone 
        FROM mbi_licenses l
-       LEFT JOIN mbi_tenants t ON l.tenant_id = t.tenant_id
+       LEFT JOIN mbi_tenants t ON (l.tenant_id = t.tenant_id OR l.tenant_id = t.id OR l.tenant_id = t.organization_id)
        ORDER BY l.created_at DESC;`
     );
 

@@ -281,16 +281,15 @@ export async function seedMariaDbDefaults(currentPool?: mysql.Pool): Promise<voi
       is_default = VALUES(is_default)
     `);
 
-    // 3. Seed Default App System Settings
-    await p.query(`
-      INSERT INTO mbi_settings
-      (tenant_id, setting_key, setting_value)
-      VALUES
-      ('default', 'app_config', '{"brand":"MBI INVENTRA 4","version":"4.2.0","syncMode":"delta_stream","database":"mbi72dn"}')
-      ON DUPLICATE KEY UPDATE
-      setting_value = VALUES(setting_value),
-      updated_at = CURRENT_TIMESTAMP
-    `);
+    // 4. Auto-repair tenant_id & organization_id for any NULL rows
+    try {
+      await p.query("UPDATE mbi_tenants SET tenant_id = id WHERE tenant_id IS NULL OR tenant_id = '';");
+      await p.query("UPDATE mbi_tenants SET organization_id = id WHERE organization_id IS NULL OR organization_id = '';");
+      await p.query("UPDATE mbi_licenses SET tenant_id = (SELECT id FROM mbi_tenants WHERE mbi_tenants.id = mbi_licenses.tenant_id OR mbi_tenants.name = mbi_licenses.client_name LIMIT 1) WHERE tenant_id IS NULL OR tenant_id = '';");
+      await p.query("UPDATE mbi_users u JOIN mbi_tenants t ON (u.email_or_phone = t.owner_phone OR u.phone = t.owner_phone OR u.email = t.owner_email OR u.tenant_id = t.id) SET u.tenant_id = t.id WHERE u.tenant_id IS NULL OR u.tenant_id = '';");
+    } catch (repairErr: any) {
+      // Non-blocking auto repair
+    }
   } catch (err: any) {
     // Graceful seed notice
   }

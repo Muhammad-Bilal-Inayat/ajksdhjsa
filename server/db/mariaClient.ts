@@ -77,18 +77,22 @@ export function getMariaDbPool(): mysql.Pool {
         ...config,
         charset: 'utf8mb4',
         dateStrings: true,
-        connectTimeout: 2000,
+        connectTimeout: 10000,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0,
+        keepAliveInitialDelay: 10000,
+        waitForConnections: true,
+        connectionLimit: 15,
+        queueLimit: 0,
       });
 
-      // Handle pool errors and auto-reconnect
+      // Handle pool errors gracefully to prevent crashing the Node.js process
       const rawPool = (pool as any).pool || pool;
       if (rawPool && typeof rawPool.on === 'function') {
         rawPool.on('error', (err: any) => {
           lastError = err?.message;
           isConnected = false;
-          if (err?.code === 'PROTOCOL_CONNECTION_LOST' || err?.fatal) {
+          console.warn('[MARIADB POOL RECONNECT WARN]:', err?.message || 'Transient connection drop');
+          if (err?.code === 'PROTOCOL_CONNECTION_LOST' || err?.code === 'ECONNRESET' || err?.fatal) {
             pool = null;
           }
         });
@@ -99,6 +103,22 @@ export function getMariaDbPool(): mysql.Pool {
     }
   }
   return pool!;
+}
+
+// Background Keep-Alive Ping every 30s to keep VPS / MariaDB connection pool from timing out
+if (typeof setInterval !== 'undefined') {
+  setInterval(async () => {
+    try {
+      if (pool) {
+        const conn = await pool.getConnection();
+        await conn.ping();
+        conn.release();
+        isConnected = true;
+      }
+    } catch {
+      // Ignore background ping error; reconnect will happen on next query
+    }
+  }, 30000);
 }
 
 /**

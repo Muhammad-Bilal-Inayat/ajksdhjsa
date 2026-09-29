@@ -37,10 +37,35 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.0-stable',
+    version: 'v4.3.1-stable',
     releaseDate: 'September 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Production 503 Crash Shield, MariaDB 30s Keep-Alive Ping, and Sanitized Health Metrics.',
+    features: [
+      {
+        text: 'Sanitized Public Health Metrics: database schema name hidden to prevent information disclosure.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Zero-Downtime 503 Crash Shield: Process-level uncaught exception and unhandled rejection interceptors.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'MariaDB Background Keep-Alive Ping: Eliminates connection drops and idle wait_timeout disconnects.',
+        type: 'performance',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.0-stable',
+    releaseDate: 'September 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Silent Background Hardware Auto-Binding, Enterprise-Restricted FBR POS Digital Invoicing, and 5 Core Pillars Hardening.',
     features: [

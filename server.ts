@@ -1,4 +1,14 @@
 import 'dotenv/config';
+
+// Process-Level Crash Protection Shields (Prevents 503 Service Unavailable restarts)
+process.on('uncaughtException', (err: any) => {
+  console.error('[CRASH SHIELD: UNCAUGHT EXCEPTION]:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[CRASH SHIELD: UNHANDLED REJECTION]:', reason?.message || reason);
+});
+
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -74,20 +84,20 @@ async function startServer() {
     return key !== '__proto__' && key !== 'constructor' && key !== 'prototype' && /^[a-zA-Z0-9_-]+$/.test(key);
   }
 
-  // API health & database status test
+  // API health & database status test (Sanitized to protect database name and prevent exposure)
   app.get(['/api/health', '/health'], async (req, res) => {
     try {
       const isOnline = await isMariaDbAvailable();
       res.json({
         status: 'OK',
-        database: isOnline ? 'mbi72dn' : 'offline_sync_cache',
+        database: isOnline ? 'Connected' : 'Offline Cache Mode',
         dbConnected: isOnline,
         timestamp: new Date().toISOString()
       });
     } catch (err: any) {
       res.json({
         status: 'OK',
-        database: 'offline_sync_cache',
+        database: 'Offline Cache Mode',
         dbConnected: false,
         timestamp: new Date().toISOString()
       });
@@ -3232,6 +3242,17 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   }
+
+  // Global Express Error Interceptor (Prevents 500/503 unhandled pipeline crashes)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[EXPRESS ROUTE ERROR CATCHER]:', err?.message || err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'The server encountered an error processing your request.'
+      });
+    }
+  });
 
   const server = isNamedPipe
     ? app.listen(PORT, () => {

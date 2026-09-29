@@ -148,16 +148,20 @@ function getMariaDbPool() {
         ...config,
         charset: "utf8mb4",
         dateStrings: true,
-        connectTimeout: 2e3,
+        connectTimeout: 1e4,
         enableKeepAlive: true,
-        keepAliveInitialDelay: 0
+        keepAliveInitialDelay: 1e4,
+        waitForConnections: true,
+        connectionLimit: 15,
+        queueLimit: 0
       });
       const rawPool = pool.pool || pool;
       if (rawPool && typeof rawPool.on === "function") {
         rawPool.on("error", (err) => {
           lastError = err?.message;
           isConnected = false;
-          if (err?.code === "PROTOCOL_CONNECTION_LOST" || err?.fatal) {
+          console.warn("[MARIADB POOL RECONNECT WARN]:", err?.message || "Transient connection drop");
+          if (err?.code === "PROTOCOL_CONNECTION_LOST" || err?.code === "ECONNRESET" || err?.fatal) {
             pool = null;
           }
         });
@@ -168,6 +172,19 @@ function getMariaDbPool() {
     }
   }
   return pool;
+}
+if (typeof setInterval !== "undefined") {
+  setInterval(async () => {
+    try {
+      if (pool) {
+        const conn = await pool.getConnection();
+        await conn.ping();
+        conn.release();
+        isConnected = true;
+      }
+    } catch {
+    }
+  }, 3e4);
 }
 async function testMariaDbConnection() {
   const start = Date.now();
@@ -9670,8 +9687,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.3.0";
-var RELEASE_NOTES = "Silent Background Hardware Auto-Binding & Enterprise FBR POS Plan Restrictions (v4.3.0)";
+var APP_VERSION2 = "4.3.1";
+var RELEASE_NOTES = "Production 503 Crash Shield, MariaDB Keep-Alive & Sanitized Health Metrics (v4.3.1)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -11067,6 +11084,12 @@ var apiLimiter = (0, import_express_rate_limit.default)({
 });
 
 // server.ts
+process.on("uncaughtException", (err) => {
+  console.error("[CRASH SHIELD: UNCAUGHT EXCEPTION]:", err?.message || err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[CRASH SHIELD: UNHANDLED REJECTION]:", reason?.message || reason);
+});
 async function startServer() {
   const app = (0, import_express15.default)();
   const rawPort = process.env.PORT || "3000";
@@ -11112,14 +11135,14 @@ async function startServer() {
       const isOnline = await isMariaDbAvailable();
       res.json({
         status: "OK",
-        database: isOnline ? "mbi72dn" : "offline_sync_cache",
+        database: isOnline ? "Connected" : "Offline Cache Mode",
         dbConnected: isOnline,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
     } catch (err) {
       res.json({
         status: "OK",
-        database: "offline_sync_cache",
+        database: "Offline Cache Mode",
         dbConnected: false,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
@@ -13725,6 +13748,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   }
+  app.use((err, req, res, next) => {
+    console.error("[EXPRESS ROUTE ERROR CATCHER]:", err?.message || err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "The server encountered an error processing your request."
+      });
+    }
+  });
   const server = isNamedPipe ? app.listen(PORT, () => {
     console.log(`Server running on pipe/socket: ${PORT} (Node: ${process.version})`);
   }) : app.listen(PORT, HOST, () => {

@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.3.0';
-export const RELEASE_NOTES = 'Silent Background Hardware Auto-Binding & Enterprise FBR POS Plan Restrictions (v4.3.0)';
+export const APP_VERSION = '4.3.1';
+export const RELEASE_NOTES = 'Production 503 Crash Shield, MariaDB Keep-Alive & Sanitized Health Metrics (v4.3.1)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

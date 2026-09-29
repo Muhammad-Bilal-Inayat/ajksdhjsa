@@ -1,0 +1,51 @@
+[
+  {
+    "id": "test_session_01",
+    "userId": "usr_client",
+    "userName": "Pharmacy Partner",
+    "userEmail": "",
+    "userPhone": "",
+    "storeName": "Al-Shifa Medicos",
+    "tenantId": "tenant-01",
+    "plan": "Business",
+    "pageContext": "user",
+    "status": "human_escalation_requested",
+    "isHumanAssigned": false,
+    "totalClicks": 1,
+    "unreadCountForServer": 1,
+    "unreadCountForUser": 1,
+    "lastMessage": "Walaikum Assalam! Jee zaroor, main aapki poori madad karne ke liye hazir hoon.\n\nAapko kis cheez me issue aa raha hai? Maslan:\n1. **POS Billing** ya Thermal Printing\n2. **Batch FIFO / Expiry Alerts** (30/60/90 din)\n3. **Customer ya Supplier Udhaar Ledger** (WhatsApp Statement)\n4. **Shift Closing / Cashier Float**\n5. **Sync & Share** (Multi-terminal sync)\n\nAap apna masla yahan tafseel se batayein, main foran solve karwa deta hoon. Agar aapko human support team se baat karni hai, toh mujhe batayein taake main aapki request live support desk par submit kar sakun!",
+    "lastMessageSender": "ai",
+    "lastMessageAt": "2026-09-26T16:44:23.102Z",
+    "createdAt": "2026-09-26T16:44:12.951Z",
+    "updatedAt": "2026-09-26T16:44:23.102Z",
+    "messages": [
+      {
+        "id": "msg_init_1790441052951",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+        "timestamp": "2026-09-26T16:44:12.951Z",
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790441052952_zvly",
+        "sender": "user",
+        "senderName": "Ali Raza",
+        "text": "Assalam-o-Alaikum, mujhe support chahye",
+        "timestamp": "2026-09-26T16:44:12.952Z",
+        "isEscalation": true,
+        "status": "delivered"
+      },
+      {
+        "id": "msg_1790441063102_afs4",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Walaikum Assalam! Jee zaroor, main aapki poori madad karne ke liye hazir hoon.\n\nAapko kis cheez me issue aa raha hai? Maslan:\n1. **POS Billing** ya Thermal Printing\n2. **Batch FIFO / Expiry Alerts** (30/60/90 din)\n3. **Customer ya Supplier Udhaar Ledger** (WhatsApp Statement)\n4. **Shift Closing / Cashier Float**\n5. **Sync & Share** (Multi-terminal sync)\n\nAap apna masla yahan tafseel se batayein, main foran solve karwa deta hoon. Agar aapko human support team se baat karni hai, toh mujhe batayein taake main aapki request live support desk par submit kar sakun!",
+        "timestamp": "2026-09-26T16:44:23.102Z",
+        "isEscalation": false,
+        "status": "delivered"
+      }
+    ]
+  }
+]

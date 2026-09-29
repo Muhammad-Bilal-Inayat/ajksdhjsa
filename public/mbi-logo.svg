@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 240" fill="none">
+  <defs>
+    <linearGradient id="logoBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d2ff"/>
+      <stop offset="40%" stop-color="#0066ff"/>
+      <stop offset="100%" stop-color="#002b80"/>
+    </linearGradient>
+    <linearGradient id="cyanAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f0ff"/>
+      <stop offset="100%" stop-color="#0088ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- MBI Group -->
+  <g transform="translate(20, 20)">
+    <!-- Letter M -->
+    <path d="M 0 190 L 0 10 L 42 10 L 90 115 L 138 10 L 180 10 L 180 190 L 140 190 L 140 80 L 102 165 L 78 165 L 40 80 L 40 190 Z" fill="url(#logoBlueGrad)"/>
+
+    <!-- Letter B -->
+    <path d="M 205 10 L 290 10 C 330 10 355 28 355 58 C 355 78 340 92 320 98 C 348 104 365 122 365 150 C 365 182 336 190 295 190 L 205 190 Z M 248 48 L 248 84 L 285 84 C 300 84 310 77 310 66 C 310 55 300 48 285 48 Z M 248 116 L 248 152 L 292 152 C 308 152 318 144 318 134 C 318 124 308 116 292 116 Z" fill="url(#logoBlueGrad)"/>
+
+    <!-- Letter I -->
+    <path d="M 380 10 L 420 10 L 420 190 L 380 190 Z" fill="url(#logoBlueGrad)"/>
+  </g>
+
+  <!-- INVENTRA Group -->
+  <g transform="translate(470, 45)">
+    <!-- INVENTRA Text -->
+    <path d="M 10 140 L 10 25 L 34 25 L 34 140 Z" fill="#1e293b"/>
+    <path d="M 52 140 L 52 25 L 74 25 L 112 100 L 112 25 L 134 25 L 134 140 L 112 140 L 74 65 L 74 140 Z" fill="#1e293b"/>
+    <path d="M 148 25 L 174 25 L 198 108 L 222 25 L 248 25 L 210 140 L 186 140 Z" fill="#1e293b"/>
+    <path d="M 264 140 L 264 25 L 325 25 L 325 46 L 288 46 L 288 72 L 320 72 L 320 93 L 288 93 L 288 119 L 326 119 L 326 140 Z" fill="#1e293b"/>
+    <path d="M 342 140 L 342 25 L 364 25 L 402 100 L 402 25 L 424 25 L 424 140 L 402 140 L 364 65 L 364 140 Z" fill="#1e293b"/>
+    <path d="M 458 46 L 434 46 L 434 25 L 506 25 L 506 46 L 482 46 L 482 140 L 458 140 Z" fill="#1e293b"/>
+    <path d="M 520 140 L 520 25 L 565 25 C 588 25 604 38 604 58 C 604 74 592 86 575 90 L 606 140 L 580 140 L 552 94 L 544 94 L 544 140 Z M 544 46 L 544 74 L 562 74 C 572 74 580 68 580 60 C 580 52 572 46 562 46 Z" fill="#1e293b"/>
+    
+    <!-- Letter A with Cyan Chevron -->
+    <path d="M 640 25 L 666 25 L 702 140 L 678 140 L 668 106 L 638 106 L 628 140 L 604 140 Z M 644 86 L 662 86 L 653 52 Z" fill="#1e293b"/>
+    <path d="M 640 102 L 653 72 L 666 102 L 658 102 L 653 90 L 648 102 Z" fill="url(#cyanAccent)"/>
+  </g>
+</svg>

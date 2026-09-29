@@ -1,0 +1,16 @@
+[
+  {
+    "id": "u1",
+    "name": "M Bilal Inayat (Admin)",
+    "emailOrPhone": "m.bilalinayat786@gmail.com",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "MBI INVENTRA",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-528EB66D-MAJTWM",
+    "lastSyncTime": "2026-09-27T12:15:53.324Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-27T12:15:53.324Z"
+  }
+]

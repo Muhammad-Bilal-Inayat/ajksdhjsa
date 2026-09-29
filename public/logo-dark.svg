@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 100" width="540" height="100">
+  <defs>
+    <!-- Vibrant Blue to Electric Cyan Gradient for MBI -->
+    <linearGradient id="mbiGradDark" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0052FF"/>
+      <stop offset="60%" stop-color="#0088FF"/>
+      <stop offset="100%" stop-color="#00C0FF"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(10, 68)">
+    <!-- MBI Brand Text -->
+    <text x="0" y="0" 
+          font-family="system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif" 
+          font-size="64" 
+          font-weight="900" 
+          letter-spacing="-0.03em" 
+          fill="url(#mbiGradDark)">MBI</text>
+
+    <!-- Vertical Separator Divider -->
+    <rect x="156" y="-52" width="3.5" height="54" rx="1.75" fill="#64748B"/>
+
+    <!-- INVENTRA Text (Dark Mode - Pure White) -->
+    <text x="178" y="0" 
+          font-family="system-ui, -apple-system, 'Inter', 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif" 
+          font-size="56" 
+          font-weight="800" 
+          letter-spacing="0.04em" 
+          fill="#FFFFFF">INVENTRA</text>
+  </g>
+</svg>

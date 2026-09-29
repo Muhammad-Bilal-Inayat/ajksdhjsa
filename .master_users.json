@@ -1,5 +1,19 @@
 [
   {
+    "id": "admin-master",
+    "name": "Bilal Inayat (Primary Admin)",
+    "emailOrPhone": "vip123@admin.com",
+    "role": "Primary Admin",
+    "status": "Active",
+    "passcode": "1234",
+    "storeName": "MBI INVENTRA",
+    "installationId": "NODE-CLIENT",
+    "boundHwid": "HW-4ADF2030-MAJTWM",
+    "lastSyncTime": "2026-09-29T03:58:24.647Z",
+    "isOnline": true,
+    "updatedAt": "2026-09-29T03:58:24.647Z"
+  },
+  {
     "id": "u1",
     "name": "M Bilal Inayat (Admin)",
     "emailOrPhone": "m.bilalinayat786@gmail.com",

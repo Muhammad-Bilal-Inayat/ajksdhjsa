@@ -1,7 +1,4 @@
-/**
- * MBI INVENTRA - Universal Authentication Service
- * Supports 3-in-1 flexible login (Username, Email, Mobile Number) and Pharmacy Registration
- */
+import { getSystemHWIDSync } from '../lib/hardwareFingerprint';
 
 export interface LoginCredentials {
   identifier: string; // Username, Email, or Mobile Phone
@@ -52,6 +49,7 @@ export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const identifier = credentials.identifier.trim();
     const passcode = credentials.password || credentials.passcode || '0000';
+    const currentHwid = getSystemHWIDSync();
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -62,7 +60,9 @@ export const authService = {
         body: JSON.stringify({
           email_or_phone: identifier,
           passcode: passcode,
-          password: passcode
+          password: passcode,
+          hwid: currentHwid,
+          deviceId: currentHwid
         })
       });
 
@@ -70,11 +70,18 @@ export const authService = {
 
       if (response.ok && data.success && data.token) {
         if (credentials.rememberMe) {
-          localStorage.setItem('mbi_remember_identifier', identifier);
+          try {
+            localStorage.setItem('mbi_remember_identifier', identifier);
+          } catch {}
         } else {
-          localStorage.removeItem('mbi_remember_identifier');
+          try {
+            localStorage.removeItem('mbi_remember_identifier');
+          } catch {}
         }
-        localStorage.setItem('mbi_jwt_token', data.token);
+        try {
+          localStorage.setItem('mbi_jwt_token', data.token);
+          localStorage.setItem('mbi_bound_hwid', currentHwid);
+        } catch {}
         return {
           success: true,
           token: data.token,
@@ -100,6 +107,11 @@ export const authService = {
    * Creates tenant record, primary admin user, and initializes free trial
    */
   async registerPharmacy(params: RegisterPharmacyParams): Promise<AuthResponse> {
+    const clientHwid = params.hwid || getSystemHWIDSync();
+    try {
+      localStorage.setItem('mbi_bound_hwid', clientHwid);
+    } catch {}
+
     try {
       const response = await fetch('/api/auth/register-trial', {
         method: 'POST',
@@ -115,8 +127,8 @@ export const authService = {
           email: params.email ? params.email.trim() : undefined,
           password: params.password.trim(),
           plan: params.plan || 'Basic',
-          hwid: params.hwid,
-          deviceId: params.deviceId || params.hwid,
+          hwid: clientHwid,
+          deviceId: params.deviceId || clientHwid,
           deviceModel: params.deviceModel,
           os: params.os
         })

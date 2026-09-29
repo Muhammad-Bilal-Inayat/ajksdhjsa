@@ -6219,6 +6219,17 @@ async function loginController(req, res) {
           [authenticatedUser.id]
         ).catch(() => {
         });
+        if (clientHwid) {
+          pool2.query(
+            `UPDATE mbi_licenses 
+             SET bound_hwid = IFNULL(NULLIF(bound_hwid, 'UNBOUND'), ?),
+                 bound_hardware_ids = IF(bound_hardware_ids IS NULL OR bound_hardware_ids = '[]' OR bound_hardware_ids = '["HWID-PRIMARY-DEVICE"]' OR bound_hardware_ids LIKE '["HWID-DEV1-%', ?, bound_hardware_ids),
+                 updated_at = CURRENT_TIMESTAMP 
+             WHERE tenant_id = ? OR id = ? OR client_name = ?;`,
+            [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
+          ).catch(() => {
+          });
+        }
       } catch {
       }
     }
@@ -6345,22 +6356,41 @@ async function registerTrialController(req, res) {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        await pool2.query(
-          `INSERT INTO mbi_licenses (
-             id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
-             issue_date, expiry_date, max_devices, bound_hardware_ids
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
-             CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
-           )
-           ON DUPLICATE KEY UPDATE 
-             bound_hardware_ids = VALUES(bound_hardware_ids),
-             status = 'Active',
-             plan = 'Basic',
-             expiry_date = VALUES(expiry_date);`,
-          [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
-        ).catch(() => {
-        });
+        try {
+          await pool2.query(
+            `INSERT INTO mbi_licenses (
+               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+               issue_date, expiry_date, max_devices, bound_hwid, bound_hardware_ids
+             ) VALUES (
+               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               bound_hwid = VALUES(bound_hwid),
+               bound_hardware_ids = VALUES(bound_hardware_ids),
+               status = 'Active',
+               plan = 'Basic',
+               expiry_date = VALUES(expiry_date);`,
+            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, clientHwid, JSON.stringify([clientHwid])]
+          );
+        } catch {
+          await pool2.query(
+            `INSERT INTO mbi_licenses (
+               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+               issue_date, expiry_date, max_devices, bound_hardware_ids
+             ) VALUES (
+               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               bound_hardware_ids = VALUES(bound_hardware_ids),
+               status = 'Active',
+               plan = 'Basic',
+               expiry_date = VALUES(expiry_date);`,
+            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
+          ).catch(() => {
+          });
+        }
         await pool2.query(
           `INSERT INTO mbi_tenants (
              id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 

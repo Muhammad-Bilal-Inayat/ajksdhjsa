@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Menu, Building2, ChevronDown, Check, Plus, LogIn, LogOut, 
-  ShieldCheck, ShieldAlert, Key, User, Sparkles, RefreshCw, 
-  Settings, Layers, Store, ArrowRightLeft, Lock, FileText, 
-  CheckCircle2, PlusCircle, Clock, AlertTriangle, Package, 
+import {
+  Menu, Building2, ChevronDown, Check, Plus, LogIn, LogOut,
+  ShieldCheck, ShieldAlert, Key, User, Sparkles, RefreshCw,
+  Settings, Layers, Store, ArrowRightLeft, Lock, FileText,
+  CheckCircle2, PlusCircle, Clock, AlertTriangle, Package,
   Headphones, Bell, Sun, Moon, DollarSign, TrendingUp,
   Warehouse, Printer, Users, HelpCircle, Phone, MessageSquare
 } from 'lucide-react';
@@ -48,13 +48,13 @@ export const Header: React.FC<HeaderProps> = ({
   onUnreadCountChange
 }) => {
   const navigate = useNavigate();
-  const { 
-    business, 
-    currentUser, 
-    activeRole, 
-    activeUser, 
-    logout, 
-    canAccess, 
+  const {
+    business,
+    currentUser,
+    activeRole,
+    activeUser,
+    logout,
+    canAccess,
     tenant,
     appUsers,
     updateBusiness
@@ -75,8 +75,8 @@ export const Header: React.FC<HeaderProps> = ({
   // Show Shift Timer Button in Top Bar Setting State
   const [showShiftBtn, setShowShiftBtn] = useState<boolean>(() => {
     return localStorage.getItem('mbi_show_shift_timer') === 'true' ||
-           localStorage.getItem('mbi_show_shift_button_header') === 'true' ||
-           localStorage.getItem('mbi_show_shift_btn') === 'true';
+      localStorage.getItem('mbi_show_shift_button_header') === 'true' ||
+      localStorage.getItem('mbi_show_shift_btn') === 'true';
   });
 
   useEffect(() => {
@@ -127,13 +127,13 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       {/* Topmost Micro Bar (Company Switcher, Hotline, Shortcuts) */}
       <div className="hidden md:flex h-8 bg-[#f8fafc] dark:bg-slate-900 border-b border-slate-200/90 dark:border-slate-800 items-center justify-between px-3 sm:px-4 text-[11px] text-slate-600 dark:text-slate-300 select-none z-40 overflow-visible relative shadow-2xs transition-colors duration-150">
-        
+
         {/* Top-Left Company Menu & Quick Links */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          
+
           {/* ADVANCED COMPANY MENU DROPDOWN */}
           <div className="relative" ref={companyDropdownRef}>
-            <button 
+            <button
               type="button"
               onClick={() => setIsCompanyDropdownOpen(prev => !prev)}
               className="text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 font-extrabold flex items-center gap-1.5 transition-colors px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
@@ -146,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Comprehensive Company Dropdown Flyout */}
             {isCompanyDropdownOpen && (
               <div className="absolute top-full left-0 mt-1.5 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 p-2 text-slate-800 dark:text-slate-100 animate-in fade-in zoom-in-95 duration-150">
-                
+
                 {/* Store Header Banner in Dropdown */}
                 <div className="p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800/80 dark:to-slate-800/40 border border-blue-100 dark:border-slate-700 mb-2">
                   <div className="flex items-center justify-between">
@@ -188,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="pt-1 pb-1 border-t border-slate-100 dark:border-slate-800">
                     <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                       <span>Active Location / Godown</span>
-                      <button 
+                      <button
                         onClick={() => openCompanySettings('general')}
                         className="text-blue-600 dark:text-blue-400 hover:underline font-bold"
                       >
@@ -204,11 +204,10 @@ export const Header: React.FC<HeaderProps> = ({
                             setSelectedBranch(b.id);
                             setIsCompanyDropdownOpen(false);
                           }}
-                          className={`w-full text-left px-3 py-1.5 rounded-xl flex items-center justify-between text-xs transition-colors cursor-pointer ${
-                            selectedBranch === b.id 
-                              ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold' 
+                          className={`w-full text-left px-3 py-1.5 rounded-xl flex items-center justify-between text-xs transition-colors cursor-pointer ${selectedBranch === b.id
+                              ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             {b.type === 'godown' ? <Warehouse className="w-3.5 h-3.5 text-amber-500" /> : <Store className="w-3.5 h-3.5 text-blue-500" />}
@@ -315,8 +314,8 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
           </div>
-          
-          <button 
+
+          <button
             onClick={onOpenHelp}
             className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold flex items-center gap-1.5 cursor-pointer transition-colors px-2 py-0.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
           >
@@ -324,8 +323,8 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Help Desk</span>
           </button>
 
-          <button 
-            onClick={onOpenShortcuts} 
+          <button
+            onClick={onOpenShortcuts}
             className="flex hover:text-slate-900 dark:hover:text-white font-semibold items-center gap-1.5 cursor-pointer transition-colors px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200"
             title="Open Keyboard Shortcuts Hub (Ctrl + Enter or F1)"
           >
@@ -333,7 +332,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Shortcuts</span>
             <kbd className="hidden lg:inline-block px-1.5 py-0.2 bg-slate-200 dark:bg-slate-950 text-blue-700 dark:text-blue-300 font-mono text-[9px] font-bold rounded border border-slate-300 dark:border-slate-700">Ctrl+Enter</kbd>
           </button>
-          
+
           <button onClick={() => window.location.reload()} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer" title="Refresh Application">
             <RefreshCw className="w-3 h-3" />
           </button>
@@ -341,7 +340,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Top-Right Active User Role & Hotline */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div 
+          <div
             onClick={() => navigate('/sync-share')}
             className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/70 hover:bg-blue-100 dark:hover:bg-blue-900/80 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 cursor-pointer transition-colors"
             title="Click to manage Users & Roles in Sync & Share"
@@ -367,7 +366,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Main App Header (Clean Search Bar starting from sidebar edge without duplicate icons) */}
       <header className="flex items-center justify-between h-[54px] sm:h-[58px] px-2 sm:px-3 lg:px-4 border-b border-slate-200/90 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-900 shadow-md shadow-slate-200/60 dark:shadow-none z-30 gap-2 sm:gap-3 overflow-visible relative w-full transition-all duration-150">
-        
+
         {/* Search Bar Container starting cleanly next to sidebar with mobile/tablet hamburger */}
         <div className="flex items-center flex-1 min-w-0 max-w-3xl mr-2 sm:mr-3">
           <button
@@ -383,15 +382,15 @@ export const Header: React.FC<HeaderProps> = ({
             <TransactionSearch />
           </div>
         </div>
-        
+
         {/* Action Controls & Quick Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          
+
           {/* Primary Quick Actions (Sale & Purchase) */}
           <div className="hidden lg:flex items-center gap-1.5">
             {canSale && (
-              <button 
-                onClick={() => openTransaction('Sale')} 
+              <button
+                onClick={() => openTransaction('Sale')}
                 className="flex items-center gap-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95"
                 title="Add Sale Invoice (Alt+S)"
               >
@@ -400,8 +399,8 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
             {canPurchase && (
-              <button 
-                onClick={() => openTransaction('Purchase')} 
+              <button
+                onClick={() => openTransaction('Purchase')}
                 className="hidden xl:flex items-center gap-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95"
                 title="Add Purchase Bill (Alt+P)"
               >
@@ -410,7 +409,7 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1 sm:gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
             {/* Cashier Shift Live Reconcile (Controlled live by Settings -> Application -> Show Shift Timer Button) */}
             {showShiftBtn && settings.featureFlags?.cashierShiftClosing !== false && (
@@ -450,14 +449,13 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Interactive Notification Popover */}
             <div className="relative">
-              <button 
+              <button
                 type="button"
-                title="Notifications & Alerts" 
+                title="Notifications & Alerts"
                 data-notification-trigger="true"
-                onClick={() => setIsNotificationsOpen(prev => !prev)} 
-                className={`p-1.5 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative cursor-pointer ${
-                  isNotificationsOpen ? 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400' : ''
-                }`}
+                onClick={() => setIsNotificationsOpen(prev => !prev)}
+                className={`p-1.5 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors relative cursor-pointer ${isNotificationsOpen ? 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400' : ''
+                  }`}
                 aria-label="Open Notifications"
               >
                 <Bell className="w-[18px] h-[18px]" />
@@ -468,7 +466,7 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </button>
 
-              <NotificationCenter 
+              <NotificationCenter
                 isOpen={isNotificationsOpen}
                 onClose={() => setIsNotificationsOpen(false)}
                 onUnreadCountChange={onUnreadCountChange}
@@ -478,9 +476,9 @@ export const Header: React.FC<HeaderProps> = ({
             {/* PWA Install Button (Hidden by default unless explicitly enabled in Settings) */}
             {(settings.general?.showPwaInstallButton === true || localStorage.getItem('mbi_show_install_app_btn') === 'true' || localStorage.getItem('mbi_show_pwa_install_header') === 'true') && (
               <div className="hidden lg:block">
-                <PWAInstallButton 
+                <PWAInstallButton
                   label="Install App"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer" 
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
                 />
               </div>
             )}
@@ -501,9 +499,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             {canAccess('settings') && (
-              <button 
-                title="Settings" 
-                onClick={() => navigate('/settings')} 
+              <button
+                title="Settings"
+                onClick={() => navigate('/settings')}
                 className="hidden xl:flex p-1.5 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
               >
                 <Settings className="w-[18px] h-[18px]" />
@@ -514,7 +512,7 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
 
       {/* Shared Company Settings Modal */}
-      <CompanySettingsModal 
+      <CompanySettingsModal
         isOpen={isCompanySettingsModalOpen}
         onClose={() => setIsCompanySettingsModalOpen(false)}
         defaultTab={companyModalTab}

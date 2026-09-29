@@ -22,11 +22,35 @@ const LICENSE_STATE_KEY = 'mbi_license_state';
 const LAST_BACKUP_TIME_KEY = 'mbi_last_local_backup_time';
 const SESSION_MINUTES_KEY = 'mbi_total_active_minutes';
 
+/**
+ * Safe localStorage setter that handles QuotaExceededError and prunes redundant caches
+ */
+export function safeSetStorageItem(key: string, value: string): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e: any) {
+    // If quota exceeded, prune bulky or obsolete cache items
+    try {
+      localStorage.removeItem('mbi_master_installations_registry');
+      localStorage.removeItem('mbi_ai_telemetry_cache');
+      localStorage.removeItem('mbi_debug_logs');
+      // Retry once after pruning
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      console.warn(`[Storage Safe Guard] Unable to persist key "${key}" due to storage limit.`);
+      return false;
+    }
+  }
+}
+
 export function getInstallationId(): string {
-  let id = localStorage.getItem(INSTALLATION_ID_KEY);
+  let id = typeof localStorage !== 'undefined' ? localStorage.getItem(INSTALLATION_ID_KEY) : null;
   if (!id) {
     id = 'MBI-INST-' + Math.random().toString(36).substring(2, 9).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
-    localStorage.setItem(INSTALLATION_ID_KEY, id);
+    safeSetStorageItem(INSTALLATION_ID_KEY, id);
   }
   return id;
 }
@@ -35,7 +59,7 @@ export function getInstallationId(): string {
  * Get current system active usage minutes
  */
 export function getTotalActiveMinutes(): number {
-  return Number(localStorage.getItem(SESSION_MINUTES_KEY) || '120');
+  return Number((typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_MINUTES_KEY) : null) || '120');
 }
 
 /**
@@ -43,7 +67,7 @@ export function getTotalActiveMinutes(): number {
  */
 export function incrementActiveMinutes(minutes: number = 1): number {
   const current = getTotalActiveMinutes() + minutes;
-  localStorage.setItem(SESSION_MINUTES_KEY, String(current));
+  safeSetStorageItem(SESSION_MINUTES_KEY, String(current));
   return current;
 }
 
@@ -170,49 +194,56 @@ export function getLicenseInfo(): LicenseInfo {
     sessionStartTime: new Date().toISOString(),
     totalActiveMinutes: getTotalActiveMinutes()
   };
-  localStorage.setItem(LICENSE_STATE_KEY, JSON.stringify(defaultLicense));
+  safeSetStorageItem(LICENSE_STATE_KEY, JSON.stringify(defaultLicense));
   return defaultLicense;
 }
 
 export function saveLicenseInfo(info: LicenseInfo) {
   const currentHwid = getSystemHWIDSync();
   const toSave = { ...info, currentHwid };
-  localStorage.setItem(LICENSE_STATE_KEY, JSON.stringify(toSave));
+  safeSetStorageItem(LICENSE_STATE_KEY, JSON.stringify(toSave));
 
-  // Also register in master admin simulated registry if stored
-  const registry = getMasterRegistry();
-  const existingIdx = registry.findIndex(r => r.installationId === info.installationId);
-  if (existingIdx >= 0) {
-    registry[existingIdx] = toSave;
-  } else {
-    registry.push(toSave);
+  // Also register in master admin simulated registry if stored (keep max 3 items to save storage quota)
+  try {
+    const registry = getMasterRegistry();
+    const existingIdx = registry.findIndex(r => r.installationId === info.installationId);
+    if (existingIdx >= 0) {
+      registry[existingIdx] = toSave;
+    } else {
+      registry.push(toSave);
+    }
+    const trimmed = registry.slice(-3);
+    safeSetStorageItem('mbi_master_installations_registry', JSON.stringify(trimmed));
+  } catch {
+    try {
+      localStorage.removeItem('mbi_master_installations_registry');
+    } catch {}
   }
-  localStorage.setItem('mbi_master_installations_registry', JSON.stringify(registry));
 }
 
 export function getMasterRegistry(): LicenseInfo[] {
-  const stored = localStorage.getItem('mbi_master_installations_registry');
-  if (stored) {
-    try {
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('mbi_master_installations_registry') : null;
+    if (stored) {
       return JSON.parse(stored);
-    } catch (e) {
-      console.error(e);
     }
+  } catch (e) {
+    console.warn('[License Registry Parse Warning]:', e);
   }
   const current = getLicenseInfo();
   const initial = [current];
-  localStorage.setItem('mbi_master_installations_registry', JSON.stringify(initial));
+  safeSetStorageItem('mbi_master_installations_registry', JSON.stringify(initial));
   return initial;
 }
 
 export function setLastLocalBackupTime() {
   const now = new Date().toISOString();
-  localStorage.setItem(LAST_BACKUP_TIME_KEY, now);
+  safeSetStorageItem(LAST_BACKUP_TIME_KEY, now);
   return now;
 }
 
 export function getLastLocalBackupTime(): string {
-  return localStorage.getItem(LAST_BACKUP_TIME_KEY) || 'No backup yet';
+  return (typeof localStorage !== 'undefined' ? localStorage.getItem(LAST_BACKUP_TIME_KEY) : null) || 'No backup yet';
 }
 
 export function activateLicenseKey(rawKey: string): { success: boolean; message?: string } {

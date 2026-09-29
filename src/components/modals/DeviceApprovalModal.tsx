@@ -50,11 +50,50 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
       }
     };
 
+    const verifyCloudStatus = async () => {
+      try {
+        const response = await fetch('/api/license/verify-device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenantId: tenantId || localStorage.getItem('mbi_active_business_id') || 'tenant_main',
+            userId: userId || 'user_active',
+            hwid: authStatus.hwid
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authorized) {
+            try {
+              localStorage.setItem('mbi_bound_hwid', authStatus.hwid);
+            } catch {}
+            setAuthStatus({
+              isAuthorized: true,
+              hwid: authStatus.hwid,
+              currentHwid: authStatus.hwid,
+              boundHwid: authStatus.hwid,
+              reason: null
+            });
+            if (onClose) onClose();
+          }
+        }
+      } catch {}
+    };
+
+    if (!authStatus.isAuthorized) {
+      verifyCloudStatus();
+    }
+
     window.addEventListener('mbi-devices-updated', handleCheck);
     window.addEventListener('mbi-device-authorized', handleDeviceApproved);
     window.addEventListener('storage', handleCheck);
 
-    const interval = setInterval(handleCheck, 4000);
+    const interval = setInterval(() => {
+      handleCheck();
+      if (!authStatus.isAuthorized) {
+        verifyCloudStatus();
+      }
+    }, 4000);
 
     return () => {
       window.removeEventListener('mbi-devices-updated', handleCheck);
@@ -62,7 +101,7 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
       window.removeEventListener('storage', handleCheck);
       clearInterval(interval);
     };
-  }, [tenantId, userId, onClose]);
+  }, [tenantId, userId, onClose, authStatus.hwid, authStatus.isAuthorized]);
 
   if (!isOpen || authStatus.isAuthorized) {
     return null;

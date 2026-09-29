@@ -125,6 +125,10 @@ class LicenseService {
 
     // 4. Synchronize to backend MariaDB /api/license/register-trial
     try {
+      localStorage.setItem('mbi_bound_hwid', hwid);
+    } catch {}
+
+    try {
       if (typeof fetch !== 'undefined') {
         fetch('/api/license/register-trial', {
           method: 'POST',
@@ -139,7 +143,9 @@ class LicenseService {
             issueDate,
             expiryDate,
             trialEndsAt,
-            licenseKey
+            licenseKey,
+            hwid,
+            deviceId: hwid
           })
         }).catch((err) => {
           console.warn('[LICENSE SERVICE SYNC NOTICE]', err?.message);

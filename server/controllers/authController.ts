@@ -238,7 +238,7 @@ export async function loginController(req: TenantRequest, res: Response): Promis
 
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || 'tenant_main_pharmacy';
 
-    // Update is_online in MariaDB if available
+    // Update is_online in MariaDB and auto-confirm primary device if unbound
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
@@ -246,6 +246,18 @@ export async function loginController(req: TenantRequest, res: Response): Promis
           'UPDATE mbi_users SET is_online = 1, last_login_at = CURRENT_TIMESTAMP WHERE id = ?;',
           [authenticatedUser.id]
         ).catch(() => {});
+
+        // Auto-confirm primary device if unbound (0 devices bound)
+        if (clientHwid) {
+          pool.query(
+            `UPDATE mbi_licenses 
+             SET bound_hwid = IFNULL(NULLIF(bound_hwid, 'UNBOUND'), ?),
+                 bound_hardware_ids = IF(bound_hardware_ids IS NULL OR bound_hardware_ids = '[]' OR bound_hardware_ids = '["HWID-PRIMARY-DEVICE"]' OR bound_hardware_ids LIKE '["HWID-DEV1-%', ?, bound_hardware_ids),
+                 updated_at = CURRENT_TIMESTAMP 
+             WHERE tenant_id = ? OR id = ? OR client_name = ?;`,
+            [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
+          ).catch(() => {});
+        }
       } catch {}
     }
 
@@ -394,21 +406,41 @@ export async function registerTrialController(req: TenantRequest, res: Response)
         const pool = getMariaDbPool();
 
         // Insert License with First-Device Auto-Binding
-        await pool.query(
-          `INSERT INTO mbi_licenses (
-             id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
-             issue_date, expiry_date, max_devices, bound_hardware_ids
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
-             CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
-           )
-           ON DUPLICATE KEY UPDATE 
-             bound_hardware_ids = VALUES(bound_hardware_ids),
-             status = 'Active',
-             plan = 'Basic',
-             expiry_date = VALUES(expiry_date);`,
-          [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
-        ).catch(() => {});
+        try {
+          await pool.query(
+            `INSERT INTO mbi_licenses (
+               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+               issue_date, expiry_date, max_devices, bound_hwid, bound_hardware_ids
+             ) VALUES (
+               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               bound_hwid = VALUES(bound_hwid),
+               bound_hardware_ids = VALUES(bound_hardware_ids),
+               status = 'Active',
+               plan = 'Basic',
+               expiry_date = VALUES(expiry_date);`,
+            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, clientHwid, JSON.stringify([clientHwid])]
+          );
+        } catch {
+          // Fallback if bound_hwid column does not exist
+          await pool.query(
+            `INSERT INTO mbi_licenses (
+               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+               issue_date, expiry_date, max_devices, bound_hardware_ids
+             ) VALUES (
+               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               bound_hardware_ids = VALUES(bound_hardware_ids),
+               status = 'Active',
+               plan = 'Basic',
+               expiry_date = VALUES(expiry_date);`,
+            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
+          ).catch(() => {});
+        }
 
         // Insert Tenant with Basic Plan and Active Status
         await pool.query(

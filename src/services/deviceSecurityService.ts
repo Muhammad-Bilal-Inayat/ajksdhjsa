@@ -78,11 +78,23 @@ class DeviceSecurityService {
 
     // Check stored client bound HWID key
     const storedBoundHwid = typeof localStorage !== 'undefined' ? localStorage.getItem('mbi_bound_hwid') : null;
-    if (!storedBoundHwid) {
+    const isStoredPlaceholder = !storedBoundHwid || 
+      storedBoundHwid === 'UNBOUND' || 
+      storedBoundHwid === 'HWID-PRIMARY-DEVICE' || 
+      storedBoundHwid === 'HWID-LOCAL' ||
+      storedBoundHwid.startsWith('HWID-DEV-') ||
+      storedBoundHwid.startsWith('HWID-DEV1-');
+
+    if (isStoredPlaceholder) {
       // First device initialization: record current hardware as bound primary terminal
       try {
         localStorage.setItem('mbi_bound_hwid', currentHwid);
       } catch {}
+      if (license) {
+        license.boundHwid = currentHwid;
+        license.currentHwid = currentHwid;
+        saveLicenseInfo(license);
+      }
       return {
         isAuthorized: true,
         hwid: currentHwid,
@@ -102,10 +114,20 @@ class DeviceSecurityService {
 
     // 1st Device Auto-Binding: If no bound HWID exists or license is unbound, auto-bind this machine as Device-1
     if (license) {
-      if (!license.boundHwid || license.boundHwid === 'UNBOUND') {
+      const isLicensePlaceholder = !license.boundHwid || 
+        license.boundHwid === 'UNBOUND' || 
+        license.boundHwid === 'HWID-PRIMARY-DEVICE' || 
+        license.boundHwid === 'HWID-LOCAL' ||
+        license.boundHwid.startsWith('HWID-DEV-') ||
+        license.boundHwid.startsWith('HWID-DEV1-');
+
+      if (isLicensePlaceholder) {
         license.boundHwid = currentHwid;
         license.currentHwid = currentHwid;
         saveLicenseInfo(license);
+        try {
+          localStorage.setItem('mbi_bound_hwid', currentHwid);
+        } catch {}
         return {
           isAuthorized: true,
           hwid: currentHwid,
@@ -137,15 +159,20 @@ class DeviceSecurityService {
           );
           if (matched) {
             const boundIds = Array.isArray(matched.boundHardwareIds) ? matched.boundHardwareIds : [];
-            // If unbound or first device, auto bind
-            if (boundIds.length === 0) {
+            // If unbound or first device (0 bound devices), auto bind
+            if (boundIds.length === 0 || boundIds.every((id: string) => !id || id.startsWith('HWID-DEV-') || id === 'UNBOUND')) {
               matched.boundHardwareIds = [currentHwid];
               matched.updatedAt = new Date().toISOString();
-              localStorage.setItem('mbi_master_licenses_v2', JSON.stringify(masterLicenses));
+              try {
+                localStorage.setItem('mbi_master_licenses_v2', JSON.stringify(masterLicenses));
+              } catch {}
               if (license) {
                 license.boundHwid = currentHwid;
                 saveLicenseInfo(license);
               }
+              try {
+                localStorage.setItem('mbi_bound_hwid', currentHwid);
+              } catch {}
               return {
                 isAuthorized: true,
                 hwid: currentHwid,
@@ -170,9 +197,17 @@ class DeviceSecurityService {
 
     // If 10-day basic trial or key starts with MBI-TR-, auto-allow primary device
     if (license?.licenseKey?.startsWith('MBI-TR-') || license?.plan === 'Basic' || license?.plan === '10-Day Free Trial') {
-      if (!license.boundHwid || license.boundHwid === 'UNBOUND') {
+      const isTrialPlaceholder = !license.boundHwid || 
+        license.boundHwid === 'UNBOUND' || 
+        license.boundHwid.startsWith('HWID-DEV-') ||
+        license.boundHwid.startsWith('HWID-DEV1-');
+
+      if (isTrialPlaceholder) {
         license.boundHwid = currentHwid;
         saveLicenseInfo(license);
+        try {
+          localStorage.setItem('mbi_bound_hwid', currentHwid);
+        } catch {}
       }
       if (license.boundHwid === currentHwid) {
         return {

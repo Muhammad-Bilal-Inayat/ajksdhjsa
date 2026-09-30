@@ -164,7 +164,7 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
             customerName: customerName || 'Valued Customer',
             customerPhone: customerPhone,
             date: invoiceDate,
-            items: validItems.map(it => ({ name: it.name, quantity: it.quantity, total: it.total })),
+            items: validItems.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice || 0, total: it.total })),
             subTotal,
             discountAmount,
             taxAmount,

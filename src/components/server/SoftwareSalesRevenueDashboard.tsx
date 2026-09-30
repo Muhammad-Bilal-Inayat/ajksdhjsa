@@ -603,7 +603,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
 
     setPlanForm({
       plan: tenant.plan || 'Basic',
-      customPlanName: tenant.plan === 'Custom Plan' ? (tenant as any).customPlanName || '' : '',
+      customPlanName: (tenant.plan as string) === 'Custom Plan' ? (tenant as any).customPlanName || '' : '',
       durationPreset: detectedPreset,
       customDays: 30,
       customDate: tenant.trialExpiryDate && tenant.trialExpiryDate !== 'Lifetime' ? tenant.trialExpiryDate.slice(0, 10) : '',
@@ -744,9 +744,9 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
 
     target.trialExpiryDate = newExpiryStr;
     target.status = 'Active';
-    target.isTrialActive = daysToAdd !== 'lifetime' && target.status === 'Trial';
+    target.isTrialActive = false;
     target.trialExpired = false;
-    target.paidLicenseActive = daysToAdd === 'lifetime' || target.paidLicenseActive;
+    target.paidLicenseActive = true;
     target.isManualOverride = true;
     target.updatedAt = new Date().toISOString();
 

@@ -102,10 +102,12 @@ export const useTenantPlan = (): TenantPlanContextType => {
     return {
       plan: fallbackPlan,
       rawPlan: fallbackPlan,
+      currentPlan: fallbackPlan,
       isTrial: fallbackPlan === 'trial',
       isSilver: fallbackPlan === 'silver' || fallbackPlan === 'trial',
       isGold: fallbackPlan === 'gold',
       isPlatinum: fallbackPlan === 'platinum',
+      isEnterprise: fallbackPlan === 'platinum',
       isModuleAllowed: (mod: string) => isModuleAllowed(mod),
       isRouteAllowed: (route: string) => isRouteAllowed(route),
       isReportAllowed: (rep: string) => isReportAllowed(rep),

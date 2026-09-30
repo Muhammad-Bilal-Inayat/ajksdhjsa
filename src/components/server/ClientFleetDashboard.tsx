@@ -50,7 +50,8 @@ import {
   executeRemoteKillSwitch,
   unlockRemoteInstance,
   getAllClientInstances,
-  logServerActivity
+  logServerActivity,
+  DEFAULT_TENANT_FEATURE_TOGGLES
 } from '../../lib/masterServerService';
 import {
   getAllRegistrationLeads,
@@ -174,6 +175,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
               id: rt.id || tid,
               tenantId: tid,
               organizationId: rt.organization_id || tid,
+              licenseId: rt.license_id || rt.licenseId || `lic_${tid}`,
               name: rt.name,
               ownerName: rt.owner_name || rt.ownerName || 'Store Admin',
               ownerEmail: rt.owner_email || rt.ownerEmail || '',
@@ -190,6 +192,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
               trialExpired: false,
               paidLicenseActive: rt.status === 'Active',
               maxDevices: rt.max_devices || 3,
+              featureToggles: rt.feature_toggles || rt.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
               apiKey: rt.api_key || rt.apiKey || `mbi_live_key_${tid.slice(-6)}_${Date.now().toString(36).toUpperCase()}`,
               totalInvoicesCount: Number(rt.invoice_count) || Number(rt.total_invoices_count) || 0,
               totalProductsCount: 0,

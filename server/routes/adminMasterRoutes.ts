@@ -1320,10 +1320,13 @@ adminMasterRouter.post('/print-config', async (req: TenantRequest, res: Response
 
     // Broadcast live event to all connected clients & tenant terminals
     try {
-      broadcastGlobalEvent('PRINT_CONFIG_UPDATED', {
-        config,
-        timestamp: config.lastUpdated,
-        source: 'MASTER_CONTROL'
+      broadcastGlobalEvent({
+        type: 'PRINT_CONFIG_UPDATED',
+        payload: {
+          config,
+          timestamp: config.lastUpdated,
+          source: 'MASTER_CONTROL'
+        }
       });
     } catch (e) {
       console.warn('[MASTER PRINT BROADCAST WARNING]:', e);

@@ -72,7 +72,7 @@ export interface Tenant {
   id: string; // tenantId
   tenantId: string;
   organizationId: string;
-  licenseId: string;
+  licenseId?: string;
   name: string; // Store / Pharmacy Name
   ownerName: string;
   ownerEmail: string;
@@ -100,7 +100,7 @@ export interface Tenant {
   trialExpired: boolean;
   paidLicenseActive: boolean;
   maxDevices: number;
-  featureToggles: TenantFeatureToggles;
+  featureToggles?: TenantFeatureToggles;
   totalMembersCount?: number;
   totalInvoicesCount?: number;
   totalProductsCount?: number;
@@ -169,6 +169,7 @@ export interface DashboardLayoutPreferences {
 export interface AppUserRecord {
   id: string;
   tenantId?: string;
+  storeName?: string;
   name: string;
   username?: string;
   emailOrPhone: string;

@@ -959,4 +959,291 @@ fleetRouter.post('/tenants/toggle-lock', async (req: TenantRequest, res: Respons
   }
 });
 
+// Helper to ensure permissions table exists in MariaDB
+async function ensurePermissionsTable(pool: any) {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mbi_user_access_profiles (
+        id VARCHAR(255) NOT NULL,
+        tenant_id VARCHAR(128) NOT NULL,
+        user_id VARCHAR(128) NOT NULL,
+        profile_json LONGTEXT NOT NULL,
+        effective_json LONGTEXT NULL,
+        updated_by VARCHAR(128) NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        UNIQUE KEY idx_tenant_user (tenant_id, user_id),
+        KEY idx_user (user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+  } catch (err) {
+    // Non-blocking
+  }
+}
+
+// 18. GET Granular User Access Control Profile: GET /api/fleet/permissions/:userId
+fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const tenantId = (req.query.tenantId as string) || '';
+    if (!userId) {
+      res.status(400).json({ success: false, error: 'userId is required' });
+      return;
+    }
+
+    // 1. Try MariaDB
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await ensurePermissionsTable(pool);
+        const [rows]: any = await pool.query(
+          `SELECT profile_json, effective_json, updated_at, updated_by 
+           FROM mbi_user_access_profiles 
+           WHERE user_id = ? AND (tenant_id = ? OR ? = '') 
+           ORDER BY updated_at DESC LIMIT 1;`,
+          [userId, tenantId, tenantId]
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          const profile = JSON.parse(rows[0].profile_json);
+          const effective = rows[0].effective_json ? JSON.parse(rows[0].effective_json) : null;
+          res.json({
+            success: true,
+            source: 'mariadb',
+            userId,
+            tenantId,
+            profile,
+            effective,
+            updatedAt: rows[0].updated_at,
+            updatedBy: rows[0].updated_by
+          });
+          return;
+        }
+      } catch (dbErr) {}
+    }
+
+    // 2. Try fallback JSON store
+    const permFilePath = path.resolve(process.cwd(), '.master_permissions.json');
+    if (fs.existsSync(permFilePath)) {
+      try {
+        const store = JSON.parse(fs.readFileSync(permFilePath, 'utf-8') || '{}');
+        const key = `${tenantId || 'all'}_${userId}`;
+        const record = store[key] || store[userId];
+        if (record && record.profile) {
+          res.json({
+            success: true,
+            source: 'fallback_store',
+            userId,
+            tenantId,
+            profile: record.profile,
+            effective: record.effective || null,
+            updatedAt: record.updatedAt || new Date().toISOString()
+          });
+          return;
+        }
+      } catch (e) {}
+    }
+
+    res.json({
+      success: false,
+      message: 'No custom override profile found for user. Using role defaults.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching permissions' });
+  }
+});
+
+// 19. SAVE Granular User Access Control Profile & Broadcast Live: POST /api/fleet/permissions/save
+fleetRouter.post('/permissions/save', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, userId, profile, effective, notice, updatedBy } = req.body;
+    if (!userId || !profile) {
+      res.status(400).json({ success: false, error: 'userId and profile are required' });
+      return;
+    }
+
+    const cleanTenantId = tenantId || profile.tenantId || 'tenant_main';
+    const cleanUserId = userId || profile.userId;
+    const adminUser = updatedBy || 'Master Server Admin';
+    const profileJson = typeof profile === 'string' ? profile : JSON.stringify(profile);
+    const effectiveJson = effective ? (typeof effective === 'string' ? effective : JSON.stringify(effective)) : null;
+    const docId = `prof_${cleanTenantId}_${cleanUserId}`;
+
+    // 1. Persist to MariaDB
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await ensurePermissionsTable(pool);
+        await pool.query(
+          `INSERT INTO mbi_user_access_profiles (id, tenant_id, user_id, profile_json, effective_json, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE 
+             profile_json = VALUES(profile_json),
+             effective_json = VALUES(effective_json),
+             updated_by = VALUES(updated_by),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser]
+        );
+
+        // Also update permissions column in mbi_users
+        await pool.query(
+          `UPDATE mbi_users 
+           SET permissions = ?, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL OR tenant_id = '');`,
+          [profileJson, cleanUserId, cleanTenantId]
+        );
+      } catch (dbErr) {
+        console.warn('[Permissions Save MariaDB Notice]:', dbErr);
+      }
+    }
+
+    // 2. Persist to local fallback file .master_permissions.json
+    try {
+      const permFilePath = path.resolve(process.cwd(), '.master_permissions.json');
+      let store: Record<string, any> = {};
+      if (fs.existsSync(permFilePath)) {
+        try { store = JSON.parse(fs.readFileSync(permFilePath, 'utf-8') || '{}'); } catch (e) {}
+      }
+      const record = {
+        tenantId: cleanTenantId,
+        userId: cleanUserId,
+        profile: typeof profile === 'string' ? JSON.parse(profile) : profile,
+        effective: effective ? (typeof effective === 'string' ? JSON.parse(effective) : effective) : null,
+        updatedBy: adminUser,
+        updatedAt: new Date().toISOString()
+      };
+      store[`${cleanTenantId}_${cleanUserId}`] = record;
+      store[cleanUserId] = record;
+      fs.writeFileSync(permFilePath, JSON.stringify(store, null, 2), 'utf-8');
+    } catch (fsErr) {}
+
+    // 3. Real-Time SSE Broadcast directly to the tenant's subscribers
+    const parsedProf = typeof profile === 'string' ? JSON.parse(profile) : profile;
+    const parsedEff = effective ? (typeof effective === 'string' ? JSON.parse(effective) : effective) : null;
+    const changeMessage = notice || `Security permissions and 173-switchboard rules updated for ${cleanUserId}.`;
+
+    broadcastTenantEvent(cleanTenantId, {
+      type: 'MBI_PERMISSIONS_UPDATED',
+      payload: {
+        tenantId: cleanTenantId,
+        userId: cleanUserId,
+        profile: parsedProf,
+        effective: parsedEff,
+        notice: changeMessage,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    // 4. Universal User Announcement Popup
+    broadcastTenantEvent(cleanTenantId, {
+      type: 'NEW_BROADCAST_ANNOUNCEMENT',
+      payload: {
+        id: `perm_${Date.now()}`,
+        title: 'Security & Access Permissions Updated',
+        message: changeMessage,
+        priority: 'urgent',
+        senderName: 'Master Server Admin',
+        targetTenantId: cleanTenantId,
+        targetUserId: cleanUserId,
+        playChime: true,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Permissions for ${cleanUserId} saved successfully and broadcasted to client terminals.`,
+      tenantId: cleanTenantId,
+      userId: cleanUserId
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error saving permissions' });
+  }
+});
+
+// 20. Force Tenant Terminal Sync: POST /api/fleet/sync-tenant
+fleetRouter.post('/sync-tenant', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, tenantName } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    const name = tenantName || 'Pharmacy Terminal';
+
+    broadcastTenantEvent(tenantId, {
+      type: 'FORCE_CLIENT_SYNC',
+      payload: {
+        tenantId,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    broadcastTenantEvent(tenantId, {
+      type: 'NEW_BROADCAST_ANNOUNCEMENT',
+      payload: {
+        id: `sync_${Date.now()}`,
+        title: 'Master Cloud Sync Completed',
+        message: `Cloud database alignment and telemetry refreshed for ${name}.`,
+        priority: 'info',
+        senderName: 'Master Server',
+        targetTenantId: tenantId,
+        playChime: false,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Sync signal sent to ${name} (${tenantId}).`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error syncing tenant' });
+  }
+});
+
+// 21. Dispatch Screen Alert to Specific Pharmacy: POST /api/fleet/alert
+fleetRouter.post('/alert', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, title, message } = req.body;
+    if (!tenantId || !message) {
+      res.status(400).json({ success: false, error: 'tenantId and message are required' });
+      return;
+    }
+
+    const alertTitle = title || 'Important Notice from Head Office';
+
+    broadcastTenantEvent(tenantId, {
+      type: 'NEW_BROADCAST_ANNOUNCEMENT',
+      payload: {
+        id: `alert_${Date.now()}`,
+        title: alertTitle,
+        message,
+        priority: 'urgent',
+        senderName: 'Master Server Admin',
+        targetTenantId: tenantId,
+        playChime: true,
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    broadcastTenantEvent(tenantId, {
+      type: 'CLIENT_SCREEN_ALERT',
+      payload: {
+        title: alertTitle,
+        message,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Alert dispatched successfully to pharmacy ${tenantId}.`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error dispatching alert' });
+  }
+});
+
+
 

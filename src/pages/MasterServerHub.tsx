@@ -44,6 +44,7 @@ import { verifyTotpToken } from '../services/totpService';
 export type ServerTabKey = 
   | 'master_control'
   | 'lan_hub'
+  | 'users_control'
   | 'ai_support'
   | 'clients'
   | 'devices'

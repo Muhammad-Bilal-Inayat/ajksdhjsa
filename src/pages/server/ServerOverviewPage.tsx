@@ -36,7 +36,10 @@ import {
   ArrowLeft,
   Laptop,
   ChevronDown,
-  Printer
+  Printer,
+  Building2,
+  Headphones,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   SYSTEM_MENU_TREE, 
@@ -118,7 +121,7 @@ export const ServerOverviewPage: React.FC = () => {
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates'>('clients');
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>('clients');
 
   // Dedicated Universal Search Query (for Server & Master top search)
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -1532,6 +1535,11 @@ export const ServerOverviewPage: React.FC = () => {
           onOpenGranularModal={(user) => handleOpenGranularModal(user)}
           onOpenResetPasscodeModal={(user) => setResetUserTarget(user)}
         />
+      )}
+
+      {/* RENDER TAB: LIVE ACTIVITY FEED */}
+      {activeServerTab === 'activity' && (
+        <ServerActivityFeedPanel />
       )}
 
       {/* RENDER TAB: SECURITY AUDIT LOG & IP FIREWALL */}

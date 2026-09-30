@@ -1469,22 +1469,6 @@ fleetRouter.post('/permissions/save', async (req: TenantRequest, res: Response):
       }
     });
 
-    // 4. Universal User Announcement Popup
-    broadcastTenantEvent(cleanTenantId, {
-      type: 'NEW_BROADCAST_ANNOUNCEMENT',
-      payload: {
-        id: `perm_${Date.now()}`,
-        title: 'Security & Access Permissions Updated',
-        message: changeMessage,
-        priority: 'urgent',
-        senderName: 'Master Server Admin',
-        targetTenantId: cleanTenantId,
-        targetUserId: cleanUserId,
-        playChime: true,
-        createdAt: new Date().toISOString()
-      }
-    });
-
     res.json({
       success: true,
       message: `Permissions for ${cleanUserId} saved successfully and broadcasted to client terminals.`,

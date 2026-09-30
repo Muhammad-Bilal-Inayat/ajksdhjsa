@@ -10281,20 +10281,6 @@ fleetRouter.post("/permissions/save", async (req, res) => {
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
-    broadcastTenantEvent(cleanTenantId, {
-      type: "NEW_BROADCAST_ANNOUNCEMENT",
-      payload: {
-        id: `perm_${Date.now()}`,
-        title: "Security & Access Permissions Updated",
-        message: changeMessage,
-        priority: "urgent",
-        senderName: "Master Server Admin",
-        targetTenantId: cleanTenantId,
-        targetUserId: cleanUserId,
-        playChime: true,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    });
     res.json({
       success: true,
       message: `Permissions for ${cleanUserId} saved successfully and broadcasted to client terminals.`,

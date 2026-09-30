@@ -134,7 +134,7 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
     name: '💎 Platinum Enterprise',
     badge: 'Enterprise',
     tierIcon: '💎',
-    tagline: 'Multi-branch transfers, Automated WhatsApp Gateway, FBR POS, digital storefront & full audit trail.',
+    tagline: 'Multi-branch transfers, 1-Click WhatsApp Invoicing, FBR POS, digital storefront & full audit trail.',
     isVip: true,
     effectiveMonthly: 5833,
     limits: {
@@ -156,7 +156,7 @@ export const MASTER_PLANS_CONFIG: PlanPricingDetail[] = [
     features: [
       'Up to 15 Concurrent Staff Accounts (Full RBAC)',
       'Up to 10 Pharmacy Branches & Warehouses',
-      'Automated Background WhatsApp Gateway (Auto-Send Invoices & Khatas)',
+      '1-Click Instant WhatsApp Billing & Receipts (POS, Khata, PO)',
       'FBR POS Digital Invoicing, Fiscal Stamps & Tax Compliance',
       'Multi-Branch Stock Transfer Delivery Challans & Central Rebalancing',
       'Digital Pharmacy Online Storefront (E-Commerce Web POS & WhatsApp Orders)',
@@ -214,10 +214,10 @@ export const EXACT_17_POINT_MATRIX: ComparisonMatrixPoint[] = [
   },
   {
     id: 4,
-    feature: 'WhatsApp Billing & Customer Automation',
+    feature: 'WhatsApp Billing & Customer Receipts',
     silver: '🖱️ 1-Click Direct (wa.me)',
     gold: '🖱️ 1-Click Direct + Khata Alerts',
-    platinum: '⚡ Auto Background Gateway (Zero Click)',
+    platinum: '🖱️ 1-Click Instant Share + Multi-Counter',
     highlight: true
   },
   {

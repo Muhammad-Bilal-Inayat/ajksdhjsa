@@ -738,25 +738,67 @@ export function buildSettingsScopeKey(userId?: string | null, tenantId?: string 
   return `${u}__${t}__${f}`;
 }
 
+export const ALL_VALID_DASHBOARD_WIDGET_IDS = [
+  'pharmacy_erp_kpi_metrics',
+  'pharmacy_erp_analytics_hub',
+  'fefo_expiry_status',
+  'todays_profit',
+  'recent_sales',
+  'low_stock_alerts',
+  'sales_expenses',
+  'sales_trend',
+  'top_products',
+  'receivables_payables',
+  'stock_inventory',
+  'reorder_suggestions',
+  'expiry_alerts',
+  'bank_accounts',
+  'weekly_revenue_trajectory',
+  'therapeutic_category_mix',
+  'hourly_rush_velocity',
+  'fast_skus_margin_matrix',
+  'missed_sales_demand',
+  'udhar_aging_whatsapp',
+  'ai_expiry_loss_prevention',
+  'anti_theft_audit_radar',
+  'multi_branch_telemetry',
+  'privacy_mode',
+];
+
 export const DEFAULT_DASHBOARD_MAIN_SECTIONS = [
+  'pharmacy_erp_kpi_metrics',
+  'receivables_payables',
   'todays_profit',
   'recent_sales',
   'sales_expenses',
-  'receivables_payables',
-  'top_products',
   'sales_trend',
+  'top_products',
 ];
 
 export const DEFAULT_DASHBOARD_SIDEBAR_SECTIONS = [
+  'fefo_expiry_status',
+  'expiry_alerts',
+  'therapeutic_category_mix',
+  'weekly_revenue_trajectory',
+  'missed_sales_demand',
+  'udhar_aging_whatsapp',
+  'reorder_suggestions',
+  'pharmacy_erp_analytics_hub',
+  'hourly_rush_velocity',
+  'fast_skus_margin_matrix',
+  'ai_expiry_loss_prevention',
+  'anti_theft_audit_radar',
+  'multi_branch_telemetry',
   'low_stock_alerts',
   'privacy_mode',
   'stock_inventory',
   'bank_accounts',
-  'reorder_suggestions',
-  'expiry_alerts',
 ];
 
 export const DEFAULT_DASHBOARD_WIDGET_VISIBILITY: Record<string, boolean> = {
+  pharmacy_erp_kpi_metrics: true,
+  pharmacy_erp_analytics_hub: true,
+  fefo_expiry_status: true,
   todays_profit: true,
   recent_sales: true,
   low_stock_alerts: true,
@@ -765,8 +807,17 @@ export const DEFAULT_DASHBOARD_WIDGET_VISIBILITY: Record<string, boolean> = {
   top_products: true,
   receivables_payables: true,
   stock_inventory: true,
-  reorder_suggestions: false,
+  reorder_suggestions: true,
   expiry_alerts: true,
+  weekly_revenue_trajectory: true,
+  therapeutic_category_mix: true,
+  hourly_rush_velocity: true,
+  fast_skus_margin_matrix: true,
+  missed_sales_demand: true,
+  udhar_aging_whatsapp: true,
+  ai_expiry_loss_prevention: true,
+  anti_theft_audit_radar: true,
+  multi_branch_telemetry: true,
   bank_accounts: true,
   privacy_mode: true,
 };
@@ -823,53 +874,27 @@ export const defaultUiPreferences: UserUiPreferences = {
 
 export function sanitizeUserPreferences(raw: any): UserUiPreferences {
   const prefs = { ...defaultUiPreferences, ...(raw || {}) };
-  const validMain = new Set(DEFAULT_DASHBOARD_MAIN_SECTIONS);
-  const validSidebar = new Set(DEFAULT_DASHBOARD_SIDEBAR_SECTIONS);
-  const allValid = new Set([...DEFAULT_DASHBOARD_MAIN_SECTIONS, ...DEFAULT_DASHBOARD_SIDEBAR_SECTIONS]);
+  const allValidSet = new Set(ALL_VALID_DASHBOARD_WIDGET_IDS);
 
-  // If dashboardMainOrder has no valid main sections or contains obsolete placeholder keys
-  if (
-    !Array.isArray(prefs.dashboardMainOrder) ||
-    prefs.dashboardMainOrder.some((id: string) => id === 'statCards' || id === 'quickActionPills') ||
-    !prefs.dashboardMainOrder.some((id: string) => validMain.has(id))
-  ) {
+  // Preserve custom main order if array is valid
+  if (Array.isArray(prefs.dashboardMainOrder) && prefs.dashboardMainOrder.length > 0) {
+    prefs.dashboardMainOrder = prefs.dashboardMainOrder.filter((id: string) => allValidSet.has(id));
+  } else {
     prefs.dashboardMainOrder = DEFAULT_DASHBOARD_MAIN_SECTIONS;
-  } else {
-    // Keep only valid IDs and ensure defaults are present
-    const filtered = prefs.dashboardMainOrder.filter((id: string) => validMain.has(id));
-    DEFAULT_DASHBOARD_MAIN_SECTIONS.forEach(id => {
-      if (!filtered.includes(id)) filtered.push(id);
-    });
-    prefs.dashboardMainOrder = filtered;
   }
 
-  // If dashboardSidebarOrder has no valid sidebar sections or contains obsolete placeholder keys
-  if (
-    !Array.isArray(prefs.dashboardSidebarOrder) ||
-    prefs.dashboardSidebarOrder.some((id: string) => id === 'criticalDrapAlerts' || id === 'dailyProfitCard') ||
-    !prefs.dashboardSidebarOrder.some((id: string) => validSidebar.has(id))
-  ) {
+  // Preserve custom sidebar order if array is valid
+  if (Array.isArray(prefs.dashboardSidebarOrder) && prefs.dashboardSidebarOrder.length > 0) {
+    prefs.dashboardSidebarOrder = prefs.dashboardSidebarOrder.filter((id: string) => allValidSet.has(id));
+  } else {
     prefs.dashboardSidebarOrder = DEFAULT_DASHBOARD_SIDEBAR_SECTIONS;
-  } else {
-    const filtered = prefs.dashboardSidebarOrder.filter((id: string) => validSidebar.has(id));
-    DEFAULT_DASHBOARD_SIDEBAR_SECTIONS.forEach(id => {
-      if (!filtered.includes(id)) filtered.push(id);
-    });
-    prefs.dashboardSidebarOrder = filtered;
   }
 
-  // Clean dashboardWidgets to only retain known widget IDs
-  if (prefs.dashboardWidgets && typeof prefs.dashboardWidgets === 'object') {
-    const cleanedWidgets: Record<string, boolean> = { ...DEFAULT_DASHBOARD_WIDGET_VISIBILITY };
-    Object.entries(prefs.dashboardWidgets).forEach(([k, v]) => {
-      if (allValid.has(k)) {
-        cleanedWidgets[k] = Boolean(v);
-      }
-    });
-    prefs.dashboardWidgets = cleanedWidgets;
-  } else {
-    prefs.dashboardWidgets = DEFAULT_DASHBOARD_WIDGET_VISIBILITY;
-  }
+  // Merge widget visibility with defaults so no widget is left undefined
+  prefs.dashboardWidgets = {
+    ...DEFAULT_DASHBOARD_WIDGET_VISIBILITY,
+    ...(raw?.dashboardWidgets || {}),
+  };
 
   return prefs;
 }

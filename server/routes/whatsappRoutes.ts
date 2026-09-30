@@ -144,43 +144,76 @@ whatsappRouter.post('/settings', async (req: TenantRequest, res: Response): Prom
   }
 });
 
-// 2.1 GET /api/whatsapp/qr/:tenantId (Live WhatsApp Web QR session)
-whatsappRouter.get('/qr/:tenantId', async (req: TenantRequest, res: Response): Promise<void> => {
+import { 
+  requestWhatsAppPairing, 
+  getTenantState, 
+  sendWhatsAppMessage, 
+  disconnectWhatsApp 
+} from '../services/baileysService';
+
+// 2.1 POST /api/whatsapp/pair/:tenantId (Live WhatsApp Web Pairing Code Generator)
+whatsappRouter.post('/pair/:tenantId', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { tenantId } = req.params;
-    const sessionRef = `wa_session_${tenantId}_${Date.now()}`;
-    const qrPayload = `2@${Buffer.from(sessionRef).toString('base64')},${Buffer.from('mbi_inventra_gateway').toString('base64')},${Buffer.from(tenantId).toString('base64')}`;
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ success: false, error: 'Phone number is required to generate pairing code' });
+      return;
+    }
 
-    res.json({
-      success: true,
-      tenantId,
-      sessionRef,
-      qrCodeData: qrPayload,
-      status: 'AWAITING_SCAN',
-      expiresInSeconds: 60,
-      instructions: [
-        '1. Open WhatsApp on your phone',
-        '2. Tap Menu (⋮ on Android) or Settings (⚙️ on iPhone)',
-        '3. Tap Linked Devices and then Link a Device',
-        '4. Point your phone at this screen to capture the QR code'
-      ]
-    });
+    const cleanTenantId = tenantId || req.headers['x-tenant-id']?.toString() || 'default';
+    const result = await requestWhatsAppPairing(cleanTenantId, phone);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        tenantId: cleanTenantId,
+        phone,
+        pairingCode: result.pairingCode,
+        status: result.pairingCode ? 'PAIRING' : 'CONNECTED',
+        expiresInSeconds: 160
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error || 'Failed to request live WhatsApp pairing code'
+      });
+    }
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err?.message || 'Error generating QR code' });
+    res.status(500).json({ success: false, error: err?.message || 'Error initiating pairing' });
   }
 });
 
-// 2.2 POST /api/whatsapp/disconnect/:tenantId (Unlink WhatsApp device)
+// 2.2 GET /api/whatsapp/status/:tenantId (Check Live Connection State)
+whatsappRouter.get('/status/:tenantId', (req: TenantRequest, res: Response): void => {
+  try {
+    const { tenantId } = req.params;
+    const cleanTenantId = tenantId || req.headers['x-tenant-id']?.toString() || 'default';
+    const state = getTenantState(cleanTenantId);
+    res.json({
+      success: true,
+      state
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error checking WhatsApp status' });
+  }
+});
+
+// 2.3 POST /api/whatsapp/disconnect/:tenantId (Unlink WhatsApp device)
 whatsappRouter.post('/disconnect/:tenantId', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { tenantId } = req.params;
+    const cleanTenantId = tenantId || req.headers['x-tenant-id']?.toString() || 'default';
+
+    await disconnectWhatsApp(cleanTenantId);
+
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
           `UPDATE mbi_settings SET data = JSON_SET(COALESCE(data, '{}'), '$.isLinked', false, '$.connectedNumber', '')
            WHERE tenant_id = ? AND \`key\` = "whatsapp_config";`,
-          [tenantId]
+          [cleanTenantId]
         );
       } catch {}
     }
@@ -201,6 +234,20 @@ whatsappRouter.post('/send', async (req: TenantRequest, res: Response): Promise<
       return;
     }
 
+    // Attempt real Baileys dispatch
+    let realDeliverySuccess = true;
+    let deliveryNote = '';
+    try {
+      const sendResult = await sendWhatsAppMessage(cleanTenantId, phone, message);
+      if (!sendResult.success) {
+        realDeliverySuccess = false;
+        deliveryNote = sendResult.error || '';
+      }
+    } catch (sendErr: any) {
+      realDeliverySuccess = false;
+      deliveryNote = sendErr?.message || '';
+    }
+
     // Log the automatic background dispatch
     logWhatsAppDispatch({
       tenantId: cleanTenantId,
@@ -209,8 +256,9 @@ whatsappRouter.post('/send', async (req: TenantRequest, res: Response): Promise<
       customerName: customerName || 'Walk-in Customer',
       amount: amount || 0,
       messagePreview: message.substring(0, 100),
-      status: 'DELIVERED',
-      deliveryMode: 'Auto-Background Gateway'
+      status: realDeliverySuccess ? 'DELIVERED' : 'QUEUED',
+      deliveryMode: 'Auto-Background Gateway',
+      note: deliveryNote
     });
 
     // Record in MariaDB Audit Logs
@@ -232,7 +280,9 @@ whatsappRouter.post('/send', async (req: TenantRequest, res: Response): Promise<
 
     res.json({
       success: true,
-      message: `✅ Automated WhatsApp invoice delivered to +${phone}`,
+      message: realDeliverySuccess 
+        ? `✅ Automated WhatsApp invoice delivered to +${phone}` 
+        : `⚠️ WhatsApp logged (Phone not linked yet or queued)`,
       phone,
       invoiceNumber
     });

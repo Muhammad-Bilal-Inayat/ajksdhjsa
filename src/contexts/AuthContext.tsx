@@ -1163,17 +1163,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     onProgress?.('Verifying credentials...');
 
-    // Fast-path synchronization of fleet accounts from server for multi-device/multi-browser login
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        await Promise.allSettled([
-          syncRegistrationLeadsFromFirestore(),
-          syncTenantsFromServer(),
-          syncFleetUsersFromServer()
-        ]);
-      } catch (e) {}
-    }
-
     // Extract digits for resilient phone number matching (e.g. last 10 digits)
     const rawDigits = cleanId.replace(/\D/g, '');
     const searchDigits = rawDigits.length >= 7 ? rawDigits.slice(-10) : '';
@@ -1183,6 +1172,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const vDigits = val.replace(/\D/g, '');
       return vDigits.endsWith(searchDigits) || searchDigits.endsWith(vDigits);
     };
+
+    // Non-blocking background sync of remote fleet accounts without stalling the active login flow
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      Promise.allSettled([
+        syncRegistrationLeadsFromFirestore(),
+        syncTenantsFromServer(),
+        syncFleetUsersFromServer()
+      ]).catch(() => {});
+    }
 
     let matchedUserRecord: AppUserRecord | null = null;
     let authenticatedUserObj: any = null;

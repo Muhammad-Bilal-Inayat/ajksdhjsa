@@ -51,20 +51,24 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   };
 
   // Filter low stock medicines
-  const lowStockList = medicines.filter(m => {
+  const safeMedicines = Array.isArray(medicines) ? medicines : [];
+  const safeInvoices = Array.isArray(invoices) ? invoices : [];
+  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+
+  const lowStockList = safeMedicines.filter(m => {
     const stock = Number(m.quantity || 0);
     const min = Number(m.lowStockThreshold || 10);
     return stock <= min;
   });
 
   // Filter recent invoices
-  const recentInvoices = invoices.slice(0, 8);
+  const recentInvoices = safeInvoices.slice(0, 8);
 
   // Top products calculated
-  const topProducts = medicines
+  const topProducts = safeMedicines
     .map(m => ({
       ...m,
-      salesCount: (invoices || []).reduce((sum, inv) => {
+      salesCount: safeInvoices.reduce((sum, inv) => {
         const line = (inv.items || []).find(it => it.medicineId === m.id || it.name === m.name);
         return sum + (line?.quantity || 0);
       }, 0)
@@ -74,14 +78,14 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
     .slice(0, 6);
 
   // Financial aggregates
-  const totalReceivables = invoices.reduce((sum, inv) => sum + (Number(inv.balanceDue) || 0), 0);
-  const totalPayables = suppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
-  const totalStockValue = medicines.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.purchasePrice) || Number(m.sellingPrice) || 0)), 0);
+  const totalReceivables = safeInvoices.reduce((sum, inv) => sum + (Number(inv.balanceDue) || 0), 0);
+  const totalPayables = safeSuppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
+  const totalStockValue = safeMedicines.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.purchasePrice) || Number(m.sellingPrice) || 0)), 0);
 
   // Search filtered medicines for quick mobile lookup
   const filteredQuickMedicines = quickSearch.trim() 
-    ? medicines.filter(m => 
-        m.name.toLowerCase().includes(quickSearch.toLowerCase()) || 
+    ? safeMedicines.filter(m => 
+        m.name?.toLowerCase().includes(quickSearch.toLowerCase()) || 
         m.genericName?.toLowerCase().includes(quickSearch.toLowerCase()) ||
         m.barcode?.toLowerCase().includes(quickSearch.toLowerCase())
       ).slice(0, 5)

@@ -96,7 +96,7 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
           </div>
 
           <button
-            onClick={() => navigate('/purchase-orders')}
+            onClick={() => navigate('/shortage-registry')}
             className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>PO Shortage Book</span>
@@ -184,7 +184,7 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
           Auto-synced with POS Shortage search bar
         </span>
         <button
-          onClick={() => navigate('/purchase-orders')}
+          onClick={() => navigate('/purchase/order')}
           className="font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:underline cursor-pointer"
         >
           Create Vendor Order

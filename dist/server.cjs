@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_config = require("dotenv/config");
 var import_express18 = __toESM(require("express"));
-var import_path19 = __toESM(require("path"));
-var import_fs19 = __toESM(require("fs"));
+var import_path20 = __toESM(require("path"));
+var import_fs20 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -13819,15 +13819,230 @@ purchaseRouter.post("/inward", createPurchaseOrder);
 
 // server/routes/whatsappRoutes.ts
 var import_express15 = require("express");
+var import_fs17 = __toESM(require("fs"));
+var import_path17 = __toESM(require("path"));
+
+// server/services/baileysService.ts
+var import_baileys = __toESM(require("@whiskeysockets/baileys"));
+var import_pino = __toESM(require("pino"));
 var import_fs16 = __toESM(require("fs"));
 var import_path16 = __toESM(require("path"));
+var tenantSockets = /* @__PURE__ */ new Map();
+var tenantStates = /* @__PURE__ */ new Map();
+var SESSIONS_BASE_DIR = import_path16.default.resolve(process.cwd(), ".whatsapp_sessions");
+if (!import_fs16.default.existsSync(SESSIONS_BASE_DIR)) {
+  try {
+    import_fs16.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
+  } catch {
+  }
+}
+function getTenantState(tenantId) {
+  if (tenantStates.has(tenantId)) {
+    return tenantStates.get(tenantId);
+  }
+  const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
+  const isLinked = import_fs16.default.existsSync(import_path16.default.join(sessionDir, "creds.json"));
+  const state = {
+    tenantId,
+    status: isLinked ? "CONNECTED" : "DISCONNECTED",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  tenantStates.set(tenantId, state);
+  return state;
+}
+async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
+  try {
+    let phone = rawPhoneNumber.replace(/\D/g, "");
+    if (phone.startsWith("03")) {
+      phone = "92" + phone.substring(1);
+    } else if (phone.startsWith("0092")) {
+      phone = "92" + phone.substring(4);
+    } else if (phone.startsWith("923") && phone.length === 12) {
+    } else if (phone.length === 10 && phone.startsWith("3")) {
+      phone = "92" + phone;
+    }
+    if (!phone || phone.length < 10) {
+      return { success: false, error: "Invalid phone number format. Please enter a valid number (e.g. 03001234567 or 923001234567)." };
+    }
+    const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
+    if (tenantSockets.has(tenantId)) {
+      try {
+        const oldSock = tenantSockets.get(tenantId);
+        oldSock.end(void 0);
+      } catch {
+      }
+      tenantSockets.delete(tenantId);
+    }
+    if (import_fs16.default.existsSync(sessionDir)) {
+      try {
+        import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+      } catch {
+      }
+    }
+    import_fs16.default.mkdirSync(sessionDir, { recursive: true });
+    async function startSocket() {
+      const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
+      const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
+      const logger = (0, import_pino.default)({ level: "silent" });
+      const sock2 = (0, import_baileys.default)({
+        version,
+        auth: state,
+        logger,
+        printQRInTerminal: false,
+        browser: import_baileys.Browsers.macOS("Desktop"),
+        syncFullHistory: false,
+        connectTimeoutMs: 6e4,
+        defaultQueryTimeoutMs: 6e4,
+        keepAliveIntervalMs: 1e4
+      });
+      tenantSockets.set(tenantId, sock2);
+      sock2.ev.on("creds.update", saveCreds);
+      sock2.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect } = update;
+        console.log(`[WhatsApp ${tenantId}] Connection update:`, connection, lastDisconnect?.error?.message || "");
+        if (connection === "close") {
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          const shouldReconnect = statusCode !== import_baileys.DisconnectReason.loggedOut;
+          console.log(`[WhatsApp ${tenantId}] Closed with code ${statusCode}. Should reconnect: ${shouldReconnect}`);
+          if (shouldReconnect) {
+            setTimeout(() => startSocket(), 1500);
+          } else {
+            const current = getTenantState(tenantId);
+            tenantStates.set(tenantId, {
+              ...current,
+              status: "DISCONNECTED",
+              lastError: lastDisconnect?.error?.message || "Logged out",
+              updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+            });
+            try {
+              import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+            } catch {
+            }
+          }
+        } else if (connection === "open") {
+          console.log(`[WhatsApp ${tenantId}] \u2705 Connection successfully OPEN and LINKED!`);
+          tenantStates.set(tenantId, {
+            tenantId,
+            status: "CONNECTED",
+            connectedNumber: phone,
+            pairingCode: void 0,
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          });
+        }
+      });
+      return sock2;
+    }
+    const sock = await startSocket();
+    if (!sock.authState.creds.registered) {
+      await new Promise((res) => setTimeout(res, 2500));
+      console.log(`[WhatsApp ${tenantId}] Requesting Pairing Code for:`, phone);
+      const code = await sock.requestPairingCode(phone);
+      console.log(`[WhatsApp ${tenantId}] Received Live Pairing Code:`, code);
+      const formattedCode = code ? code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code : code;
+      tenantStates.set(tenantId, {
+        tenantId,
+        status: "PAIRING",
+        pairingCode: formattedCode,
+        connectedNumber: phone,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      return {
+        success: true,
+        pairingCode: formattedCode
+      };
+    } else {
+      tenantStates.set(tenantId, {
+        tenantId,
+        status: "CONNECTED",
+        connectedNumber: phone,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      return {
+        success: true,
+        pairingCode: void 0
+      };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err?.message || "Failed to request live WhatsApp pairing code"
+    };
+  }
+}
+async function sendWhatsAppMessage(tenantId, rawPhone, message) {
+  try {
+    let phone = rawPhone.replace(/\D/g, "");
+    if (phone.startsWith("03")) {
+      phone = "92" + phone.substring(1);
+    } else if (phone.startsWith("0092")) {
+      phone = "92" + phone.substring(4);
+    } else if (phone.startsWith("3") && phone.length === 10) {
+      phone = "92" + phone;
+    }
+    const jid = `${phone}@s.whatsapp.net`;
+    let sock = tenantSockets.get(tenantId);
+    if (!sock) {
+      const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
+      if (import_fs16.default.existsSync(import_path16.default.join(sessionDir, "creds.json"))) {
+        const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
+        const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
+        sock = (0, import_baileys.default)({
+          version,
+          auth: state,
+          logger: (0, import_pino.default)({ level: "silent" }),
+          printQRInTerminal: false,
+          browser: ["MBI Inventra", "Chrome", "1.0.0"]
+        });
+        sock.ev.on("creds.update", saveCreds);
+        tenantSockets.set(tenantId, sock);
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    if (!sock) {
+      return { success: false, error: "WhatsApp is not connected for this tenant. Please pair phone in Settings." };
+    }
+    await sock.sendMessage(jid, { text: message });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err?.message || "Failed to dispatch WhatsApp message" };
+  }
+}
+async function disconnectWhatsApp(tenantId) {
+  try {
+    if (tenantSockets.has(tenantId)) {
+      try {
+        const sock = tenantSockets.get(tenantId);
+        await sock.logout();
+      } catch {
+      }
+      tenantSockets.delete(tenantId);
+    }
+    const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
+    if (import_fs16.default.existsSync(sessionDir)) {
+      try {
+        import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+      } catch {
+      }
+    }
+    tenantStates.set(tenantId, {
+      tenantId,
+      status: "DISCONNECTED",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    return { success: true };
+  } catch {
+    return { success: true };
+  }
+}
+
+// server/routes/whatsappRoutes.ts
 var whatsappRouter = (0, import_express15.Router)();
-var whatsappHistoryFile = import_path16.default.resolve(process.cwd(), ".whatsapp_history.json");
+var whatsappHistoryFile = import_path17.default.resolve(process.cwd(), ".whatsapp_history.json");
 function logWhatsAppDispatch(log) {
   try {
     let history = [];
-    if (import_fs16.default.existsSync(whatsappHistoryFile)) {
-      history = JSON.parse(import_fs16.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+    if (import_fs17.default.existsSync(whatsappHistoryFile)) {
+      history = JSON.parse(import_fs17.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
     }
     history.unshift({
       id: `wa_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -13835,7 +14050,7 @@ function logWhatsAppDispatch(log) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
     if (history.length > 500) history = history.slice(0, 500);
-    import_fs16.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
+    import_fs17.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
   } catch {
   }
 }
@@ -13951,39 +14166,60 @@ whatsappRouter.post("/settings", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error saving WhatsApp settings" });
   }
 });
-whatsappRouter.get("/qr/:tenantId", async (req, res) => {
+whatsappRouter.post("/pair/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
-    const sessionRef = `wa_session_${tenantId}_${Date.now()}`;
-    const qrPayload = `2@${Buffer.from(sessionRef).toString("base64")},${Buffer.from("mbi_inventra_gateway").toString("base64")},${Buffer.from(tenantId).toString("base64")}`;
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ success: false, error: "Phone number is required to generate pairing code" });
+      return;
+    }
+    const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
+    const result = await requestWhatsAppPairing(cleanTenantId, phone);
+    if (result.success) {
+      res.json({
+        success: true,
+        tenantId: cleanTenantId,
+        phone,
+        pairingCode: result.pairingCode,
+        status: result.pairingCode ? "PAIRING" : "CONNECTED",
+        expiresInSeconds: 160
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error || "Failed to request live WhatsApp pairing code"
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error initiating pairing" });
+  }
+});
+whatsappRouter.get("/status/:tenantId", (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
+    const state = getTenantState(cleanTenantId);
     res.json({
       success: true,
-      tenantId,
-      sessionRef,
-      qrCodeData: qrPayload,
-      status: "AWAITING_SCAN",
-      expiresInSeconds: 60,
-      instructions: [
-        "1. Open WhatsApp on your phone",
-        "2. Tap Menu (\u22EE on Android) or Settings (\u2699\uFE0F on iPhone)",
-        "3. Tap Linked Devices and then Link a Device",
-        "4. Point your phone at this screen to capture the QR code"
-      ]
+      state
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error generating QR code" });
+    res.status(500).json({ success: false, error: err?.message || "Error checking WhatsApp status" });
   }
 });
 whatsappRouter.post("/disconnect/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
+    const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
+    await disconnectWhatsApp(cleanTenantId);
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query(
           `UPDATE mbi_settings SET data = JSON_SET(COALESCE(data, '{}'), '$.isLinked', false, '$.connectedNumber', '')
            WHERE tenant_id = ? AND \`key\` = "whatsapp_config";`,
-          [tenantId]
+          [cleanTenantId]
         );
       } catch {
       }
@@ -14001,6 +14237,18 @@ whatsappRouter.post("/send", async (req, res) => {
       res.status(400).json({ success: false, error: "Phone number and message text are required" });
       return;
     }
+    let realDeliverySuccess = true;
+    let deliveryNote = "";
+    try {
+      const sendResult = await sendWhatsAppMessage(cleanTenantId, phone, message);
+      if (!sendResult.success) {
+        realDeliverySuccess = false;
+        deliveryNote = sendResult.error || "";
+      }
+    } catch (sendErr) {
+      realDeliverySuccess = false;
+      deliveryNote = sendErr?.message || "";
+    }
     logWhatsAppDispatch({
       tenantId: cleanTenantId,
       phone,
@@ -14008,8 +14256,9 @@ whatsappRouter.post("/send", async (req, res) => {
       customerName: customerName || "Walk-in Customer",
       amount: amount || 0,
       messagePreview: message.substring(0, 100),
-      status: "DELIVERED",
-      deliveryMode: "Auto-Background Gateway"
+      status: realDeliverySuccess ? "DELIVERED" : "QUEUED",
+      deliveryMode: "Auto-Background Gateway",
+      note: deliveryNote
     });
     if (await isMariaDbAvailable()) {
       try {
@@ -14029,7 +14278,7 @@ whatsappRouter.post("/send", async (req, res) => {
     }
     res.json({
       success: true,
-      message: `\u2705 Automated WhatsApp invoice delivered to +${phone}`,
+      message: realDeliverySuccess ? `\u2705 Automated WhatsApp invoice delivered to +${phone}` : `\u26A0\uFE0F WhatsApp logged (Phone not linked yet or queued)`,
       phone,
       invoiceNumber
     });
@@ -14041,9 +14290,9 @@ whatsappRouter.get("/history/:tenantId", (req, res) => {
   try {
     const { tenantId } = req.params;
     let history = [];
-    if (import_fs16.default.existsSync(whatsappHistoryFile)) {
+    if (import_fs17.default.existsSync(whatsappHistoryFile)) {
       try {
-        const all = JSON.parse(import_fs16.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+        const all = JSON.parse(import_fs17.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
         history = all.filter((h) => h.tenantId === tenantId || tenantId === "all");
       } catch {
       }
@@ -14100,10 +14349,10 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
 
 // server/routes/cmsRoutes.ts
 var import_express16 = __toESM(require("express"));
-var import_fs17 = __toESM(require("fs"));
-var import_path17 = __toESM(require("path"));
+var import_fs18 = __toESM(require("fs"));
+var import_path18 = __toESM(require("path"));
 var cmsRouter = import_express16.default.Router();
-var TESTIMONIALS_FILE = import_path17.default.resolve(process.cwd(), ".testimonials_store.json");
+var TESTIMONIALS_FILE = import_path18.default.resolve(process.cwd(), ".testimonials_store.json");
 var SEED_TESTIMONIALS = [
   {
     id: "test-1",
@@ -14174,11 +14423,11 @@ var SEED_TESTIMONIALS = [
 ];
 function loadTestimonialsFromDisk() {
   try {
-    if (!import_fs17.default.existsSync(TESTIMONIALS_FILE)) {
-      import_fs17.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
+    if (!import_fs18.default.existsSync(TESTIMONIALS_FILE)) {
+      import_fs18.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
       return SEED_TESTIMONIALS;
     }
-    const raw = import_fs17.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
+    const raw = import_fs18.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
@@ -14191,7 +14440,7 @@ function loadTestimonialsFromDisk() {
 }
 function saveTestimonialsToDisk(items) {
   try {
-    import_fs17.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
+    import_fs18.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write testimonials file:", err);
@@ -14283,29 +14532,29 @@ cmsRouter.delete("/testimonials/:id", (req, res) => {
 
 // server/routes/backupRoutes.ts
 var import_express17 = __toESM(require("express"));
-var import_fs18 = __toESM(require("fs"));
-var import_path18 = __toESM(require("path"));
+var import_fs19 = __toESM(require("fs"));
+var import_path19 = __toESM(require("path"));
 var backupRouter = import_express17.default.Router();
-var BACKUP_DIR = import_path18.default.join(process.cwd(), ".server_backups_vault");
-if (!import_fs18.default.existsSync(BACKUP_DIR)) {
+var BACKUP_DIR = import_path19.default.join(process.cwd(), ".server_backups_vault");
+if (!import_fs19.default.existsSync(BACKUP_DIR)) {
   try {
-    import_fs18.default.mkdirSync(BACKUP_DIR, { recursive: true });
+    import_fs19.default.mkdirSync(BACKUP_DIR, { recursive: true });
   } catch (e) {
     console.error("[Backup Vault] Failed to create backup dir:", e);
   }
 }
 backupRouter.get("/backups", (req, res) => {
   try {
-    if (!import_fs18.default.existsSync(BACKUP_DIR)) {
+    if (!import_fs19.default.existsSync(BACKUP_DIR)) {
       return res.json({ success: true, backups: [] });
     }
-    const files = import_fs18.default.readdirSync(BACKUP_DIR);
+    const files = import_fs19.default.readdirSync(BACKUP_DIR);
     const backups = files.filter((f) => f.endsWith(".json") || f.endsWith(".enc") || f.endsWith(".mbibackup")).map((file) => {
-      const filePath = import_path18.default.join(BACKUP_DIR, file);
-      const stats = import_fs18.default.statSync(filePath);
+      const filePath = import_path19.default.join(BACKUP_DIR, file);
+      const stats = import_fs19.default.statSync(filePath);
       let metadata = {};
       try {
-        const content = import_fs18.default.readFileSync(filePath, "utf-8");
+        const content = import_fs19.default.readFileSync(filePath, "utf-8");
         const parsed = JSON.parse(content);
         metadata = {
           tenantId: parsed.tenantId || "tenant_default",
@@ -14338,8 +14587,8 @@ backupRouter.post("/backup/push", (req, res) => {
     const safeTenant = (installationId || "tenant_main").replace(/[^a-zA-Z0-9_-]/g, "_");
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const filename = `vault-${safeTenant}-${timestamp}.mbibackup`;
-    const filePath = import_path18.default.join(BACKUP_DIR, filename);
-    import_fs18.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
+    const filePath = import_path19.default.join(BACKUP_DIR, filename);
+    import_fs19.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
     res.json({
       success: true,
       filename,
@@ -14353,14 +14602,14 @@ backupRouter.post("/backup/push", (req, res) => {
 backupRouter.get("/backup/download/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path18.default.basename(filename);
-    const filePath = import_path18.default.join(BACKUP_DIR, safeFilename);
-    if (!import_fs18.default.existsSync(filePath)) {
+    const safeFilename = import_path19.default.basename(filename);
+    const filePath = import_path19.default.join(BACKUP_DIR, safeFilename);
+    if (!import_fs19.default.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Backup file not found" });
     }
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
     res.setHeader("Content-Type", "application/octet-stream");
-    import_fs18.default.createReadStream(filePath).pipe(res);
+    import_fs19.default.createReadStream(filePath).pipe(res);
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -14368,10 +14617,10 @@ backupRouter.get("/backup/download/:filename", (req, res) => {
 backupRouter.delete("/backup/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path18.default.basename(filename);
-    const filePath = import_path18.default.join(BACKUP_DIR, safeFilename);
-    if (import_fs18.default.existsSync(filePath)) {
-      import_fs18.default.unlinkSync(filePath);
+    const safeFilename = import_path19.default.basename(filename);
+    const filePath = import_path19.default.join(BACKUP_DIR, safeFilename);
+    if (import_fs19.default.existsSync(filePath)) {
+      import_fs19.default.unlinkSync(filePath);
       return res.json({ success: true, message: `Backup file ${safeFilename} deleted from vault` });
     }
     res.status(404).json({ success: false, message: "File not found" });
@@ -14416,7 +14665,7 @@ async function startServer() {
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
-  const syncFile12 = import_path19.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile12 = import_path20.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -14493,8 +14742,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path19.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs19.default.existsSync(ddlPath)) {
+    const ddlPath = import_path20.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs20.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -14566,8 +14815,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs19.default.existsSync(syncFile12)) {
-        memorySyncData = JSON.parse(import_fs19.default.readFileSync(syncFile12, "utf-8"));
+      if (import_fs20.default.existsSync(syncFile12)) {
+        memorySyncData = JSON.parse(import_fs20.default.readFileSync(syncFile12, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -14583,8 +14832,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile12}.tmp`;
-      import_fs19.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs19.default.renameSync(tmpFile, syncFile12);
+      import_fs20.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs20.default.renameSync(tmpFile, syncFile12);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile12 }, "/api/sync/flush");
@@ -14674,8 +14923,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs19.default.existsSync(syncFile12)) {
-        const stat = import_fs19.default.statSync(syncFile12);
+      if (import_fs20.default.existsSync(syncFile12)) {
+        const stat = import_fs20.default.statSync(syncFile12);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -15449,29 +15698,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path19.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path19.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path19.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path19.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path19.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path19.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path19.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path19.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path19.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path19.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path19.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path19.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path19.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs19.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path20.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path20.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path20.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path20.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path20.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path20.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path20.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path20.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path20.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path20.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path20.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path20.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path20.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs20.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs19.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs20.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs19.default.existsSync(filePath)) {
-        return JSON.parse(import_fs19.default.readFileSync(filePath, "utf-8"));
+      if (import_fs20.default.existsSync(filePath)) {
+        return JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -15479,7 +15728,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs19.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -15497,7 +15746,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs19.default.existsSync(masterConfigFile)) {
+    if (!import_fs20.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -15832,7 +16081,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path19.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path20.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -16621,14 +16870,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs19.default.readdirSync(masterBackupsDir);
+      let files = import_fs20.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs19.default.readFileSync(import_path19.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -16652,9 +16901,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs19.default.existsSync(masterLicensesFile)) {
+      if (import_fs20.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs19.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs20.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -16702,9 +16951,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs19.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs20.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs19.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs20.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -16720,7 +16969,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs19.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -16738,7 +16987,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path19.default.join(masterBackupsDir, fileName);
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -16758,15 +17007,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs19.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs19.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs20.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs19.default.statSync(import_path19.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs20.default.statSync(import_path20.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs19.default.unlinkSync(import_path19.default.join(masterBackupsDir, oldFile.name));
+              import_fs20.default.unlinkSync(import_path20.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -16821,11 +17070,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path19.default.join(masterBackupsDir, fileName);
-      if (!import_fs19.default.existsSync(filePath)) {
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
+      if (!import_fs20.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs19.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -16837,9 +17086,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path19.default.join(masterBackupsDir, fileName);
-      if (import_fs19.default.existsSync(filePath)) {
-        import_fs19.default.unlinkSync(filePath);
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
+      if (import_fs20.default.existsSync(filePath)) {
+        import_fs20.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -16851,14 +17100,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs19.default.readdirSync(masterBackupsDir);
+      let files = import_fs20.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs19.default.readFileSync(import_path19.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -16908,18 +17157,18 @@ async function startServer() {
     }
   });
   const isProduction = process.env.NODE_ENV === "production";
-  const distPath = import_path19.default.join(process.cwd(), "dist");
-  if (isProduction && import_fs19.default.existsSync(import_path19.default.join(distPath, "index.html"))) {
-    app.use("/assets", import_express18.default.static(import_path19.default.join(distPath, "assets"), {
+  const distPath = import_path20.default.join(process.cwd(), "dist");
+  if (isProduction && import_fs20.default.existsSync(import_path20.default.join(distPath, "index.html"))) {
+    app.use("/assets", import_express18.default.static(import_path20.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
       fallthrough: true
     }));
-    app.use("*/assets", import_express18.default.static(import_path19.default.join(distPath, "assets"), {
+    app.use("*/assets", import_express18.default.static(import_path20.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
     }));
-    app.use(import_express18.default.static(import_path19.default.join(process.cwd(), "public"), {
+    app.use(import_express18.default.static(import_path20.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
     app.use(import_express18.default.static(distPath, {
@@ -16935,7 +17184,7 @@ async function startServer() {
         return res.status(404).json({ error: "Endpoint not found" });
       }
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(import_path19.default.join(distPath, "index.html"));
+      res.sendFile(import_path20.default.join(distPath, "index.html"));
     });
   } else {
     const { createServer: createViteServer } = await import("vite");

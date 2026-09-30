@@ -287,33 +287,34 @@ export const Dashboard: React.FC = () => {
   const [pushedShortageIds, setPushedShortageIds] = useState<Set<string>>(new Set());
   const [isBulkPushingShortage, setIsBulkPushingShortage] = useState(false);
 
-  // Sanitizers to prevent stale/invalid widget keys or empty dashboard state
+  // Sanitizers to prevent stale/invalid widget keys while preserving exact user placement & moved zones
   const sanitizeMain = (order?: string[]): string[] => {
     if (!order || !Array.isArray(order) || order.length === 0) return DEFAULT_MAIN_SECTIONS;
     const allIds = new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id));
-    const valid = order.filter(id => allIds.has(id));
-    const validSet = new Set(valid);
-    DEFAULT_MAIN_SECTIONS.forEach(id => {
-      if (!validSet.has(id)) {
-        valid.push(id);
-        validSet.add(id);
+    const seen = new Set<string>();
+    const valid = order.filter(id => {
+      if (allIds.has(id) && !seen.has(id)) {
+        seen.add(id);
+        return true;
       }
+      return false;
     });
     return valid.length > 0 ? valid : DEFAULT_MAIN_SECTIONS;
   };
 
-  const sanitizeSidebar = (order?: string[]): string[] => {
+  const sanitizeSidebar = (order?: string[], excludeFromMain?: string[]): string[] => {
     if (!order || !Array.isArray(order) || order.length === 0) return DEFAULT_SIDEBAR_SECTIONS;
     const allIds = new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id));
-    const valid = order.filter(id => allIds.has(id));
-    const validSet = new Set(valid);
-    DEFAULT_SIDEBAR_SECTIONS.forEach(id => {
-      if (!validSet.has(id)) {
-        valid.push(id);
-        validSet.add(id);
+    const mainSet = new Set(excludeFromMain || []);
+    const seen = new Set<string>();
+    const valid = order.filter(id => {
+      if (allIds.has(id) && !seen.has(id) && !mainSet.has(id)) {
+        seen.add(id);
+        return true;
       }
+      return false;
     });
-    return valid.length > 0 ? valid : DEFAULT_SIDEBAR_SECTIONS;
+    return valid;
   };
 
   const sanitizeVis = (vis?: Record<string, boolean>): Record<string, boolean> => {
@@ -372,14 +373,16 @@ export const Dashboard: React.FC = () => {
 
   const [sidebarOrder, setSidebarOrder] = useState<string[]>(() => {
     if (userPreferences?.dashboardSidebarOrder && userPreferences.dashboardSidebarOrder.length > 0) {
-      return sanitizeSidebar(userPreferences.dashboardSidebarOrder);
+      return sanitizeSidebar(userPreferences.dashboardSidebarOrder, userPreferences?.dashboardMainOrder);
     }
     try {
       const saved = localStorage.getItem('mbi_dashboard_sidebar_order_v3');
+      const savedMain = localStorage.getItem('mbi_dashboard_main_order_v3');
+      const parsedMain = savedMain ? JSON.parse(savedMain) : [];
       if (saved) {
         const parsed: string[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return sanitizeSidebar(parsed);
+          return sanitizeSidebar(parsed, parsedMain);
         }
       }
     } catch (e) {
@@ -407,7 +410,7 @@ export const Dashboard: React.FC = () => {
       });
     }
     if (userPreferences?.dashboardSidebarOrder?.length) {
-      const sanitized = sanitizeSidebar(userPreferences.dashboardSidebarOrder);
+      const sanitized = sanitizeSidebar(userPreferences.dashboardSidebarOrder, userPreferences?.dashboardMainOrder);
       setSidebarOrder(prev => {
         const prevStr = JSON.stringify(prev);
         const nextStr = JSON.stringify(sanitized);
@@ -726,7 +729,8 @@ export const Dashboard: React.FC = () => {
     };
   }, [timeFilter, effectiveTenantId, effectiveFirmId]);
 
-  const applySummaryData = (summary: DashboardAggregatedSummary) => {
+  const applySummaryData = (summary?: DashboardAggregatedSummary | null) => {
+    if (!summary) return;
     setTotalSale(summary.totalSale ?? 0);
     setTotalPurchase(summary.totalPurchase ?? 0);
     setTotalExpenses(summary.totalExpenses ?? 0);
@@ -737,21 +741,21 @@ export const Dashboard: React.FC = () => {
       setTodayMetrics(summary.todayMetrics);
     }
     if (summary.topProducts) {
-      setTopProducts(summary.topProducts);
+      setTopProducts(Array.isArray(summary.topProducts) ? summary.topProducts : []);
     }
     if (summary.lowStockAlerts) {
-      setLowStockAlerts(summary.lowStockAlerts);
+      setLowStockAlerts(Array.isArray(summary.lowStockAlerts) ? summary.lowStockAlerts : []);
     }
     if (summary.nearExpiryAlerts) {
-      setNearExpiryAlerts(summary.nearExpiryAlerts);
+      setNearExpiryAlerts(Array.isArray(summary.nearExpiryAlerts) ? summary.nearExpiryAlerts : []);
     }
     if (summary.recentSales) {
-      setRecentSales(summary.recentSales);
+      setRecentSales(Array.isArray(summary.recentSales) ? summary.recentSales : []);
     }
-    if (summary.salesTrend?.daily && summary.salesTrend.daily.length > 0) {
+    if (summary.salesTrend?.daily && Array.isArray(summary.salesTrend.daily) && summary.salesTrend.daily.length > 0) {
       setDailySalesData(summary.salesTrend.daily);
     }
-    if (summary.salesTrend?.weekly && summary.salesTrend.weekly.length > 0) {
+    if (summary.salesTrend?.weekly && Array.isArray(summary.salesTrend.weekly) && summary.salesTrend.weekly.length > 0) {
       setWeeklySalesData(summary.salesTrend.weekly);
     }
   };
@@ -1056,7 +1060,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/reports?report=fefo_expiry')}
+              onClick={() => navigate('/reports?report=fefo_expiry_report')}
               className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs whitespace-nowrap"
               title="Open Detailed FEFO Expiry Report"
             >
@@ -1078,7 +1082,7 @@ export const Dashboard: React.FC = () => {
           
           {/* Bucket 1: Next 30 Days */}
           <div 
-            onClick={() => navigate('/reports?report=fefo_expiry')}
+            onClick={() => navigate('/reports?report=fefo_expiry_report')}
             title="Click to view medicines expiring in next 30 days"
             className="bg-rose-50/80 border border-rose-200 hover:border-rose-400 hover:bg-rose-100/70 hover:shadow-md rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all duration-200 group active:scale-[0.99]"
           >
@@ -1110,7 +1114,7 @@ export const Dashboard: React.FC = () => {
 
           {/* Bucket 2: 31 - 60 Days */}
           <div 
-            onClick={() => navigate('/reports?report=fefo_expiry')}
+            onClick={() => navigate('/reports?report=fefo_expiry_report')}
             title="Click to view medicines expiring in 31-60 days"
             className="bg-orange-50/80 border border-orange-200 hover:border-orange-400 hover:bg-orange-100/70 hover:shadow-md rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all duration-200 group active:scale-[0.99]"
           >
@@ -1142,7 +1146,7 @@ export const Dashboard: React.FC = () => {
 
           {/* Bucket 3: 61 - 90 Days */}
           <div 
-            onClick={() => navigate('/reports?report=fefo_expiry')}
+            onClick={() => navigate('/reports?report=fefo_expiry_report')}
             title="Click to view medicines expiring in 61-90 days"
             className="bg-amber-50/80 border border-amber-200 hover:border-amber-400 hover:bg-amber-100/70 hover:shadow-md rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all duration-200 group active:scale-[0.99]"
           >
@@ -1174,7 +1178,7 @@ export const Dashboard: React.FC = () => {
 
           {/* Bucket 4: 91 - 180 Days */}
           <div 
-            onClick={() => navigate('/reports?report=fefo_expiry')}
+            onClick={() => navigate('/reports?report=fefo_expiry_report')}
             title="Click to view medicines expiring in 91-180 days"
             className="bg-blue-50/80 border border-blue-200 hover:border-blue-400 hover:bg-blue-100/70 hover:shadow-md rounded-xl p-3 flex flex-col justify-between cursor-pointer transition-all duration-200 group active:scale-[0.99]"
           >
@@ -1228,7 +1232,7 @@ export const Dashboard: React.FC = () => {
                 return (
                   <div 
                     key={item.id}
-                    onClick={() => navigate('/reports?report=fefo_expiry')}
+                    onClick={() => navigate('/reports?report=fefo_expiry_report')}
                     className="p-2.5 flex items-center justify-between gap-3 hover:bg-amber-50/60 cursor-pointer transition-colors"
                   >
                     <div className="min-w-0 flex-1">
@@ -1277,7 +1281,7 @@ export const Dashboard: React.FC = () => {
           FEFO ensures batches expiring first are allocated before newer inventory.
         </span>
         <button
-          onClick={() => navigate('/reports?report=fefo_expiry')}
+          onClick={() => navigate('/reports?report=fefo_expiry_report')}
           className="font-bold text-amber-700 hover:text-amber-900 flex items-center gap-1 cursor-pointer"
         >
           <span>Open Full FEFO Expiry Management Report</span>
@@ -3069,11 +3073,12 @@ export const Dashboard: React.FC = () => {
   }, [mainOrder, widgetVisibility, allWidgetIds]);
 
   const visibleSidebarSections = useMemo(() => {
+    const mainSet = new Set(mainOrder);
     const list = sidebarOrder
-      .filter(id => allWidgetIds.has(id))
+      .filter(id => allWidgetIds.has(id) && !mainSet.has(id))
       .filter(id => widgetVisibility[id] !== false);
     return list;
-  }, [sidebarOrder, widgetVisibility, allWidgetIds]);
+  }, [sidebarOrder, mainOrder, widgetVisibility, allWidgetIds]);
 
   return (
     <div className="space-y-4 max-w-full pb-12">

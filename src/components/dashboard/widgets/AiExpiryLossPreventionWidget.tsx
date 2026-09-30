@@ -87,7 +87,7 @@ export const AiExpiryLossPreventionWidget: React.FC<AiExpiryLossPreventionWidget
           </div>
 
           <button
-            onClick={() => navigate('/credit-notes')}
+            onClick={() => navigate('/purchase/return')}
             className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Debit Returns</span>
@@ -173,7 +173,7 @@ export const AiExpiryLossPreventionWidget: React.FC<AiExpiryLossPreventionWidget
           Distributor 30-day debit window active
         </span>
         <button
-          onClick={() => navigate('/credit-notes')}
+          onClick={() => navigate('/purchase/return')}
           className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
         >
           View Supplier Ledger Returns

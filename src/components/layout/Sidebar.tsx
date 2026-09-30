@@ -352,9 +352,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const effectiveUserId = activeUser?.id || currentUser?.uid || 'usr_active';
     const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId;
-    const activePlanTier: PlanTier = getActiveTenantPlan(effectiveTenantId);
-    const effectivePlan = (tenant as any)?.plan || activePlanTier;
     const isOwner = isPrimaryOwner(activeUser || currentUser) || activeRole === 'Primary Admin' || (activeUser as any)?.is_primary_owner === true;
+    const effectivePlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+    const rawTier = effectivePlan ? normalizePlan(effectivePlan) : getActiveTenantPlan(effectiveTenantId);
+    const activePlanTier: PlanTier = (isOwner || rawTier === 'platinum') ? 'platinum' : rawTier;
     const assignedUserMenus = getEffectiveAllowedMenus(activeUser || currentUser);
 
     const menuIdMap: Record<string, string> = {
@@ -363,6 +364,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: 'items',
       inventory: 'items',
       onlineStore: 'onlineStore',
+      bookers: 'bookers',
       sale: 'sale',
       shifts: 'shifts',
       purchase: 'purchase',
@@ -385,7 +387,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // Strict Plan-Tier Feature Gating
         // Hide enterprise only modules on Silver/Trial unless Super Admin /server override or allowed by plan
         if (item.id === 'onlineStore' || item.id === 'bookers') {
-          if (!isPlanModuleAllowed(item.id, effectiveTenantId, activePlanTier)) return false;
+          if (!isOwner && !isPlanModuleAllowed(item.id, effectiveTenantId, activePlanTier)) return false;
         }
 
         const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
@@ -484,8 +486,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const currentUid = activeUser?.id || currentUser?.uid || 'usr_active';
   const currentTid = tenant?.tenantId || tenant?.id || tenantId;
-  const activePlanTier: PlanTier = getActiveTenantPlan(currentTid);
-  const currentPlan = (tenant as any)?.plan || activePlanTier;
+  const isOwnerGlobal = isPrimaryOwner(activeUser || currentUser) || activeRole === 'Primary Admin' || (activeUser as any)?.is_primary_owner === true;
+  const currentRawPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+  const activePlanTier: PlanTier = (isOwnerGlobal || (currentRawPlan && normalizePlan(currentRawPlan) === 'platinum')) ? 'platinum' : getActiveTenantPlan(currentTid);
+  const currentPlan = currentRawPlan || (activePlanTier === 'platinum' ? 'Enterprise (Platinum)' : activePlanTier);
 
   // Visible settings tabs allowed by current plan & dynamic overrides
   const visibleSettingsTabs = useMemo(() => {

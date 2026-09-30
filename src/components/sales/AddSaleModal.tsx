@@ -245,9 +245,6 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const docInputRef = useRef<HTMLInputElement>(null);
   const isJustSavedRef = useRef<boolean>(false);
 
-  // Dedicated Discount column flag (controlled by Settings > Item-wise Discount & Print/Invoice Table Columns)
-  const showDiscountCol = settings.print?.tableColumns?.discount !== false && settings.item?.itemWiseDiscount !== false;
-
   // Close & Discard Confirmation Guard
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
@@ -482,6 +479,9 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
   // Active Tab Getter & Updater
   const currentTab = tabs.find(t => t.id === activeTabId) || tabs[0];
+
+  // Dedicated Discount column flag (controlled by Settings > Item-wise Discount & Print/Invoice Table Columns or Warranty Mode)
+  const showDiscountCol = (settings.print?.tableColumns?.discount !== false && settings.item?.itemWiseDiscount !== false) || !!currentTab?.isWarrantyBill;
 
   const updateCurrentTab = (updates: Partial<SaleTabState>) => {
     if (!currentTab) return;
@@ -754,8 +754,17 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
 
   const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
+    const tabToClose = tabs.find(t => t.id === tabId);
+    const hasItems = tabToClose && tabToClose.items.some(i => i.name && i.name.trim().length > 0);
+    if (hasItems) {
+      const confirmClose = window.confirm(`Is "${tabToClose.tabLabel}" tab me billed items mojood hain. Kia aap waqai is tab ko close karna chahte hain?`);
+      if (!confirmClose) {
+        return;
+      }
+    }
     if (tabs.length === 1) {
-      onClose();
+      handleRequestClose();
       return;
     }
     const filtered = tabs.filter(t => t.id !== tabId);
@@ -939,7 +948,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const authoritativeLatestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, med.name);
     const unitSellingPrice = (med.sellingPrice !== undefined && med.sellingPrice !== null && med.sellingPrice > 0)
       ? med.sellingPrice
-      : (med.salePrice || bestBatch?.salePrice || bestBatch?.mrp || med.mrp || authoritativeLatestPur || 0);
+      : (med.salePrice || (bestBatch as any)?.salePrice || bestBatch?.mrp || med.mrp || authoritativeLatestPur || 0);
     const retailMrp = bestBatch?.mrp || med.mrp || unitSellingPrice;
 
     setLightningSelectedMed(med);
@@ -962,7 +971,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     }
 
     if (autoAdd) {
-      commitLightningItem(med, lightningQty > 0 ? lightningQty : 1, price);
+      commitLightningItem(med, lightningQty > 0 ? lightningQty : 1, unitSellingPrice);
     } else {
       setTimeout(() => {
         lightningQtyInputRef.current?.focus();
@@ -1151,7 +1160,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const latestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, med.name);
     const unitSellingPrice = (med.sellingPrice !== undefined && med.sellingPrice !== null && med.sellingPrice > 0)
       ? med.sellingPrice
-      : (med.salePrice || bestBatch?.salePrice || bestBatch?.mrp || med.mrp || latestPur || 0);
+      : (med.salePrice || (bestBatch as any)?.salePrice || bestBatch?.mrp || med.mrp || latestPur || 0);
     const retailMrp = bestBatch?.mrp || med.mrp || unitSellingPrice;
     
     const currentItem = currentTab?.items.find(i => i.tempId === tempId);
@@ -2260,12 +2269,62 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                       type="button"
                       onClick={() => {
                         const nextVal = !currentTab.isWarrantyBill;
-                        const updates: Partial<SaleTabState> = { isWarrantyBill: nextVal };
+                        const wConfig = settings.transaction?.warrantyFieldsConfig || {
+                          showDiscount: true,
+                          defaultDiscountPct: 15,
+                          showStartDate: true,
+                          showExpiryDate: true,
+                          showTinNtn: true,
+                          defaultTinNtn: 'TIN-982738-1',
+                          showClaimContact: true,
+                          defaultClaimContact: 'support@mbiinventra.com / 0336-4585863',
+                          showTermsConditions: true,
+                          defaultTermsConditions: 'Warranty covers manufacturing defects, hardware failure, and normal operation faults. Physical damage, water ingress, and unauthorized tampering voids warranty.'
+                        };
+                        const autoPercent = wConfig.defaultDiscountPct ?? 15;
+
+                        let updatedItems = [...currentTab.items];
+                        
                         if (nextVal) {
-                          const autoPercent = 15;
-                          const autoAmount = Math.round((rawSubtotal * autoPercent) / 100);
-                          updates.discountPercentage = autoPercent;
-                          updates.discountAmount = autoAmount;
+                          // 🟢 TURNING WARRANTY ON:
+                          // Switch all item rates to MRP, apply warranty discount % and auto settle amount
+                          updatedItems = updatedItems.map(it => {
+                            if (!it.name || !it.name.trim()) return it;
+                            const currentPrice = Number(it.pricePerUnit !== undefined ? it.pricePerUnit : it.sellingPrice) || 0;
+                            const effectiveMrp = (it.mrp && it.mrp > 0) ? it.mrp : currentPrice;
+                            const currentDisc = Number(it.discountPercentage) || 0;
+                            const qty = Number(it.quantity) || 0;
+                            const taxPercent = Number(it.taxPercentage || it.gstPercentage) || 0;
+
+                            const itemDisc = autoPercent;
+                            const base = effectiveMrp * qty;
+                            const discAmt = (base * itemDisc) / 100;
+                            const taxable = base - discAmt;
+                            const taxAmt = (taxable * taxPercent) / 100;
+                            const total = Math.round(taxable + taxAmt);
+
+                            return {
+                              ...it,
+                              preWarrantyPrice: (it as any).preWarrantyPrice !== undefined ? (it as any).preWarrantyPrice : currentPrice,
+                              preWarrantyDiscount: (it as any).preWarrantyDiscount !== undefined ? (it as any).preWarrantyDiscount : currentDisc,
+                              pricePerUnit: effectiveMrp,
+                              sellingPrice: effectiveMrp,
+                              discountPercentage: itemDisc,
+                              discountAmount: discAmt,
+                              taxableAmount: taxable,
+                              total: total
+                            };
+                          });
+
+                          const newSubtotal = updatedItems.reduce((sum, item) => sum + (item.total || 0), 0);
+                          const updates: Partial<SaleTabState> = {
+                            isWarrantyBill: true,
+                            items: updatedItems,
+                            discountPercentage: autoPercent,
+                            discountAmount: Math.round((newSubtotal * autoPercent) / 100),
+                            receivedAmount: newSubtotal
+                          };
+
                           if (!currentTab.warrantyStartDate) {
                             updates.warrantyStartDate = new Date().toISOString().slice(0, 10);
                           }
@@ -2274,9 +2333,54 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                             oneYr.setFullYear(oneYr.getFullYear() + 1);
                             updates.warrantyEndDate = oneYr.toISOString().slice(0, 10);
                           }
+
+                          updateCurrentTab(updates);
+                          updateTransaction({ warrantyMode: true });
+                          emitToast(`🛡️ Warranty Bill Mode: Rates shifted to MRP (${autoPercent}% Disc) & Auto-Settled.`, 'info');
+                        } else {
+                          // 🔴 TURNING WARRANTY OFF:
+                          // Revert items back to original pre-warranty sale prices & discounts
+                          updatedItems = updatedItems.map(it => {
+                            if (!it.name || !it.name.trim()) return it;
+                            const restoredPrice = (it as any).preWarrantyPrice !== undefined 
+                              ? Number((it as any).preWarrantyPrice) 
+                              : (Number(it.pricePerUnit !== undefined ? it.pricePerUnit : it.sellingPrice) || 0);
+                            const restoredDisc = (it as any).preWarrantyDiscount !== undefined 
+                              ? Number((it as any).preWarrantyDiscount) 
+                              : 0;
+                            const qty = Number(it.quantity) || 0;
+                            const taxPercent = Number(it.taxPercentage || it.gstPercentage) || 0;
+
+                            const base = restoredPrice * qty;
+                            const discAmt = (base * restoredDisc) / 100;
+                            const taxable = base - discAmt;
+                            const taxAmt = (taxable * taxPercent) / 100;
+                            const total = Math.round(taxable + taxAmt);
+
+                            return {
+                              ...it,
+                              pricePerUnit: restoredPrice,
+                              sellingPrice: restoredPrice,
+                              discountPercentage: restoredDisc,
+                              discountAmount: discAmt,
+                              taxableAmount: taxable,
+                              total: total
+                            };
+                          });
+
+                          const restoredSubtotal = updatedItems.reduce((sum, item) => sum + (item.total || 0), 0);
+                          const updates: Partial<SaleTabState> = {
+                            isWarrantyBill: false,
+                            items: updatedItems,
+                            discountPercentage: 0,
+                            discountAmount: 0,
+                            receivedAmount: restoredSubtotal
+                          };
+
+                          updateCurrentTab(updates);
+                          updateTransaction({ warrantyMode: false });
+                          emitToast('🔄 Normal Bill Restored: Normal sale rates reinstated.', 'info');
                         }
-                        updateCurrentTab(updates);
-                        updateTransaction({ warrantyMode: nextVal });
                       }}
                       className={`relative inline-flex h-5 sm:h-6 w-9 sm:w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                         currentTab.isWarrantyBill ? 'bg-amber-600 shadow-md' : 'bg-slate-300'
@@ -3049,7 +3153,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <div className="font-mono font-bold text-blue-700">Rs {sellingPrice}</div>
+                              <div className="font-mono font-bold text-blue-700">Rs {unitSellingPrice}</div>
                               <span className="text-[10px] text-emerald-600 font-bold">+ Add</span>
                             </div>
                           </button>

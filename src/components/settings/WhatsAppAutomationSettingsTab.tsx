@@ -27,56 +27,125 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
 
   // QR Live State
   const [qrLoading, setQrLoading] = useState(false);
-  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [qrExpiresIn, setQrExpiresIn] = useState<number>(60);
-  const [isLinkingSimulated, setIsLinkingSimulated] = useState(false);
+  // Live Baileys State
+  const [livePairingCode, setLivePairingCode] = useState<string | null>(null);
+  const [pairingLoading, setPairingLoading] = useState(false);
+  const [pairingError, setPairingError] = useState<string | null>(null);
+  const [codeCountdown, setCodeCountdown] = useState<number>(160);
 
   useEffect(() => {
     const loaded = getTenantWhatsAppConfig();
     setConfig(loaded);
     setIsAutoAllowed(isAutoWhatsAppAllowed(loaded.tenantId));
+
+    // Initial check of server status
+    const tenantId = loaded.tenantId || 'default';
+    fetch(`/api/whatsapp/status/${tenantId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.state?.status === 'CONNECTED') {
+          setConfig(prev => ({ ...prev, isLinked: true, connectedNumber: data.state.connectedNumber || prev.connectedNumber }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const handleGenerateQR = async () => {
-    setQrLoading(true);
-    try {
-      const res = await fetch(`/api/whatsapp/qr/${config.tenantId || 'default'}`);
-      const data = await res.json();
-      if (data.success) {
-        setQrCodeData(data.qrCodeData || 'WAbA_MBI_INVENTRA_SESSION');
-        setQrExpiresIn(60);
-      }
-    } catch {
-      setQrCodeData('WAbA_MBI_INVENTRA_SESSION_FALLBACK');
-    } finally {
-      setQrLoading(false);
-    }
-  };
+  // Polling for connection status if in PAIRING mode
+  useEffect(() => {
+    if (!livePairingCode || config.isLinked) return;
 
-  const handleSimulateScanSuccess = () => {
-    setIsLinkingSimulated(true);
-    setTimeout(() => {
-      setConfig(prev => ({
-        ...prev,
-        isLinked: true,
-        connectedNumber: prev.connectedNumber || '03001234567',
-        linkedDeviceName: 'WhatsApp Web Multi-Device (MBI Inventra Client)',
-        lastConnectedAt: new Date().toISOString()
-      }));
-      setIsLinkingSimulated(false);
-      setSavedSuccess(true);
-      setTimeout(() => setSavedSuccess(false), 3000);
-    }, 1200);
+    const interval = setInterval(async () => {
+      try {
+        const tenantId = config.tenantId || 'default';
+        const res = await fetch(`/api/whatsapp/status/${tenantId}`);
+        const data = await res.json();
+        if (data.success && data.state?.status === 'CONNECTED') {
+          const updated = {
+            ...config,
+            isLinked: true,
+            connectedNumber: data.state.connectedNumber || config.connectedNumber,
+            lastConnectedAt: new Date().toISOString()
+          };
+          setConfig(updated);
+          saveTenantWhatsAppConfig(updated);
+          setLivePairingCode(null);
+          setSavedSuccess(true);
+          setTimeout(() => setSavedSuccess(false), 4000);
+        }
+      } catch {}
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [livePairingCode, config]);
+
+  // Countdown timer for pairing code
+  useEffect(() => {
+    if (!livePairingCode || codeCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setCodeCountdown(prev => {
+        if (prev <= 1) {
+          setLivePairingCode(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [livePairingCode, codeCountdown]);
+
+  const handleRequestPairingCode = async () => {
+    const phone = config.connectedNumber?.trim();
+    if (!phone) {
+      setPairingError('Pehle apna WhatsApp Phone Number enter karein.');
+      return;
+    }
+
+    setPairingLoading(true);
+    setPairingError(null);
+    setLivePairingCode(null);
+
+    try {
+      const tenantId = config.tenantId || 'default';
+      const res = await fetch(`/api/whatsapp/pair/${tenantId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+
+      if (data.success && data.pairingCode) {
+        setLivePairingCode(data.pairingCode);
+        setCodeCountdown(160);
+      } else if (data.success && data.status === 'CONNECTED') {
+        const updated = {
+          ...config,
+          isLinked: true,
+          connectedNumber: phone,
+          lastConnectedAt: new Date().toISOString()
+        };
+        setConfig(updated);
+        saveTenantWhatsAppConfig(updated);
+      } else {
+        setPairingError(data.error || 'Failed to get live pairing code from WhatsApp servers.');
+      }
+    } catch (err: any) {
+      setPairingError(err?.message || 'Network error connecting to backend WhatsApp service.');
+    } finally {
+      setPairingLoading(false);
+    }
   };
 
   const handleDisconnect = async () => {
     try {
       await fetch(`/api/whatsapp/disconnect/${config.tenantId || 'default'}`, { method: 'POST' });
-      setConfig(prev => ({
-        ...prev,
+      const updated = {
+        ...config,
         isLinked: false,
         connectedNumber: ''
-      }));
+      };
+      setConfig(updated);
+      saveTenantWhatsAppConfig(updated);
+      setLivePairingCode(null);
     } catch {}
   };
 
@@ -142,7 +211,7 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
             )}
           </div>
           <p className="text-xs text-emerald-100 max-w-2xl leading-relaxed">
-            Scan your pharmacy's WhatsApp QR Code directly from your phone (Linked Devices). 100% Free with zero monthly Meta API fees. Configure optional ON/OFF toggles for each invoice type.
+            Link your pharmacy's WhatsApp using an 8-digit Pairing Code directly from your phone (Linked Devices). Enterprise automated WhatsApp invoicing gateway with zero monthly Meta API fees.
           </p>
         </div>
 
@@ -175,8 +244,8 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <QrCode className="w-3.5 h-3.5" />
-          <span>1. WhatsApp Web QR Login</span>
+          <Smartphone className="w-3.5 h-3.5" />
+          <span>1. WhatsApp Phone & Pairing Gateway</span>
         </button>
         <button
           type="button"
@@ -204,20 +273,20 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
         </button>
       </div>
 
-      {/* TAB 1: WhatsApp Web QR Login */}
+      {/* TAB 1: WhatsApp Phone Number & Pairing Gateway */}
       {activeTab === 'qr_connection' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main QR Card */}
+          {/* Main Connection Card */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-6">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div>
                   <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <QrCode className="w-5 h-5 text-emerald-600" />
-                    <span>Direct WhatsApp Web QR Login</span>
+                    <Smartphone className="w-5 h-5 text-emerald-600" />
+                    <span>WhatsApp Phone Number & Pairing Code Gateway</span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Connect directly with web.whatsapp.com to send automated PDF bills and receipts to your clients.
+                    Connect your official pharmacy phone number directly via WhatsApp 8-digit Pairing Code to send automated receipts and bills.
                   </p>
                 </div>
                 {config.isLinked ? (
@@ -232,87 +301,102 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
                 )}
               </div>
 
-              {/* QR & Scanner Display */}
+              {/* Pairing Display */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
-                {/* Visual QR Code Box */}
+                {/* Visual Pairing Code Box */}
                 <div className="flex flex-col items-center justify-center p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-center space-y-4">
                   {config.isLinked ? (
-                    <div className="space-y-3 py-4">
-                      <div className="w-20 h-20 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 shadow-inner">
-                        <CheckCircle2 className="w-10 h-10" />
+                    <div className="space-y-3 py-4 w-full">
+                      <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 shadow-inner">
+                        <CheckCircle2 className="w-9 h-9" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white">Device Linked Successfully</h4>
-                        <p className="text-xs text-slate-500 mt-1 font-mono font-bold">
-                          {config.connectedNumber ? `+${config.connectedNumber}` : 'Active Phone Connected'}
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">Phone Connected & Verified</h4>
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1 font-mono font-black">
+                          {config.connectedNumber ? `+92 ${config.connectedNumber.replace(/^(\+92|0)/, '')}` : '+92 328 1302636'}
                         </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Multi-Device Web Client Online</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Enterprise Multi-Device Gateway Online</p>
                       </div>
                       <button
                         type="button"
                         onClick={handleDisconnect}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 text-rose-600 text-xs font-bold hover:bg-rose-100 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/50 text-rose-600 text-xs font-bold hover:bg-rose-100 cursor-pointer transition-colors"
                       >
                         <Unlink className="w-3.5 h-3.5" />
-                        <span>Disconnect Device</span>
+                        <span>Disconnect Number</span>
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-4 w-full flex flex-col items-center">
-                      <div className="w-48 h-48 rounded-2xl bg-white p-3 border-2 border-emerald-500/40 shadow-md flex items-center justify-center relative group">
-                        {/* Interactive Simulated QR Code SVG */}
-                        <svg className="w-full h-full text-slate-900" viewBox="0 0 100 100" fill="currentColor">
-                          <rect x="5" y="5" width="25" height="25" fill="#059669" rx="3" />
-                          <rect x="9" y="9" width="17" height="17" fill="#ffffff" rx="2" />
-                          <rect x="12" y="12" width="11" height="11" fill="#059669" rx="1" />
-                          
-                          <rect x="70" y="5" width="25" height="25" fill="#059669" rx="3" />
-                          <rect x="74" y="9" width="17" height="17" fill="#ffffff" rx="2" />
-                          <rect x="77" y="12" width="11" height="11" fill="#059669" rx="1" />
-                          
-                          <rect x="5" y="70" width="25" height="25" fill="#059669" rx="3" />
-                          <rect x="9" y="74" width="17" height="17" fill="#ffffff" rx="2" />
-                          <rect x="12" y="77" width="11" height="11" fill="#059669" rx="1" />
-
-                          {/* Data points */}
-                          <rect x="35" y="10" width="6" height="6" />
-                          <rect x="45" y="15" width="8" height="6" />
-                          <rect x="58" y="8" width="6" height="8" />
-                          <rect x="35" y="25" width="12" height="6" />
-                          <rect x="52" y="22" width="12" height="6" />
-
-                          <rect x="10" y="35" width="6" height="10" />
-                          <rect x="20" y="42" width="8" height="6" />
-                          <rect x="8" y="52" width="12" height="8" />
-
-                          <rect x="75" y="35" width="8" height="8" />
-                          <rect x="88" y="42" width="6" height="12" />
-                          <rect x="72" y="55" width="10" height="6" />
-
-                          <rect x="35" y="35" width="30" height="30" fill="#10b981" rx="4" opacity="0.15" />
-                          <rect x="40" y="40" width="8" height="8" />
-                          <rect x="52" y="40" width="8" height="8" />
-                          <rect x="40" y="52" width="8" height="8" />
-                          <rect x="52" y="52" width="8" height="8" />
-                        </svg>
-
-                        {isLinkingSimulated && (
-                          <div className="absolute inset-0 bg-emerald-950/80 rounded-2xl flex flex-col items-center justify-center text-white backdrop-blur-xs space-y-2">
-                            <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
-                            <span className="text-xs font-bold">Linking Session...</span>
+                      <div className="w-full bg-slate-900 text-white p-5 rounded-2xl border border-emerald-500/40 shadow-inner flex flex-col items-center justify-center space-y-3 relative">
+                        <span className="text-[10px] uppercase tracking-widest font-black text-emerald-400">Live WhatsApp Pairing Code</span>
+                        
+                        {/* 8-Character Live Pairing Code Box */}
+                        {livePairingCode ? (
+                          <div className="flex items-center gap-2 py-1">
+                            <span className="text-xl sm:text-2xl font-black font-mono tracking-widest text-emerald-300 bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 shadow-lg">
+                              {livePairingCode.includes('-') ? livePairingCode.split('-')[0] : livePairingCode.slice(0, 4)}
+                            </span>
+                            <span className="text-slate-500 font-bold text-lg">-</span>
+                            <span className="text-xl sm:text-2xl font-black font-mono tracking-widest text-emerald-300 bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 shadow-lg">
+                              {livePairingCode.includes('-') ? livePairingCode.split('-')[1] : livePairingCode.slice(4)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="py-2 text-center">
+                            <p className="text-xs text-slate-400 font-medium">Click below to generate a live pairing code for your WhatsApp phone number.</p>
                           </div>
                         )}
+
+                        {livePairingCode && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-950/60 px-2.5 py-1 rounded-full border border-amber-500/30">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                            <span>Code expires in <strong>{codeCountdown}s</strong> (Enter on mobile now)</span>
+                          </div>
+                        )}
+
+                        {pairingLoading && (
+                          <div className="absolute inset-0 bg-slate-950/90 rounded-2xl flex flex-col items-center justify-center text-white backdrop-blur-xs space-y-2">
+                            <RefreshCw className="w-7 h-7 animate-spin text-emerald-400" />
+                            <span className="text-xs font-bold">Requesting live code from WhatsApp...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {pairingError && (
+                        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-600 text-xs font-bold w-full text-center">
+                          {pairingError}
+                        </div>
+                      )}
+
+                      {/* Direct Phone Input for Pairing */}
+                      <div className="w-full text-left space-y-1">
+                        <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                          Pharmacy WhatsApp Number (Jis mobile se link karna hai):
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            🇵🇰 +92
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="3281302636 ya 03281302636"
+                            value={config.connectedNumber}
+                            onChange={e => setConfig({ ...config, connectedNumber: e.target.value })}
+                            className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-2 w-full">
                         <button
                           type="button"
-                          onClick={handleSimulateScanSuccess}
-                          disabled={isLinkingSimulated}
-                          className="w-full py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                          onClick={handleRequestPairingCode}
+                          disabled={pairingLoading}
+                          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
                         >
-                          <Link2 className="w-4 h-4" />
-                          <span>Link This WhatsApp Number</span>
+                          {pairingLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-200" />}
+                          <span>{livePairingCode ? 'Generate New Pairing Code' : 'Get Live WhatsApp Pairing Code'}</span>
                         </button>
                       </div>
                     </div>
@@ -321,29 +405,25 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
 
                 {/* Instructions */}
                 <div className="space-y-4">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Easy 4-Step Connection:</h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">3-Step Pairing Guide:</h4>
                   <ol className="space-y-3 text-xs text-slate-600 dark:text-slate-300">
                     <li className="flex items-start gap-2.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
-                      <span>Open <strong>WhatsApp</strong> on your pharmacy or cashier mobile phone.</span>
+                      <span>Mobile phone par <strong>WhatsApp</strong> open karein aur <strong>Linked Devices</strong> par tap karein.</span>
                     </li>
                     <li className="flex items-start gap-2.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
-                      <span>Tap <strong>Menu (⋮ on Android)</strong> or <strong>Settings (⚙️ on iPhone)</strong>.</span>
+                      <span><strong>Link a Device</strong> tap karein aur niche <strong>"Link with phone number instead"</strong> select karein.</span>
                     </li>
                     <li className="flex items-start gap-2.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
-                      <span>Tap <strong>Linked Devices</strong> and then <strong>Link a Device</strong>.</span>
-                    </li>
-                    <li className="flex items-start gap-2.5">
-                      <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-center shrink-0 text-[11px]">4</span>
-                      <span>Point your camera at this QR code to finish login.</span>
+                      <span>Screen par show hone wala <strong>8-character Pairing Code</strong> WhatsApp mein enter karein.</span>
                     </li>
                   </ol>
 
-                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span><strong>100% Free Forever:</strong> Zero charges, zero per-message cost, uses your own mobile plan.</span>
+                  <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-[11px] text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <span><strong>Enterprise Exclusive:</strong> Automated WhatsApp Invoicing & Notification Gateway for your pharmacy.</span>
                   </div>
                 </div>
               </div>
@@ -422,7 +502,7 @@ export const WhatsAppAutomationSettingsTab: React.FC = () => {
                   <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Gateway Mode:</span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-600">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>DIRECT QR SESSION</span>
+                    <span>DIRECT PHONE PAIRING</span>
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">

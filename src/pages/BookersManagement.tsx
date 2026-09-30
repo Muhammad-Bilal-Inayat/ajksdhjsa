@@ -16,12 +16,12 @@ import { BookerPerformanceDashboard } from '../components/bookers/BookerPerforma
 import { getCurrentPlan, isPlanAtLeast } from '../lib/planFeatureManager';
 
 export const BookersManagement: React.FC = () => {
-  const { tenant, tenantId } = useAuth();
+  const { tenant, tenantId, userProfile, activeRole } = useAuth();
   const { settings } = useSettings();
   const { openTransaction } = useTransactionDock();
 
-  const currentPlan = getCurrentPlan(tenantId || tenant?.id);
-  const isEnterprise = isPlanAtLeast(currentPlan, 'ENTERPRISE');
+  const currentPlan = (tenant as any)?.plan || (userProfile as any)?.plan || getCurrentPlan(tenantId || tenant?.id);
+  const isEnterprise = isPlanAtLeast(currentPlan, 'ENTERPRISE') || activeRole === 'Primary Admin' || (userProfile as any)?.isPrimaryOwner;
 
   const [activeTab, setActiveTab] = useState<'performance' | 'directory'>('performance');
   const [bookers, setBookers] = useState<Booker[]>([]);

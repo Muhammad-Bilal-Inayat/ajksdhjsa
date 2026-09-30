@@ -74,7 +74,7 @@ export const AntiTheftAuditWidget: React.FC<AntiTheftAuditWidgetProps> = ({ mask
           </div>
 
           <button
-            onClick={() => navigate('/audit-logs')}
+            onClick={() => navigate('/sync-share')}
             className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
           >
             <span>Full Logs</span>
@@ -143,7 +143,7 @@ export const AntiTheftAuditWidget: React.FC<AntiTheftAuditWidgetProps> = ({ mask
           173 RBAC Permission Switches Enabled
         </span>
         <button
-          onClick={() => navigate('/audit-logs')}
+          onClick={() => navigate('/reports?report=master_user_activity_audit_export')}
           className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
         >
           Audit History

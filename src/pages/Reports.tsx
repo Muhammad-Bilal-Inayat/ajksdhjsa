@@ -328,33 +328,93 @@ export const ColumnHeader: React.FC<ColumnHeaderProps> = ({
   );
 };
 
+// Canonical Report Aliases mapping
+const REPORT_ALIASES: Record<string, string> = {
+  'fefo_expiry': 'fefo_expiry_report',
+  'fefo': 'fefo_expiry_report',
+  'fefo_expiry_status': 'fefo_expiry_report',
+  'expiry': 'fefo_expiry_report',
+  'expiry_report': 'fefo_expiry_report',
+  'fifo_allocation': 'fifo_allocation_report',
+  'fifo': 'fifo_allocation_report',
+  'controlled': 'controlled_register',
+  'form7': 'controlled_register',
+  'form_7': 'controlled_register',
+  'low_stock': 'low_stock_summary',
+  'stock': 'stock_summary',
+  'item_batch': 'item_batch_report',
+  'profit_and_loss': 'profit_loss',
+  'pnl': 'profit_loss',
+  'bill_profit': 'bill_wise_profit',
+  'party_ledger': 'party_statement',
+  'customer_ledger': 'party_statement',
+  'fbr_fiscal_tax_audit': 'fbr_tax_audit',
+  'fbr_audit': 'fbr_tax_audit',
+  'fbr': 'fbr_tax_audit',
+  'journal_voucher': 'journal_voucher_report',
+  'trial_balance': 'journal_voucher_report',
+  'trial_balance_report': 'journal_voucher_report',
+  'multi_branch': 'multi_branch_consolidated_report',
+  'multi_branch_stock_sales': 'multi_branch_consolidated_report',
+  'online_store': 'online_store_performance_report',
+  'online_store_sales': 'online_store_performance_report',
+  'narcotics': 'narcotics_dispensing_report',
+  'controlled_drug_dispensing': 'narcotics_dispensing_report',
+  'drap_form8': 'drap_form8_regulatory_report',
+  'drap_form_8': 'drap_form8_regulatory_report',
+  'form8': 'drap_form8_regulatory_report',
+  'booker_commission': 'booker_commission_report',
+  'booker_sales': 'booker_commission_report',
+  'master_user_activity_audit': 'master_user_activity_audit_export',
+  'security_audit': 'master_user_activity_audit_export',
+  'audit_trail_export': 'master_user_activity_audit_export',
+  'audit_logs': 'master_user_activity_audit_export'
+};
+
 export const Reports: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reportParam = searchParams.get('report');
-  const { tenant, tenantId } = useAuth();
-  const currentPlan = (tenant as any)?.plan || 'Standard POS';
+  const { tenant, tenantId, userProfile, activeRole } = useAuth();
+  const currentPlan = (tenant as any)?.plan || (userProfile as any)?.plan || 'Standard POS';
   const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId;
 
   const planTier: PlanTier = useMemo(() => {
+    const rawPlan = (tenant as any)?.plan || (userProfile as any)?.plan;
+    if (rawPlan) {
+      const norm = normalizePlanTier(rawPlan);
+      if (norm === 'ENTERPRISE') return 'platinum';
+      if (norm === 'BUSINESS') return 'gold';
+      return 'silver';
+    }
     return getActiveTenantPlan(effectiveTenantId);
-  }, [effectiveTenantId, currentPlan]);
+  }, [effectiveTenantId, currentPlan, tenant, userProfile]);
+
+  const isMasterOrPrimary = activeRole === 'Primary Admin' || (userProfile as any)?.isPrimaryOwner === true || planTier === 'platinum';
 
   const categorizedAllowedReports = useMemo(() => {
     return getFilteredCategorizedReports(planTier, effectiveTenantId);
   }, [planTier, effectiveTenantId]);
 
   const allowedReports = useMemo(() => {
-    return REPORT_LIST.filter(r => isReportAllowed(r.id, effectiveTenantId, planTier));
-  }, [planTier, effectiveTenantId]);
+    return REPORT_LIST.filter(r => isMasterOrPrimary || isReportAllowed(r.id, effectiveTenantId, planTier));
+  }, [planTier, effectiveTenantId, isMasterOrPrimary]);
 
   // Active Report Selection
   const [activeReportId, setActiveReportId] = useState<string>('sale');
 
   useEffect(() => {
     if (reportParam) {
-      if (allowedReports.some(r => r.id === reportParam)) {
-        setActiveReportId(reportParam);
+      const cleanParam = reportParam.toLowerCase().trim();
+      const canonicalId = REPORT_ALIASES[cleanParam] || cleanParam;
+      
+      const foundInAllowed = allowedReports.find(r => r.id === canonicalId || r.id === reportParam);
+      const foundInAll = REPORT_LIST.find(r => r.id === canonicalId || r.id === reportParam);
+
+      if (foundInAllowed) {
+        setActiveReportId(foundInAllowed.id);
+      } else if (foundInAll && isMasterOrPrimary) {
+        setActiveReportId(foundInAll.id);
       } else if (allowedReports.length > 0) {
         setActiveReportId(allowedReports[0].id);
         emitToast('The requested report is not available on your current plan.', 'warning', {
@@ -364,7 +424,7 @@ export const Reports: React.FC = () => {
     } else if (allowedReports.length > 0 && !allowedReports.some(r => r.id === activeReportId)) {
       setActiveReportId(allowedReports[0].id);
     }
-  }, [reportParam, allowedReports]);
+  }, [reportParam, allowedReports, isMasterOrPrimary]);
 
   // Filter State
   const [datePreset, setDatePreset] = useState<string>('Custom');

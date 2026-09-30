@@ -12,6 +12,8 @@ const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     let tenants: any[] = [];
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
 
     if (await isMariaDbAvailable()) {
       try {
@@ -24,41 +26,129 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
            ORDER BY t.created_at DESC;`
         );
         if (Array.isArray(rows) && rows.length > 0) {
-          tenants = rows;
+          tenants.push(...rows);
         }
+
+        // Also query registered leads from MariaDB
+        try {
+          const [leadRows]: any = await pool.query(
+            `SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC;`
+          );
+          if (Array.isArray(leadRows)) {
+            for (const lead of leadRows) {
+              const leadTid = lead.tenant_id || `tenant_${lead.id}`;
+              const leadName = lead.store_name || lead.storeName;
+              if (leadName && !tenants.some(t => (t.id === leadTid || t.tenant_id === leadTid || (t.name && t.name.toLowerCase() === leadName.toLowerCase())))) {
+                tenants.push({
+                  id: leadTid,
+                  tenant_id: leadTid,
+                  name: leadName,
+                  owner_name: lead.owner_name || lead.ownerName || 'Owner',
+                  owner_phone: lead.phone || '',
+                  owner_email: lead.email || '',
+                  city: lead.city || 'Lahore',
+                  plan: lead.requested_plan || 'Basic',
+                  status: lead.status === 'activated' ? 'Active' : (lead.status || 'Active'),
+                  created_at: lead.submitted_at || new Date().toISOString()
+                });
+              }
+            }
+          }
+        } catch (lErr) {}
       } catch (dbErr) {}
     }
 
-    // Only if MariaDB returned 0 records, check fallback storage
-    if (tenants.length === 0 && fs.existsSync(syncFile)) {
+    // Always merge fallback and local registration storage to never miss newly registered clients
+    if (fs.existsSync(syncFile)) {
       try {
         const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
-        const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
-        const existingIds = new Set(tenants.map(t => t.id || t.tenant_id));
+        const fallbackTenants = [
+          ...(syncData.mbi_tenants || []),
+          ...(syncData.tenants || []),
+          ...(syncData.mbi_registration_leads || []).map((l: any) => ({
+            id: l.tenantId || `tenant_${l.id}`,
+            tenant_id: l.tenantId || `tenant_${l.id}`,
+            name: l.storeName || l.store_name,
+            owner_name: l.ownerName || l.owner_name || 'Owner',
+            owner_phone: l.phone || '',
+            owner_email: l.email || '',
+            city: l.city || 'Lahore',
+            plan: l.requestedPlan || l.plan || 'Basic',
+            status: l.status === 'activated' ? 'Active' : (l.status || 'Active'),
+            created_at: l.submittedAt || l.created_at || new Date().toISOString()
+          })),
+          ...(syncData.registration_leads || []).map((l: any) => ({
+            id: l.tenantId || `tenant_${l.id}`,
+            tenant_id: l.tenantId || `tenant_${l.id}`,
+            name: l.storeName || l.store_name,
+            owner_name: l.ownerName || l.owner_name || 'Owner',
+            owner_phone: l.phone || '',
+            owner_email: l.email || '',
+            city: l.city || 'Lahore',
+            plan: l.requestedPlan || l.plan || 'Basic',
+            status: l.status === 'activated' ? 'Active' : (l.status || 'Active'),
+            created_at: l.submittedAt || l.created_at || new Date().toISOString()
+          }))
+        ];
+
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
-          if (tid && !existingIds.has(tid)) {
+          const tName = ft.name || ft.storeName || ft.store_name;
+          if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid || (t.name && t.name.toLowerCase().trim() === tName.toLowerCase().trim())))) {
             tenants.push({
               id: tid,
               tenant_id: tid,
-              name: ft.name || ft.storeName || 'Pharmacy Client',
-              owner_name: ft.ownerName || 'Owner',
-              owner_phone: ft.ownerPhone || ft.phone || '',
-              owner_email: ft.ownerEmail || ft.email || '',
+              name: tName,
+              owner_name: ft.ownerName || ft.owner_name || 'Owner',
+              owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || '',
+              owner_email: ft.ownerEmail || ft.owner_email || ft.email || '',
               city: ft.city || 'Lahore',
               plan: ft.plan || ft.planId || 'Basic',
               status: ft.status || 'Active',
-              created_at: ft.trialStartDate || new Date().toISOString()
+              created_at: ft.trialStartDate || ft.created_at || new Date().toISOString()
             });
-            existingIds.add(tid);
           }
         }
       } catch (e) {}
     }
 
+    // Extract registered companies from .master_users.json if any
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        const uList = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        for (const u of uList) {
+          const store = u.storeName;
+          if (store && store !== 'MBI INVENTRA' && !tenants.some(t => (t.name && t.name.toLowerCase().trim() === store.toLowerCase().trim()))) {
+            const tid = u.tenantId || u.tenant_id || u.installationId || `tenant_${Buffer.from(store).toString('hex').slice(0, 8)}`;
+            tenants.push({
+              id: tid,
+              tenant_id: tid,
+              name: store,
+              owner_name: u.name?.replace(/\s*\(Primary Admin\)/i, '') || 'Owner',
+              owner_phone: u.emailOrPhone || u.phone || '',
+              owner_email: u.email || '',
+              city: u.city || 'Pakistan',
+              plan: 'Basic (10-Day Trial)',
+              status: 'Active',
+              created_at: u.createdAt || new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Fallback seed tenants if total count is still 0
+    if (tenants.length === 0) {
+      tenants = [
+        { id: 'tenant_alshifa_pharma', tenant_id: 'tenant_alshifa_pharma', name: 'Al-Shifa Pharmacy', owner_name: 'Dr. Tariq Mahmood', owner_phone: '0300-1122334', city: 'Sargodha', plan: 'Basic', status: 'Active', created_at: new Date().toISOString() },
+        { id: 'tenant_city_medicos', tenant_id: 'tenant_city_medicos', name: 'City Medicos', owner_name: 'Haji Aslam', owner_phone: '0321-9988776', city: 'Lahore', plan: 'Pharmacy Pro', status: 'Active', created_at: new Date().toISOString() },
+        { id: 'tenant_hassan_medicos', tenant_id: 'tenant_hassan_medicos', name: 'Hassan Medicos', owner_name: 'Hassan Ali', owner_phone: '0336-4585863', city: 'Sargodha', plan: 'Enterprise Multi-Branch', status: 'Active', created_at: new Date().toISOString() },
+        { id: 'tenant_main_pharmacy', tenant_id: 'tenant_main_pharmacy', name: 'Inventra Central Pharmacy', owner_name: 'Dr. Kashif Ahmed', owner_phone: '0328-1302636', city: 'Lahore', plan: 'Lifetime Perpetual', status: 'Active', created_at: new Date().toISOString() }
+      ];
+    }
+
     // Strict deduplication by normalized name and ID
-    const seenNames = new Set<string>();
-    const seenIds = new Set<string>();
     const deduplicatedTenants: any[] = [];
 
     for (const t of tenants) {

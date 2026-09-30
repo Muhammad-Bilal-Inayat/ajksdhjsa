@@ -1093,9 +1093,34 @@ adminMasterRouter.get('/lan/status', async (req: TenantRequest, res: Response): 
       } catch (err2) { }
     }
 
+    // Always merge newly registered companies from sync storage
+    try {
+      const syncPath = path.join(process.cwd(), '.sync_data.json');
+      if (fs.existsSync(syncPath)) {
+        const sData = JSON.parse(fs.readFileSync(syncPath, 'utf8') || '{}');
+        const list = [...(sData.mbi_tenants || []), ...(sData.tenants || []), ...(sData.registration_leads || []), ...(sData.mbi_registration_leads || [])];
+        for (const item of list) {
+          const tid = item.id || item.tenantId || item.tenant_id;
+          const sName = item.name || item.storeName;
+          if (sName && !companies.some(c => (c.name && c.name.toLowerCase().trim() === sName.toLowerCase().trim()))) {
+            companies.push({
+              id: tid,
+              tenant_id: tid,
+              name: sName,
+              city: item.city || 'Pharmacy Store',
+              plan: item.plan || item.requestedPlan || 'Basic',
+              status: item.status === 'activated' ? 'Active' : (item.status || 'Active')
+            });
+          }
+        }
+      }
+    } catch (e) {}
+
     if (companies.length === 0) {
       companies = [{ id: 'tenant_main', tenant_id: 'tenant_main', name: 'MBI INVENTRA Main Pharmacy', city: 'Primary Hub', plan: 'Enterprise', status: 'active' }];
     }
+
+    const liveDomain = process.env.APP_URL || process.env.DOMAIN_NAME;
 
     res.json({
       success: true,
@@ -1104,8 +1129,9 @@ adminMasterRouter.get('/lan/status', async (req: TenantRequest, res: Response): 
       primaryHostIp: primaryIp,
       port: Number(port),
       connectionUrls: {
-        lanUrl: `http://${primaryIp}:${port}`,
-        localhostUrl: `http://localhost:${port}`
+        lanUrl: liveDomain ? `${liveDomain}` : `http://${primaryIp}:${port}`,
+        localhostUrl: `http://localhost:${port}`,
+        rawLanIpUrl: `http://${primaryIp}:${port}`
       },
       interfaces: addresses,
       connectedTerminals: terminalsList,

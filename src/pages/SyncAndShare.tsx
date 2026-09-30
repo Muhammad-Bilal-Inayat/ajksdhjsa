@@ -319,9 +319,11 @@ export const SyncAndShare: React.FC = () => {
     try {
       await userService.createUser({
         name: newUser.name,
+        emailOrPhone: newUser.emailOrPhone,
         email: newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
         phone: !newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
         role: newUser.role as any,
+        passcode: newUser.passcode,
         pin: newUser.passcode,
         notes: newUser.notes
       }, currentTenantId);
@@ -383,9 +385,11 @@ export const SyncAndShare: React.FC = () => {
     try {
       await userService.updateUser(updatedUser.id, {
         name: updatedUser.name,
+        emailOrPhone: updatedUser.emailOrPhone,
         email: updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
         phone: !updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
         role: updatedUser.role as any,
+        passcode: updatedUser.passcode,
         pin: updatedUser.passcode,
         notes: updatedUser.notes
       }, currentTenantId);

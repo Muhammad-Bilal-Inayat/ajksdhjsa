@@ -100,11 +100,26 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     }
   }, [selectedUserId]);
 
-  // Listen to live tenant and user creation events so new companies show up immediately
+  // Listen to live tenant and user creation events and fetch from server on mount
   useEffect(() => {
+    const fetchServerUsers = async () => {
+      try {
+        const res = await fetch('/api/fleet/users', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json?.users) && json.users.length > 0) {
+            setUsers(json.users);
+            return;
+          }
+        }
+      } catch (e) {}
+      setUsers(getMasterActiveUsers());
+    };
+
+    fetchServerUsers();
+
     const handleUpdate = () => {
-      const refreshedUsers = getMasterActiveUsers();
-      setUsers(refreshedUsers);
+      fetchServerUsers();
     };
 
     window.addEventListener('mbi-users-updated', handleUpdate);

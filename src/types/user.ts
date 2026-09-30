@@ -48,10 +48,12 @@ export interface AppUser {
 export interface CreateUserInput {
   name: string;
   username?: string;
-  emailOrPhone: string;
+  emailOrPhone?: string;
+  email?: string;
   phone?: string;
   role: UserRole;
-  passcode: string;
+  passcode?: string;
+  pin?: string;
   status?: 'Active' | 'Inactive';
   permissions?: UserPermissionSet;
   notes?: string;
@@ -61,9 +63,11 @@ export interface UpdateUserInput {
   name?: string;
   username?: string;
   emailOrPhone?: string;
+  email?: string;
   phone?: string;
   role?: UserRole;
   passcode?: string;
+  pin?: string;
   status?: 'Active' | 'Inactive' | 'Suspended';
   permissions?: UserPermissionSet;
   notes?: string;

@@ -123,22 +123,6 @@
   ],
   "appUsers": [
     {
-      "id": "usr_1790700085589",
-      "name": "jahskjahdkj",
-      "username": "usr_1790700085589",
-      "role": "Primary Admin",
-      "status": "Active",
-      "createdAt": "2026-09-30T06:14:29.020Z",
-      "emailOrPhone": "jahskjahdkj@gmail.com",
-      "passcode": "1234",
-      "storeName": "MBI INVENTRA",
-      "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-383A12EE-MAJTWM",
-      "lastSyncTime": "2026-09-30T06:05:24.983Z",
-      "isOnline": true,
-      "updatedAt": "2026-09-30T06:14:29.048Z"
-    },
-    {
       "id": "usr_1790683617168_53um",
       "name": "2312312312 (Primary Admin)",
       "username": "usr_1790683617168_53um",
@@ -147,12 +131,12 @@
       "createdAt": "2026-09-29T12:25:20.605Z",
       "emailOrPhone": "2312312312@pharma.pk",
       "passcode": "1234",
-      "storeName": "MBI INVENTRA",
+      "storeName": "My Pharmacy Store",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-30T05:44:54.988Z",
+      "lastSyncTime": "2026-09-30T08:55:46.929Z",
       "isOnline": true,
-      "updatedAt": "2026-09-30T05:44:55.001Z",
+      "updatedAt": "2026-09-30T08:55:46.960Z",
       "tenantId": "tenant_1790683617168_53um",
       "tenant_id": "tenant_1790683617168_53um",
       "allowedModules": {
@@ -191,6 +175,22 @@
         "canAccessBankAccounts": true,
         "canChangePaymentTerms": true
       }
+    },
+    {
+      "id": "usr_1790700085589",
+      "name": "jahskjahdkj",
+      "username": "usr_1790700085589",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-30T06:14:29.020Z",
+      "emailOrPhone": "jahskjahdkj@gmail.com",
+      "passcode": "1234",
+      "storeName": "My Pharmacy Store",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-383A12EE-MAJTWM",
+      "lastSyncTime": "2026-09-30T06:36:46.894Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-30T06:36:46.901Z"
     },
     {
       "id": "u_1790745098601",

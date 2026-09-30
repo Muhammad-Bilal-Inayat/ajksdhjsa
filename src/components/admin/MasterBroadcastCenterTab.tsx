@@ -45,7 +45,7 @@ export interface BroadcastRecord {
   receipts?: BroadcastReceipt[];
 }
 
-export const MasterBroadcastCenterTab: React.FC = () => {
+export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ isDarkMode }) => {
   const [subView, setSubView] = useState<'compose' | 'analytics' | 'archive'>('compose');
   const [broadcasts, setBroadcasts] = useState<BroadcastRecord[]>([]);
   const [stores, setStores] = useState<Array<{ id: string; name: string; city?: string; plan?: string }>>([]);

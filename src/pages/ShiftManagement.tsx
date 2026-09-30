@@ -26,7 +26,7 @@ import { generateFullDatabaseSnapshot, pushBackupToServer } from '../lib/backupM
 import { CashierShiftModal } from '../components/inventory/CashierShiftModal';
 
 export const ShiftManagement: React.FC = () => {
-  const { activeUser, activeRole } = useAuth();
+  const { activeUser, activeRole, tenant, business, tenantId } = useAuth();
   const currentCashierName = activeUser?.name || 'Counter Cashier';
   const currentCashierId = activeUser?.id || 'cashier-1';
 

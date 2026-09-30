@@ -137,7 +137,7 @@ interface AiHumanSupportMasterHubProps {
 
 export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = ({ onNotify }) => {
   // Navigation tabs inside the AI Hub
-  const [hubTab, setHubTab] = useState<'live_chat' | 'tickets' | 'analytics' | 'settings'>('live_chat');
+  const [hubTab, setHubTab] = useState<'live_chat' | 'tickets' | 'analytics' | 'settings' | 'quotas'>('live_chat');
   
   // Data states
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -1517,7 +1517,7 @@ export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = (
                       .map((sess) => {
                         const userUsage = getTodayMessageCount(sess.userId);
                         const userLimits = getAssistantPlanLimits(sess.plan, sess.userId, sess.tenantId);
-                        const isOverridden = userLimits.isCustomOverride;
+                        const isOverridden = (userLimits as any)?.isCustomOverride;
 
                         return (
                           <tr key={sess.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">

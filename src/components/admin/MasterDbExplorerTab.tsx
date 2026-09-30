@@ -15,10 +15,10 @@ import {
 import { emitToast } from '../../contexts/ToastContext';
 
 interface MasterDbExplorerTabProps {
-  tenants: TenantTelemetryRecord[];
+  tenants?: TenantTelemetryRecord[];
 }
 
-export const MasterDbExplorerTab: React.FC<MasterDbExplorerTabProps> = ({ tenants }) => {
+export const MasterDbExplorerTab: React.FC<MasterDbExplorerTabProps> = ({ tenants = [] }) => {
   const [overview, setOverview] = useState<MasterDbOverview | null>(null);
   const [isLoadingOverview, setIsLoadingOverview] = useState(false);
   const [selectedTable, setSelectedTable] = useState<string>('mbi_tenants');

@@ -10,10 +10,10 @@ import { backupService, GoogleDriveMasterConfig } from '../../services/backupSer
 import { emitToast } from '../../contexts/ToastContext';
 
 interface DeveloperVaultTabProps {
-  tenants: TenantTelemetryRecord[];
+  tenants?: TenantTelemetryRecord[];
 }
 
-export const DeveloperVaultTab: React.FC<DeveloperVaultTabProps> = ({ tenants }) => {
+export const DeveloperVaultTab: React.FC<DeveloperVaultTabProps> = ({ tenants = [] }) => {
   // Target Mode: 'all' | 'specific'
   const [targetMode, setTargetMode] = useState<'all' | 'specific'>('all');
   const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id || 'tenant_hassan_medicos');

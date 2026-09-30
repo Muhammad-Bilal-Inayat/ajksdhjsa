@@ -216,6 +216,15 @@ class SyncEngine {
     return this.onDataChange(listener);
   }
 
+  public async syncTenantNow(_tenantId?: string): Promise<boolean> {
+    try {
+      await this.pushServerSync();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private setStatus(status: SyncStatus) {
     this.syncStatus = status;
     this.listeners.forEach(fn => fn(status));

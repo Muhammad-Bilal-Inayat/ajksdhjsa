@@ -18,13 +18,15 @@ interface MasterGlobalSearchBarProps {
   onSelectUser?: (userId: string) => void;
   onSelectTab?: (tabName: string) => void;
   placeholder?: string;
+  isDarkMode?: boolean;
 }
 
 export const MasterGlobalSearchBar: React.FC<MasterGlobalSearchBarProps> = ({
   onSelectTenant,
   onSelectUser,
   onSelectTab,
-  placeholder = 'Global Server Search (Tenants, HWID, Licenses, Users, Audit Logs)...'
+  placeholder = 'Global Server Search (Tenants, HWID, Licenses, Users, Audit Logs)...',
+  isDarkMode = true
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);

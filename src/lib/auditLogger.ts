@@ -13,6 +13,7 @@ export type AuditActionCategory =
   | 'NARCOTICS_SCHEDULE'
   | 'AUTH_LOGIN'
   | 'BUSINESS_SWITCH'
+  | 'TENANT_DEVICE_MANAGEMENT'
   | 'GENERAL_OPERATION';
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL';

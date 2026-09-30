@@ -183,6 +183,26 @@ class AdminService {
     }
   }
 
+  async authenticateMasterAdmin(password?: string, recoveryKey?: string): Promise<{ success: boolean; authMode?: string; error?: string }> {
+    return this.authenticate(password, recoveryKey);
+  }
+
+  logoutMasterAdmin(): void {
+    this.logout();
+  }
+
+  async forceDisconnectAllSessions(tenantId: string): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/force-logout`, {
+        method: 'POST',
+        headers: this.getAuthHeaders()
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Fetch all live tenants telemetry from MariaDB with sub-users & hardware device counts
    */

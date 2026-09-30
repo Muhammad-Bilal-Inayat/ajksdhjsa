@@ -1073,10 +1073,10 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                       {/* Header */}
                       <div className="text-center space-y-0.5 pb-1">
                         <div className="font-black text-sm tracking-wider uppercase text-slate-900">
-                          {printConf.companyName || businessName || activeTenantName || 'Pharmacy Store'}
+                          {printConf.companyName || businessName || 'Pharmacy Store'}
                         </div>
                         <div className="text-[10px] font-bold tracking-wider text-slate-800 uppercase">
-                          {printConf.subtitle || 'PHARMACY POS & ERP'}
+                          {(printConf as any)?.subtitle || 'PHARMACY POS & ERP'}
                         </div>
                         {(printConf.phone || businessPhone) && (
                           <div className="text-[10px] text-slate-700 tracking-tight">

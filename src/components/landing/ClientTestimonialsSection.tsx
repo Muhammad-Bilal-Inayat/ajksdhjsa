@@ -13,7 +13,7 @@ import { isMasterAdminAuthenticated } from '../../lib/masterServerService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-export const ClientTestimonialsSection: React.FC = () => {
+export const ClientTestimonialsSection: React.FC<{ id?: string }> = ({ id = 'testimonials' }) => {
   const [testimonials, setTestimonials] = useState<SiteTestimonial[]>(() => getSiteCmsConfig().testimonials || []);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);

@@ -235,7 +235,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
           online_storefront: newProfile.menuToggles['onlineStore'] !== false,
           top_products: newProfile.submenuToggles['topProducts'] !== false,
           top_products_analytics: newProfile.submenuToggles['topProducts'] !== false,
-          journal_vouchers: newProfile.submenuTouchers?.['journalVouchers'] !== false || newProfile.menuToggles['accounts'] !== false,
+          journal_vouchers: newProfile.submenuToggles?.['journalVouchers'] !== false || newProfile.menuToggles['accounts'] !== false,
           full_audit_trail: newProfile.submenuToggles['auditTrail'] !== false,
           booker_biller_management: newProfile.submenuToggles['bookers'] !== false,
           live_profit_margin: newProfile.functionToggles['viewCostsAndMargins'] !== false,

@@ -69,7 +69,7 @@ export const Inventory: React.FC = () => {
   const navigate = useNavigate();
 
   // Plan-Based Feature Access Gating
-  const currentPlan = (tenant?.plan || tenant?.subscription_plan || tenant?.plan_id || business?.plan || 'basic').toLowerCase();
+  const currentPlan = (tenant?.plan || (tenant as any)?.subscription_plan || (tenant as any)?.plan_id || (business as any)?.plan || 'basic').toLowerCase();
   const isGoldOrEnterprise = currentPlan.includes('gold') || currentPlan.includes('business') || currentPlan.includes('enterprise') || currentPlan.includes('platinum');
   const isEnterprise = currentPlan.includes('enterprise') || currentPlan.includes('platinum');
 

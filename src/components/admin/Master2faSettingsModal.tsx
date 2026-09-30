@@ -24,7 +24,8 @@ const DEFAULT_EMERGENCY_KEY = '03082003';
 export const Master2faSettingsModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-}> = ({ isOpen, onClose }) => {
+  isDarkMode?: boolean;
+}> = ({ isOpen, onClose, isDarkMode }) => {
   const [config, setConfig] = useState<Master2faConfig>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);

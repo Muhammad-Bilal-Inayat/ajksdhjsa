@@ -637,24 +637,33 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   };
 
   const handleSwitchSessionToUser = () => {
+    const tenantIdToUse = targetTenantId || selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.id;
+    const storeNameToUse = selectedUser.storeName || selectedUser.name || 'Store';
     const normalizedRole = normalizeUserRole(selectedUser.role as any);
     const simUser = {
       id: selectedUser.id,
       name: selectedUser.name,
       role: normalizedRole,
-      storeName: selectedUser.storeName,
+      storeName: storeNameToUse,
+      tenantId: tenantIdToUse,
       email: selectedUser.id.includes('@') ? selectedUser.id : `${selectedUser.id}@inventra.pos`
     };
     localStorage.setItem('active_simulated_user', JSON.stringify(simUser));
     localStorage.setItem('active_simulated_role', normalizedRole);
+    localStorage.setItem('mbi_active_tenant', tenantIdToUse);
+    localStorage.setItem('activeTenantId', tenantIdToUse);
     localStorage.setItem('mbi_user_access_active_id', selectedUser.id);
     localStorage.setItem('mbi_master_control_last_selected_user', selectedUser.id);
+    localStorage.setItem('mbi_store_name', storeNameToUse);
 
     commitProfile(profile);
 
     window.dispatchEvent(new CustomEvent('mbi-user-role-changed', { detail: { role: normalizedRole, user: simUser } }));
-    setSaveStatusMsg(`App session switched to ${selectedUser.name} (${normalizedRole})! The left sidebar is now displaying their exact permitted items.`);
-    triggerNotify(`⚡ App session switched to ${selectedUser.name} (${normalizedRole})!`);
+    window.dispatchEvent(new CustomEvent('mbi-tenant-changed', { detail: { tenantId: tenantIdToUse, storeName: storeNameToUse } }));
+    window.dispatchEvent(new Event('storage'));
+
+    setSaveStatusMsg(`⚡ Switched to Tenant "${storeNameToUse}" (${tenantIdToUse})! The app is now running with their exact permissions.`);
+    triggerNotify(`⚡ Switched to Tenant "${storeNameToUse}"!`);
   };
 
   const handleSaveProfile = () => {
@@ -817,13 +826,16 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
               <select
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none pr-3 cursor-pointer"
+                className="bg-transparent text-xs font-bold text-white focus:outline-none pr-3 cursor-pointer max-w-[280px] truncate"
               >
-                {ownerUsers.map(u => (
-                  <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                    {u.name} ({u.tenantId || u.id}) • {u.role}
-                  </option>
-                ))}
+                {ownerUsers.map(u => {
+                  const cleanName = (u.name || 'Store').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+                  return (
+                    <option key={u.id} value={u.id} className="bg-slate-900 text-white">
+                      {cleanName} ({u.tenantId || u.id}) • {u.role}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -870,7 +882,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
             <span>Passcode: <code className="text-amber-400 font-mono font-bold">{selectedUser.passcode || '1234'}</code></span>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
             <span className="text-[11px] font-bold text-slate-400 mr-1">1-Click Presets:</span>
             <button
               onClick={() => handleApplyPlanPreset('BASIC')}
@@ -913,6 +925,17 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
             >
               <RotateCcw className="w-3 h-3" />
               <span>Role Defaults</span>
+            </button>
+
+            {/* Direct Switch to Tenant App Button in Header */}
+            <button
+              type="button"
+              onClick={handleSwitchSessionToUser}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-md cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border border-emerald-400/30"
+              title={`Switch workspace to ${selectedUser.name} (${targetTenantId}) and launch store live`}
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>Switch to Tenant ⚡</span>
             </button>
           </div>
         </div>

@@ -165,12 +165,16 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
             customerPhone: customerPhone,
             date: invoiceDate,
             items: validItems.map(it => ({ name: it.name, quantity: it.quantity, price: it.unitPrice || 0, total: it.total })),
-            subTotal,
-            discountAmount,
-            taxAmount,
+            subtotal: subTotal,
+            subTotal: subTotal,
+            discount: discountAmount,
+            discountAmount: discountAmount,
+            tax: taxAmount,
+            taxAmount: taxAmount,
             grandTotal,
             paidAmount: paidAmount > 0 ? paidAmount : grandTotal,
             balanceDue: paymentMethod === 'Credit' ? grandTotal : 0,
+            storeName: business?.name || 'Inventra Pharmacy',
             businessName: business?.name || 'Inventra Pharmacy'
           }, tenantId).then(waRes => {
             if (waRes.success && waRes.mode === 'auto_background') {

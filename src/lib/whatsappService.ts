@@ -5,7 +5,8 @@
  */
 
 export interface WhatsAppInvoiceData {
-  storeName: string;
+  storeName?: string;
+  businessName?: string;
   storePhone?: string;
   storeAddress?: string;
   invoiceNumber: string;
@@ -19,9 +20,12 @@ export interface WhatsAppInvoiceData {
     price: number;
     total: number;
   }>;
-  subtotal: number;
+  subtotal?: number;
+  subTotal?: number;
   discount?: number;
+  discountAmount?: number;
   tax?: number;
+  taxAmount?: number;
   grandTotal: number;
   paidAmount?: number;
   balanceDue?: number;
@@ -78,8 +82,9 @@ export function formatWhatsAppPhone(phone: string): string {
  */
 export function buildInvoiceWhatsAppMessage(data: WhatsAppInvoiceData): string {
   const lines: string[] = [];
+  const nameOfStore = data.storeName || data.businessName || 'Inventra Pharmacy';
 
-  lines.push(`🏥 *${data.storeName.toUpperCase()}*`);
+  lines.push(`🏥 *${nameOfStore.toUpperCase()}*`);
   if (data.storeAddress) lines.push(`📍 _${data.storeAddress}_`);
   if (data.storePhone) lines.push(`📞 ${data.storePhone}`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
@@ -99,14 +104,18 @@ export function buildInvoiceWhatsAppMessage(data: WhatsAppInvoiceData): string {
     );
   });
 
+  const rawSubtotal = data.subtotal ?? data.subTotal ?? (data.grandTotal || 0);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`*Subtotal:* Rs ${data.subtotal.toLocaleString()}`);
+  lines.push(`*Subtotal:* Rs ${rawSubtotal.toLocaleString()}`);
 
-  if (data.discount && data.discount > 0) {
-    lines.push(`*Discount:* -Rs ${data.discount.toLocaleString()}`);
+  const rawDiscount = data.discount ?? data.discountAmount ?? 0;
+  if (rawDiscount > 0) {
+    lines.push(`*Discount:* -Rs ${rawDiscount.toLocaleString()}`);
   }
-  if (data.tax && data.tax > 0) {
-    lines.push(`*Tax:* +Rs ${data.tax.toLocaleString()}`);
+
+  const rawTax = data.tax ?? data.taxAmount ?? 0;
+  if (rawTax > 0) {
+    lines.push(`*Tax:* +Rs ${rawTax.toLocaleString()}`);
   }
 
   lines.push(`*GRAND TOTAL:* 💰 *Rs ${data.grandTotal.toLocaleString()}*`);
@@ -119,7 +128,7 @@ export function buildInvoiceWhatsAppMessage(data: WhatsAppInvoiceData): string {
   }
 
   lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
-  lines.push(`✨ *Thank you for choosing ${data.storeName}!*`);
+  lines.push(`✨ *Thank you for choosing ${nameOfStore}!*`);
   lines.push(`_Get well soon. Please store medicines in a cool & dry place._`);
 
   return lines.join('\n');

@@ -9001,7 +9001,7 @@ fleetRouter.get("/tenants", async (req, res) => {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const rows = await pool2.query(
           `SELECT t.*, 
             (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id) as user_count,
             (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count,
@@ -9306,7 +9306,7 @@ fleetRouter.get("/leads", async (req, res) => {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
+        const rows = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
         if (Array.isArray(rows)) {
           leads = rows;
         }
@@ -9336,7 +9336,7 @@ fleetRouter.post("/leads/approve", async (req, res) => {
   try {
     const { leadId, serialKey, plan } = req.body;
     const pool2 = getMariaDbPool();
-    const [leadRows] = await pool2.query("SELECT * FROM mbi_registration_leads WHERE id = ? LIMIT 1;", [leadId]);
+    const leadRows = await pool2.query("SELECT * FROM mbi_registration_leads WHERE id = ? LIMIT 1;", [leadId]);
     if (!leadRows || leadRows.length === 0) {
       res.status(404).json({ success: false, error: "Lead not found" });
       return;
@@ -9476,7 +9476,7 @@ fleetRouter.get("/users", async (req, res) => {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const rows = await pool2.query(
           `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone as emailOrPhone, 
                   u.role, u.status, u.is_kill_switch_active as isKillSwitchActive, 
                   u.is_silent_monitored as isSilentMonitored, u.bound_hwid as boundHwid, 
@@ -9741,7 +9741,7 @@ fleetRouter.get("/keys", async (req, res) => {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [tenants] = await pool2.query(
+        const tenants = await pool2.query(
           `SELECT id, tenant_id, name, owner_name, api_key, plan, status, created_at, updated_at FROM mbi_tenants ORDER BY created_at DESC;`
         );
         if (Array.isArray(tenants)) {
@@ -9818,7 +9818,7 @@ fleetRouter.get("/licenses", async (req, res) => {
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const rows = await pool2.query(
           `SELECT l.*, t.name as tenant_name, t.owner_name, t.owner_phone, t.city, t.status as tenant_status
            FROM mbi_licenses l
            LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id)
@@ -9989,7 +9989,7 @@ fleetRouter.post("/keys/verify", async (req, res) => {
     if (!found && await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
-        const [tenantRows] = await pool2.query(
+        const tenantRows = await pool2.query(
           `SELECT id, tenant_id, name, status FROM mbi_tenants WHERE api_key = ? LIMIT 1;`,
           [apiKey]
         );
@@ -10121,7 +10121,7 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       try {
         const pool2 = getMariaDbPool();
         await ensurePermissionsTable(pool2);
-        const [rows] = await pool2.query(
+        const rows = await pool2.query(
           `SELECT profile_json, effective_json, updated_at, updated_by 
            FROM mbi_user_access_profiles 
            WHERE user_id = ? OR tenant_id = ? OR id = ? OR id = ? OR id LIKE ? OR user_id LIKE ?
@@ -10144,7 +10144,7 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
           return;
         }
         if (tenantId) {
-          const [tenantRows] = await pool2.query(
+          const tenantRows = await pool2.query(
             `SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1;`,
             [tenantId, tenantId]
           );
@@ -10166,7 +10166,7 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
             }
           }
         }
-        const [userRows] = await pool2.query(
+        const userRows = await pool2.query(
           `SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1;`,
           [userId, userId, tenantId]
         );

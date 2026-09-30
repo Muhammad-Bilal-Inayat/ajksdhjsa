@@ -35,7 +35,8 @@ import {
   Radio,
   SlidersHorizontal,
   UserCheck,
-  HardDrive
+  HardDrive,
+  Trash2
 } from 'lucide-react';
 import { 
   Tenant, 
@@ -628,6 +629,33 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     }
   };
 
+  // Handle permanent deletion of tenant from MariaDB and local fleet
+  const handleDeleteTenant = async (tenant: Tenant) => {
+    const tid = tenant.tenantId || tenant.id;
+    if (!window.confirm(`Are you sure you want to permanently delete company "${tenant.name}" (${tid}) from MariaDB and server fleet? All associated user credentials and data will be removed.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/fleet/tenants/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: tid, tenantId: tid, id: tid })
+      });
+
+      if (res.ok) {
+        onNotify(`🗑️ Company "${tenant.name}" permanently deleted.`);
+        setTenants(prev => prev.filter(x => x.id !== tid && x.tenantId !== tid && x.name !== tenant.name));
+        const updated = tenants.filter(x => x.id !== tid && x.tenantId !== tid && x.name !== tenant.name);
+        localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(updated));
+      } else {
+        onNotify('Failed to delete tenant from server.');
+      }
+    } catch (err) {
+      onNotify('Network error deleting tenant.');
+    }
+  };
+
   // Handle Send Direct Message to POS Screen
   const handleSendDirectMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1174,6 +1202,15 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                             <span>Lock</span>
                           </>
                         )}
+                      </button>
+
+                      {/* Permanent Delete Tenant */}
+                      <button
+                        onClick={() => handleDeleteTenant(t)}
+                        className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-bold transition-all cursor-pointer"
+                        title="Permanently Delete Company from MariaDB & Fleet"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

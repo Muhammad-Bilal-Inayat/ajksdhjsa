@@ -94,6 +94,35 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
     }
 
     // Fallback ONLY when MariaDB is completely unreachable
+    const masterTenantsFile = path.resolve(process.cwd(), '.master_tenants.json');
+    if (fs.existsSync(masterTenantsFile)) {
+      try {
+        const fileTenants = JSON.parse(fs.readFileSync(masterTenantsFile, 'utf-8') || '[]');
+        if (Array.isArray(fileTenants)) {
+          for (const ft of fileTenants) {
+            const tid = ft.id || ft.tenantId || ft.tenant_id;
+            const tName = ft.name || ft.storeName || ft.store_name;
+            if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid || t.name === tName))) {
+              tenants.push({
+                id: tid,
+                tenant_id: tid,
+                tenantId: tid,
+                name: tName,
+                owner_name: ft.ownerName || ft.owner_name || 'Owner',
+                owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || '',
+                owner_email: ft.ownerEmail || ft.owner_email || ft.email || '',
+                city: ft.city || 'Lahore',
+                plan: ft.plan || ft.planId || 'Standard POS',
+                status: ft.status || 'Active',
+                api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+                created_at: ft.trialStartDate || ft.created_at || new Date().toISOString()
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     if (fs.existsSync(syncFile)) {
       try {
         const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
@@ -101,10 +130,11 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
           const tName = ft.name || ft.storeName || ft.store_name;
-          if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid))) {
+          if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid || t.name === tName))) {
             tenants.push({
               id: tid,
               tenant_id: tid,
+              tenantId: tid,
               name: tName,
               owner_name: ft.ownerName || ft.owner_name || 'Owner',
               owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || '',
@@ -112,10 +142,31 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
               city: ft.city || 'Lahore',
               plan: ft.plan || ft.planId || 'Basic',
               status: ft.status || 'Active',
-              api_key: ft.api_key || ft.apiKey || `mbi_live_key_${tid.slice(-6)}`,
+              api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
               created_at: ft.trialStartDate || ft.created_at || new Date().toISOString()
             });
           }
+        }
+
+        // If still empty, infer tenant from invoices in syncData
+        if (tenants.length === 0 && Array.isArray(syncData.invoices) && syncData.invoices.length > 0) {
+          const inv = syncData.invoices[0];
+          const tid = inv.tenantId || 'tenant_main';
+          const tName = inv.firmName || 'My Pharmacy Store';
+          tenants.push({
+            id: tid,
+            tenant_id: tid,
+            tenantId: tid,
+            name: tName,
+            owner_name: inv.userName || 'Store Owner',
+            owner_phone: '0300-0000000',
+            owner_email: 'owner@mbiinventra.com',
+            city: 'Lahore',
+            plan: 'Pharmacy Pro',
+            status: 'Active',
+            api_key: `mbi_live_key_${String(tid).slice(-6)}`,
+            created_at: inv.createdAt || new Date().toISOString()
+          });
         }
       } catch (e) {}
     }
@@ -168,13 +219,33 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
     const cleanApiKey = api_key || apiKey || `mbi_live_key_${cleanTenantId.slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
     const cleanFeaturesJson = typeof features_json === 'string' ? features_json : JSON.stringify(features || customFeatures || {});
     const cleanExpiry = trial_expiry_date || trialExpiryDate || null;
+    const tenantRecord = {
+      id: cleanId,
+      tenant_id: cleanTenantId,
+      tenantId: cleanTenantId,
+      organization_id: cleanTenantId,
+      name: name || 'Pharmacy Store',
+      owner_name: owner_name || ownerName || 'Store Admin',
+      owner_phone: owner_phone || ownerPhone || phone || '',
+      owner_email: owner_email || ownerEmail || email || '',
+      city: city || 'Lahore',
+      address: address || '',
+      plan: plan || 'Business',
+      status: status || 'Active',
+      drug_license_no: drug_license_no || '',
+      ntn_number: ntn_number || '',
+      api_key: cleanApiKey,
+      features_json: cleanFeaturesJson,
+      trial_expiry_date: cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : null,
+      updated_at: new Date().toISOString()
+    };
 
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
 
         // Check if existing tenant matches by name or phone
-        const [existingRows]: any = await pool.query(
+        const existingRows: any = await pool.query(
           "SELECT id, tenant_id FROM mbi_tenants WHERE (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ? AND tenant_id != ?) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ? AND id != ? AND tenant_id != ?) LIMIT 1;",
           [name || '', cleanId, cleanTenantId, owner_phone || ownerPhone || phone || '', cleanId, cleanTenantId]
         );
@@ -249,6 +320,22 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
         console.warn('[Tenant Save MariaDB Error]:', dbErr);
       }
     }
+
+    // Always mirror to fallback master store
+    try {
+      const masterTenantsPath = path.resolve(process.cwd(), '.master_tenants.json');
+      let localList: any[] = [];
+      if (fs.existsSync(masterTenantsPath)) {
+        try { localList = JSON.parse(fs.readFileSync(masterTenantsPath, 'utf-8') || '[]'); } catch (e) {}
+      }
+      const existingIdx = localList.findIndex(t => t.id === cleanId || t.tenant_id === cleanTenantId || t.name?.toLowerCase() === name?.toLowerCase());
+      if (existingIdx >= 0) {
+        localList[existingIdx] = { ...localList[existingIdx], ...tenantRecord };
+      } else {
+        localList.push(tenantRecord);
+      }
+      fs.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), 'utf-8');
+    } catch (e) {}
 
     // Broadcast real-time SSE event to all terminals
     broadcastGlobalEvent({

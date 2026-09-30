@@ -461,7 +461,12 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, editSale: newVal },
-      actionToggles: { ...profile.actionToggles, act_edit_sale: newVal }
+      actionToggles: { 
+        ...profile.actionToggles, 
+        act_edit_sale: newVal,
+        act_edit_invoice: newVal,
+        act_edit_bills: newVal
+      }
     }, `Invoice editing ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -473,7 +478,13 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, deleteSale: newVal },
-      actionToggles: { ...profile.actionToggles, act_delete_sale: newVal, act_del_sale: newVal }
+      actionToggles: { 
+        ...profile.actionToggles, 
+        act_delete_sale: newVal, 
+        act_del_sale: newVal,
+        act_void_sale: newVal,
+        act_delete_bills: newVal
+      }
     }, `Bill deletion ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -485,7 +496,13 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, reprintSale: newVal },
-      actionToggles: { ...profile.actionToggles, act_print_sale: newVal }
+      actionToggles: { 
+        ...profile.actionToggles, 
+        act_print_sale: newVal,
+        act_share_sale: newVal,
+        act_pdf_sale: newVal,
+        act_duplicate_print: newVal
+      }
     }, `Share & PDF print access ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -497,7 +514,12 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, items: true },
       submenuToggles: { ...profile.submenuToggles, inventoryList: true },
       functionToggles: { ...profile.functionToggles, viewCostsAndMargins: newVal },
-      actionToggles: { ...profile.actionToggles, act_view_cost: newVal }
+      actionToggles: { 
+        ...profile.actionToggles, 
+        act_view_cost: newVal,
+        act_view_purchase_cost: newVal,
+        act_cost_margins: newVal
+      }
     }, `Purchase cost & margin view ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -509,7 +531,13 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, applyDiscount: newVal },
-      actionToggles: { ...profile.actionToggles, act_apply_disc: newVal, act_disc_sale: newVal }
+      actionToggles: { 
+        ...profile.actionToggles, 
+        act_apply_disc: newVal, 
+        act_disc_sale: newVal,
+        act_discount: newVal,
+        act_grant_discount: newVal
+      }
     }, `Discount authorization ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 

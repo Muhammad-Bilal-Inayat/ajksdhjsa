@@ -9041,13 +9041,14 @@ fleetRouter.get("/tenants", async (req, res) => {
             import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           } catch (e) {
           }
-          return res.json({
+          res.json({
             success: true,
             source: "mariadb",
             count: tenants.length,
             tenants,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           });
+          return;
         }
       } catch (dbErr) {
         console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);
@@ -9761,13 +9762,14 @@ fleetRouter.get("/keys", async (req, res) => {
             import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
           } catch (e) {
           }
-          return res.json({
+          res.json({
             success: true,
             source: "mariadb",
             count: keysList.length,
             keys: keysList,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           });
+          return;
         }
       } catch (dbErr) {
         console.warn("[Fleet Keys MariaDB Error - Using disk fallback]:", dbErr);

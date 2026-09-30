@@ -72,7 +72,7 @@ export const MasterCommandCenter: React.FC = () => {
 
     try {
       const res = await adminService.authenticateMasterAdmin(password, recoveryKey);
-      if (res.success && res.authenticated) {
+      if (res.success) {
         setIsAuthenticated(true);
         emitToast('Master Command Station Access Authorized', 'success');
       } else {

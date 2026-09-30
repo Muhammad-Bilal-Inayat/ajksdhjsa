@@ -1089,11 +1089,11 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
         const [rows]: any = await pool.query(
           `SELECT profile_json, effective_json, updated_at, updated_by 
            FROM mbi_user_access_profiles 
-           WHERE user_id = ? AND (tenant_id = ? OR ? = '') 
+           WHERE user_id = ? OR id = ? OR id LIKE ? OR user_id LIKE ?
            ORDER BY updated_at DESC LIMIT 1;`,
-          [userId, tenantId, tenantId]
+          [userId, `prof_${tenantId}_${userId}`, `%${userId}%`, `%${userId}%`]
         );
-        if (Array.isArray(rows) && rows.length > 0) {
+        if (Array.isArray(rows) && rows.length > 0 && rows[0].profile_json) {
           const profile = JSON.parse(rows[0].profile_json);
           const effective = rows[0].effective_json ? JSON.parse(rows[0].effective_json) : null;
           res.json({
@@ -1107,6 +1107,28 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
             updatedBy: rows[0].updated_by
           });
           return;
+        }
+
+        // Check if mbi_users has saved permissions JSON
+        const [userRows]: any = await pool.query(
+          `SELECT permissions FROM mbi_users WHERE (id = ? OR username = ?) AND permissions IS NOT NULL LIMIT 1;`,
+          [userId, userId]
+        );
+        if (Array.isArray(userRows) && userRows.length > 0 && userRows[0].permissions) {
+          try {
+            const parsed = typeof userRows[0].permissions === 'string' ? JSON.parse(userRows[0].permissions) : userRows[0].permissions;
+            if (parsed && typeof parsed === 'object') {
+              res.json({
+                success: true,
+                source: 'mariadb_users',
+                userId,
+                tenantId,
+                profile: parsed,
+                updatedAt: new Date().toISOString()
+              });
+              return;
+            }
+          } catch (e) {}
         }
       } catch (dbErr) {}
     }

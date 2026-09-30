@@ -8,6 +8,7 @@ import {
   UserAccessControlProfile,
   getUserAccessControlProfile,
   saveUserAccessControlProfile,
+  syncUserAccessControlProfileFromServer,
   resetUserToRoleDefaults,
   resetUserToPlanDefaults,
   evaluatePermission,
@@ -84,26 +85,35 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     } as MasterActiveUser;
   }, [ownerUsers, selectedUserId]);
 
+  const targetTenantId = selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.installationId || selectedUser.storeName || 'tenant_main_pharmacy';
+
   const [profile, setProfile] = useState<UserAccessControlProfile>(() => {
     return getUserAccessControlProfile(
       selectedUser.id,
       selectedUser.role as any,
       (selectedUser as any).plan || 'Pharmacy Pro',
-      selectedUser.installationId || selectedUser.storeName
+      targetTenantId
     );
   });
 
   // Reload profile when selected user changes
   useEffect(() => {
     if (selectedUser) {
-      setProfile(
-        getUserAccessControlProfile(
-          selectedUser.id,
-          selectedUser.role as any,
-          (selectedUser as any).plan || 'Pharmacy Pro',
-          selectedUser.installationId || selectedUser.storeName
-        )
+      const tid = selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.installationId || selectedUser.storeName || 'tenant_main_pharmacy';
+      const localProf = getUserAccessControlProfile(
+        selectedUser.id,
+        selectedUser.role as any,
+        (selectedUser as any).plan || 'Pharmacy Pro',
+        tid
       );
+      setProfile(localProf);
+
+      syncUserAccessControlProfileFromServer(selectedUser.id, tid).then(serverProf => {
+        if (serverProf) {
+          setProfile(serverProf);
+        }
+      });
+
       setIsDirty(false);
       setSaveStatusMsg(null);
     }
@@ -211,6 +221,8 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   // Helper to commit profile state and immediately persist + sync to sidebar and tenant features
   const commitProfile = (newProfile: UserAccessControlProfile, changeNotice?: string) => {
     newProfile.isCustomOverrideActive = true;
+    newProfile.userId = selectedUser.id;
+    newProfile.tenantId = targetTenantId;
     setProfile(newProfile);
     
     // Always persist & broadcast immediately so changes take effect instantly in real-time
@@ -219,10 +231,10 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     localStorage.setItem('mbi_active_user_access_profile', serialized);
     localStorage.setItem('mbi_user_access_profile_user_usr_active', serialized);
     localStorage.setItem(`mbi_user_access_profile_user_${newProfile.userId}`, serialized);
+    localStorage.setItem(`mbi_user_access_profile_${targetTenantId}_${newProfile.userId}`, serialized);
     localStorage.setItem('mbi_master_control_last_selected_user', newProfile.userId);
 
     // Also mirror to tenant-level feature store so all subusers inherit immediately
-    const targetTenantId = selectedUser.tenantId || newProfile.tenantId;
     if (targetTenantId) {
       try {
         const tenantFeatureMap: Record<string, boolean> = {

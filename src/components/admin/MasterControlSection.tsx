@@ -447,11 +447,11 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   };
 
   // High-Priority Direct Quick-Toggles
-  const isInvoiceEditingAllowed = profile.actionToggles['act_edit_sale'] !== false && profile.functionToggles['editSale'] !== false && profile.menuToggles['sale'] !== false;
-  const isBillDeletionAllowed = profile.actionToggles['act_delete_sale'] !== false && profile.functionToggles['deleteSale'] !== false && profile.menuToggles['sale'] !== false;
-  const isShareAccessAllowed = profile.actionToggles['act_print_sale'] !== false && profile.functionToggles['reprintSale'] !== false && profile.menuToggles['sale'] !== false;
-  const isPurchaseCostAllowed = profile.actionToggles['act_view_cost'] !== false && profile.functionToggles['viewCostsAndMargins'] !== false && profile.menuToggles['items'] !== false;
-  const isDiscountAllowed = profile.actionToggles['act_apply_disc'] !== false && profile.functionToggles['applyDiscount'] !== false && profile.menuToggles['sale'] !== false;
+  const isInvoiceEditingAllowed = profile.actionToggles['act_edit_sale'] !== false && profile.functionToggles['editSale'] !== false;
+  const isBillDeletionAllowed = profile.actionToggles['act_delete_sale'] !== false && profile.functionToggles['deleteSale'] !== false;
+  const isShareAccessAllowed = profile.actionToggles['act_print_sale'] !== false && profile.functionToggles['reprintSale'] !== false;
+  const isPurchaseCostAllowed = profile.actionToggles['act_view_cost'] !== false && profile.functionToggles['viewCostsAndMargins'] !== false;
+  const isDiscountAllowed = profile.actionToggles['act_apply_disc'] !== false && profile.functionToggles['applyDiscount'] !== false;
 
   const handleQuickToggleInvoiceEditing = () => {
     const newVal = !isInvoiceEditingAllowed;
@@ -473,7 +473,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, deleteSale: newVal },
-      actionToggles: { ...profile.actionToggles, act_delete_sale: newVal }
+      actionToggles: { ...profile.actionToggles, act_delete_sale: newVal, act_del_sale: newVal }
     }, `Bill deletion ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -509,7 +509,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menuToggles: { ...profile.menuToggles, sale: true },
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, applyDiscount: newVal },
-      actionToggles: { ...profile.actionToggles, act_apply_disc: newVal }
+      actionToggles: { ...profile.actionToggles, act_apply_disc: newVal, act_disc_sale: newVal }
     }, `Discount authorization ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
 
@@ -662,8 +662,13 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     window.dispatchEvent(new CustomEvent('mbi-tenant-changed', { detail: { tenantId: tenantIdToUse, storeName: storeNameToUse } }));
     window.dispatchEvent(new Event('storage'));
 
-    setSaveStatusMsg(`⚡ Switched to Tenant "${storeNameToUse}" (${tenantIdToUse})! The app is now running with their exact permissions.`);
-    triggerNotify(`⚡ Switched to Tenant "${storeNameToUse}"!`);
+    // Open User Workspace in a new browser tab for immediate live testing
+    if (typeof window !== 'undefined') {
+      window.open('/', '_blank');
+    }
+
+    setSaveStatusMsg(`⚡ Switched to Tenant "${storeNameToUse}" (${tenantIdToUse})! Launched user workspace in a new tab.`);
+    triggerNotify(`⚡ Switched to Tenant "${storeNameToUse}" & opened in new tab!`);
   };
 
   const handleSaveProfile = () => {

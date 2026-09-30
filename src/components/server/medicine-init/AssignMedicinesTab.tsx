@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { CentralMedicine } from '../../../types';
 import {
   Send,
@@ -20,7 +20,11 @@ import {
   ArrowRight,
   FileSpreadsheet,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
 } from 'lucide-react';
 import { 
   assignMedicinesToCustomer, 
@@ -58,7 +62,12 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
   const [initialStock, setInitialStock] = useState<number>(20);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isUnassigning, setIsUnassigning] = useState(false);
+  const [assignProgress, setAssignProgress] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<string | null>(null);
+
+  // Pagination states for ultra high speed rendering (Prevents browser freeze on 24,000+ items)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
 
   // Quick Category summary counts
   const categoryCounts = useMemo(() => {
@@ -88,11 +97,15 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     return tenants.find(t => (t.tenantId || t.id) === selectedTenantId);
   }, [tenants, selectedTenantId]);
 
+  // Ultra-fast O(1) selection lookup Set
+  const selectedMedIdsSet = useMemo(() => new Set(selectedMedIds), [selectedMedIds]);
+
+  // Filtered medicines with fast matching
   const filteredMedicines = useMemo(() => {
+    const q = search.toLowerCase().trim();
     return medicines.filter(m => {
       if (selectedCategory !== 'ALL' && m.category !== selectedCategory) return false;
-      if (search.trim()) {
-        const q = search.toLowerCase().trim();
+      if (q) {
         const matchName = (m.name || '').toLowerCase().includes(q);
         const matchBrand = (m.brandName || '').toLowerCase().includes(q);
         const matchCompany = (m.company || '').toLowerCase().includes(q);
@@ -104,33 +117,47 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     });
   }, [medicines, selectedCategory, search]);
 
-  const toggleSelectAllFiltered = () => {
+  // Reset page to 1 whenever category or search filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, search, pageSize]);
+
+  // Paginated slice for current viewport
+  const totalPages = Math.max(1, Math.ceil(filteredMedicines.length / pageSize));
+  const paginatedMedicines = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMedicines.slice(start, start + pageSize);
+  }, [filteredMedicines, currentPage, pageSize]);
+
+  const toggleSelectAllFiltered = useCallback(() => {
     const filteredIds = filteredMedicines.map(m => m.id);
-    const allInFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedMedIds.includes(id));
+    const allInFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedMedIdsSet.has(id));
 
     if (allInFilteredSelected) {
-      setSelectedMedIds(prev => prev.filter(id => !filteredIds.includes(id)));
+      const filterIdSet = new Set(filteredIds);
+      setSelectedMedIds(prev => prev.filter(id => !filterIdSet.has(id)));
     } else {
       setSelectedMedIds(prev => Array.from(new Set([...prev, ...filteredIds])));
     }
-  };
+  }, [filteredMedicines, selectedMedIdsSet]);
 
-  const handleSelectEntireCategory = (catName: string) => {
+  const handleSelectEntireCategory = useCallback((catName: string) => {
     const catMeds = medicines.filter(m => (m.category || 'General') === catName).map(m => m.id);
-    const allCatSelected = catMeds.length > 0 && catMeds.every(id => selectedMedIds.includes(id));
+    const allCatSelected = catMeds.length > 0 && catMeds.every(id => selectedMedIdsSet.has(id));
 
     if (allCatSelected) {
-      setSelectedMedIds(prev => prev.filter(id => !catMeds.includes(id)));
+      const catSet = new Set(catMeds);
+      setSelectedMedIds(prev => prev.filter(id => !catSet.has(id)));
     } else {
       setSelectedMedIds(prev => Array.from(new Set([...prev, ...catMeds])));
     }
-  };
+  }, [medicines, selectedMedIdsSet]);
 
-  const toggleSelectOne = (id: string) => {
+  const toggleSelectOne = useCallback((id: string) => {
     setSelectedMedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      selectedMedIdsSet.has(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
-  };
+  }, [selectedMedIdsSet]);
 
   const handleExecuteAssignment = async () => {
     if (!selectedTenantId) {
@@ -146,27 +173,36 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     const tenantName = selectedTenantObj?.name || (selectedTenantObj as any)?.storeName || selectedTenantId;
 
     setIsAssigning(true);
+    setAssignProgress(`Assigning & Syncing ${selectedMedIds.length} items to ${tenantName}...`);
     setSuccessResult(null);
 
-    const res = await assignMedicinesToCustomer({
-      tenantId: selectedTenantId,
-      tenantName,
-      medicineIds: selectedMedIds,
-      initialStock,
-      adminName: 'Master Admin'
-    });
+    try {
+      // 1. Assign in core service
+      const res = await assignMedicinesToCustomer({
+        tenantId: selectedTenantId,
+        tenantName,
+        medicineIds: selectedMedIds,
+        initialStock,
+        adminName: 'Master Admin'
+      });
 
-    // Auto trigger immediate synchronization for tenant
-    await syncAssignedMedicinesForTenant(selectedTenantId);
+      // 2. Auto trigger immediate synchronization for tenant & all subusers
+      await syncAssignedMedicinesForTenant(selectedTenantId);
 
-    setIsAssigning(false);
+      setIsAssigning(false);
+      setAssignProgress(null);
 
-    if (res.success) {
-      setSuccessResult(res.message);
-      if (showToast) showToast(res.message);
-      onComplete();
-    } else {
-      alert(res.message);
+      if (res.success) {
+        setSuccessResult(`✅ Successfully assigned ${selectedMedIds.length} medicines to ${tenantName} and auto-synced to all subusers.`);
+        if (showToast) showToast(res.message);
+        onComplete();
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      setIsAssigning(false);
+      setAssignProgress(null);
+      alert('Error during assignment: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -188,23 +224,31 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     if (!confirmed) return;
 
     setIsAssigning(true);
-    const res = await assignCategoryToCustomer({
-      tenantId: selectedTenantId,
-      tenantName,
-      category: selectedCategory,
-      initialStock,
-      adminName: 'Master Admin'
-    });
+    setAssignProgress(`Assigning category "${selectedCategory}" (${catCount} items)...`);
+    try {
+      const res = await assignCategoryToCustomer({
+        tenantId: selectedTenantId,
+        tenantName,
+        category: selectedCategory,
+        initialStock,
+        adminName: 'Master Admin'
+      });
 
-    await syncAssignedMedicinesForTenant(selectedTenantId);
-    setIsAssigning(false);
+      await syncAssignedMedicinesForTenant(selectedTenantId);
+      setIsAssigning(false);
+      setAssignProgress(null);
 
-    if (res.success) {
-      setSuccessResult(res.message);
-      if (showToast) showToast(res.message);
-      onComplete();
-    } else {
-      alert(res.message);
+      if (res.success) {
+        setSuccessResult(res.message);
+        if (showToast) showToast(res.message);
+        onComplete();
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      setIsAssigning(false);
+      setAssignProgress(null);
+      alert('Error assigning category: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -404,8 +448,17 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               onClick={handleExecuteAssignment}
               className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-xs shadow-md shadow-sky-900/30 transition-all cursor-pointer"
             >
-              <Send className="w-4 h-4" />
-              {isAssigning ? 'Provisioning Items...' : `Assign ${selectedMedIds.length} Selected Items`}
+              {isAssigning ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Provisioning & Syncing...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>Assign {selectedMedIds.length} Selected Items</span>
+                </>
+              )}
             </button>
 
             {selectedMedIds.length > 0 && selectedTenantId && (
@@ -419,6 +472,13 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               </button>
             )}
           </div>
+
+          {assignProgress && (
+            <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl text-xs text-sky-300 flex items-center gap-2 animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span>{assignProgress}</span>
+            </div>
+          )}
 
           {successResult && (
             <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-start gap-2 animate-in fade-in">
@@ -532,77 +592,150 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
           </div>
         </div>
 
-        {/* Medicines Checkbox List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm max-h-[560px] overflow-y-auto divide-y divide-slate-800/60">
-          {filteredMedicines.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 text-xs space-y-2">
-              <Pill className="w-8 h-8 text-slate-600 mx-auto" />
-              <p>No central catalog medicines found matching your filters.</p>
+        {/* Medicines Checkbox List (Ultra-High Speed Paginated / Windowed) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+          {/* List Header / Summary */}
+          <div className="px-4 py-2.5 bg-slate-950/70 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div>
+              Showing <span className="text-white font-mono font-bold">
+                {filteredMedicines.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+              </span> to <span className="text-white font-mono font-bold">
+                {Math.min(currentPage * pageSize, filteredMedicines.length)}
+              </span> of <span className="text-white font-mono font-bold">{filteredMedicines.length}</span> items
             </div>
-          ) : (
-            filteredMedicines.map(med => {
-              const isSelected = selectedMedIds.includes(med.id);
-              const isAlreadyAssigned = selectedTenantId && med.assignedTenantIds?.includes(selectedTenantId);
+            <div className="flex items-center gap-2">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+                className="bg-slate-900 border border-slate-700 text-slate-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={250}>250</option>
+              </select>
+            </div>
+          </div>
 
-              return (
-                <div
-                  key={med.id}
-                  onClick={() => toggleSelectOne(med.id)}
-                  className={`p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors ${
-                    isSelected ? 'bg-sky-950/30' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleSelectOne(med.id);
-                      }}
-                      className="p-0.5 text-slate-400 hover:text-white"
-                    >
-                      {isSelected ? (
-                        <CheckSquare className="w-4 h-4 text-sky-400" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </button>
-                    <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-2">
-                        <span>{med.name}</span>
-                        {isAlreadyAssigned && (
-                          <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Already Assigned
-                          </span>
+          <div className="max-h-[520px] overflow-y-auto divide-y divide-slate-800/60">
+            {paginatedMedicines.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 text-xs space-y-2">
+                <Pill className="w-8 h-8 text-slate-600 mx-auto" />
+                <p>No central catalog medicines found matching your filters.</p>
+              </div>
+            ) : (
+              paginatedMedicines.map(med => {
+                const isSelected = selectedMedIdsSet.has(med.id);
+                const isAlreadyAssigned = selectedTenantId && med.assignedTenantIds?.includes(selectedTenantId);
+
+                return (
+                  <div
+                    key={med.id}
+                    onClick={() => toggleSelectOne(med.id)}
+                    className={`p-3.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/50 transition-colors ${
+                      isSelected ? 'bg-sky-950/30' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggleSelectOne(med.id);
+                        }}
+                        className="p-0.5 text-slate-400 hover:text-white"
+                      >
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-sky-400" />
+                        ) : (
+                          <Square className="w-4 h-4" />
                         )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 flex items-center gap-2 flex-wrap mt-0.5">
-                        <span className="font-semibold text-slate-300">{med.brandName || med.company || 'Pharma'}</span>
-                        <span>•</span>
-                        <span className="text-sky-400 font-medium">{med.category || 'General'}</span>
-                        {med.genericName && (
-                          <>
-                            <span>•</span>
-                            <span className="font-mono text-slate-500 text-[10.5px]">{med.genericName}</span>
-                          </>
-                        )}
-                        {med.strength && (
-                          <span className="text-[10px] px-1 rounded bg-slate-800 text-slate-400 font-mono">
-                            {med.strength}
-                          </span>
-                        )}
+                      </button>
+                      <div>
+                        <div className="text-xs font-bold text-white flex items-center gap-2">
+                          <span>{med.name}</span>
+                          {isAlreadyAssigned && (
+                            <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              Already Assigned
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-2 flex-wrap mt-0.5">
+                          <span className="font-semibold text-slate-300">{med.brandName || med.company || 'Pharma'}</span>
+                          <span>•</span>
+                          <span className="text-sky-400 font-medium">{med.category || 'General'}</span>
+                          {(med.genericFormula || med.genericName) && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-slate-500 text-[10.5px]">{med.genericFormula || med.genericName}</span>
+                            </>
+                          )}
+                          {med.strength && (
+                            <span className="text-[10px] px-1 rounded bg-slate-800 text-slate-400 font-mono">
+                              {med.strength}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-right text-[11px] text-slate-400 shrink-0 flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-lg bg-slate-950 text-slate-300 border border-slate-800 font-mono">
-                      {med.unit || 'Strip'}
-                    </span>
+                    <div className="text-right text-[11px] text-slate-400 shrink-0 flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-lg bg-slate-950 text-slate-300 border border-slate-800 font-mono">
+                        {med.unit || 'Strip'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
+            )}
+          </div>
+
+          {/* Pagination Controls Footer */}
+          {totalPages > 1 && (
+            <div className="px-4 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs">
+              <div className="text-slate-400">
+                Page <span className="font-bold text-white">{currentPage}</span> of <span className="font-bold text-white">{totalPages}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="First Page"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[11px] font-bold px-2.5"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Prev</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 text-[11px] font-bold px-2.5"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Last Page"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

@@ -519,6 +519,22 @@ export async function assignMedicinesToCustomer(params: {
     });
 
     await dbMedicines.saveBatch(clientMedicines, { skipCentralSync: true });
+
+    // Asynchronously allocate into MariaDB & broadcast to all subusers via server endpoint
+    try {
+      fetch('/api/admin/medicines/assign-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetTenantId: tenantId,
+          targetTenantName: tenantName,
+          mode: 'selected',
+          medicineIds,
+          items: targetMeds,
+          initialStock
+        })
+      }).catch(err => console.warn('[Server Assign Sync Notice]', err));
+    } catch (netErr) {}
   } catch (e) {
     console.warn('Note: Batch inventory save fallback handled.', e);
   }

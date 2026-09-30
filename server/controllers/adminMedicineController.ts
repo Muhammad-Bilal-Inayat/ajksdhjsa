@@ -693,7 +693,9 @@ export async function assignMedicinesBatchController(req: Request, res: Response
       mode = 'company', // 'company' | 'category' | 'selected' | 'all'
       company,
       category,
-      medicineIds = []
+      medicineIds = [],
+      items = [],
+      initialStock = 20
     } = req.body || {};
 
     if (!targetTenantId) {
@@ -704,13 +706,18 @@ export async function assignMedicinesBatchController(req: Request, res: Response
     // Determine target medicines to assign
     let itemsToAssign: any[] = [];
 
-    if (mode === 'company' && company) {
+    if (Array.isArray(items) && items.length > 0) {
+      itemsToAssign = items;
+    } else if (mode === 'company' && company) {
       itemsToAssign = masterCatalogCache.filter(m => m.company === company);
     } else if (mode === 'category' && category) {
       itemsToAssign = masterCatalogCache.filter(m => m.category === category);
     } else if (mode === 'selected' && Array.isArray(medicineIds) && medicineIds.length > 0) {
       const idSet = new Set(medicineIds);
       itemsToAssign = masterCatalogCache.filter(m => idSet.has(m.id));
+      if (itemsToAssign.length === 0 && Array.isArray(INITIAL_CENTRAL_MEDICINE_CATALOG)) {
+        itemsToAssign = INITIAL_CENTRAL_MEDICINE_CATALOG.filter((m: any) => idSet.has(m.id));
+      }
     } else if (mode === 'all') {
       itemsToAssign = masterCatalogCache;
     }
@@ -720,46 +727,75 @@ export async function assignMedicinesBatchController(req: Request, res: Response
       return;
     }
 
-    let assignedCount = 0;
+    let assignedCount = itemsToAssign.length;
 
-    // 1. MariaDB Batch Insert with Deduplication Guard
+    // 1. MariaDB High-Speed Chunked Multi-Row Bulk Insert (200 items per chunk)
     try {
       const pool = getMariaDbPool();
-      
-      for (const item of itemsToAssign) {
-        const uniqueMedId = `med_${targetTenantId}_${item.id}`;
-        const uniqueBatchId = `batch_${targetTenantId}_${item.id}`;
+      const CHUNK_SIZE = 200;
+      const expiryDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+
+      for (let i = 0; i < itemsToAssign.length; i += CHUNK_SIZE) {
+        const chunk = itemsToAssign.slice(i, i + CHUNK_SIZE);
         
-        await pool.query(`
-          INSERT INTO mbi_medicines (
-            id, tenant_id, name, generic_salt, company, category, dosage_form, min_stock_level, pack_size
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 5, 1)
-          ON DUPLICATE KEY UPDATE updated_at = NOW();
-        `, [
-          uniqueMedId,
-          targetTenantId,
-          item.name,
-          item.generic_salt || item.genericFormula || null,
-          item.company || null,
-          item.category || 'General Medicine',
-          item.dosage_form || item.dosageForm || 'Tablet'
-        ]).catch(() => {});
+        // A. Multi-row insert medicines
+        const medPlaceholders: string[] = [];
+        const medValues: any[] = [];
 
-        // Auto-seed initial zero-conflict batch with standard 1-year expiry
-        const expiryDate = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
-        await pool.query(`
-          INSERT INTO mbi_inventory_batches (
-            id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location
-          ) VALUES (?, ?, ?, 'MBI-INITIAL', ?, 100, 120, 50, 'Main Shelf')
-          ON DUPLICATE KEY UPDATE updated_at = NOW();
-        `, [
-          uniqueBatchId,
-          targetTenantId,
-          uniqueMedId,
-          expiryDate
-        ]).catch(() => {});
+        for (const item of chunk) {
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+          medPlaceholders.push('(?, ?, ?, ?, ?, ?, ?, 5, 1)');
+          medValues.push(
+            uniqueMedId,
+            targetTenantId,
+            item.name,
+            item.generic_salt || item.genericFormula || item.genericName || null,
+            item.company || item.brandName || null,
+            item.category || 'General Medicine',
+            item.dosage_form || item.dosageForm || 'Tablet'
+          );
+        }
 
-        assignedCount++;
+        if (medPlaceholders.length > 0) {
+          await pool.query(`
+            INSERT INTO mbi_medicines (
+              id, tenant_id, name, generic_salt, company, category, dosage_form, min_stock_level, pack_size
+            ) VALUES ${medPlaceholders.join(', ')}
+            ON DUPLICATE KEY UPDATE updated_at = NOW();
+          `, medValues).catch((e: any) => console.warn('[MariaDB Chunk Med Insert]', e.message));
+        }
+
+        // B. Multi-row insert initial inventory batches
+        const batchPlaceholders: string[] = [];
+        const batchValues: any[] = [];
+
+        for (const item of chunk) {
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+          const uniqueBatchId = `batch_${targetTenantId}_${rawId}`;
+          batchPlaceholders.push('(?, ?, ?, ?, ?, ?, ?, ?, ?)');
+          batchValues.push(
+            uniqueBatchId,
+            targetTenantId,
+            uniqueMedId,
+            'MBI-INITIAL',
+            expiryDate,
+            0,
+            0,
+            Number(initialStock) || 20,
+            'Main Shelf'
+          );
+        }
+
+        if (batchPlaceholders.length > 0) {
+          await pool.query(`
+            INSERT INTO mbi_inventory_batches (
+              id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location
+            ) VALUES ${batchPlaceholders.join(', ')}
+            ON DUPLICATE KEY UPDATE updated_at = NOW();
+          `, batchValues).catch((e: any) => console.warn('[MariaDB Chunk Batch Insert]', e.message));
+        }
       }
     } catch (dbErr: any) {
       console.warn('[MARIADB ALLOCATE NOTICE]', dbErr?.message);
@@ -778,27 +814,28 @@ export async function assignMedicinesBatchController(req: Request, res: Response
       for (const item of itemsToAssign) {
         if (!existingMedMap.has(item.name)) {
           existingMedMap.add(item.name);
-          const uniqueMedId = `med_${targetTenantId}_${item.id}`;
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
           fallback.mbi_medicines.push({
             id: uniqueMedId,
             tenant_id: targetTenantId,
             name: item.name,
-            generic_salt: item.generic_salt || item.genericFormula,
-            company: item.company,
+            generic_salt: item.generic_salt || item.genericFormula || item.genericName,
+            company: item.company || item.brandName,
             category: item.category,
             dosage_form: item.dosage_form || item.dosageForm,
             min_stock_level: 5,
             pack_size: 1
           });
           fallback.mbi_inventory_batches.push({
-            id: `batch_${targetTenantId}_${item.id}`,
+            id: `batch_${targetTenantId}_${rawId}`,
             tenant_id: targetTenantId,
             medicine_id: uniqueMedId,
             batch_number: 'MBI-INITIAL',
             expiry_date: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-            purchase_rate: 100,
-            mrp_selling_price: 120,
-            current_stock_quantity: 50,
+            purchase_rate: 0,
+            mrp_selling_price: 0,
+            current_stock_quantity: Number(initialStock) || 20,
             godown_location: 'Main Shelf'
           });
         }
@@ -806,7 +843,7 @@ export async function assignMedicinesBatchController(req: Request, res: Response
       saveLocalData(fallback);
     } catch (fsErr) {}
 
-    // 3. Emit SSE Event to Target Tenant Terminal
+    // 3. Emit SSE Event to Target Tenant & All Subuser Terminals
     try {
       broadcastTenantEvent(targetTenantId, {
         type: 'MEDICINES_ALLOCATED_BY_ADMIN',
@@ -831,7 +868,7 @@ export async function assignMedicinesBatchController(req: Request, res: Response
         userName: 'Super Admin',
         userRole: 'Master Catalog Studio',
         actionType: 'SYSTEM',
-        actionDetails: `Allocated ${itemsToAssign.length} items to ${targetTenantName} (${mode.toUpperCase()}: ${company || category || 'Selected Items'}) with Deduplication Guard.`,
+        actionDetails: `Allocated ${itemsToAssign.length} items to ${targetTenantName} (${mode.toUpperCase()}: ${company || category || 'Selected Items'}) with High-Speed Chunked Sync.`,
         ipAddress: req.ip || '127.0.0.1',
         deviceInfo: 'Master Catalog Studio',
         timestamp: new Date().toISOString(),
@@ -841,7 +878,7 @@ export async function assignMedicinesBatchController(req: Request, res: Response
 
     res.json({
       success: true,
-      message: `Successfully allocated ${itemsToAssign.length} medicines to ${targetTenantName}!`,
+      message: `Successfully allocated ${itemsToAssign.length} medicines to ${targetTenantName} and all active subusers!`,
       assignedCount: itemsToAssign.length,
       targetTenantId,
       targetTenantName

@@ -843,7 +843,11 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const unit = lightningUnit || med?.unit || 'Box';
     const effectiveQty = qty > 0 ? qty : 1;
     const medLatestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, itemName);
-    const effectivePrice = unitPrice !== undefined && unitPrice !== null && unitPrice > 0 ? unitPrice : Math.max(med?.sellingPrice || med?.mrp || 0, medLatestPur);
+    const effectivePrice = unitPrice !== undefined && unitPrice !== null && unitPrice > 0 
+      ? unitPrice 
+      : ((med?.sellingPrice !== undefined && med?.sellingPrice !== null && med?.sellingPrice > 0) 
+          ? med.sellingPrice 
+          : (med?.salePrice || med?.mrp || medLatestPur || 0));
     const disc = lightningDiscount || 0;
     const rateAfterDiscount = effectivePrice * (1 - disc / 100);
 
@@ -933,15 +937,18 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const bestBatch = sortedBatches.find(b => b.isPrimary) || sortedBatches[0];
 
     const authoritativeLatestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, med.name);
-    const price = Math.max(med.sellingPrice || med.mrp || 0, authoritativeLatestPur);
+    const unitSellingPrice = (med.sellingPrice !== undefined && med.sellingPrice !== null && med.sellingPrice > 0)
+      ? med.sellingPrice
+      : (med.salePrice || bestBatch?.salePrice || bestBatch?.mrp || med.mrp || authoritativeLatestPur || 0);
+    const retailMrp = bestBatch?.mrp || med.mrp || unitSellingPrice;
 
     setLightningSelectedMed(med);
     setLightningQuery(med.name);
-    setLightningPrice(price);
+    setLightningPrice(unitSellingPrice);
     setLightningUnit(med.unit || 'Box');
     setLightningBatch(bestBatch?.batchNumber || med.batchNumber || '');
     setLightningExpDate(bestBatch?.expiryDate || med.expiryDate || '');
-    setLightningMrp(bestBatch?.mrp || med.mrp || price);
+    setLightningMrp(retailMrp);
     setLightningResults([]);
 
     if (sortedBatches.length > 1 && bestBatch) {
@@ -1142,7 +1149,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const bestBatch = sortedBatches.find(b => b.isPrimary) || sortedBatches[0];
     
     const latestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, med.name);
-    const sellingPrice = Math.max(bestBatch?.mrp || med.sellingPrice || med.mrp || 0, latestPur);
+    const unitSellingPrice = (med.sellingPrice !== undefined && med.sellingPrice !== null && med.sellingPrice > 0)
+      ? med.sellingPrice
+      : (med.salePrice || bestBatch?.salePrice || bestBatch?.mrp || med.mrp || latestPur || 0);
+    const retailMrp = bestBatch?.mrp || med.mrp || unitSellingPrice;
     
     const currentItem = currentTab?.items.find(i => i.tempId === tempId);
     const qty = currentItem && currentItem.quantity !== undefined && currentItem.quantity >= 0 ? currentItem.quantity : 1;
@@ -1154,9 +1164,9 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       batchNumber: bestBatch?.batchNumber || med.batchNumber || '',
       expiryDate: bestBatch?.expiryDate || med.expiryDate || '',
       quantity: qty,
-      pricePerUnit: sellingPrice,
-      sellingPrice: sellingPrice,
-      mrp: bestBatch?.mrp || med.mrp || sellingPrice,
+      pricePerUnit: unitSellingPrice,
+      sellingPrice: unitSellingPrice,
+      mrp: retailMrp,
       costPrice: latestPur,
       latestPurchasePrice: latestPur,
       availableStock: med.quantity || 0,
@@ -2984,7 +2994,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                       .slice(0, 15)
                       .map(med => {
                         const latestPur = getAuthoritativeLatestPurchasePrice(med, allPurchases, med.name);
-                        const sellingPrice = Math.max(med.mrp || med.salePrice || 0, latestPur);
+                        const unitSellingPrice = (med.sellingPrice !== undefined && med.sellingPrice !== null && med.sellingPrice > 0)
+                          ? med.sellingPrice
+                          : (med.salePrice || med.mrp || latestPur || 0);
+                        const retailMrp = med.mrp || unitSellingPrice;
                         return (
                           <button
                             key={med.id}
@@ -3002,12 +3015,12 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                 quantity: 1,
                                 freeQuantity: 0,
                                 unit: med.unit || 'Packs',
-                                pricePerUnit: sellingPrice,
-                                sellingPrice: sellingPrice,
-                                mrp: med.mrp || sellingPrice,
+                                pricePerUnit: unitSellingPrice,
+                                sellingPrice: unitSellingPrice,
+                                mrp: retailMrp,
                                 discountPercentage: 0,
                                 taxPercentage: 0,
-                                total: sellingPrice,
+                                total: unitSellingPrice,
                                 availableStock: med.quantity || 0,
                                 costPrice: latestPur,
                                 latestPurchasePrice: latestPur
@@ -3133,7 +3146,9 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                       
                                       return matches.map(rowMed => {
                                         const rowLatestPur = getAuthoritativeLatestPurchasePrice(rowMed, allPurchases, rowMed.name);
-                                        const rowSellPrice = Math.max(rowMed.sellingPrice || rowMed.mrp || 0, rowLatestPur);
+                                        const rowSellPrice = (rowMed.sellingPrice !== undefined && rowMed.sellingPrice !== null && rowMed.sellingPrice > 0)
+                                          ? rowMed.sellingPrice
+                                          : (rowMed.salePrice || rowMed.mrp || rowLatestPur || 0);
                                         return (
                                           <button
                                             key={rowMed.id}

@@ -445,13 +445,13 @@ export async function handleGetSyncSnapshotController(req: Request, res: Respons
 
       syncData = {
         ...syncData,
-        tenants: Array.isArray(tenants) && tenants.length > 0 ? tenants : syncData.tenants || [],
-        users: Array.isArray(users) && users.length > 0 ? users : syncData.users || [],
-        appUsers: Array.isArray(users) && users.length > 0 ? users : syncData.appUsers || [],
-        medicines: Array.isArray(medicines) && medicines.length > 0 ? medicines : syncData.medicines || [],
-        invoices: Array.isArray(invoices) && invoices.length > 0 ? invoices : syncData.invoices || [],
-        suppliers: Array.isArray(suppliers) && suppliers.length > 0 ? suppliers : syncData.suppliers || [],
-        expenses: Array.isArray(expenses) && expenses.length > 0 ? expenses : syncData.expenses || []
+        tenants: Array.isArray(tenants) ? tenants : (syncData.tenants || []),
+        users: Array.isArray(users) ? users : (syncData.users || []),
+        appUsers: Array.isArray(users) ? users : (syncData.appUsers || []),
+        medicines: Array.isArray(medicines) ? medicines : (syncData.medicines || []),
+        invoices: Array.isArray(invoices) ? invoices : (syncData.invoices || []),
+        suppliers: Array.isArray(suppliers) ? suppliers : (syncData.suppliers || []),
+        expenses: Array.isArray(expenses) ? expenses : (syncData.expenses || [])
       };
     } catch (dbErr) {}
   }

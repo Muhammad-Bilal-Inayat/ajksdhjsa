@@ -710,23 +710,26 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 
                   {/* MRP */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Maximum Retail Price / MRP (Rs)</label>
+                    <label className="text-xs font-bold text-slate-700">Maximum Retail Price / MRP (Printed Box Retail Price)</label>
                     <input
                       type="number"
                       step="0.01"
+                      placeholder="e.g. 2500"
                       value={formData.mrp ?? 0}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold font-mono text-slate-800"
                       onChange={(e) => setFormData({ ...formData, mrp: parseFloat(e.target.value) || 0 })}
                     />
+                    <p className="text-[10px] text-slate-500">Retail price printed on medicine box / strip.</p>
                   </div>
 
                   {/* Standard Sale Price */}
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-700">Standard POS / Counter Sale Price (Rs) *</label>
+                    <label className="text-xs font-bold text-emerald-800">Sale Price / Price Per Unit (Rs) * (Counter Rate)</label>
                     <input
                       required
                       type="number"
                       step="0.01"
+                      placeholder="e.g. 2000"
                       value={formData.sellingPrice ?? 0}
                       className="w-full rounded-xl border border-emerald-300 p-2 text-xs font-black font-mono text-emerald-700 bg-emerald-50/40 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       onChange={(e) => {
@@ -738,6 +741,7 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                         });
                       }}
                     />
+                    <p className="text-[10px] text-emerald-600 font-semibold">The actual unit sale rate applied in Sale Invoice / POS.</p>
                   </div>
 
                   {/* GST % */}

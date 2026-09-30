@@ -186,6 +186,45 @@ export async function handleBatchSyncController(req: Request, res: Response) {
               data.createdAt || data.date || new Date().toISOString()
             ]
           ).catch(() => {});
+        } else if (collectionName === 'purchases' || collectionName === 'purchaseOrders') {
+          await pool.query(
+            `INSERT INTO mbi_purchases (
+              id, tenant_id, supplier_id, invoice_number, total_amount, net_amount, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount), net_amount = VALUES(net_amount), updated_at = VALUES(updated_at);`,
+            [
+              data.id,
+              tenantId,
+              data.supplierId || data.partyId || 'unknown_supplier',
+              data.billNumber || data.invoiceNumber || data.id,
+              data.totalAmount || data.grossAmount || 0,
+              data.netAmount || data.totalAmount || 0,
+              data.status || 'Received',
+              data.createdAt || new Date().toISOString(),
+              data.updatedAt || new Date().toISOString()
+            ]
+          ).catch(() => {});
+        } else if (collectionName === 'medicines') {
+          await pool.query(
+            `INSERT INTO mbi_medicines (
+              id, tenant_id, name, generic_name, barcode, category, unit, unit_price, mrp, cost_price, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE name = VALUES(name), unit_price = VALUES(unit_price), mrp = VALUES(mrp), cost_price = VALUES(cost_price), updated_at = VALUES(updated_at);`,
+            [
+              data.id,
+              tenantId,
+              data.name || 'Medicine',
+              data.genericName || '',
+              data.barcode || '',
+              data.category || 'General',
+              data.unit || 'Box',
+              data.sellingPrice || data.unitPrice || 0,
+              data.mrp || data.sellingPrice || 0,
+              data.costPrice || data.purchasePrice || 0,
+              data.createdAt || new Date().toISOString(),
+              data.updatedAt || new Date().toISOString()
+            ]
+          ).catch(() => {});
         }
 
         processedCount++;

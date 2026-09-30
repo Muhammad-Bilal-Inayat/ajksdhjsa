@@ -1073,17 +1073,21 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                       {/* Header */}
                       <div className="text-center space-y-0.5 pb-1">
                         <div className="font-black text-sm tracking-wider uppercase text-slate-900">
-                          {printConf.companyName || businessName || 'MBI INVENTRA'}
+                          {printConf.companyName || businessName || activeTenantName || 'Pharmacy Store'}
                         </div>
                         <div className="text-[10px] font-bold tracking-wider text-slate-800 uppercase">
-                          PHARMACY POS & ERP
+                          {printConf.subtitle || 'PHARMACY POS & ERP'}
                         </div>
-                        <div className="text-[10px] text-slate-700 tracking-tight">
-                          {businessPhone ? `${businessPhone} • 03281302636` : '03364585863 • 03281302636'}
-                        </div>
-                        <div className="text-[10px] text-slate-700">
-                          {businessAddress || 'Pakistan'}
-                        </div>
+                        {(printConf.phone || businessPhone) && (
+                          <div className="text-[10px] text-slate-700 tracking-tight">
+                            {printConf.phone || businessPhone}
+                          </div>
+                        )}
+                        {(printConf.address || businessAddress) && (
+                          <div className="text-[10px] text-slate-700">
+                            {printConf.address || businessAddress}
+                          </div>
+                        )}
                       </div>
 
                       {/* Dashed Line */}
@@ -1195,9 +1199,11 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                         <div className="font-black tracking-wider uppercase text-slate-900">
                           THANK YOU FOR SHOPPING!
                         </div>
-                        <div className="text-[9.5px] text-slate-700">
-                          Contact us : {businessPhone || '03281302636'}
-                        </div>
+                        {(printConf.phone || businessPhone) && (
+                          <div className="text-[9.5px] text-slate-700">
+                            Contact: {printConf.phone || businessPhone}
+                          </div>
+                        )}
                         <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 pt-0.5 border-t border-dashed border-slate-300">
                           <span>Pharmacy POS & ERP</span>
                           <span className="font-mono font-bold">www.mbiinventra.com</span>

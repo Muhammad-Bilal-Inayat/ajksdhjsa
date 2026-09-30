@@ -63,8 +63,17 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     return list[0]?.id || 'usr_admin_01';
   });
 
+  // Scope Master Control strictly to Company Tenants / Primary Owners (Exclude regular staff/cashiers)
+  const ownerUsers = useMemo(() => {
+    const list = users.filter(u => {
+      const r = (u.role || '').toLowerCase();
+      return r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || (u as any).isPrimaryOwner || (u as any).is_primary_owner === 1;
+    });
+    return list.length > 0 ? list : users;
+  }, [users]);
+
   const selectedUser = useMemo(() => {
-    return users.find(u => u.id === selectedUserId) || users[0] || {
+    return ownerUsers.find(u => u.id === selectedUserId) || ownerUsers[0] || {
       id: 'usr_admin_01',
       name: 'Primary Admin',
       role: 'Primary Admin',
@@ -73,7 +82,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       isOnline: true,
       passcode: '1234'
     } as MasterActiveUser;
-  }, [users, selectedUserId]);
+  }, [ownerUsers, selectedUserId]);
 
   const [profile, setProfile] = useState<UserAccessControlProfile>(() => {
     return getUserAccessControlProfile(
@@ -761,7 +770,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
                 onChange={(e) => setSelectedUserId(e.target.value)}
                 className="bg-transparent text-xs font-bold text-white focus:outline-none pr-3 cursor-pointer"
               >
-                {users.map(u => (
+                {ownerUsers.map(u => (
                   <option key={u.id} value={u.id} className="bg-slate-900 text-white">
                     {u.name} ({u.role}) • {u.storeName || 'Branch'}
                   </option>

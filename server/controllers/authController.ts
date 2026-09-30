@@ -238,6 +238,28 @@ export async function loginController(req: TenantRequest, res: Response): Promis
 
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || 'tenant_main_pharmacy';
 
+    // Cascade Suspension: If Company Tenant is suspended in MariaDB, block all staff & sub-users
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [tenantRows]: any = await pool.query(
+          `SELECT status, is_active FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
+          [tenantId, tenantId]
+        );
+        if (tenantRows && tenantRows.length > 0) {
+          const tStatus = String(tenantRows[0].status || '').toLowerCase();
+          const tActive = tenantRows[0].is_active;
+          if (tStatus === 'suspended' || tStatus === 'deactivated' || tActive === 0) {
+            res.status(403).json({
+              success: false,
+              error: 'Organization Suspended: The company subscription has been suspended by the Master Administrator. All cashier and staff terminal access is blocked.'
+            });
+            return;
+          }
+        }
+      } catch (tErr) {}
+    }
+
     // 1-Device Hard Binding Check: Enforce that 1 account/company is locked to 1 primary hardware device
     let existingBoundHwid = authenticatedUser.bound_hwid || authenticatedUser.boundHwid;
     let allowedHwids: string[] = [];

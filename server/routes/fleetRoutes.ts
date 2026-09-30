@@ -997,6 +997,38 @@ fleetRouter.get('/keys', async (req: TenantRequest, res: Response): Promise<void
       } catch (e) {}
     }
 
+    // Also enrich from .master_tenants.json
+    try {
+      const tenantsJsonPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(tenantsJsonPath)) {
+        const diskTenants = JSON.parse(fs.readFileSync(tenantsJsonPath, 'utf-8') || '[]');
+        if (Array.isArray(diskTenants)) {
+          for (const dt of diskTenants) {
+            if (!dt) continue;
+            const tid = dt.tenantId || dt.id;
+            const cleanTid = (tid || '001').replace(/[^a-zA-Z0-9]/g, '');
+            if (!keysList.some((k: any) => k.tenantId === tid || k.tenantName === dt.name)) {
+              keysList.push({
+                id: `key_${dt.id || tid}`,
+                tenantId: tid,
+                tenantName: dt.name,
+                keyName: `${dt.name} Production API Key`,
+                apiKey: dt.apiKey || `mbi_live_sec_${cleanTid.slice(-8)}_${Date.now().toString(36).toUpperCase()}`,
+                publicKey: `mbi_pub_${cleanTid.slice(-8)}`,
+                webhookSecret: `whsec_${cleanTid.slice(-8)}_${Math.random().toString(36).slice(-6)}`,
+                environment: 'production',
+                status: dt.status === 'Suspended' ? 'Revoked' : 'Active',
+                rateLimitPerMin: 5000,
+                permissions: ['pos:*', 'inventory:*', 'invoices:*', 'khata:*', '*'],
+                lastUsed: 'Master Sync Active',
+                createdAt: dt.createdAt || new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
     res.json({
       success: true,
       source: 'fallback',

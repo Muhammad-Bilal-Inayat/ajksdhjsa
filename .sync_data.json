@@ -49,7 +49,62 @@
       "syncStatus": "pending"
     }
   ],
-  "invoices": [],
+  "invoices": [
+    {
+      "id": "2281945e-1619-4567-8a7e-17d68b273000",
+      "invoiceNumber": "INV-1",
+      "date": "2026-09-30T12:27:08.246Z",
+      "customerName": "Walk-in / Cash Customer",
+      "billingName": "Walk-in / Cash Customer",
+      "transactionType": "Sale",
+      "status": "Pending",
+      "paymentType": "Cash",
+      "items": [
+        {
+          "name": "5CC BIO",
+          "hsnCode": "",
+          "batchNumber": "",
+          "expiryDate": "",
+          "mfgDate": "",
+          "quantity": 5,
+          "freeQuantity": 0,
+          "unit": "Box",
+          "pricePerUnit": 10,
+          "sellingPrice": 10,
+          "mrp": 10,
+          "discountPercentage": 0,
+          "gstPercentage": 0,
+          "total": 50,
+          "costPrice": 0,
+          "latestPurchasePrice": 0
+        }
+      ],
+      "subTotal": 50,
+      "discountPercentage": 0,
+      "discountAmount": 0,
+      "taxPercentage": 0,
+      "taxAmount": 0,
+      "roundOff": 0,
+      "grandTotal": 50,
+      "receivedAmount": 50,
+      "balanceDue": 0,
+      "bookerCommissionPercent": 2.5,
+      "bookerCommissionAmount": 1.25,
+      "isWarrantyBill": false,
+      "firmName": "My Pharmacy Store",
+      "firmId": "firm-1",
+      "tenantId": "tenant-demo-01",
+      "userId": "usr_1790683617168_53um",
+      "userName": "2312312312 (Primary Admin)",
+      "cashierId": "usr_1790683617168_53um",
+      "createdAt": "2026-09-30T12:27:08.247Z",
+      "updatedAt": "2026-09-30T12:27:08.247Z",
+      "createdById": "usr_1790683617168_53um",
+      "lastUpdatedById": "usr_1790683617168_53um",
+      "lastUpdatedAt": "2026-09-30T12:27:08.248Z",
+      "syncStatus": "pending"
+    }
+  ],
   "purchaseOrders": [
     {
       "id": "f488a83c-c6f4-46a9-9297-b117a3b2b844",
@@ -134,9 +189,9 @@
       "storeName": "My Pharmacy Store",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-30T08:55:46.929Z",
+      "lastSyncTime": "2026-09-30T12:27:08.452Z",
       "isOnline": true,
-      "updatedAt": "2026-09-30T08:55:46.960Z",
+      "updatedAt": "2026-09-30T12:27:08.458Z",
       "tenantId": "tenant_1790683617168_53um",
       "tenant_id": "tenant_1790683617168_53um",
       "allowedModules": {

@@ -66,15 +66,16 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
 
   // Scope Master Control strictly to Company Tenants / Primary Owners (Exclude regular staff/cashiers)
   const ownerUsers = useMemo(() => {
-    const list = users.filter(u => {
+    const filtered = users.filter(u => {
       const r = (u.role || '').toLowerCase();
-      return r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || (u as any).isPrimaryOwner || (u as any).is_primary_owner === 1;
+      // Strictly include company tenants / primary owners only, excluding sub-users and cashiers
+      return r === 'company tenant' || r === 'tenant' || r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || (u as any).isPrimaryOwner || (u as any).is_primary_owner === 1;
     });
-    return list.length > 0 ? list : users;
+    return filtered.length > 0 ? filtered : users;
   }, [users]);
 
   const selectedUser = useMemo(() => {
-    return ownerUsers.find(u => u.id === selectedUserId) || ownerUsers[0] || {
+    return ownerUsers.find(u => u.id === selectedUserId || (u as any).tenantId === selectedUserId) || ownerUsers[0] || {
       id: 'usr_admin_01',
       name: 'Primary Admin',
       role: 'Primary Admin',
@@ -121,24 +122,60 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
 
   // Listen to live tenant and user creation events and fetch from server on mount
   useEffect(() => {
-    const fetchServerUsers = async () => {
+    const fetchServerTenantsAndUsers = async () => {
       try {
-        const res = await fetch('/api/fleet/users', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json?.users) && json.users.length > 0) {
-            setUsers(json.users);
-            return;
+        let tenantList: MasterActiveUser[] = [];
+
+        // 1. Fetch live tenants directly from MariaDB mbi_tenants
+        const tenantRes = await fetch('/api/fleet/tenants', { cache: 'no-store' });
+        if (tenantRes.ok) {
+          const tenantJson = await tenantRes.json();
+          if (Array.isArray(tenantJson?.tenants) && tenantJson.tenants.length > 0) {
+            tenantList = tenantJson.tenants.map((t: any) => ({
+              id: t.id || t.tenant_id,
+              tenantId: t.tenant_id || t.id,
+              name: t.name || t.legal_name || t.storeName || t.id,
+              role: 'Company Tenant',
+              storeName: t.name || t.legal_name || 'Main Pharmacy',
+              ownerName: t.owner_name || t.ownerName || 'Owner',
+              plan: t.plan || t.subscription_plan || 'Standard POS',
+              status: t.status || 'Active',
+              isOnline: true,
+              passcode: t.passcode || '1234'
+            }));
           }
+        }
+
+        // 2. Also fetch primary owner users if available
+        const userRes = await fetch('/api/fleet/users', { cache: 'no-store' });
+        if (userRes.ok) {
+          const userJson = await userRes.json();
+          if (Array.isArray(userJson?.users)) {
+            const primaryUsers = userJson.users.filter((u: any) => {
+              const r = (u.role || '').toLowerCase();
+              return r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || u.isPrimaryOwner || u.is_primary_owner === 1;
+            });
+            for (const pu of primaryUsers) {
+              const exists = tenantList.some(t => t.id === pu.id || t.tenantId === pu.tenantId);
+              if (!exists) {
+                tenantList.push(pu);
+              }
+            }
+          }
+        }
+
+        if (tenantList.length > 0) {
+          setUsers(tenantList);
+          return;
         }
       } catch (e) {}
       setUsers(getMasterActiveUsers());
     };
 
-    fetchServerUsers();
+    fetchServerTenantsAndUsers();
 
     const handleUpdate = () => {
-      fetchServerUsers();
+      fetchServerTenantsAndUsers();
     };
 
     window.addEventListener('mbi-users-updated', handleUpdate);
@@ -784,7 +821,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
               >
                 {ownerUsers.map(u => (
                   <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                    {u.name} ({u.role}) • {u.storeName || 'Branch'}
+                    {u.name} ({u.tenantId || u.id}) • {u.role}
                   </option>
                 ))}
               </select>

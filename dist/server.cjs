@@ -10207,8 +10207,14 @@ fleetRouter.post("/permissions/save", async (req, res) => {
         await pool2.query(
           `UPDATE mbi_users 
            SET permissions = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ? AND (tenant_id = ? OR tenant_id IS NULL OR tenant_id = '');`,
-          [profileJson, cleanUserId, cleanTenantId]
+           WHERE (id = ? OR username = ? OR tenant_id = ?);`,
+          [profileJson, cleanUserId, cleanUserId, cleanTenantId]
+        );
+        await pool2.query(
+          `UPDATE mbi_tenants 
+           SET features_json = ?, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = ? OR tenant_id = ?;`,
+          [profileJson, cleanTenantId, cleanTenantId]
         );
       } catch (dbErr) {
         console.warn("[Permissions Save MariaDB Notice]:", dbErr);

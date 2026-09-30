@@ -24,11 +24,13 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Briefcase
 } from 'lucide-react';
 import { 
   assignMedicinesToCustomer, 
   assignCategoryToCustomer,
+  assignCompanyToCustomer,
   syncAssignedMedicinesForTenant,
   unassignMedicinesFromCustomer,
   unassignCategoryFromCustomer
@@ -56,7 +58,9 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
   onOpenCsvUpload
 }) => {
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [filterTab, setFilterTab] = useState<'category' | 'company'>('category');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [selectedCompany, setSelectedCompany] = useState<string>('ALL');
   const [search, setSearch] = useState('');
   const [selectedMedIds, setSelectedMedIds] = useState<string[]>([]);
   const [initialStock, setInitialStock] = useState<number>(20);
@@ -79,6 +83,20 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     return map;
   }, [medicines]);
 
+  // Quick Company summary counts
+  const companyCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    medicines.forEach(m => {
+      const comp = m.company?.trim() || m.brandName?.trim() || 'Standard Pharma';
+      map[comp] = (map[comp] || 0) + 1;
+    });
+    return map;
+  }, [medicines]);
+
+  const sortedCompanies = useMemo(() => {
+    return Object.keys(companyCounts).sort((a, b) => companyCounts[b] - companyCounts[a]);
+  }, [companyCounts]);
+
   useEffect(() => {
     if (preselectedTenantId) {
       setSelectedTenantId(preselectedTenantId);
@@ -100,27 +118,31 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
   // Ultra-fast O(1) selection lookup Set
   const selectedMedIdsSet = useMemo(() => new Set(selectedMedIds), [selectedMedIds]);
 
-  // Filtered medicines with fast matching
+  // Filtered medicines with fast matching by Category, Company, and Search
   const filteredMedicines = useMemo(() => {
     const q = search.toLowerCase().trim();
     return medicines.filter(m => {
       if (selectedCategory !== 'ALL' && m.category !== selectedCategory) return false;
+      if (selectedCompany !== 'ALL') {
+        const comp = m.company?.trim() || m.brandName?.trim() || 'Standard Pharma';
+        if (comp.toLowerCase() !== selectedCompany.toLowerCase()) return false;
+      }
       if (q) {
         const matchName = (m.name || '').toLowerCase().includes(q);
         const matchBrand = (m.brandName || '').toLowerCase().includes(q);
         const matchCompany = (m.company || '').toLowerCase().includes(q);
-        const matchGeneric = (m.genericName || '').toLowerCase().includes(q);
+        const matchGeneric = (m.genericFormula || m.genericName || '').toLowerCase().includes(q);
         const matchCategory = (m.category || '').toLowerCase().includes(q);
         if (!matchName && !matchBrand && !matchCompany && !matchGeneric && !matchCategory) return false;
       }
       return true;
     });
-  }, [medicines, selectedCategory, search]);
+  }, [medicines, selectedCategory, selectedCompany, search]);
 
-  // Reset page to 1 whenever category or search filter changes
+  // Reset page to 1 whenever category, company, or search filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, search, pageSize]);
+  }, [selectedCategory, selectedCompany, search, pageSize]);
 
   // Paginated slice for current viewport
   const totalPages = Math.max(1, Math.ceil(filteredMedicines.length / pageSize));
@@ -129,6 +151,7 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     return filteredMedicines.slice(start, start + pageSize);
   }, [filteredMedicines, currentPage, pageSize]);
 
+  // Toggle selection of all currently filtered items
   const toggleSelectAllFiltered = useCallback(() => {
     const filteredIds = filteredMedicines.map(m => m.id);
     const allInFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedMedIdsSet.has(id));
@@ -141,6 +164,17 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     }
   }, [filteredMedicines, selectedMedIdsSet]);
 
+  // 1-Click Select ALL Entire Central Catalog (all 24,456 items)
+  const handleSelectEntireCatalog = useCallback(() => {
+    const allIds = medicines.map(m => m.id);
+    if (selectedMedIds.length === allIds.length) {
+      setSelectedMedIds([]);
+    } else {
+      setSelectedMedIds(allIds);
+    }
+  }, [medicines, selectedMedIds.length]);
+
+  // Add/Toggle an entire category to selection
   const handleSelectEntireCategory = useCallback((catName: string) => {
     const catMeds = medicines.filter(m => (m.category || 'General') === catName).map(m => m.id);
     const allCatSelected = catMeds.length > 0 && catMeds.every(id => selectedMedIdsSet.has(id));
@@ -150,6 +184,21 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
       setSelectedMedIds(prev => prev.filter(id => !catSet.has(id)));
     } else {
       setSelectedMedIds(prev => Array.from(new Set([...prev, ...catMeds])));
+    }
+  }, [medicines, selectedMedIdsSet]);
+
+  // Add/Toggle an entire company to selection
+  const handleSelectEntireCompany = useCallback((companyName: string) => {
+    const compMeds = medicines
+      .filter(m => (m.company?.trim() || m.brandName?.trim() || 'Standard Pharma').toLowerCase() === companyName.toLowerCase())
+      .map(m => m.id);
+    const allCompSelected = compMeds.length > 0 && compMeds.every(id => selectedMedIdsSet.has(id));
+
+    if (allCompSelected) {
+      const compSet = new Set(compMeds);
+      setSelectedMedIds(prev => prev.filter(id => !compSet.has(id)));
+    } else {
+      setSelectedMedIds(prev => Array.from(new Set([...prev, ...compMeds])));
     }
   }, [medicines, selectedMedIdsSet]);
 
@@ -249,6 +298,51 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
       setIsAssigning(false);
       setAssignProgress(null);
       alert('Error assigning category: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
+  // Direct Assign Entire Company Button handler
+  const handleAssignActiveCompanyDirectly = async () => {
+    if (!selectedTenantId) {
+      alert('Please select a customer account first.');
+      return;
+    }
+    if (selectedCompany === 'ALL') {
+      alert('Please choose a specific company to assign directly.');
+      return;
+    }
+
+    const tenantName = selectedTenantObj?.name || selectedTenantId;
+    const compCount = companyCounts[selectedCompany] || 0;
+
+    const confirmed = window.confirm(`Assign all ${compCount} items of company "${selectedCompany}" to "${tenantName}" with initial stock ${initialStock}?`);
+    if (!confirmed) return;
+
+    setIsAssigning(true);
+    setAssignProgress(`Assigning company "${selectedCompany}" (${compCount} items)...`);
+    try {
+      const res = await assignCompanyToCustomer({
+        tenantId: selectedTenantId,
+        tenantName,
+        company: selectedCompany,
+        adminName: 'Master Admin'
+      });
+
+      await syncAssignedMedicinesForTenant(selectedTenantId);
+      setIsAssigning(false);
+      setAssignProgress(null);
+
+      if (res.success) {
+        setSuccessResult(res.message);
+        if (showToast) showToast(res.message);
+        onComplete();
+      } else {
+        alert(res.message);
+      }
+    } catch (err: any) {
+      setIsAssigning(false);
+      setAssignProgress(null);
+      alert('Error assigning company: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -419,6 +513,36 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
             </div>
           )}
 
+          {/* Quick Company Action Card if a specific company is chosen */}
+          {selectedCompany !== 'ALL' && (
+            <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/30 space-y-2">
+              <div className="text-xs font-bold text-purple-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Company Batch Action</span>
+                </span>
+                <span className="text-[10px] font-mono text-purple-300">
+                  {companyCounts[selectedCompany] || 0} items
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Manage all products manufactured by <strong>{selectedCompany}</strong>.
+              </p>
+              
+              <div className="flex flex-col gap-1.5 pt-1">
+                <button
+                  type="button"
+                  disabled={isAssigning || !selectedTenantId}
+                  onClick={handleAssignActiveCompanyDirectly}
+                  className="w-full py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Assign All "{selectedCompany}"</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Direct CSV Upload Button */}
           {onOpenCsvUpload && (
             <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
@@ -491,54 +615,125 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
 
       {/* Right Column: Category Picker + Multi-Select Catalog */}
       <div className="lg:col-span-2 space-y-4">
-        {/* Category Horizontal Filter Chips */}
+        {/* Filter Switcher & Chips Header */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-sky-400" />
-              <span>Filter by Category & Quick Select</span>
-            </span>
-            <span className="text-[11px] text-sky-400 font-mono font-bold">
-              {selectedMedIds.length} Selected
-            </span>
-          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-800">
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setFilterTab('category')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterTab === 'category'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>By Category ({categories.length})</span>
+              </button>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-            <button
-              onClick={() => setSelectedCategory('ALL')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedCategory === 'ALL'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-              }`}
-            >
-              <span>All Items</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
-                {medicines.length}
+              <button
+                type="button"
+                onClick={() => setFilterTab('company')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterTab === 'company'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>By Company ({sortedCompanies.length})</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">Total Selected:</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-mono font-bold">
+                {selectedMedIds.length} / {medicines.length}
               </span>
-            </button>
-
-            {categories.map(cat => {
-              const count = categoryCounts[cat] || 0;
-              const isActive = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-                  }`}
-                >
-                  <span>{cat}</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+            </div>
           </div>
+
+          {/* Horizontal Chips: Category Mode */}
+          {filterTab === 'category' && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+              <button
+                onClick={() => setSelectedCategory('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCategory === 'ALL'
+                    ? 'bg-sky-600 text-white shadow-sm'
+                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                <span>All Categories</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
+                  {medicines.length}
+                </span>
+              </button>
+
+              {categories.map(cat => {
+                const count = categoryCounts[cat] || 0;
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-sky-600 text-white shadow-sm'
+                        : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Horizontal Chips: Company Mode */}
+          {filterTab === 'company' && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+              <button
+                onClick={() => setSelectedCompany('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCompany === 'ALL'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                }`}
+              >
+                <span>All Companies</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
+                  {medicines.length}
+                </span>
+              </button>
+
+              {sortedCompanies.map(comp => {
+                const count = companyCounts[comp] || 0;
+                const isActive = selectedCompany.toLowerCase() === comp.toLowerCase();
+                return (
+                  <button
+                    key={comp}
+                    onClick={() => setSelectedCompany(comp)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    <span>{comp}</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Search & Actions Bar */}
           <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between pt-2 border-t border-slate-800/80">
@@ -561,22 +756,41 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              {selectedCategory !== 'ALL' && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {filterTab === 'category' && selectedCategory !== 'ALL' && (
                 <button
                   onClick={() => handleSelectEntireCategory(selectedCategory)}
-                  className="px-3 py-2 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/40 text-indigo-300 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-2 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/40 text-indigo-300 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer flex items-center gap-1"
                 >
                   <Sparkles className="w-3 h-3" />
                   <span>Toggle Category</span>
                 </button>
               )}
 
+              {filterTab === 'company' && selectedCompany !== 'ALL' && (
+                <button
+                  onClick={() => handleSelectEntireCompany(selectedCompany)}
+                  className="px-2.5 py-2 bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Toggle Company</span>
+                </button>
+              )}
+
               <button
                 onClick={toggleSelectAllFiltered}
-                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer"
+                className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer"
+                title="Select all items in current filter"
               >
-                Select All ({filteredMedicines.length})
+                Select Filtered ({filteredMedicines.length})
+              </button>
+
+              <button
+                onClick={handleSelectEntireCatalog}
+                className="px-2.5 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer"
+                title="Select all 24,000+ items in entire catalog"
+              >
+                Select All ({medicines.length})
               </button>
 
               {selectedMedIds.length > 0 && (

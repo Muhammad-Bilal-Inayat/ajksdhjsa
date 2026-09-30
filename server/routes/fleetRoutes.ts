@@ -874,6 +874,17 @@ fleetRouter.post('/keys/generate', async (req: TenantRequest, res: Response): Pr
     keysList = [newKey, ...keysList.filter((k: any) => k.id !== newKey.id)];
     fs.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), 'utf-8');
 
+    // Sync to MariaDB mbi_tenants
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
+          [newKey.apiKey, cleanTenantId, cleanTenantId]
+        );
+      } catch (e) {}
+    }
+
     broadcastGlobalEvent({
       type: 'FLEET_API_KEY_GENERATED',
       payload: { tenantId: cleanTenantId, keyId: newKey.id }
@@ -951,7 +962,30 @@ fleetRouter.post('/keys/verify', async (req: TenantRequest, res: Response): Prom
       } catch (e) {}
     }
 
-    const found = keysList.find((k: any) => k.apiKey === apiKey);
+    let found = keysList.find((k: any) => k.apiKey === apiKey);
+    if (!found && (await isMariaDbAvailable())) {
+      try {
+        const pool = getMariaDbPool();
+        const [tenantRows]: any = await pool.query(
+          `SELECT id, tenant_id, name, status FROM mbi_tenants WHERE api_key = ? LIMIT 1;`,
+          [apiKey]
+        );
+        if (tenantRows && tenantRows.length > 0) {
+          const t = tenantRows[0];
+          found = {
+            id: `key_${t.id}`,
+            tenantId: t.tenant_id || t.id,
+            tenantName: t.name,
+            apiKey: apiKey,
+            environment: 'production',
+            status: t.status || 'Active',
+            rateLimitPerMin: 1000,
+            permissions: ['*']
+          };
+        }
+      } catch (dbErr) {}
+    }
+
     if (!found || found.status !== 'Active') {
       res.status(401).json({ success: false, valid: false, error: 'Invalid, expired or revoked API key' });
       return;

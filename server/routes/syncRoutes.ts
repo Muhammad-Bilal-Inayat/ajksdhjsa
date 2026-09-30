@@ -1,8 +1,21 @@
 import { Router, Request, Response } from 'express';
 import { verifyJwt, UserJwtPayload } from '../auth/jwt';
-import { handleBatchSyncController } from '../controllers/syncController';
+import { 
+  handleBatchSyncController, 
+  handleSyncRecordController, 
+  handleGetSyncSnapshotController, 
+  handlePostSyncSnapshotController 
+} from '../controllers/syncController';
 
 export const syncRouter = Router();
+
+/**
+ * Snapshot & Single-Record Sync Endpoints for MariaDB & Multi-device Live Sync
+ */
+syncRouter.get('/', handleGetSyncSnapshotController);
+syncRouter.post('/', handlePostSyncSnapshotController);
+syncRouter.post('/record', handleSyncRecordController);
+
 
 interface SseClient {
   id: string;

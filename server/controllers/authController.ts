@@ -238,6 +238,51 @@ export async function loginController(req: TenantRequest, res: Response): Promis
 
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || 'tenant_main_pharmacy';
 
+    // 1-Device Hard Binding Check: Enforce that 1 account/company is locked to 1 primary hardware device
+    let existingBoundHwid = authenticatedUser.bound_hwid || authenticatedUser.boundHwid;
+    let allowedHwids: string[] = [];
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        const [licRows]: any = await pool.query(
+          `SELECT bound_hwid, bound_hardware_ids FROM mbi_licenses WHERE tenant_id = ? OR id = ? LIMIT 1;`,
+          [tenantId, tenantId]
+        );
+        if (licRows && licRows.length > 0) {
+          const lic = licRows[0];
+          if (lic.bound_hwid) existingBoundHwid = lic.bound_hwid;
+          if (lic.bound_hardware_ids) {
+            try {
+              allowedHwids = typeof lic.bound_hardware_ids === 'string' ? JSON.parse(lic.bound_hardware_ids) : lic.bound_hardware_ids;
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    const isPlaceholderHwid = !existingBoundHwid || 
+      existingBoundHwid === 'UNBOUND' || 
+      existingBoundHwid === 'HWID-PRIMARY-DEVICE' || 
+      existingBoundHwid === 'HWID-LOCAL' || 
+      existingBoundHwid.startsWith('HWID-DEV-') || 
+      existingBoundHwid.startsWith('HWID-DEV1-');
+
+    if (!isPlaceholderHwid && clientHwid) {
+      const isCurrentAllowed = existingBoundHwid === clientHwid || (Array.isArray(allowedHwids) && allowedHwids.includes(clientHwid));
+      if (!isCurrentAllowed) {
+        res.status(403).json({
+          success: false,
+          isDeviceUnbound: true,
+          isUnauthorizedDevice: true,
+          error: 'Device Unauthorized: This account is locked to its registered primary device. You cannot log in from a second device with the same account without device transfer authorization.',
+          boundHwid: existingBoundHwid,
+          currentHwid: clientHwid
+        });
+        return;
+      }
+    }
+
     // Update is_online in MariaDB and auto-confirm primary device if unbound
     if (await isMariaDbAvailable()) {
       try {
@@ -247,15 +292,22 @@ export async function loginController(req: TenantRequest, res: Response): Promis
           [authenticatedUser.id]
         ).catch(() => {});
 
-        // Auto-confirm primary device if unbound (0 devices bound)
-        if (clientHwid) {
+        // Auto-confirm primary device if unbound (1st device registration)
+        if (clientHwid && isPlaceholderHwid) {
           pool.query(
             `UPDATE mbi_licenses 
-             SET bound_hwid = IFNULL(NULLIF(bound_hwid, 'UNBOUND'), ?),
-                 bound_hardware_ids = IF(bound_hardware_ids IS NULL OR bound_hardware_ids = '[]' OR bound_hardware_ids = '["HWID-PRIMARY-DEVICE"]' OR bound_hardware_ids LIKE '["HWID-DEV1-%', ?, bound_hardware_ids),
+             SET bound_hwid = ?,
+                 bound_hardware_ids = ?,
                  updated_at = CURRENT_TIMESTAMP 
              WHERE tenant_id = ? OR id = ? OR client_name = ?;`,
             [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
+          ).catch(() => {});
+
+          pool.query(
+            `UPDATE mbi_users 
+             SET bound_hwid = ?, updated_at = CURRENT_TIMESTAMP 
+             WHERE id = ?;`,
+            [clientHwid, authenticatedUser.id]
           ).catch(() => {});
         }
       } catch {}

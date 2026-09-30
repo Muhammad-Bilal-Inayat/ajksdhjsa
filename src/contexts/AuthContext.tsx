@@ -38,7 +38,7 @@ import {
 import { unifiedSyncService } from '../lib/syncService';
 import { getAllRegistrationLeads, syncRegistrationLeadsFromFirestore } from '../lib/registrationLeadsService';
 import { getEffectiveTenantLimits } from '../lib/planLimitsService';
-import { evaluatePermission } from '../lib/userAccessControl';
+import { evaluatePermission, syncUserAccessControlProfileFromServer } from '../lib/userAccessControl';
 import { verifyAndRegisterCurrentDevice } from '../lib/deviceSecurityService';
 import { startUserHeartbeat } from '../lib/userHeartbeatService';
 
@@ -372,6 +372,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const effectiveUserId = activeUser?.id || currentUser?.uid || userProfile?.id || 'usr_active';
   const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId || 'mbi-tenant-main';
   const effectivePlan = (tenant as any)?.plan || (business as any)?.plan || 'Standard POS';
+
+  // Automatically fetch custom 173-switchboard permissions from server
+  useEffect(() => {
+    if (effectiveUserId && effectiveUserId !== 'usr_guest') {
+      syncUserAccessControlProfileFromServer(effectiveUserId, effectiveTenantId).then(p => {
+        if (p) setPermissionVersion(v => v + 1);
+      });
+    }
+  }, [effectiveUserId, effectiveTenantId]);
 
   // Dynamic Granular Permission Evaluations (Checks 173-Switchboard -> Plan -> Role Hierarchy)
   const canEditBills = useMemo(() => {

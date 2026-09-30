@@ -2094,6 +2094,23 @@ export function saveUserAccessControlProfile(
       }
     }
 
+    // Post permissions to central server API to persist in MariaDB and broadcast via SSE in real time
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/fleet/permissions/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: profile.tenantId || 'tenant_main_pharmacy',
+          userId: profile.userId,
+          profile,
+          effective,
+          updatedBy: adminName
+        })
+      }).catch(err => {
+        console.warn('[UserAccessControl] Server permissions broadcast notice:', err);
+      });
+    }
+
     // Always update active session profile cache
     localStorage.setItem('mbi_active_user_access_profile', serialized);
     localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(effective));
@@ -2143,6 +2160,44 @@ export function saveUserAccessControlProfile(
   } catch (e) {
     console.error('Failed to save user access profile:', e);
   }
+}
+
+/**
+ * Sync user's custom 173-feature switchboard profile directly from the central server API
+ */
+export async function syncUserAccessControlProfileFromServer(
+  userId: string,
+  tenantId?: string
+): Promise<UserAccessControlProfile | null> {
+  if (!userId) return null;
+  try {
+    const tid = tenantId || 'tenant_main_pharmacy';
+    const res = await fetch(`/api/fleet/permissions/${encodeURIComponent(userId)}?tenantId=${encodeURIComponent(tid)}`, {
+      cache: 'no-store'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.profile) {
+        const exactKey = getUserAccessProfileKey(userId, tid);
+        const directUserKey = `mbi_user_access_profile_user_${userId}`;
+        const serialized = JSON.stringify(data.profile);
+        localStorage.setItem(exactKey, serialized);
+        localStorage.setItem(directUserKey, serialized);
+        localStorage.setItem('mbi_active_user_access_profile', serialized);
+        if (data.effective) {
+          localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(data.effective));
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: data.profile } }));
+          window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective: data.effective } }));
+        }
+        return data.profile;
+      }
+    }
+  } catch (err) {
+    console.warn('[UserAccessControl] Failed to fetch server permissions:', err);
+  }
+  return null;
 }
 
 /**

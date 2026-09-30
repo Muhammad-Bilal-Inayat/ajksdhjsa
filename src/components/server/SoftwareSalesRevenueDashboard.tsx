@@ -23,7 +23,8 @@ import {
   logMasterAudit,
   getMasterActiveUsers,
   MasterActiveUser,
-  Tenant
+  Tenant,
+  DEFAULT_TENANT_FEATURE_TOGGLES
 } from '../../lib/masterServerService';
 import { LicenseActivationModal } from './LicenseActivationModal';
 

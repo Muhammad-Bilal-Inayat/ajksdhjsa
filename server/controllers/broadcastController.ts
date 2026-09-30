@@ -108,6 +108,17 @@ async function initTablesIfNecessary() {
         CONSTRAINT uq_notif_receipt UNIQUE (notification_id, tenant_id, hwid)
       );
     `).catch(() => {});
+
+    // Clean up any internal permission records from public notifications
+    await pool.query(`
+      DELETE FROM mbi_notifications 
+      WHERE id LIKE 'perm_%' 
+         OR id LIKE 'security_%' 
+         OR id LIKE 'toggle_%' 
+         OR type = 'permission_update' 
+         OR title LIKE '%Security & Access Permissions%'
+         OR title LIKE '%Permissions Updated%';
+    `).catch(() => {});
   } catch (err) {}
 }
 
@@ -126,7 +137,14 @@ export async function getBroadcastHistoryController(req: Request, res: Response)
     try {
       const pool = getMariaDbPool();
       const rows: any = await pool.query(
-        'SELECT * FROM mbi_notifications ORDER BY dispatched_at DESC LIMIT 100;'
+        `SELECT * FROM mbi_notifications 
+         WHERE id NOT LIKE 'perm_%' 
+           AND id NOT LIKE 'security_%' 
+           AND id NOT LIKE 'toggle_%' 
+           AND (type IS NULL OR type != 'permission_update')
+           AND title NOT LIKE '%Security & Access Permissions%'
+           AND title NOT LIKE '%Permissions Updated%'
+         ORDER BY dispatched_at DESC LIMIT 100;`
       );
 
       if (Array.isArray(rows) && rows.length > 0) {

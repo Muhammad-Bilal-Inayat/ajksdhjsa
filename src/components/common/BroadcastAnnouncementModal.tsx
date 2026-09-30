@@ -18,6 +18,18 @@ export const BroadcastAnnouncementModal: React.FC = () => {
   // Check if a broadcast is unseen
   const checkBroadcastSeen = (b: BroadcastRecord): boolean => {
     if (!b || !b.id) return false;
+    // CRITICAL: Filter out any internal permission / feature update notifications so NO modal ever pops up
+    if (
+      b.id.startsWith('perm_') ||
+      b.id.startsWith('security_') ||
+      b.id.startsWith('toggle_') ||
+      b.type === 'permission_update' ||
+      (b as any).category === 'FEATURE_TOGGLE' ||
+      b.title?.toLowerCase().includes('permission') ||
+      b.title?.toLowerCase().includes('security & access')
+    ) {
+      return false;
+    }
     const seen = localStorage.getItem(`mbi_broadcast_seen_${b.id}`);
     return !seen;
   };

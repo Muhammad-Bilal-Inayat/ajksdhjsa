@@ -22,17 +22,31 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   const { business, tenant, currentUser } = useAuth();
   const navigate = useNavigate();
 
+  const isPermissionBroadcast = (b: BroadcastRecord) => {
+    if (!b || !b.id) return false;
+    return (
+      b.id.startsWith('perm_') ||
+      b.id.startsWith('security_') ||
+      b.id.startsWith('toggle_') ||
+      b.type === 'permission_update' ||
+      (b as any).category === 'FEATURE_TOGGLE' ||
+      b.title?.toLowerCase().includes('permission') ||
+      b.title?.toLowerCase().includes('security & access')
+    );
+  };
+
   const loadBroadcasts = async () => {
     try {
       const res = await fetch('/api/admin/broadcast/history');
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.broadcasts)) {
-          setBroadcasts(data.broadcasts);
+          const validBroadcasts = data.broadcasts.filter((b: BroadcastRecord) => !isPermissionBroadcast(b));
+          setBroadcasts(validBroadcasts);
           
           // Calculate unread set
           const unreads = new Set<string>();
-          for (const b of data.broadcasts) {
+          for (const b of validBroadcasts) {
             const seen = localStorage.getItem(`mbi_broadcast_seen_${b.id}`);
             if (!seen) {
               unreads.add(b.id);
@@ -50,7 +64,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
     // Listen for SSE broadcast arrivals
     const handleNewBroadcast = (e: any) => {
       const b = e.detail;
-      if (b && b.id) {
+      if (b && b.id && !isPermissionBroadcast(b)) {
         setBroadcasts(prev => [b, ...prev.filter(x => x.id !== b.id)]);
         setUnreadIds(prev => new Set(prev).add(b.id));
       }

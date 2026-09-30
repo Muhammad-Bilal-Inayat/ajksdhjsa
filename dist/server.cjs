@@ -2908,6 +2908,16 @@ async function initTablesIfNecessary() {
       );
     `).catch(() => {
     });
+    await pool2.query(`
+      DELETE FROM mbi_notifications 
+      WHERE id LIKE 'perm_%' 
+         OR id LIKE 'security_%' 
+         OR id LIKE 'toggle_%' 
+         OR type = 'permission_update' 
+         OR title LIKE '%Security & Access Permissions%'
+         OR title LIKE '%Permissions Updated%';
+    `).catch(() => {
+    });
   } catch (err) {
   }
 }
@@ -2921,7 +2931,14 @@ async function getBroadcastHistoryController(req, res) {
     try {
       const pool2 = getMariaDbPool();
       const rows = await pool2.query(
-        "SELECT * FROM mbi_notifications ORDER BY dispatched_at DESC LIMIT 100;"
+        `SELECT * FROM mbi_notifications 
+         WHERE id NOT LIKE 'perm_%' 
+           AND id NOT LIKE 'security_%' 
+           AND id NOT LIKE 'toggle_%' 
+           AND (type IS NULL OR type != 'permission_update')
+           AND title NOT LIKE '%Security & Access Permissions%'
+           AND title NOT LIKE '%Permissions Updated%'
+         ORDER BY dispatched_at DESC LIMIT 100;`
       );
       if (Array.isArray(rows) && rows.length > 0) {
         const rcptRows = await pool2.query(

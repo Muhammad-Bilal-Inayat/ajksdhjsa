@@ -23,9 +23,9 @@ import {
   logMasterAudit,
   getMasterActiveUsers,
   MasterActiveUser,
-  Tenant,
-  DEFAULT_TENANT_FEATURE_TOGGLES
+  Tenant
 } from '../../lib/masterServerService';
+import { DEFAULT_TENANT_FEATURE_TOGGLES } from '../../types';
 import { LicenseActivationModal } from './LicenseActivationModal';
 
 interface SoftwareSalesRevenueDashboardProps {

@@ -98,25 +98,33 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       const res = await fetch('/api/fleet/users', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json.users) && json.users.length > 0) {
-          const localList = getMasterActiveUsers();
-          const map = new Map<string, MasterActiveUser>();
-          localList.forEach(u => map.set(u.id, u));
-          
-          json.users.forEach((ru: any) => {
-            if (ru && ru.id) {
-              const ex = map.get(ru.id);
-              map.set(ru.id, {
-                ...ex,
-                ...ru,
-                status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
-                isSilentMonitored: Boolean(ru.isSilentMonitored),
-                isKillSwitchActive: Boolean(ru.isKillSwitchActive)
-              });
-            }
-          });
-          const merged = Array.from(map.values());
-          setUsers(merged);
+        if (Array.isArray(json.users)) {
+          const serverUsers: MasterActiveUser[] = json.users.map((ru: any) => ({
+            id: ru.id,
+            name: ru.name,
+            username: ru.username || ru.emailOrPhone || ru.id,
+            emailOrPhone: ru.emailOrPhone || '',
+            role: ru.role || 'Primary Admin',
+            status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
+            passcode: ru.passcode || '1234',
+            storeName: ru.storeName || 'My Pharmacy Store',
+            tenantId: ru.tenant_id || ru.tenantId || ru.installationId || 'tenant_main',
+            installationId: ru.installationId || ru.tenant_id || 'NODE-CLIENT',
+            boundHwid: ru.boundHwid || null,
+            lastSyncTime: ru.lastSyncTime || new Date().toISOString(),
+            isOnline: true,
+            isSilentMonitored: Boolean(ru.isSilentMonitored),
+            isKillSwitchActive: Boolean(ru.isKillSwitchActive),
+            totalTransactions: Number(ru.totalTransactions) || 0,
+            sessionDurationMinutes: 120,
+            totalActiveHours: 24,
+            allowedModules: { ...DEFAULT_MODULES },
+            permissions: { ...DEFAULT_USER_PERMISSIONS },
+            createdAt: ru.createdAt || new Date().toISOString(),
+            updatedAt: ru.updatedAt || new Date().toISOString(),
+          }));
+          setUsers(serverUsers);
+          localStorage.setItem('mbi_master_active_users_v3', JSON.stringify(serverUsers));
           return;
         }
       }

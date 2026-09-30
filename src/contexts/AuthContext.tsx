@@ -648,9 +648,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return newTenant;
   };
 
-  const [appUsers, setAppUsers] = useState<AppUserRecord[]>([
-    { id: 'u1', name: 'M Bilal Inayat', emailOrPhone: '03364585863', role: 'Primary Admin', status: 'Joined', passcode: '0000' }
-  ]);
+  const [appUsers, setAppUsers] = useState<AppUserRecord[]>([]);
 
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
 

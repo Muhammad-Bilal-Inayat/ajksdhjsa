@@ -2514,8 +2514,8 @@ export function evaluatePermission(params: {
     }
   }
 
-  // Plan-level strict feature verification
-  if (feature) {
+  // Plan-level strict feature verification (only for plan tier modules not mapped to granular user actions)
+  if (feature && !FEATURE_TO_SYSTEM_MAP[feature]) {
     if (!hasPlanFeature(feature, plan, tenantId)) {
       return false;
     }

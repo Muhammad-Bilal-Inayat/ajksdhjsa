@@ -9,6 +9,7 @@ import {
   getSiteCmsConfig, 
   fetchServerTestimonials 
 } from '../../lib/siteCmsService';
+import { isMasterAdminAuthenticated } from '../../lib/masterServerService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,7 +18,8 @@ export const ClientTestimonialsSection: React.FC = () => {
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
-  const { isMasterAdmin } = useAuth();
+  const auth = useAuth();
+  const isMasterAdmin = auth?.isMasterAdmin ?? isMasterAdminAuthenticated();
   const navigate = useNavigate();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const progressTimerRef = useRef<NodeJS.Timeout | null>(null);

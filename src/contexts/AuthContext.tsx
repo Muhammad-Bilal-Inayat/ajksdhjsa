@@ -32,7 +32,8 @@ import {
   getMasterActiveUsers,
   deleteMasterActiveUser,
   syncTenantsFromServer,
-  syncFleetUsersFromServer
+  syncFleetUsersFromServer,
+  isMasterAdminAuthenticated
 } from '../lib/masterServerService';
 import { unifiedSyncService } from '../lib/syncService';
 import { getAllRegistrationLeads, syncRegistrationLeadsFromFirestore } from '../lib/registrationLeadsService';
@@ -78,6 +79,7 @@ interface AuthContextType {
   canViewCostsAndProfit: boolean;
   canApplyDiscount: boolean;
   isPrimaryAdmin: boolean;
+  isMasterAdmin: boolean;
   isGuest: boolean;
 
   // Guest protection & Registration
@@ -227,6 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Guest detection
   const isGuest = !currentUser || currentUser.isGuest || currentUser.role === 'Guest' || currentUser.email === 'guest@mbinventra.com';
   const isPrimaryAdmin = activeRole === 'Primary Admin';
+  const isMasterAdmin = isMasterAdminAuthenticated() || currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
 
   // Live Permission Version counter to guarantee instantaneous reactive updates
   const [permissionVersion, setPermissionVersion] = useState<number>(0);
@@ -1767,6 +1770,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         canViewCostsAndProfit,
         canApplyDiscount,
         isPrimaryAdmin,
+        isMasterAdmin,
         isGuest,
 
         // Modals & User Management

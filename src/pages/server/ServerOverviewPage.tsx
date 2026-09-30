@@ -37,9 +37,7 @@ import {
   Laptop,
   ChevronDown,
   Printer,
-  Building2,
-  Headphones,
-  AlertTriangle
+  Building2
 } from 'lucide-react';
 import { 
   SYSTEM_MENU_TREE, 

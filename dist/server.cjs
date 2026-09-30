@@ -8987,77 +8987,80 @@ fleetRouter.get("/tenants", async (req, res) => {
         const [rows] = await pool2.query(
           `SELECT t.*, 
             (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id) as user_count,
-            (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count
+            (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count,
+            (SELECT license_key FROM mbi_licenses l WHERE l.tenant_id = t.id OR l.tenant_id = t.tenant_id ORDER BY l.created_at DESC LIMIT 1) as license_key,
+            (SELECT expires_at FROM mbi_licenses l WHERE l.tenant_id = t.id OR l.tenant_id = t.tenant_id ORDER BY l.created_at DESC LIMIT 1) as license_expiry
            FROM mbi_tenants t
            ORDER BY t.created_at DESC;`
         );
-        if (Array.isArray(rows) && rows.length > 0) {
-          tenants.push(...rows);
-        }
-        try {
-          const [leadRows] = await pool2.query(
-            `SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC;`
-          );
-          if (Array.isArray(leadRows)) {
-            for (const lead of leadRows) {
-              const leadTid = lead.tenant_id || `tenant_${lead.id}`;
-              const leadName = lead.store_name || lead.storeName;
-              if (leadName && !tenants.some((t) => t.id === leadTid || t.tenant_id === leadTid || t.name && t.name.toLowerCase() === leadName.toLowerCase())) {
-                tenants.push({
-                  id: leadTid,
-                  tenant_id: leadTid,
-                  name: leadName,
-                  owner_name: lead.owner_name || lead.ownerName || "Owner",
-                  owner_phone: lead.phone || "",
-                  owner_email: lead.email || "",
-                  city: lead.city || "Lahore",
-                  plan: lead.requested_plan || "Basic",
-                  status: lead.status === "activated" ? "Active" : lead.status || "Active",
-                  created_at: lead.submitted_at || (/* @__PURE__ */ new Date()).toISOString()
-                });
+        if (Array.isArray(rows)) {
+          for (const t of rows) {
+            if (!t) continue;
+            const tid = t.tenant_id || t.id;
+            let apiKey = t.api_key;
+            if (!apiKey || apiKey.trim() === "") {
+              apiKey = `mbi_live_sec_${(tid || "001").replace(/[^a-zA-Z0-9]/g, "")}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+              try {
+                await pool2.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
+                t.api_key = apiKey;
+              } catch (e) {
               }
             }
+            tenants.push({
+              id: t.id || tid,
+              tenant_id: tid,
+              tenantId: tid,
+              organization_id: t.organization_id || tid,
+              name: t.name || "Pharmacy Store",
+              owner_name: t.owner_name || "Store Owner",
+              owner_phone: t.owner_phone || t.contact_phone || "",
+              owner_email: t.owner_email || t.contact_email || "",
+              city: t.city || "Lahore",
+              address: t.address || "",
+              plan: t.plan || t.subscription_plan || "Basic",
+              status: t.status || "Active",
+              drug_license_no: t.drug_license_no || "",
+              ntn_number: t.ntn_number || "",
+              api_key: apiKey,
+              apiKey,
+              license_id: t.license_key || `lic_${tid}`,
+              trial_expiry_date: t.trial_expiry_date || t.license_expiry || "Never (Lifetime)",
+              user_count: Number(t.user_count) || 0,
+              invoice_count: Number(t.invoice_count) || 0,
+              created_at: t.created_at || (/* @__PURE__ */ new Date()).toISOString(),
+              updated_at: t.updated_at || (/* @__PURE__ */ new Date()).toISOString()
+            });
           }
-        } catch (lErr) {
+          try {
+            let syncData = {};
+            if (import_fs10.default.existsSync(syncFile8)) {
+              syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+            }
+            syncData.mbi_tenants = tenants;
+            syncData.tenants = tenants;
+            import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+          } catch (e) {
+          }
+          return res.json({
+            success: true,
+            source: "mariadb",
+            count: tenants.length,
+            tenants,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          });
         }
       } catch (dbErr) {
+        console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
     if (import_fs10.default.existsSync(syncFile8)) {
       try {
         const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8"));
-        const fallbackTenants = [
-          ...syncData.mbi_tenants || [],
-          ...syncData.tenants || [],
-          ...(syncData.mbi_registration_leads || []).map((l) => ({
-            id: l.tenantId || `tenant_${l.id}`,
-            tenant_id: l.tenantId || `tenant_${l.id}`,
-            name: l.storeName || l.store_name,
-            owner_name: l.ownerName || l.owner_name || "Owner",
-            owner_phone: l.phone || "",
-            owner_email: l.email || "",
-            city: l.city || "Lahore",
-            plan: l.requestedPlan || l.plan || "Basic",
-            status: l.status === "activated" ? "Active" : l.status || "Active",
-            created_at: l.submittedAt || l.created_at || (/* @__PURE__ */ new Date()).toISOString()
-          })),
-          ...(syncData.registration_leads || []).map((l) => ({
-            id: l.tenantId || `tenant_${l.id}`,
-            tenant_id: l.tenantId || `tenant_${l.id}`,
-            name: l.storeName || l.store_name,
-            owner_name: l.ownerName || l.owner_name || "Owner",
-            owner_phone: l.phone || "",
-            owner_email: l.email || "",
-            city: l.city || "Lahore",
-            plan: l.requestedPlan || l.plan || "Basic",
-            status: l.status === "activated" ? "Active" : l.status || "Active",
-            created_at: l.submittedAt || l.created_at || (/* @__PURE__ */ new Date()).toISOString()
-          }))
-        ];
+        const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
           const tName = ft.name || ft.storeName || ft.store_name;
-          if (tName && !tenants.some((t) => t.id === tid || t.tenant_id === tid || t.name && t.name.toLowerCase().trim() === tName.toLowerCase().trim())) {
+          if (tName && !tenants.some((t) => t.id === tid || t.tenant_id === tid)) {
             tenants.push({
               id: tid,
               tenant_id: tid,
@@ -9068,6 +9071,7 @@ fleetRouter.get("/tenants", async (req, res) => {
               city: ft.city || "Lahore",
               plan: ft.plan || ft.planId || "Basic",
               status: ft.status || "Active",
+              api_key: ft.api_key || ft.apiKey || `mbi_live_key_${tid.slice(-6)}`,
               created_at: ft.trialStartDate || ft.created_at || (/* @__PURE__ */ new Date()).toISOString()
             });
           }
@@ -9075,54 +9079,9 @@ fleetRouter.get("/tenants", async (req, res) => {
       } catch (e) {
       }
     }
-    try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const uList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
-        for (const u of uList) {
-          const store = u.storeName;
-          if (store && store !== "MBI INVENTRA" && !tenants.some((t) => t.name && t.name.toLowerCase().trim() === store.toLowerCase().trim())) {
-            const tid = u.tenantId || u.tenant_id || u.installationId || `tenant_${Buffer.from(store).toString("hex").slice(0, 8)}`;
-            tenants.push({
-              id: tid,
-              tenant_id: tid,
-              name: store,
-              owner_name: u.name?.replace(/\s*\(Primary Admin\)/i, "") || "Owner",
-              owner_phone: u.emailOrPhone || u.phone || "",
-              owner_email: u.email || "",
-              city: u.city || "Pakistan",
-              plan: "Basic (10-Day Trial)",
-              status: "Active",
-              created_at: u.createdAt || (/* @__PURE__ */ new Date()).toISOString()
-            });
-          }
-        }
-      }
-    } catch (e) {
-    }
-    if (tenants.length === 0) {
-      tenants = [
-        { id: "tenant_alshifa_pharma", tenant_id: "tenant_alshifa_pharma", name: "Al-Shifa Pharmacy", owner_name: "Dr. Tariq Mahmood", owner_phone: "0300-1122334", city: "Sargodha", plan: "Basic", status: "Active", created_at: (/* @__PURE__ */ new Date()).toISOString() },
-        { id: "tenant_city_medicos", tenant_id: "tenant_city_medicos", name: "City Medicos", owner_name: "Haji Aslam", owner_phone: "0321-9988776", city: "Lahore", plan: "Pharmacy Pro", status: "Active", created_at: (/* @__PURE__ */ new Date()).toISOString() },
-        { id: "tenant_hassan_medicos", tenant_id: "tenant_hassan_medicos", name: "Hassan Medicos", owner_name: "Hassan Ali", owner_phone: "0336-4585863", city: "Sargodha", plan: "Enterprise Multi-Branch", status: "Active", created_at: (/* @__PURE__ */ new Date()).toISOString() },
-        { id: "tenant_main_pharmacy", tenant_id: "tenant_main_pharmacy", name: "Inventra Central Pharmacy", owner_name: "Dr. Kashif Ahmed", owner_phone: "0328-1302636", city: "Lahore", plan: "Lifetime Perpetual", status: "Active", created_at: (/* @__PURE__ */ new Date()).toISOString() }
-      ];
-    }
-    const deduplicatedTenants = [];
-    for (const t of tenants) {
-      if (!t) continue;
-      const cleanName = (t.name || "").toLowerCase().trim();
-      const cleanId = (t.tenant_id || t.id || "").toLowerCase().trim();
-      if (cleanName && seenNames.has(cleanName) || cleanId && seenIds.has(cleanId)) {
-        continue;
-      }
-      if (cleanName) seenNames.add(cleanName);
-      if (cleanId) seenIds.add(cleanId);
-      deduplicatedTenants.push(t);
-    }
-    tenants = deduplicatedTenants;
     res.json({
       success: true,
+      source: "fallback",
       count: tenants.length,
       tenants,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -9194,7 +9153,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
              status = VALUES(status),
              drug_license_no = VALUES(drug_license_no),
              ntn_number = VALUES(ntn_number),
-             api_key = VALUES(api_key),
+             api_key = COALESCE(NULLIF(VALUES(api_key), ''), api_key),
              features_json = VALUES(features_json),
              trial_expiry_date = VALUES(trial_expiry_date),
              updated_at = CURRENT_TIMESTAMP;`,
@@ -9217,9 +9176,32 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : null
           ]
         );
+        try {
+          await pool2.query(
+            `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = VALUES(status), updated_at = CURRENT_TIMESTAMP;`,
+            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || "Business", status || "Active"]
+          );
+        } catch (licErr) {
+        }
+        try {
+          await pool2.query(
+            `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
+             VALUES (?, ?, ?, ?, ?, '1234', 'Owner', 1, 1, 'Active', CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), role = 'Owner', status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [`usr_${finalTenantId}`, finalTenantId, owner_name || ownerName || "Store Owner", (owner_phone || ownerPhone || phone || finalTenantId).toLowerCase(), owner_email || ownerEmail || email || ""]
+          );
+        } catch (uErr) {
+        }
       } catch (dbErr) {
+        console.warn("[Tenant Save MariaDB Error]:", dbErr);
       }
     }
+    broadcastGlobalEvent({
+      type: "FLEET_UPDATE",
+      payload: { tenantId: cleanTenantId, name, action: "SAVE" }
+    });
     res.json({
       success: true,
       message: `Tenant ${name} saved successfully with API Key`,
@@ -9232,7 +9214,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
 });
 fleetRouter.post("/tenants/delete", async (req, res) => {
   try {
-    const { tenant_id } = req.body;
+    const tenant_id = req.body.tenant_id || req.body.tenantId || req.body.id;
     if (!tenant_id) {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
@@ -9241,10 +9223,61 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       try {
         const pool2 = getMariaDbPool();
         await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_user_access_profiles WHERE tenant_id = ?;", [tenant_id]);
+      } catch (dbErr) {
+        console.warn("[Tenant Delete MariaDB Error]:", dbErr);
+      }
+    }
+    try {
+      if (import_fs10.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+        if (Array.isArray(syncData.mbi_tenants)) {
+          syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tenant_id && t.tenant_id !== tenant_id);
+        }
+        if (Array.isArray(syncData.tenants)) {
+          syncData.tenants = syncData.tenants.filter((t) => t.id !== tenant_id && t.tenantId !== tenant_id);
+        }
+        import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "TENANT_DELETED",
+      payload: { tenantId: tenant_id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({ success: true, message: `Tenant ${tenant_id} and associated records removed.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
+  }
+});
+fleetRouter.delete("/tenants/:id", async (req, res) => {
+  try {
+    const tenant_id = req.params.id;
+    if (!tenant_id) {
+      res.status(400).json({ success: false, error: "tenant_id is required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
+        await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
       } catch (dbErr) {
       }
     }
-    res.json({ success: true, message: `Tenant ${tenant_id} removed.` });
+    broadcastGlobalEvent({
+      type: "TENANT_DELETED",
+      payload: { tenantId: tenant_id, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({ success: true, message: `Tenant ${tenant_id} deleted successfully.` });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
   }
@@ -9671,58 +9704,159 @@ fleetRouter.get("/keys", async (req, res) => {
   try {
     const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs10.default.existsSync(keysJsonPath)) {
+    const masterKey = {
+      id: "key_master_live_01",
+      tenantId: "system_master",
+      tenantName: "Master Station Admin",
+      keyName: "Production Full Fleet Key",
+      apiKey: "mbi_live_sec_master_89f02a9b4c12d3e4f5a6b7c8d9e0f1a2",
+      publicKey: "mbi_pub_master_001",
+      webhookSecret: "whsec_master_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4",
+      environment: "production",
+      status: "Active",
+      rateLimitPerMin: 5e3,
+      permissions: ["*"],
+      lastUsed: "Master HQ Live Connected",
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    keysList.push(masterKey);
+    if (await isMariaDbAvailable()) {
       try {
-        keysList = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
-      } catch (e) {
+        const pool2 = getMariaDbPool();
+        const [tenants] = await pool2.query(
+          `SELECT id, tenant_id, name, owner_name, api_key, plan, status, created_at, updated_at FROM mbi_tenants ORDER BY created_at DESC;`
+        );
+        if (Array.isArray(tenants)) {
+          for (const t of tenants) {
+            if (!t) continue;
+            const tid = t.tenant_id || t.id;
+            let apiKey = t.api_key;
+            if (!apiKey || apiKey.trim() === "") {
+              apiKey = `mbi_live_sec_${(tid || "001").replace(/[^a-zA-Z0-9]/g, "")}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+              try {
+                await pool2.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
+                t.api_key = apiKey;
+              } catch (e) {
+              }
+            }
+            const cleanTenantName = t.name || "Pharmacy Store";
+            const cleanTid = (tid || "001").replace(/[^a-zA-Z0-9]/g, "");
+            keysList.push({
+              id: `key_${t.id}`,
+              tenantId: tid,
+              tenantName: cleanTenantName,
+              keyName: `${cleanTenantName} Production API Key`,
+              apiKey,
+              publicKey: `mbi_pub_${cleanTid.slice(-8)}`,
+              webhookSecret: `whsec_${cleanTid.slice(-8)}_${(t.id || "001").slice(-6)}`,
+              environment: "production",
+              status: t.status === "Suspended" ? "Revoked" : "Active",
+              rateLimitPerMin: 5e3,
+              permissions: ["pos:*", "inventory:*", "invoices:*", "khata:*", "*"],
+              lastUsed: "Live MariaDB Connected",
+              createdAt: t.created_at || (/* @__PURE__ */ new Date()).toISOString()
+            });
+          }
+          try {
+            import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+          } catch (e) {
+          }
+          return res.json({
+            success: true,
+            source: "mariadb",
+            count: keysList.length,
+            keys: keysList,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          });
+        }
+      } catch (dbErr) {
+        console.warn("[Fleet Keys MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    if (keysList.length === 0) {
-      keysList = [
-        {
-          id: "key_master_live_01",
-          tenantId: "system_master",
-          tenantName: "Master Station Admin",
-          keyName: "Production Full Fleet Key",
-          apiKey: "mbi_live_sec_89f02a9b4c12d3e4f5a6b7c8d9e0f1a2",
-          publicKey: "mbi_pub_master_001",
-          webhookSecret: "whsec_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4",
-          environment: "production",
-          status: "Active",
-          rateLimitPerMin: 5e3,
-          permissions: ["*"],
-          lastUsed: (/* @__PURE__ */ new Date()).toISOString(),
-          createdAt: new Date(Date.now() - 30 * 864e5).toISOString()
-        },
-        {
-          id: "key_tenant_001",
-          tenantId: "tenant_001",
-          tenantName: "Central Branch Pharmacy",
-          keyName: "REST API & POS Sync Key",
-          apiKey: "mbi_live_sec_33d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
-          publicKey: "mbi_pub_tenant_001",
-          webhookSecret: "whsec_11b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-          environment: "production",
-          status: "Active",
-          rateLimitPerMin: 1e3,
-          permissions: ["pos:read", "pos:write", "inventory:sync", "invoices:read"],
-          lastUsed: (/* @__PURE__ */ new Date()).toISOString(),
-          createdAt: new Date(Date.now() - 15 * 864e5).toISOString()
-        }
-      ];
+    if (import_fs10.default.existsSync(keysJsonPath)) {
       try {
-        import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+        const fileKeys = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        if (Array.isArray(fileKeys) && fileKeys.length > 0) {
+          keysList = fileKeys;
+        }
       } catch (e) {
       }
     }
     res.json({
       success: true,
+      source: "fallback",
       count: keysList.length,
       keys: keysList,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error fetching API keys" });
+  }
+});
+fleetRouter.get("/licenses", async (req, res) => {
+  try {
+    let licenses = [];
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        const [rows] = await pool2.query(
+          `SELECT l.*, t.name as tenant_name, t.owner_name, t.owner_phone, t.city, t.status as tenant_status
+           FROM mbi_licenses l
+           LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id)
+           ORDER BY l.created_at DESC;`
+        );
+        if (Array.isArray(rows)) {
+          licenses = rows;
+        }
+      } catch (dbErr) {
+      }
+    }
+    if (licenses.length === 0 && import_fs10.default.existsSync(syncFile8)) {
+      try {
+        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+        licenses = syncData.client_licenses || syncData.mbi_licenses || [];
+      } catch (e) {
+      }
+    }
+    res.json({ success: true, count: licenses.length, licenses, timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error fetching licenses" });
+  }
+});
+fleetRouter.post("/licenses/save", async (req, res) => {
+  try {
+    const { id, tenant_id, tenantId, license_key, licenseKey, plan, status, max_terminals, expires_at } = req.body;
+    const cleanId = id || `lic_${Date.now()}`;
+    const cleanTenantId = tenant_id || tenantId || "tenant_main";
+    const cleanKey = license_key || licenseKey || `MBI-PRO-${Date.now().toString(36).slice(-6).toUpperCase()}`;
+    const cleanPlan = plan || "Pharmacy Pro";
+    const cleanStatus = status || "Active";
+    const cleanExpires = expires_at || new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE 
+             license_key = VALUES(license_key),
+             plan = VALUES(plan),
+             status = VALUES(status),
+             max_terminals = VALUES(max_terminals),
+             expires_at = VALUES(expires_at),
+             updated_at = CURRENT_TIMESTAMP;`,
+          [cleanId, cleanTenantId, cleanKey, cleanPlan, cleanStatus, Number(max_terminals) || 5, cleanExpires]
+        );
+      } catch (dbErr) {
+      }
+    }
+    broadcastGlobalEvent({
+      type: "LICENSE_UPDATED",
+      payload: { tenantId: cleanTenantId, licenseKey: cleanKey, status: cleanStatus }
+    });
+    res.json({ success: true, message: "License saved successfully", licenseId: cleanId, licenseKey: cleanKey });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error saving license" });
   }
 });
 fleetRouter.post("/keys/generate", async (req, res) => {
@@ -14274,132 +14408,6 @@ async function startServer() {
       });
     } catch (err) {
       res.status(500).json({ success: false, error: err?.message || "Error registering lead" });
-    }
-  });
-  app.get("/api/fleet/tenants", (req, res) => {
-    try {
-      const data = loadSyncData();
-      const tenants = Array.isArray(data.tenants) ? data.tenants : [];
-      res.json({ success: true, count: tenants.length, tenants });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error fetching tenants" });
-    }
-  });
-  app.post("/api/fleet/tenants/save", (req, res) => {
-    try {
-      const tenant = req.body;
-      if (!tenant || !tenant.id) {
-        return res.status(400).json({ success: false, message: "Valid tenant record with ID required" });
-      }
-      const data = loadSyncData();
-      if (!Array.isArray(data.tenants)) data.tenants = [];
-      const idx = data.tenants.findIndex((t) => t.id === tenant.id || t.tenantId === tenant.tenantId);
-      if (idx >= 0) {
-        data.tenants[idx] = { ...data.tenants[idx], ...tenant };
-      } else {
-        data.tenants.unshift(tenant);
-      }
-      syncRecordToMariaDb("tenants", tenant).catch(() => {
-      });
-      scheduleDebouncedSyncFlush(200, 1e3);
-      broadcastSyncEvent({
-        action: "fleet_update",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      res.json({ success: true, tenant });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error saving tenant" });
-    }
-  });
-  app.get("/api/fleet/licenses", (req, res) => {
-    try {
-      const data = loadSyncData();
-      const licenses = Array.isArray(data.client_licenses) ? data.client_licenses : [];
-      res.json({ success: true, count: licenses.length, licenses });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error fetching licenses" });
-    }
-  });
-  app.post("/api/fleet/licenses/save", (req, res) => {
-    try {
-      const license = req.body;
-      if (!license || !license.id) {
-        return res.status(400).json({ success: false, message: "Valid license record required" });
-      }
-      const data = loadSyncData();
-      if (!Array.isArray(data.client_licenses)) data.client_licenses = [];
-      const idx = data.client_licenses.findIndex((l) => l.id === license.id || l.licenseKey === license.licenseKey);
-      if (idx >= 0) {
-        data.client_licenses[idx] = { ...data.client_licenses[idx], ...license };
-      } else {
-        data.client_licenses.unshift(license);
-      }
-      syncRecordToMariaDb("client_licenses", license).catch(() => {
-      });
-      scheduleDebouncedSyncFlush(200, 1e3);
-      broadcastSyncEvent({
-        action: "fleet_update",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      res.json({ success: true, license });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error saving license" });
-    }
-  });
-  app.get("/api/fleet/users", (req, res) => {
-    try {
-      const data = loadSyncData();
-      const users = Array.isArray(data.appUsers) ? data.appUsers : [];
-      res.json({ success: true, count: users.length, users });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error fetching fleet users" });
-    }
-  });
-  app.post("/api/fleet/users/update", (req, res) => {
-    try {
-      const { userId, updates, action } = req.body;
-      if (!userId) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
-      }
-      const data = loadSyncData();
-      if (!Array.isArray(data.appUsers)) data.appUsers = [];
-      const idx = data.appUsers.findIndex((u) => u.id === userId || u.username === userId);
-      let targetUser = idx >= 0 ? data.appUsers[idx] : null;
-      if (!targetUser) {
-        targetUser = {
-          id: userId,
-          name: updates?.name || "Staff User",
-          username: updates?.username || userId,
-          role: updates?.role || "Cashier",
-          status: "Active",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          ...updates,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        data.appUsers.unshift(targetUser);
-      } else {
-        targetUser = {
-          ...targetUser,
-          ...updates,
-          updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        data.appUsers[idx] = targetUser;
-      }
-      syncRecordToMariaDb("appUsers", targetUser).catch(() => {
-      });
-      flushSyncToDisk();
-      broadcastSyncEvent({
-        action: "fleet_update",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      res.json({
-        success: true,
-        action: action || "update",
-        user: targetUser,
-        message: `User ${targetUser.name || targetUser.username} successfully updated.`
-      });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err?.message || "Error updating user" });
     }
   });
   function getTenantFilteredStore(storeName, tenantId, firmId) {

@@ -1,5 +1,6 @@
 import express, { Response } from 'express';
 import { requireAuth, resolveTenant, TenantRequest } from '../middleware/tenantMiddleware';
+import { getMariaDbPool } from '../db/mariaClient';
 
 export const tenantRouter = express.Router();
 
@@ -20,6 +21,61 @@ tenantRouter.get('/info', (req: TenantRequest, res: Response): void => {
     authenticatedUser: req.user?.email,
     userRole: req.user?.role
   });
+});
+
+/**
+ * GET /api/tenant/features
+ * Returns the active 173-Feature matrix for the authenticated tenant from MariaDB table mbi_settings
+ */
+tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.tenantId || req.user?.tenantId || 'tenant_main_pharmacy';
+    let features: Record<string, boolean> = {};
+
+    try {
+      const pool = getMariaDbPool();
+      
+      // 1. Try reading from mbi_settings table
+      const [settingsRows]: any = await pool.query(
+        'SELECT setting_value FROM mbi_settings WHERE tenant_id = ? AND setting_key = "granular_features_matrix" LIMIT 1;',
+        [tenantId]
+      );
+
+      if (Array.isArray(settingsRows) && settingsRows.length > 0 && settingsRows[0].setting_value) {
+        try {
+          features = typeof settingsRows[0].setting_value === 'string'
+            ? JSON.parse(settingsRows[0].setting_value)
+            : settingsRows[0].setting_value;
+        } catch {}
+      }
+
+      // 2. Fallback to mbi_tenants.features_json if mbi_settings is empty
+      if (Object.keys(features).length === 0) {
+        const [tenantRows]: any = await pool.query(
+          'SELECT features_json FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;',
+          [tenantId, tenantId]
+        );
+        if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0].features_json) {
+          try {
+            features = typeof tenantRows[0].features_json === 'string'
+              ? JSON.parse(tenantRows[0].features_json)
+              : tenantRows[0].features_json;
+          } catch {}
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[TENANT FEATURES MARIADB READ NOTICE]', dbErr);
+    }
+
+    res.json({
+      success: true,
+      tenantId,
+      features,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to retrieve tenant features' });
+  }
 });
 
 /**

@@ -682,11 +682,17 @@ export const RbacManagementTab: React.FC = () => {
                   </label>
                   <input
                     type="password"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    name="pos_staff_pin"
                     maxLength={4}
                     required
                     placeholder="0000"
                     value={newUserPin}
-                    onChange={(e) => setNewUserPin(e.target.value)}
+                    onChange={(e) => setNewUserPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-mono font-bold tracking-widest text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>

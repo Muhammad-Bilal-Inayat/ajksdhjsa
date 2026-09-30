@@ -1189,33 +1189,15 @@ export function getAllClientLicenses(): ClientLicense[] {
   const stored = localStorage.getItem(MASTER_LICENSES_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(l => l && l.licenseKey !== 'MBI-PRO-2026-8812' && l.clientName !== 'Main Store / Primary Business');
+      }
     } catch (e) {}
   }
 
-  // Initial default seed license
-  const seed: ClientLicense[] = [
-    {
-      id: uuidv4(),
-      licenseKey: 'MBI-PRO-2026-8812',
-      clientName: 'Main Store / Primary Business',
-      ownerName: 'Admin',
-      phone: '03364585863',
-      city: 'Headquarters',
-      plan: 'Lifetime Perpetual',
-      status: 'Active',
-      issueDate: new Date().toISOString().slice(0, 10),
-      expiryDate: 'Lifetime',
-      maxDevices: 5,
-      strictHardwareLock: false,
-      maxOfflineDays: 0,
-      boundHardwareIds: [],
-      allowedModules: { ...DEFAULT_MODULES },
-      notes: 'Master default primary installation license.',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-  ];
+  // Initial empty registry (Zero dummy data for clean live testing)
+  const seed: ClientLicense[] = [];
   localStorage.setItem(MASTER_LICENSES_KEY, JSON.stringify(seed));
   return seed;
 }
@@ -2109,45 +2091,10 @@ export function unlockRemoteInstance(installationId: string): ClientInstanceHear
 // ============================================================================
 
 /**
- * Seed initial sample tenants if empty
+ * Seed initial sample tenants if empty (Zero dummy data for clean live testing)
  */
 function getInitialTenants(): Tenant[] {
-  const now = new Date();
-
-  return [
-    {
-      id: 'tenant-main-01',
-      tenantId: 'tenant-main-01',
-      organizationId: 'org-mbi-01',
-      licenseId: 'LIC-MBI-HQ-01',
-      name: 'MBI INVENTRA',
-      ownerName: 'M Bilal Inayat',
-      ownerEmail: 'm.bilalinayat786@gmail.com',
-      ownerPhone: '03364585863',
-      city: 'Headquarters',
-      address: 'Central Master Hub',
-      plan: 'Pharmacy Pro',
-      status: 'Active',
-      primaryAdminId: 'u1',
-      primaryAdminEmail: 'm.bilalinayat786@gmail.com',
-      trialStartDate: now.toISOString(),
-      trialExpiryDate: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      isTrialActive: false,
-      trialExpired: false,
-      paidLicenseActive: true,
-      maxDevices: 10,
-      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-      totalMembersCount: 1,
-      totalInvoicesCount: 0,
-      totalProductsCount: 0,
-      totalPartiesCount: 0,
-      lastLoginAt: now.toISOString(),
-      lastSyncAt: now.toISOString(),
-      notes: 'Primary Master Tenant Instance',
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-    }
-  ];
+  return [];
 }
 
 let hasTriggeredTenantSync = false;
@@ -2164,6 +2111,7 @@ export function getAllTenants(): Tenant[] {
         const seen = new Set<string>();
         return parsed.filter(t => {
           if (!t) return false;
+          if (t.id === 'tenant-main-01' || t.tenantId === 'tenant-main-01' || t.name === 'MBI INVENTRA') return false;
           const k = (t.name || t.tenantId || t.id || '').toLowerCase().trim();
           if (!k || seen.has(k)) return false;
           seen.add(k);

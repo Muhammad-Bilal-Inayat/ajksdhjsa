@@ -624,8 +624,29 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     setIsPlanModalOpen(true);
   };
 
+  // DIRECT MASTER BACKEND ACTION DISPATCHER (MariaDB Persistence)
+  // =========================================================================
+  const callLicenseActionApi = async (body: any) => {
+    try {
+      const res = await fetch('/api/admin/licenses/action', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-master-password': 'Ami7788!@',
+          'x-emergency-key': '03082003'
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.warn('Backend direct license action error, applying local state fallback:', err);
+      return null;
+    }
+  };
+
   // Save changes from Master Plan & Duration Modal (Permanent & Non-Reverting)
-  const handleSaveMasterPlanModal = () => {
+  const handleSaveMasterPlanModal = async () => {
     if (!selectedTenantForPlan) return;
 
     const target = tenants.find(t => (t.id === selectedTenantForPlan.id || t.tenantId === selectedTenantForPlan.tenantId));
@@ -686,6 +707,26 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
 
+    // Persist live to MariaDB backend
+    await callLicenseActionApi({
+      action: 'update_plan_suite',
+      tenantId: target.tenantId || target.id,
+      plan: target.plan,
+      status: target.status,
+      expiryDate: newExpiryStr === 'Lifetime' ? '2099-12-31' : newExpiryStr,
+      maxUsers: target.maxUsers,
+      maxFirms: target.maxFirms,
+      maxDevices: target.maxDevices,
+      apiKey: target.apiKey,
+      salePrice: target.salePrice,
+      amountPaid: target.amountPaid,
+      amountDue: target.amountDue,
+      saleStatus: target.saleStatus,
+      paymentMethod: target.paymentMethod,
+      saleNotes: target.saleNotes,
+      features: planForm.featureOverrides
+    });
+
     // 3. Save explicitly to localStorage for sub-user instant permissions engine
     try {
       localStorage.setItem(`mbi_tenant_features_${target.tenantId || target.id}`, JSON.stringify(planForm.featureOverrides));
@@ -728,7 +769,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   };
 
   // Quick 1-click Fast Extend
-  const handleFastExtendExpiry = (tenantId: string, daysToAdd: number | 'lifetime') => {
+  const handleFastExtendExpiry = async (tenantId: string, daysToAdd: number | 'lifetime') => {
     const target = tenants.find(t => t.id === tenantId || t.tenantId === tenantId);
     if (!target) return;
 
@@ -760,11 +801,19 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       saveClientLicense(linkedLicense);
     }
 
+    // Call MariaDB backend action endpoint
+    await callLicenseActionApi({
+      action: 'extend_days',
+      tenantId: target.tenantId || target.id,
+      days: daysToAdd === 'lifetime' ? 36500 : daysToAdd,
+      exactDate: daysToAdd === 'lifetime' ? '2099-12-31' : newExpiryStr.slice(0, 10)
+    });
+
     refreshAllData();
-    toast(`✅ License extended for ${target.name} (${daysToAdd === 'lifetime' ? 'Lifetime Perpetual' : `+${daysToAdd} Days`}). Sub-users auto-synced!`);
+    toast(`✅ License extended for ${target.name} (${daysToAdd === 'lifetime' ? 'Lifetime Perpetual (2099-12-31)' : `+${daysToAdd} Days`}). Sub-users auto-synced!`);
   };
 
-  const handleToggleLock = (tenantId: string, currentStatus: string) => {
+  const handleToggleLock = async (tenantId: string, currentStatus: string) => {
     const target = tenants.find(t => t.id === tenantId || t.tenantId === tenantId);
     if (!target) return;
 
@@ -782,6 +831,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       saveClientLicense(linkedLicense);
     }
 
+    // Call MariaDB backend action endpoint
+    await callLicenseActionApi({
+      action: newStatus === 'Suspended' ? 'suspend' : 'reactivate',
+      tenantId: target.tenantId || target.id
+    });
+
     logMasterAudit(
       newStatus === 'Suspended' ? 'Tenant Locked' : 'Tenant Unlocked',
       'SECURITY',
@@ -797,13 +852,21 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     );
   };
 
-  const handleResetMachineBinding = (licenseKeyOrId: string, tenantName: string) => {
+  const handleResetMachineBinding = async (licenseKeyOrId: string, tenantName: string) => {
     const confirmed = window.confirm(
       `Are you sure you want to reset hardware machine fingerprints for ${tenantName}? This will allow the client to bind a new PC/Laptop.`
     );
     if (!confirmed) return;
 
     resetLicenseHardware(licenseKeyOrId);
+
+    // Call MariaDB backend action endpoint
+    await callLicenseActionApi({
+      action: 'reset_fingerprint',
+      licenseId: licenseKeyOrId,
+      tenantId: selectedTenantForPlan?.tenantId || tenantName
+    });
+
     refreshAllData();
     toast(`🔄 Hardware machine binding cleared for ${tenantName}. Client can now activate on a new device.`);
   };
@@ -1853,6 +1916,33 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Regenerate Key</span>
+                </button>
+              </div>
+
+              {/* HWID Hardware Fingerprint Reset Action */}
+              <div className="p-3 bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                    <HardDrive className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    <span>Hardware Binding &amp; Machine HWID Fingerprint</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Clear bound PC hardware signatures in MariaDB to permit immediate license activation on a fresh or replacement machine.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedTenantForPlan) {
+                      const linkedLic = licenses.find(l => l.licenseKey === selectedTenantForPlan.licenseId || l.clientName.toLowerCase() === selectedTenantForPlan.name.toLowerCase());
+                      handleResetMachineBinding(linkedLic?.id || selectedTenantForPlan.licenseId || selectedTenantForPlan.id, selectedTenantForPlan.name);
+                    }
+                  }}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm transition active:scale-95"
+                  title="Clear bound hardware signatures for this company"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>🔄 Reset HWID Fingerprint</span>
                 </button>
               </div>
             </div>

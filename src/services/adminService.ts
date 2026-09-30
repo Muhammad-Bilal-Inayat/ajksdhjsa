@@ -500,6 +500,10 @@ class AdminService {
     }
   }
 
+  async saveTenantFeatures(tenantId: string, features: TenantFeatureMap): Promise<boolean> {
+    return this.updateTenantFeatures(tenantId, features);
+  }
+
   /**
    * Toggle remote lock / unlock on tenant
    */

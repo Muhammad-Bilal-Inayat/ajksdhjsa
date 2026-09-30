@@ -248,7 +248,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
     batch: '',
     exp: '',
     mrp: 0,
-    qty: 1,
+    qty: 0,
     free_qty: 0,
     disc: 0,
     unit: 'Box',
@@ -726,7 +726,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
       batch: med.batchNumber || `B-${Date.now().toString().slice(-4)}`,
       exp: med.expiryDate || '12/2028',
       mrp: med.mrp || med.sellingPrice || 0,
-      qty: 1,
+      qty: 0,
       free_qty: 0,
       disc: 0,
       unit: med.unit || 'Box',
@@ -755,7 +755,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
       batchNumber: rapidRow.batch || `B-${Date.now().toString().slice(-4)}`,
       expiryDate: rapidRow.exp || '12/2028',
       mrp: Number(rapidRow.mrp) || 0,
-      quantity: Number(rapidRow.qty) || 1,
+      quantity: Number(rapidRow.qty) || 0,
       freeQuantity: Number(rapidRow.free_qty) || 0,
       discountPercentage: Number(rapidRow.disc) || 0,
       unit: rapidRow.unit || 'Box',
@@ -783,7 +783,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
       batch: '',
       exp: '',
       mrp: 0,
-      qty: 1,
+      qty: 0,
       free_qty: 0,
       disc: 0,
       unit: 'Box',
@@ -1724,9 +1724,9 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                     <td className="p-1">
                       <input
                         type="number"
-                        min="1"
-                        value={rapidRow.qty || 1}
-                        onChange={(e) => setRapidRow({ ...rapidRow, qty: parseFloat(e.target.value) || 1 })}
+                        min="0"
+                        value={rapidRow.qty}
+                        onChange={(e) => setRapidRow({ ...rapidRow, qty: parseFloat(e.target.value) || 0 })}
                         onKeyDown={(e) => { if (e.key === 'Enter') commitRapidRow(); }}
                         className="w-full px-1.5 py-1 text-xs bg-white dark:bg-slate-900 border-2 border-blue-500 rounded-lg text-center font-bold"
                       />
@@ -1954,7 +1954,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                       <input
                         type="number"
                         step="any"
-                        min="1"
+                        min="0"
                         data-pcell={`qty-${index}`}
                         value={row.quantity || ''}
                         onChange={(e) => handleUpdateItem(index, { quantity: parseFloat(e.target.value) || 0 })}

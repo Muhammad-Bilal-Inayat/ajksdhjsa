@@ -37,22 +37,53 @@ export const TenantPlanProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     const handlePlanUpdated = () => refreshPlan();
+    const handleFeaturesUpdated = (e: any) => {
+      if (e?.detail?.features && tenantId) {
+        try {
+          localStorage.setItem(`mbi_tenant_features_${tenantId}`, JSON.stringify(e.detail.features));
+          localStorage.setItem(`mbi_tenant_overrides_${tenantId}`, JSON.stringify(e.detail.features));
+        } catch {}
+      }
+      refreshPlan();
+    };
+
     const handleStorageUpdated = (e: StorageEvent) => {
       if (e.key?.startsWith('mbi_plan') || e.key?.startsWith('mbi_tenant') || e.key === 'mbi_active_user') {
         refreshPlan();
       }
     };
 
+    // Live fetch feature switchboard matrix from MariaDB
+    if (tenantId) {
+      fetch('/api/tenant/features', {
+        headers: {
+          'x-tenant-id': tenantId,
+          ...(localStorage.getItem('mbi_token') ? { 'Authorization': `Bearer ${localStorage.getItem('mbi_token')}` } : {})
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.features && Object.keys(data.features).length > 0) {
+          localStorage.setItem(`mbi_tenant_features_${tenantId}`, JSON.stringify(data.features));
+          localStorage.setItem(`mbi_tenant_overrides_${tenantId}`, JSON.stringify(data.features));
+          refreshPlan();
+        }
+      })
+      .catch(() => {});
+    }
+
     window.addEventListener('mbi-plan-updated', handlePlanUpdated);
+    window.addEventListener('mbi-tenant-features-updated', handleFeaturesUpdated);
     window.addEventListener('mbi_checkout_orders_updated', handlePlanUpdated);
     window.addEventListener('storage', handleStorageUpdated);
 
     return () => {
       window.removeEventListener('mbi-plan-updated', handlePlanUpdated);
+      window.removeEventListener('mbi-tenant-features-updated', handleFeaturesUpdated);
       window.removeEventListener('mbi_checkout_orders_updated', handlePlanUpdated);
       window.removeEventListener('storage', handleStorageUpdated);
     };
-  }, []);
+  }, [tenantId]);
 
   const { plan, rawPlan } = useMemo(() => {
     // 1. Check direct tenant/user object

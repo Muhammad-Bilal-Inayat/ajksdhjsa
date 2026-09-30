@@ -26,12 +26,26 @@ export interface FeatureItem {
     | 'hospital_clinical'
     | 'distribution_bookers'
     | 'marketing_loyalty'
+    | 'critical_overrides'
     | 'dashboard_widgets';
 }
 
 export type TenantFeatureMap = Record<string, boolean>;
 
 export const DEFAULT_173_FEATURE_MATRIX: FeatureCategory[] = [
+  {
+    id: 'critical_overrides',
+    name: 'Critical Security Overrides & High-Risk Access',
+    description: 'High-risk security overrides including bill deletion, past invoice editing, cost visibility, and discounts',
+    icon: 'ShieldAlert',
+    features: [
+      { id: 'override_invoice_editing', name: 'Invoice Editing Permission', description: 'Allow counter staff & managers to modify finalized past sales invoices', defaultEnabled: false, minPlan: 'enterprise', category: 'critical_overrides', badge: 'HIGH RISK' },
+      { id: 'override_bill_deletion', name: 'Bill & Receipt Deletion', description: 'Authority to permanently void/delete completed sales bills and remove audit traces', defaultEnabled: false, minPlan: 'enterprise', category: 'critical_overrides', badge: 'CRITICAL' },
+      { id: 'override_share_pdf', name: 'Share, Export & PDF Generation', description: 'Enable direct PDF generation, data export and WhatsApp document transmission', defaultEnabled: true, minPlan: 'basic', category: 'critical_overrides', badge: 'ACCESS' },
+      { id: 'override_purchase_cost', name: 'Purchase Cost & Margin Visibility', description: 'Display wholesale supplier purchase costs and item profit margins to cashiers', defaultEnabled: false, minPlan: 'business', category: 'critical_overrides', badge: 'CONFIDENTIAL' },
+      { id: 'override_discounts', name: 'Special Item & Bill Discounts', description: 'Grant cashier authority to bypass maximum discount limits on counter sales', defaultEnabled: true, minPlan: 'basic', category: 'critical_overrides', badge: 'FINANCIAL' }
+    ]
+  },
   {
     id: 'pos_billing',
     name: 'POS & Rapid Billing Engine',

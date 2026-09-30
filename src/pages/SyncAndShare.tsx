@@ -6,7 +6,7 @@ import {
   Search, X, Eye, Lock, ArrowRightLeft, Sparkles, Filter, Download,
   Check, AlertCircle, Phone, Mail, Building, Key, History, Cloud,
   Send, Share2, Copy, ExternalLink, PowerOff, ShieldAlert, UserX, UserMinus, 
-  Smartphone, Laptop, MessageSquare, Sliders, Database
+  Smartphone, Laptop, MessageSquare, Sliders, Database, Crown, Calendar
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { AppUserRecord, UserRole, UserActivityLog } from '../types';
@@ -45,8 +45,6 @@ export const ALL_AVAILABLE_ROLES: UserRole[] = [
 
 // Roles assignable to sub-users / staff (Primary Admin is strictly 1 per company and cannot be assigned to new users)
 export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
-  'Secondary Admin',
-  'Admin',
   'Store Manager',
   'Pharmacist',
   'Cashier',
@@ -250,7 +248,7 @@ export const SyncAndShare: React.FC = () => {
     if (!u) return false;
     return Boolean(
       u.role === 'Primary Admin' ||
-      u.role === 'Owner' ||
+      (u.role as string) === 'Owner' ||
       (u as any).is_primary_owner === 1 ||
       (u as any).isPrimaryOwner ||
       (u as any).is_primary_admin === 1 ||
@@ -323,7 +321,7 @@ export const SyncAndShare: React.FC = () => {
         name: newUser.name,
         email: newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
         phone: !newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
-        role: newUser.role,
+        role: newUser.role as any,
         pin: newUser.passcode,
         notes: newUser.notes
       }, currentTenantId);
@@ -387,7 +385,7 @@ export const SyncAndShare: React.FC = () => {
         name: updatedUser.name,
         email: updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
         phone: !updatedUser.emailOrPhone?.includes('@') ? updatedUser.emailOrPhone : undefined,
-        role: updatedUser.role,
+        role: updatedUser.role as any,
         pin: updatedUser.passcode,
         notes: updatedUser.notes
       }, currentTenantId);
@@ -563,6 +561,35 @@ export const SyncAndShare: React.FC = () => {
   const pendingCount = users.filter(u => u.status === 'Pending' || u.status === 'Invited').length;
   const inactiveCount = users.filter(u => u.status === 'Inactive').length;
 
+  const formattedExpiryDate = React.useMemo(() => {
+    if (tenant?.paidLicenseActive) {
+      return '29/09/2027';
+    }
+    if (tenant?.trialExpiryDate) {
+      try {
+        const d = new Date(tenant.trialExpiryDate);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      } catch {}
+    }
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  }, [tenant?.trialExpiryDate, tenant?.paidLicenseActive]);
+
+  const daysRemaining = React.useMemo(() => {
+    if (tenant?.trialExpiryDate) {
+      const ms = new Date(tenant.trialExpiryDate).getTime() - Date.now();
+      const days = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+      return days;
+    }
+    return 364;
+  }, [tenant?.trialExpiryDate]);
+
+  const activeUsersCount = users.filter(u => u.status === 'Joined' || u.status === 'Active').length;
+  const maxAllowedUsers = tenant?.maxDevices || 5;
+  const displayPlanName = tenant?.plan || 'Gold Business Plan';
+  const displayTenantId = tenantId ? (tenantId.startsWith('MBI-') ? tenantId : `MBI-TNT-${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '101'}`) : 'MBI-TNT-101';
+
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">
       {/* Toast Notification */}
@@ -572,6 +599,79 @@ export const SyncAndShare: React.FC = () => {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* 👑 COMPANY PLAN TIER & EXPIRY STATUS WIDGET */}
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white p-5 sm:p-6 shadow-xl transition-all">
+        {/* Decorative background glow */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -ml-20 -mb-20" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          {/* Left: Plan & Company Identity */}
+          <div className="flex items-start sm:items-center gap-4">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 font-black flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/25">
+              <Crown className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
+                  <span>{displayPlanName}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                  <span>● ACTIVE</span>
+                </span>
+              </div>
+              <div className="text-xs text-slate-300 mt-1 flex items-center gap-2 flex-wrap font-mono">
+                <span className="text-amber-400 font-bold">Tenant:</span>
+                <span className="bg-slate-800/90 px-2 py-0.5 rounded-md border border-slate-700 text-slate-200 font-bold">
+                  {displayTenantId}
+                </span>
+                <span className="text-slate-500 hidden sm:inline">•</span>
+                <span className="text-slate-300 truncate font-sans font-medium text-xs">
+                  {business?.name || tenant?.name || 'Primary Pharmacy'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Key Status Metrics Pills */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 w-full lg:w-auto">
+            {/* Valid Until Last Date */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3 flex flex-col justify-center shadow-xs">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-slate-300 uppercase tracking-wider">
+                <Calendar className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span>Valid Until</span>
+              </div>
+              <p className="text-xs sm:text-sm font-black text-white font-mono mt-0.5">
+                {formattedExpiryDate}
+              </p>
+            </div>
+
+            {/* Remaining Days Countdown */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3 flex flex-col justify-center shadow-xs">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-slate-300 uppercase tracking-wider">
+                <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Plan Countdown</span>
+              </div>
+              <p className="text-xs sm:text-sm font-black text-amber-300 font-mono mt-0.5">
+                {daysRemaining} Days Left
+              </p>
+            </div>
+
+            {/* Active Users Quota */}
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-3 col-span-2 sm:col-span-1 flex flex-col justify-center shadow-xs">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-slate-300 uppercase tracking-wider">
+                <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Users Quota</span>
+              </div>
+              <p className="text-xs sm:text-sm font-black text-emerald-300 font-mono mt-0.5">
+                {activeUsersCount}/{maxAllowedUsers} Active
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 sm:px-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm transition-colors">
@@ -988,9 +1088,16 @@ export const SyncAndShare: React.FC = () => {
                             {(u.name || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 dark:text-white block">{u.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900 dark:text-white block">{u.name}</span>
+                              {isPrimaryUser(u) && (
+                                <span className="px-1.5 py-0.5 rounded text-[9.5px] font-black bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1 shadow-2xs">
+                                  👑 Owner
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10.5px] text-slate-400 font-normal">
-                              {u.notes || `Created ${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Recently'}`}
+                              {u.notes || (isPrimaryUser(u) ? 'Primary Store Owner & Founder' : `Created ${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Recently'}`)}
                             </span>
                           </div>
                         </div>
@@ -1008,9 +1115,26 @@ export const SyncAndShare: React.FC = () => {
 
                       {/* Role */}
                       <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold inline-block">
-                          {u.role}
-                        </span>
+                        {isPrimaryUser(u) ? (
+                          <span className="px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800/80 text-xs font-black inline-flex items-center gap-1.5 shadow-2xs">
+                            <Crown className="w-3.5 h-3.5 text-amber-500" />
+                            <span>Primary Owner</span>
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 border ${
+                            u.role === 'Store Manager' || u.role === 'Manager'
+                              ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                              : u.role === 'Cashier'
+                              ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                              : u.role === 'Pharmacist'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              : u.role === 'Accountant' || u.role === 'CA/Accountant'
+                              ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                          }`}>
+                            <span>{u.role}</span>
+                          </span>
+                        )}
                       </td>
 
                       {/* Status */}

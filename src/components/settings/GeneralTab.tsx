@@ -852,10 +852,16 @@ export const GeneralTab: React.FC = () => {
 
             <input
               type="password"
+              autoComplete="new-password"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              name="app_passcode_setting"
               maxLength={6}
               placeholder="Enter PIN (e.g. 1234)"
               value={passcodeVal}
-              onChange={(e) => setPasscodeVal(e.target.value)}
+              onChange={(e) => setPasscodeVal(e.target.value.replace(/\D/g, '').slice(0, 6))}
               className="w-full text-center tracking-widest text-xl font-bold py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
 

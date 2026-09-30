@@ -92,10 +92,10 @@ export async function getUsersController(req: Request, res: Response) {
       let params: any[];
 
       if (tenantId === 'all' && (req as any).user?.isMasterAdmin) {
-        query = 'SELECT * FROM mbi_users ORDER BY is_primary_owner DESC, created_at ASC';
+        query = "SELECT * FROM mbi_users ORDER BY CASE WHEN role IN ('primary_admin', 'Owner', 'Primary Admin') OR is_primary_owner = 1 THEN 0 ELSE 1 END, created_at ASC";
         params = [];
       } else {
-        query = 'SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC';
+        query = "SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY CASE WHEN role IN ('primary_admin', 'Owner', 'Primary Admin') OR is_primary_owner = 1 THEN 0 ELSE 1 END, created_at ASC";
         params = [tenantId];
       }
 
@@ -112,8 +112,8 @@ export async function getUsersController(req: Request, res: Response) {
           email: u.email,
           phone: u.phone,
           role: u.role || 'Cashier',
-          isPrimaryOwner: Boolean(u.is_primary_owner === 1 || u.is_primary_owner === true || u.role === 'Owner'),
-          is_primary_owner: u.is_primary_owner === 1 || u.is_primary_owner === true || u.role === 'Owner' ? 1 : 0,
+          isPrimaryOwner: Boolean(u.is_primary_owner === 1 || u.is_primary_owner === true || u.role === 'Owner' || u.role === 'Primary Admin' || u.role === 'primary_admin'),
+          is_primary_owner: (u.is_primary_owner === 1 || u.is_primary_owner === true || u.role === 'Owner' || u.role === 'Primary Admin' || u.role === 'primary_admin') ? 1 : 0,
           status: u.status || 'Active',
           passcode: u.passcode || u.pin || '1234',
           isOnline: Boolean(u.is_online === 1 || u.is_online === true),
@@ -131,7 +131,12 @@ export async function getUsersController(req: Request, res: Response) {
       // Fall through to strictly scoped file fallback
     }
 
-    const fallback = getFallbackUsers(tenantId);
+    const fallback = getFallbackUsers(tenantId).sort((a, b) => {
+      const aOwner = (a.isPrimaryOwner || a.is_primary_owner === 1 || a.role === 'Owner' || a.role === 'Primary Admin' || a.role === 'primary_admin') ? 0 : 1;
+      const bOwner = (b.isPrimaryOwner || b.is_primary_owner === 1 || b.role === 'Owner' || b.role === 'Primary Admin' || b.role === 'primary_admin') ? 0 : 1;
+      if (aOwner !== bOwner) return aOwner - bOwner;
+      return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    });
     return res.json({ success: true, users: fallback });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message || 'Failed to fetch users' });
@@ -156,6 +161,15 @@ export async function createUserController(req: Request, res: Response) {
       return res.status(400).json({ success: false, error: 'Name and role are required' });
     }
 
+    // Single Primary Owner Rule: Enforce that each company has EXACTLY ONE Primary Owner
+    const normalizedRole = (role || '').trim();
+    if (normalizedRole === 'Owner' || normalizedRole === 'primary_admin' || normalizedRole === 'Primary Admin') {
+      return res.status(400).json({
+        success: false,
+        error: 'Each company can only have exactly ONE Primary Owner. New staff accounts must be created as Cashier, Manager, Pharmacist, or Staff.'
+      });
+    }
+
     const newUser = {
       id: `usr_${uuidv4().slice(0, 8)}`,
       tenant_id: tenantId,
@@ -166,8 +180,8 @@ export async function createUserController(req: Request, res: Response) {
       email: email || (emailOrPhone?.includes('@') ? emailOrPhone : ''),
       phone: phone || (!emailOrPhone?.includes('@') ? emailOrPhone : ''),
       role: role || 'Cashier',
-      isPrimaryOwner: role === 'Owner',
-      is_primary_owner: role === 'Owner' ? 1 : 0,
+      isPrimaryOwner: false,
+      is_primary_owner: 0,
       status: status || 'Active',
       passcode: passcode || '1234',
       is_online: 0,
@@ -175,16 +189,16 @@ export async function createUserController(req: Request, res: Response) {
       is_kill_switch_active: 0,
       isKillSwitchActive: false,
       permissions: permissions || {
-        canManageStaff: role === 'Owner' || role === 'Manager',
-        canAccessMasterServer: role === 'Owner',
+        canManageStaff: role === 'Manager',
+        canAccessMasterServer: false,
         canEditInvoices: role === 'Manager' || role === 'Pharmacist',
-        canDeleteInvoices: role === 'Owner',
+        canDeleteInvoices: false,
         canReprintInvoices: true,
-        canGiveDiscounts: role === 'Manager' || role === 'Owner',
-        canViewReports: role === 'Manager' || role === 'Accountant' || role === 'Owner',
-        canManageInventory: role === 'Pharmacist' || role === 'Manager' || role === 'Owner',
-        canManageSuppliers: role === 'Manager' || role === 'Accountant' || role === 'Owner',
-        canAccessSettings: role === 'Owner'
+        canGiveDiscounts: role === 'Manager',
+        canViewReports: role === 'Manager' || role === 'Accountant',
+        canManageInventory: role === 'Pharmacist' || role === 'Manager',
+        canManageSuppliers: role === 'Manager' || role === 'Accountant',
+        canAccessSettings: false
       },
       notes: notes || '',
       createdAt: new Date().toISOString(),

@@ -448,7 +448,7 @@ export async function registerTrialController(req: TenantRequest, res: Response)
              plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
            ) VALUES (
              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-             'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, ?, CURRENT_TIMESTAMP
+             'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, NOW(), CURRENT_TIMESTAMP
            )
            ON DUPLICATE KEY UPDATE 
              tenant_id = COALESCE(VALUES(tenant_id), tenant_id, id),
@@ -461,7 +461,7 @@ export async function registerTrialController(req: TenantRequest, res: Response)
              subscription_status = 'Active',
              trial_expires_at = VALUES(trial_expires_at),
              updated_at = CURRENT_TIMESTAMP;`,
-          [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail, registrationDate]
+          [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail]
         ).catch((err) => {
           console.warn('[REGISTER TENANT DB NOTICE]:', err?.message);
         });
@@ -471,7 +471,7 @@ export async function registerTrialController(req: TenantRequest, res: Response)
           `INSERT INTO mbi_users (
              id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
            ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, ?, CURRENT_TIMESTAMP
+             ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, NOW(), CURRENT_TIMESTAMP
            )
            ON DUPLICATE KEY UPDATE 
              name = VALUES(name),
@@ -480,8 +480,10 @@ export async function registerTrialController(req: TenantRequest, res: Response)
              status = 'Active',
              is_online = 1,
              updated_at = CURRENT_TIMESTAMP;`,
-          [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword, registrationDate]
-        ).catch(() => {});
+          [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword]
+        ).catch((err) => {
+          console.warn('[REGISTER USER DB NOTICE]:', err?.message);
+        });
 
         // Insert Registration Lead for WhatsApp trial leads dashboard
         const leadId = `lead_${Date.now()}`;

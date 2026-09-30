@@ -807,12 +807,18 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
                   </label>
                   <input
                     type="password"
+                    autoComplete="new-password"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    name="context_switch_pin"
                     maxLength={4}
                     required
                     autoFocus
                     placeholder="••••"
                     value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value)}
+                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     className="w-full px-3 py-2.5 text-center tracking-[0.5em] text-lg font-mono font-black border border-slate-300 dark:border-slate-700 dark:bg-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>

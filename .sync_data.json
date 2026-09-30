@@ -128,15 +128,15 @@
       "username": "usr_1790700085589",
       "role": "Primary Admin",
       "status": "Active",
-      "createdAt": "2026-09-29T16:41:25.604Z",
+      "createdAt": "2026-09-30T06:14:29.020Z",
       "emailOrPhone": "jahskjahdkj@gmail.com",
       "passcode": "1234",
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
-      "boundHwid": "HW-528EB66D-MAJTWM",
-      "lastSyncTime": "2026-09-29T17:52:33.633Z",
+      "boundHwid": "HW-383A12EE-MAJTWM",
+      "lastSyncTime": "2026-09-30T06:05:24.983Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T17:52:33.637Z"
+      "updatedAt": "2026-09-30T06:14:29.048Z"
     },
     {
       "id": "usr_1790683617168_53um",
@@ -150,9 +150,9 @@
       "storeName": "MBI INVENTRA",
       "installationId": "NODE-CLIENT",
       "boundHwid": "HW-4ADF2030-MAJTWM",
-      "lastSyncTime": "2026-09-29T17:52:12.629Z",
+      "lastSyncTime": "2026-09-30T05:44:54.988Z",
       "isOnline": true,
-      "updatedAt": "2026-09-29T17:52:12.637Z",
+      "updatedAt": "2026-09-30T05:44:55.001Z",
       "tenantId": "tenant_1790683617168_53um",
       "tenant_id": "tenant_1790683617168_53um",
       "allowedModules": {
@@ -191,6 +191,22 @@
         "canAccessBankAccounts": true,
         "canChangePaymentTerms": true
       }
+    },
+    {
+      "id": "u_1790745098601",
+      "name": "Dr Hassan",
+      "username": "u_1790745098601",
+      "role": "Primary Admin",
+      "status": "Active",
+      "createdAt": "2026-09-30T05:11:38.671Z",
+      "emailOrPhone": "fjskdfjskld@gmail.com",
+      "passcode": "1234",
+      "storeName": "Hassan",
+      "installationId": "NODE-CLIENT",
+      "boundHwid": "HW-383A12EE-MAJTWM",
+      "lastSyncTime": "2026-09-30T05:35:01.978Z",
+      "isOnline": true,
+      "updatedAt": "2026-09-30T05:35:01.978Z"
     },
     {
       "id": "usr_shadow_1790700153278",
@@ -532,6 +548,21 @@
   "users": [],
   "userActivities": [
     {
+      "id": "l_1790745098696",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user Dr Hassan (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790745098696,
+      "tenantId": "tenant-d1a3692c",
+      "firmId": "firm-main",
+      "createdById": "u_1790745098601",
+      "lastUpdatedById": "u_1790745098601",
+      "lastUpdatedAt": "2026-09-30T05:11:38.696Z",
+      "createdAt": "2026-09-30T05:11:38.696Z",
+      "updatedAt": "2026-09-30T05:11:38.696Z",
+      "syncStatus": "pending"
+    },
+    {
       "id": "l_1790690918350",
       "userName": "Admin",
       "userRole": "Primary Admin",
@@ -657,190 +688,11 @@
   "bookerTransactions": [],
   "registration_leads": [],
   "tenants": [],
-  "client_licenses": [
-    {
-      "id": "lic_1790694277633",
-      "licenseKey": "MBI-ENTE-2026-9490",
-      "clientName": "MBI INVENTRA",
-      "ownerName": "M Bilal Inayat",
-      "phone": "03364585863",
-      "city": "Headquarters",
-      "plan": "Enterprise Multi-Branch",
-      "status": "Active",
-      "issueDate": "2026-09-29",
-      "expiryDate": "2027-09-29",
-      "maxDevices": 20,
-      "strictHardwareLock": true,
-      "maxOfflineDays": 30,
-      "boundHardwareIds": [],
-      "allowedModules": {
-        "sales": true,
-        "purchases": true,
-        "pharmacy": true,
-        "inventory": true,
-        "reports": true,
-        "cloudSync": true,
-        "multiBranch": true,
-        "cashierShifts": true,
-        "customPrint": true,
-        "accountsLedger": true,
-        "narcoticsSchedule": true,
-        "customerLoyalty": true,
-        "bulkExcel": true,
-        "barcodeLabels": true
-      },
-      "salePrice": 69990,
-      "amountPaid": 69990,
-      "amountDue": 0,
-      "saleStatus": "Paid",
-      "paymentMethod": "Bank Transfer",
-      "saleDate": "2026-09-29",
-      "notes": "Activated Enterprise Multi-Branch for 1_year",
-      "createdAt": "2026-09-29T15:04:37.633Z",
-      "updatedAt": "2026-09-29T15:04:37.633Z"
-    }
-  ],
+  "client_licenses": [],
   "storeSettings": [],
-  "_tombstones": [
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675977",
-      "deletedAt": "2026-09-29T12:24:54.062Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675977",
-      "deletedAt": "2026-09-29T12:24:54.081Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675977",
-      "deletedAt": "2026-09-29T12:24:54.083Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675977",
-      "deletedAt": "2026-09-29T12:24:54.292Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790657839031",
-      "deletedAt": "2026-09-29T12:24:56.573Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790657839031",
-      "deletedAt": "2026-09-29T12:24:56.592Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790657839031",
-      "deletedAt": "2026-09-29T12:24:56.594Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790657839031",
-      "deletedAt": "2026-09-29T12:24:56.802Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790667685875",
-      "deletedAt": "2026-09-29T12:24:59.223Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790667685875",
-      "deletedAt": "2026-09-29T12:24:59.247Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790667685875",
-      "deletedAt": "2026-09-29T12:24:59.249Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790667685875",
-      "deletedAt": "2026-09-29T12:24:59.452Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790657838970_58h9p",
-      "deletedAt": "2026-09-29T12:25:02.988Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790657838970_58h9p",
-      "deletedAt": "2026-09-29T12:25:03.000Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790657838970_58h9p",
-      "deletedAt": "2026-09-29T12:25:03.001Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790657838970_58h9p",
-      "deletedAt": "2026-09-29T12:25:03.204Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "admin-master",
-      "deletedAt": "2026-09-29T12:25:05.754Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "admin-master",
-      "deletedAt": "2026-09-29T12:25:05.774Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "admin-master",
-      "deletedAt": "2026-09-29T12:25:05.776Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "admin-master",
-      "deletedAt": "2026-09-29T12:25:05.976Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675980",
-      "deletedAt": "2026-09-29T12:25:09.002Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675980",
-      "deletedAt": "2026-09-29T12:25:09.012Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675980",
-      "deletedAt": "2026-09-29T12:25:09.015Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "u_1790441675980",
-      "deletedAt": "2026-09-29T12:25:09.218Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790683617168_53um",
-      "deletedAt": "2026-09-29T12:25:11.519Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790683617168_53um",
-      "deletedAt": "2026-09-29T12:25:11.530Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790683617168_53um",
-      "deletedAt": "2026-09-29T12:25:11.531Z"
-    },
-    {
-      "entityType": "appUsers",
-      "id": "usr_1790683617168_53um",
-      "deletedAt": "2026-09-29T12:25:11.734Z"
-    }
-  ]
+  "_tombstones": [],
+  "mbi_licenses": [],
+  "mbi_tenants": [],
+  "mbi_users": [],
+  "mbi_registration_leads": []
 }

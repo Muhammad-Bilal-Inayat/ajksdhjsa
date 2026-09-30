@@ -133,6 +133,27 @@ class SyncEngine {
             return;
           }
 
+          if (payload && payload.type === 'MBI_PERMISSIONS_UPDATED') {
+            const data = payload.payload;
+            if (data && data.profile) {
+              const exactKey = `mbi_user_access_profile_${data.tenantId}_${data.userId}`;
+              const directUserKey = `mbi_user_access_profile_user_${data.userId}`;
+              const serialized = JSON.stringify(data.profile);
+              localStorage.setItem(exactKey, serialized);
+              localStorage.setItem(directUserKey, serialized);
+              localStorage.setItem('mbi_active_user_access_profile', serialized);
+              if (data.effective) {
+                localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(data.effective));
+              }
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: data.profile } }));
+                window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective: data.effective } }));
+                window.dispatchEvent(new Event('storage'));
+              }
+            }
+            return;
+          }
+
           if (payload && payload.type === 'PRIVATE_PANEL_CONFIG_UPDATED') {
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('mbi-private-panel-config-updated', { detail: payload.payload }));

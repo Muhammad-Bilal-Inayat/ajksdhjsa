@@ -2104,12 +2104,14 @@ let hasTriggeredTenantSync = false;
  */
 export function getAllTenants(): Tenant[] {
   try {
-    const stored = localStorage.getItem(MASTER_TENANTS_KEY);
+    const stored = localStorage.getItem('mbi_master_tenants_v1') || 
+                   localStorage.getItem(MASTER_TENANTS_KEY) || 
+                   localStorage.getItem('mbi_master_tenants');
     if (stored) {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const seen = new Set<string>();
-        return parsed.filter(t => {
+        const list = parsed.filter(t => {
           if (!t) return false;
           if (t.id === 'tenant-main-01' || t.tenantId === 'tenant-main-01' || t.name === 'MBI INVENTRA') return false;
           const k = (t.name || t.tenantId || t.id || '').toLowerCase().trim();
@@ -2117,6 +2119,9 @@ export function getAllTenants(): Tenant[] {
           seen.add(k);
           return true;
         });
+        if (list.length > 0) {
+          return list;
+        }
       }
     }
   } catch (e) {

@@ -508,20 +508,99 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     if (onNotify) onNotify(msg);
   }, [onNotify]);
 
-  const refreshAllData = useCallback(() => {
+  const refreshAllData = useCallback(async () => {
+    try {
+      // 1. Fetch live tenants from server API
+      const res = await fetch('/api/fleet/tenants', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json?.tenants)) {
+          const seen = new Set<string>();
+          const serverTenants: Tenant[] = [];
+
+          for (const rt of json.tenants) {
+            if (!rt) continue;
+            const cleanName = (rt.name || '').toLowerCase().trim();
+            const cleanId = (rt.tenant_id || rt.id || '').toLowerCase().trim();
+            if ((cleanName && seen.has(cleanName)) || (cleanId && seen.has(cleanId))) continue;
+            if (cleanName) seen.add(cleanName);
+            if (cleanId) seen.add(cleanId);
+
+            const tid = rt.tenant_id || rt.id;
+            serverTenants.push({
+              id: rt.id || tid,
+              tenantId: tid,
+              organizationId: rt.organization_id || tid,
+              licenseId: rt.license_id || rt.licenseId || `lic_${tid}`,
+              name: rt.name,
+              ownerName: rt.owner_name || rt.ownerName || 'Store Admin',
+              ownerEmail: rt.owner_email || rt.ownerEmail || '',
+              ownerPhone: rt.owner_phone || rt.ownerPhone || rt.phone || '',
+              city: rt.city || 'Lahore',
+              address: rt.address || '',
+              plan: rt.plan || 'Pharmacy Pro',
+              status: rt.status || 'Active',
+              primaryAdminId: rt.primary_admin_id || `usr_${tid}`,
+              primaryAdminEmail: rt.owner_email || rt.ownerEmail || '',
+              trialStartDate: rt.created_at || new Date().toISOString(),
+              trialExpiryDate: rt.trial_expiry_date || rt.trial_ends_at || 'Never (Lifetime)',
+              isTrialActive: rt.status === 'Trial',
+              trialExpired: false,
+              paidLicenseActive: rt.status === 'Active',
+              maxDevices: rt.max_devices || 3,
+              featureToggles: rt.feature_toggles || rt.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              apiKey: rt.api_key || rt.apiKey || `mbi_live_key_${tid.slice(-6)}_${Date.now().toString(36).toUpperCase()}`,
+              totalInvoicesCount: Number(rt.invoice_count) || Number(rt.total_invoices_count) || 0,
+              totalProductsCount: 0,
+              totalPartiesCount: 0,
+              lastSyncAt: rt.updated_at || new Date().toISOString(),
+              createdAt: rt.created_at || new Date().toISOString(),
+              updatedAt: rt.updated_at || new Date().toISOString(),
+            });
+          }
+
+          setTenants(serverTenants);
+          localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(serverTenants));
+          localStorage.setItem('mbi_master_tenants_v3', JSON.stringify(serverTenants));
+        } else {
+          setTenants(getAllTenants());
+        }
+      } else {
+        setTenants(getAllTenants());
+      }
+    } catch (e) {
+      setTenants(getAllTenants());
+    }
+
     const updatedMetrics = getSoftwareSalesMetrics();
-    const updatedTenants = getAllTenants();
     const updatedLicenses = getAllClientLicenses();
     const updatedUsers = getMasterActiveUsers();
 
     setMetrics(updatedMetrics);
-    setTenants(updatedTenants);
     setLicenses(updatedLicenses);
     setActiveUsers(updatedUsers);
   }, []);
 
   useEffect(() => {
     refreshAllData();
+
+    const handleUpdate = () => {
+      refreshAllData();
+    };
+
+    window.addEventListener('mbi-tenants-updated', handleUpdate);
+    window.addEventListener('mbi-users-updated', handleUpdate);
+    window.addEventListener('mbi-registration-leads-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    const poller = setInterval(refreshAllData, 12000);
+
+    return () => {
+      window.removeEventListener('mbi-tenants-updated', handleUpdate);
+      window.removeEventListener('mbi-users-updated', handleUpdate);
+      window.removeEventListener('mbi-registration-leads-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+      clearInterval(poller);
+    };
   }, [refreshAllData]);
 
   const formatPkr = (num: number) => {
@@ -549,7 +628,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   };
 
   // Regenerate API Key
-  const handleRegenerateApiKey = (tenantId: string) => {
+  const handleRegenerateApiKey = async (tenantId: string) => {
     const target = tenants.find(t => t.id === tenantId || t.tenantId === tenantId);
     if (!target) return;
 
@@ -565,6 +644,22 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.apiKey = newApiKey;
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
+
+    // Call server key generation endpoint to ensure DB synchronization
+    try {
+      await fetch('/api/fleet/keys/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: target.tenantId || target.id,
+          tenantName: target.name,
+          keyName: `${target.name} REST API Key`,
+          environment: 'production',
+          rateLimitPerMin: 5000,
+          permissions: ['*']
+        })
+      });
+    } catch (e) {}
 
     try {
       localStorage.setItem(`mbi_tenant_apikey_${target.tenantId || target.id}`, newApiKey);

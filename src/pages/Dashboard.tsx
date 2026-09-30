@@ -435,7 +435,7 @@ export const Dashboard: React.FC = () => {
 
     if (visible && !mainOrder.includes(id) && !sidebarOrder.includes(id)) {
       const widgetDef = DASHBOARD_WIDGETS_CONFIG.find(w => w.id === id) || ALL_DASHBOARD_WIDGETS.find(w => w.id === id);
-      const isSidebar = widgetDef?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
+      const isSidebar = (widgetDef as any)?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
       if (isSidebar) {
         const newSide = [...sidebarOrder, id];
         setSidebarOrder(newSide);
@@ -465,7 +465,7 @@ export const Dashboard: React.FC = () => {
     Object.entries(newVisibility).forEach(([id, isVis]) => {
       if (isVis && !newMain.includes(id) && !newSide.includes(id)) {
         const widgetDef = DASHBOARD_WIDGETS_CONFIG.find(w => w.id === id) || ALL_DASHBOARD_WIDGETS.find(w => w.id === id);
-        const isSidebar = widgetDef?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
+        const isSidebar = (widgetDef as any)?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
         if (isSidebar) {
           newSide.push(id);
         } else {

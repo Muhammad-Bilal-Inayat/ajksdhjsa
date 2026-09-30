@@ -2305,6 +2305,20 @@ export function calculateTrialRemaining(trialExpiryDate?: string): {
 
   const now = Date.now();
   const rawExpiry = new Date(trialExpiryDate).getTime();
+  if (isNaN(rawExpiry)) {
+    return { 
+      isExpired: false, 
+      totalHoursLeft: 240, 
+      daysLeft: 9, 
+      hoursLeft: 23, 
+      minutesLeft: 59, 
+      formatted: '10d remaining (Free Trial)',
+      hoursFormatted: '240h remaining',
+      totalTrialHours: 240,
+      percentageUsed: 0
+    };
+  }
+
   let diffMs = rawExpiry - now;
 
   if (diffMs <= 0) {

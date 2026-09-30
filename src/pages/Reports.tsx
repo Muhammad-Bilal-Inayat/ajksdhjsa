@@ -59,7 +59,8 @@ export type ReportCategory =
   | 'TAXES'
   | 'EXPENSE'
   | 'ORDERS'
-  | 'LOANS';
+  | 'LOANS'
+  | 'ENTERPRISE';
 
 export interface ReportItemDef {
   id: string;
@@ -126,6 +127,16 @@ export const REPORT_LIST: ReportItemDef[] = [
 
   // 8. Loan Accounts
   { id: 'loan_statement', label: 'Loan Statement', category: 'LOANS', categoryLabel: 'Loan Accounts' },
+
+  // 9. Enterprise Audits & Multi-Branch
+  { id: 'fbr_tax_audit', label: 'FBR Fiscal Tax Audit Report', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'journal_voucher_report', label: 'Journal Voucher & Trial Balance Report', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'multi_branch_consolidated_report', label: 'Multi-Branch Consolidated Stock & Sales', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'online_store_performance_report', label: 'Online Store Sales & Order Performance', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'narcotics_dispensing_report', label: 'Narcotics & Controlled Drug Dispensing', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'drap_form8_regulatory_report', label: 'DRAP Form-8 Regulatory Report', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'booker_commission_report', label: 'Booker Commission & Sales Performance', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
+  { id: 'master_user_activity_audit_export', label: 'Master User Activity & Security Audit Export', category: 'ENTERPRISE', categoryLabel: 'Enterprise Audits' },
 ];
 
 export interface ColumnFilterOption {

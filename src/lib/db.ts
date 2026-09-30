@@ -549,20 +549,20 @@ export async function getAllRecords<T extends StoreNames>(
     return clean;
   }
 
+  const userTenant = explicitContext?.tenantId || ctx.tenantId || 'tenant-demo-01';
   const DEFAULT_ALIASES = new Set(['tenant-demo-01', 'local-business-id', 'mbi-tenant-main', 'biz_default', 'default-tenant']);
-  const userTenant = ctx.tenantId || 'tenant-demo-01';
   const isUserDefault = DEFAULT_ALIASES.has(userTenant);
 
   return clean.filter((r: any) => {
-    // If context specifies a tenant, strictly filter by that tenantId or match default aliases
-    if (userTenant) {
+    // Strict Tenant Isolation Boundary
+    if (userTenant && userTenant !== 'all') {
       if (r.tenantId) {
         if (r.tenantId === userTenant) return true;
-        if (isUserDefault && DEFAULT_ALIASES.has(r.tenantId)) return true;
+        if (isUserDefault && (r.tenantId === 'tenant-demo-01' || r.tenantId === 'local-business-id')) return true;
         return false;
       } else {
-        // Un-tagged records belong to the active business
-        return true;
+        // Strict: Do NOT leak untagged records across isolated tenants
+        return isUserDefault;
       }
     }
 

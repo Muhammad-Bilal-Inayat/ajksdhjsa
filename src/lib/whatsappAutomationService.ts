@@ -6,11 +6,22 @@ export interface TenantWhatsAppConfig {
   connectedNumber: string;
   ownerWhatsApp: string;
   isLinked: boolean;
-  autoSendOnSale: boolean;
-  autoSendOnReturn: boolean;
-  autoSendOnKhataPayment: boolean;
-  autoSendOnPurchase: boolean;
-  autoSendShiftClosing: boolean;
+  linkedDeviceName?: string;
+  lastConnectedAt?: string;
+  
+  // Granular Invoice & Transaction Toggles (Enterprise Exclusive)
+  autoSendOnSale: boolean;              // 1. POS Sale Invoices (Retail Bills)
+  autoSendOnReturn: boolean;            // 2. Sale Returns & Credit Notes
+  autoSendOnPurchaseOrder: boolean;     // 3. Purchase Orders (To Suppliers)
+  autoSendOnPurchase: boolean;          // 4. Purchase Inward Bills
+  autoSendOnPurchaseReturn: boolean;    // 5. Purchase Returns / Debit Notes
+  autoSendOnKhataPayment: boolean;      // 6. Customer Khata Payments (Udhar Wasooli)
+  autoSendOnSupplierPayment: boolean;   // 7. Supplier Payment Vouchers
+  autoSendOnQuotation: boolean;         // 8. Estimates & Quotations
+  autoSendOnDeliveryChallan: boolean;   // 9. Delivery Challans
+  autoSendShiftClosing: boolean;        // 10. Cashier Shift Closing (To Store Owner)
+  autoSendLowStockAlert: boolean;       // 11. Low Stock & Near-Expiry Alerts (To Store Owner)
+
   customSaleTemplate?: string;
   customKhataTemplate?: string;
   lastUpdated?: string;
@@ -21,11 +32,19 @@ export const DEFAULT_WHATSAPP_CONFIG: TenantWhatsAppConfig = {
   connectedNumber: '',
   ownerWhatsApp: '',
   isLinked: true,
+  linkedDeviceName: 'WhatsApp Web Multi-Device (MBI Inventra)',
+  lastConnectedAt: new Date().toISOString(),
   autoSendOnSale: true,
   autoSendOnReturn: true,
-  autoSendOnKhataPayment: true,
+  autoSendOnPurchaseOrder: true,
   autoSendOnPurchase: false,
+  autoSendOnPurchaseReturn: true,
+  autoSendOnKhataPayment: true,
+  autoSendOnSupplierPayment: false,
+  autoSendOnQuotation: false,
+  autoSendOnDeliveryChallan: false,
   autoSendShiftClosing: true,
+  autoSendLowStockAlert: true,
   customSaleTemplate: 'Dear {CustomerName},\nThank you for shopping at *{PharmacyName}*!\n\n🧾 *Invoice #{InvoiceNo}*\n💰 Total Amount: Rs. {TotalAmount}\n📅 Date: {Date}\n\n_We appreciate your business and wish you good health!_',
   customKhataTemplate: 'Dear {CustomerName},\nPayment of Rs. {PaidAmount} received at *{PharmacyName}*.\nRemaining Balance: Rs. {DueBalance}.\nReceipt #{ReceiptNo}.'
 };

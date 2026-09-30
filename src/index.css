@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+@variant dark (&:where(.dark, .dark *));
 
 :root {
   --color-bg-light: #F8FAFC;
@@ -112,6 +112,89 @@ body.dark,
   color-scheme: dark !important;
   background-color: #0b0f19 !important;
   color: #f1f5f9 !important;
+}
+
+/* =============================================================
+   🎯 Minimalist Public Pages Dark Palette 
+   (#222831, #1F3A5F, #5AA9E6, #EAF4F4)
+   Active ONLY when Dark Mode is enabled on Landing, Auth & Blogs
+   ============================================================= */
+.dark .landing-theme-root,
+.dark .auth-theme-root,
+.dark .blog-theme-root {
+  background-color: #222831 !important;
+  color: #EAF4F4 !important;
+}
+
+.dark .landing-theme-root header,
+.dark .landing-theme-root nav,
+.dark .landing-theme-root footer,
+.dark .landing-theme-root .bg-white,
+.dark .landing-theme-root .bg-slate-800,
+.dark .landing-theme-root .bg-slate-900,
+.dark .auth-theme-root header,
+.dark .auth-theme-root footer,
+.dark .auth-theme-root .bg-white,
+.dark .auth-theme-root .bg-slate-800,
+.dark .auth-theme-root .bg-slate-900,
+.dark .blog-theme-root header,
+.dark .blog-theme-root footer,
+.dark .blog-theme-root .bg-white,
+.dark .blog-theme-root .bg-slate-800,
+.dark .blog-theme-root .bg-slate-900 {
+  background-color: #1F3A5F !important;
+  color: #EAF4F4 !important;
+  border-color: rgba(90, 169, 230, 0.22) !important;
+}
+
+.dark .landing-theme-root .bg-slate-950,
+.dark .auth-theme-root .bg-slate-950,
+.dark .blog-theme-root .bg-slate-950 {
+  background-color: #222831 !important;
+}
+
+.dark .landing-theme-root .bg-slate-50,
+.dark .landing-theme-root .bg-slate-100,
+.dark .auth-theme-root .bg-slate-50,
+.dark .auth-theme-root .bg-slate-100,
+.dark .blog-theme-root .bg-slate-50,
+.dark .blog-theme-root .bg-slate-100 {
+  background-color: #16222F !important;
+  color: #EAF4F4 !important;
+  border-color: rgba(90, 169, 230, 0.2) !important;
+}
+
+.dark .landing-theme-root .bg-blue-600,
+.dark .landing-theme-root .bg-blue-500,
+.dark .auth-theme-root .bg-blue-600,
+.dark .blog-theme-root .bg-blue-600 {
+  background-color: #5AA9E6 !important;
+  color: #1F3A5F !important;
+}
+
+.dark .landing-theme-root h1,
+.dark .landing-theme-root h2,
+.dark .landing-theme-root h3,
+.dark .landing-theme-root h4,
+.dark .auth-theme-root h1,
+.dark .auth-theme-root h2,
+.dark .auth-theme-root h3,
+.dark .blog-theme-root h1,
+.dark .blog-theme-root h2,
+.dark .blog-theme-root h3 {
+  color: #EAF4F4 !important;
+}
+
+.dark .landing-theme-root .text-blue-600,
+.dark .landing-theme-root .text-blue-500,
+.dark .landing-theme-root .text-blue-400,
+.dark .auth-theme-root .text-blue-600,
+.dark .auth-theme-root .text-blue-500,
+.dark .auth-theme-root .text-blue-400,
+.dark .blog-theme-root .text-blue-600,
+.dark .blog-theme-root .text-blue-500,
+.dark .blog-theme-root .text-blue-400 {
+  color: #5AA9E6 !important;
 }
 
 /* App Canvas, Root & Main Viewports */

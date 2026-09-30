@@ -74,6 +74,22 @@ export const CATEGORIZED_REPORTS: ReportCategoryGroup[] = [
       { id: 'all_parties', label: 'All Customer & Supplier Khatas', path: '/reports?report=all_parties', requiredPlan: 'silver' },
       { id: 'sale_purchase_party', label: 'Supplier Payable & Claims Khata', path: '/reports?report=sale_purchase_party', requiredPlan: 'gold' },
     ]
+  },
+  {
+    id: 'enterprise_suite',
+    categoryLabel: 'Enterprise Audits & Multi-Branch',
+    categoryIcon: Building2,
+    requiredPlan: 'platinum',
+    reports: [
+      { id: 'fbr_tax_audit', label: 'FBR Fiscal Tax Audit Report', path: '/reports?report=fbr_tax_audit', requiredPlan: 'platinum' },
+      { id: 'journal_voucher_report', label: 'Journal Voucher & Trial Balance Report', path: '/reports?report=journal_voucher_report', requiredPlan: 'platinum' },
+      { id: 'multi_branch_consolidated_report', label: 'Multi-Branch Consolidated Stock & Sales', path: '/reports?report=multi_branch_consolidated_report', requiredPlan: 'platinum' },
+      { id: 'online_store_performance_report', label: 'Online Store Sales & Order Performance', path: '/reports?report=online_store_performance_report', requiredPlan: 'platinum' },
+      { id: 'narcotics_dispensing_report', label: 'Narcotics & Controlled Drug Dispensing', path: '/reports?report=narcotics_dispensing_report', requiredPlan: 'platinum' },
+      { id: 'drap_form8_regulatory_report', label: 'DRAP Form-8 Regulatory Report', path: '/reports?report=drap_form8_regulatory_report', requiredPlan: 'platinum' },
+      { id: 'booker_commission_report', label: 'Booker Commission & Sales Performance', path: '/reports?report=booker_commission_report', requiredPlan: 'platinum' },
+      { id: 'master_user_activity_audit_export', label: 'Master User Activity & Security Audit Export', path: '/reports?report=master_user_activity_audit_export', requiredPlan: 'platinum' },
+    ]
   }
 ];
 

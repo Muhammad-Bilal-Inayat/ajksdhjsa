@@ -294,7 +294,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-slate-950 text-slate-100 relative overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
+    <div className="auth-theme-root min-h-screen w-full flex bg-slate-950 text-slate-100 relative overflow-hidden font-sans selection:bg-blue-600 selection:text-white">
       
       {/* Top Floating Utility Bar (Theme Toggle & Return to Site) */}
       <div className="absolute top-4 right-4 z-40 flex items-center gap-2">

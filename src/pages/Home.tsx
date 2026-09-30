@@ -40,14 +40,22 @@ export const Home: React.FC = () => {
   const [openFaqId, setOpenFaqId] = useState<string | null>('faq-1');
 
   const scrollToSection = (sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    requestAnimationFrame(() => {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        const headerOffset = 70;
+        const elementPosition = el.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    });
   };
 
   return (
-    <div className="min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100">
+    <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100">
       <PWAInstallBanner />
 
       {/* Floating WhatsApp Chat Button */}

@@ -11,7 +11,9 @@ import {
   DashboardWidgetConfig, 
   PlanTier,
   PLAN_WIDGET_LIMITS,
-  isWidgetAllowedInPlan
+  isWidgetAllowedInPlan,
+  normalizeDashboardPlan,
+  formatPlanDualName
 } from '../../config/dashboardWidgetsConfig';
 
 interface CustomizeLayoutModalProps {
@@ -45,7 +47,8 @@ export const CustomizeLayoutModal: React.FC<CustomizeLayoutModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentPlan = (userPlan || 'platinum').toLowerCase() as PlanTier;
+  const currentPlan = normalizeDashboardPlan(userPlan);
+  const planDisplayName = formatPlanDualName(userPlan);
 
   const filteredWidgets = DASHBOARD_WIDGETS_CONFIG.filter((widget) => {
     const matchesSearch = 
@@ -92,7 +95,7 @@ export const CustomizeLayoutModal: React.FC<CustomizeLayoutModalProps> = ({
     }
   };
 
-  const enabledCount = DASHBOARD_WIDGETS_CONFIG.filter(w => visibility[w.id] !== false && isWidgetAllowedInPlan(w, currentPlan)).length;
+  const enabledCount = DASHBOARD_WIDGETS_CONFIG.filter(w => visibility[w.id] !== false && isWidgetAllowedInPlan(w, userPlan)).length;
   const maxLimit = PLAN_WIDGET_LIMITS[currentPlan] || 24;
 
   return (
@@ -108,8 +111,8 @@ export const CustomizeLayoutModal: React.FC<CustomizeLayoutModalProps> = ({
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Dashboard Layout &amp; Widget Customizer</span>
-                <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-xs font-bold px-2 py-0.5 rounded-full capitalize">
-                  {currentPlan} Plan ({enabledCount}/{maxLimit} Active)
+                <span className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  {planDisplayName} Plan ({enabledCount}/{maxLimit} Active)
                 </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -207,7 +210,7 @@ export const CustomizeLayoutModal: React.FC<CustomizeLayoutModalProps> = ({
         {/* Scrollable Widget Cards List */}
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5">
           {filteredWidgets.map((widget) => {
-            const isAllowed = isWidgetAllowedInPlan(widget, currentPlan);
+            const isAllowed = isWidgetAllowedInPlan(widget, userPlan);
             const isVisible = visibility[widget.id] !== false && isAllowed;
             const isMainZone = mainOrder.includes(widget.id);
 
@@ -247,13 +250,13 @@ export const CustomizeLayoutModal: React.FC<CustomizeLayoutModalProps> = ({
                         </span>
                       )}
                       <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded ${
-                        widget.minPlan === 'silver'
+                        widget.minPlan === 'silver' || widget.minPlan === 'basic'
                           ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
-                          : widget.minPlan === 'gold'
+                          : widget.minPlan === 'gold' || widget.minPlan === 'business'
                           ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
                           : 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
                       }`}>
-                        {widget.minPlan}
+                        {formatPlanDualName(widget.minPlan)}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">

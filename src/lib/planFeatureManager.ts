@@ -83,10 +83,10 @@ export const PLAN_LIMITS_MAP: Record<PlanTier, PlanLimits> = {
     planName: 'Enterprise (Platinum)',
     badge: '💎 ENTERPRISE PLATINUM',
     color: '#8b5cf6',
-    maxFirms: 10,
-    maxStaffUsers: 15,
-    maxGodowns: 999, // unlimited
-    deletedRecoveryDays: 9999, // extended / lifetime
+    maxFirms: 999, // 10+ / unlimited branches
+    maxStaffUsers: 999, // 15 to unlimited staff users
+    maxGodowns: 999, // unlimited central godowns
+    deletedRecoveryDays: 99999, // extended / lifetime data recovery
     isGodownAllowed: true,
     isOnlineStoreAllowed: true,
     isAuditTrailAllowed: true,
@@ -229,54 +229,123 @@ export const PLAN_FEATURES = {
   ],
 
   ENTERPRISE: [
-    // FBR POS Integration & Digital Invoicing (Strictly Enterprise Only)
-    'tax_fbr_reports',
-    'fbr_pos_integration',
-    'pos_tax_fbr_pos_integration',
-    'fbr_digital_tax_stamps',
-    'fbr_sales_tax_invoicing',
-
-    // Enterprise Warehouses & Branches
+    // Multi-Branch HQ & Centralized Operations
+    'multi_branch_hq',
+    'multi_branch_operations',
+    '10_plus_branches',
+    'unlimited_central_godowns',
     'unlimited_godowns',
+    'unlimited_user_accounts',
+    '15_plus_users',
+    'centralized_branch_sync',
+    'multi_branch_sync',
+    'mesh_sync',
+    'inter_branch_stock_transfers',
     'branch_to_branch_transfers',
     'branch_transfers',
+    'branch_transfer_approvals',
+    'consolidated_chain_analytics',
+    'chain_analytics',
     'advanced_warehouse_controls',
-    'multi_branch_sync',
 
-    // Advanced Financial Accounting
+    // FBR POS Integration & Digital Fiscalization
+    'fbr_pos_integration',
+    'pos_tax_fbr_pos_integration',
+    'fbr-pos',
+    'digital_fiscalization',
+    'fbr_fiscalization',
+    'qr_digital_tax_stamps',
+    'fbr_digital_tax_stamps',
+    'sales_tax_invoicing',
+    'fbr_sales_tax_invoicing',
+    'tax_fbr_reports',
+    'fbr_tax_audit',
+
+    // Double-Entry Accounting & Financial Audits
+    'double_entry_accounting',
     'advanced_financial_accounting',
     'chart_of_accounts',
+    'coa',
     'journal_vouchers',
+    'jv',
+    'trial_balance',
+    'journal_voucher_report',
+    'trial_balance_report',
+    'consolidated_financial_audits',
     'complete_financial_reporting',
 
-    // Digital Pharmacy & Storefront
+    // Online Customer Storefront & E-Commerce
     'online_storefront',
+    'online_customer_storefront',
+    'ecommerce_store',
     'digital_pharmacy',
+    'onlineStore',
+    'online_store',
     'store_management',
+    'web_orders_manager',
     'online_orders',
+    'online_promotions',
     'store_promotions',
+    'digital_product_catalog',
 
-    // Clinical & Regulatory Advanced Rx
-    'rx_prescriptions',
+    // Clinical, Rx & Regulatory Dispensing
+    'doctor_prescription_management',
     'prescription_management',
+    'rx_prescriptions',
     'patient_management',
+    'patient_chronic_medication_refills',
     'chronic_refills',
     'narcotics_register',
+    'controlled_drug_register',
+    'narcotics_dispensing_report',
     'drap_form8',
+    'drap_form_8_register',
+    'drap_form8_regulatory_report',
 
-    // Enterprise Automation & Security
+    // Booker & Biller Field Force
+    'booker_management',
+    'bookers',
     'booker_biller_management',
     'booker_biller_dashboard',
+    'biller_field_force_management',
+    'biller_management',
     'booker_ledger',
-    'bookers',
+    'commission_tracking',
+    'booker_commission',
+    'booker_commission_report',
+
+    // Automated Gateway & Comprehensive Security Audit
+    'automated_whatsapp_gateway',
     'whatsapp_automation',
-    'recycle_bin_extended',
-    'extended_recovery_lifetime',
+    'auto_whatsapp_gateway',
     'full_audit_trail',
+    'complete_user_audit_trail',
+    'who_edited_deleted_tracking',
+    'audit_trail_who_edited',
+    'timestamp_ip_logs',
     'user_activity_logs',
     'audit_export',
+    'master_user_activity_audit_export',
     'custom_field_permissions',
     'custom_field_level_security',
+    'lifetime_extended_data_recovery',
+    'extended_recovery_lifetime',
+    'recycle_bin_extended',
+
+    // All 24 Dashboard Widgets & Reports Access
+    'all_24_dashboard_widgets',
+    'all_dashboard_widgets',
+    'fbr_fiscal_tax_audit',
+    'journal_voucher_trial_balance_report',
+    'multi_branch_consolidated_report',
+    'multi_branch_stock_sales',
+    'online_store_performance_report',
+    'online_store_sales',
+    'narcotics_controlled_drug_dispensing_report',
+    'controlled_drug_dispensing',
+    'booker_commission_sales_performance_report',
+    'booker_commission_sales',
+    'audit_trail_export'
   ]
 };
 
@@ -319,11 +388,21 @@ export const PLAN_ALLOWED_REPORTS: Record<PlanTier, string[]> = {
 
     // Business Reports
     'balance_sheet',
+    'profit_loss',
     'bill_profit',
+    'bill_wise_profit',
     'bill_wise_profit_loss',
+    'cash_flow',
     'party_profit',
+    'party_profit_loss',
     'party_wise_profit_loss',
+    'party_report_item',
+    'sale_purchase_party',
+    'sale_purchase_party_group',
+    'sale_summary_hsn',
     'item_profit',
+    'item_profit_loss',
+    'item_report_party',
     'stock_detail',
     'stock_movement',
     'stock_movement_report',
@@ -331,6 +410,7 @@ export const PLAN_ALLOWED_REPORTS: Record<PlanTier, string[]> = {
     'category_profit_heatmap',
     'fefo_expiry_report',
     'fifo_allocation_report',
+    'controlled_register',
     'item_batch_report',
     'item_serial_report',
     'tax_report',
@@ -403,6 +483,7 @@ export const PLAN_ALLOWED_SETTINGS_TABS: Record<PlanTier, string[]> = {
     'FEATURE FLAGS',
     'MODULE VISIBILITY',
     'ROLES & RBAC',
+    'WHATSAPP AUTOMATION',
     'DEMO DATA',
   ]
 };

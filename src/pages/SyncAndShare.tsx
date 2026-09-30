@@ -565,6 +565,20 @@ export const SyncAndShare: React.FC = () => {
   const pendingCount = users.filter(u => u.status === 'Pending' || u.status === 'Invited').length;
   const inactiveCount = users.filter(u => u.status === 'Inactive').length;
 
+  const [localPlanVersion, setLocalPlanVersion] = React.useState(0);
+
+  React.useEffect(() => {
+    const handlePlanChange = () => setLocalPlanVersion(v => v + 1);
+    window.addEventListener('mbi-plan-updated', handlePlanChange);
+    window.addEventListener('mbi-tenant-updated', handlePlanChange);
+    window.addEventListener('storage', handlePlanChange);
+    return () => {
+      window.removeEventListener('mbi-plan-updated', handlePlanChange);
+      window.removeEventListener('mbi-tenant-updated', handlePlanChange);
+      window.removeEventListener('storage', handlePlanChange);
+    };
+  }, []);
+
   const formattedExpiryDate = React.useMemo(() => {
     if (tenant?.paidLicenseActive) {
       return '29/09/2027';
@@ -572,26 +586,43 @@ export const SyncAndShare: React.FC = () => {
     if (tenant?.trialExpiryDate) {
       try {
         const d = new Date(tenant.trialExpiryDate);
-        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        if (!isNaN(d.getTime())) {
+          return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        }
       } catch {}
     }
     const d = new Date();
     d.setFullYear(d.getFullYear() + 1);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  }, [tenant?.trialExpiryDate, tenant?.paidLicenseActive]);
+  }, [tenant?.trialExpiryDate, tenant?.paidLicenseActive, localPlanVersion]);
 
   const daysRemaining = React.useMemo(() => {
     if (tenant?.trialExpiryDate) {
-      const ms = new Date(tenant.trialExpiryDate).getTime() - Date.now();
-      const days = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-      return days;
+      try {
+        const d = new Date(tenant.trialExpiryDate);
+        if (!isNaN(d.getTime())) {
+          const ms = d.getTime() - Date.now();
+          const days = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+          return isNaN(days) ? 364 : days;
+        }
+      } catch {}
     }
     return 364;
-  }, [tenant?.trialExpiryDate]);
+  }, [tenant?.trialExpiryDate, localPlanVersion]);
 
   const activeUsersCount = users.filter(u => u.status === 'Joined' || u.status === 'Active').length;
-  const maxAllowedUsers = tenant?.maxDevices || 5;
-  const displayPlanName = tenant?.plan || 'Gold Business Plan';
+  const storedPlan = typeof localStorage !== 'undefined' 
+    ? (localStorage.getItem('mbi_active_plan_tier') || localStorage.getItem('mbi_plan') || localStorage.getItem('mbi_subscription_tier'))
+    : null;
+  const displayPlanName = tenant?.plan || storedPlan || 'Enterprise Multi-Branch';
+  const normPlanLower = displayPlanName.toLowerCase();
+  const maxAllowedUsers = tenant?.maxDevices && tenant.maxDevices > 0
+    ? tenant.maxDevices
+    : normPlanLower.includes('enterprise') || normPlanLower.includes('platinum')
+    ? 15
+    : normPlanLower.includes('business') || normPlanLower.includes('gold')
+    ? 5
+    : 3;
   const displayTenantId = tenantId ? (tenantId.startsWith('MBI-') ? tenantId : `MBI-TNT-${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '101'}`) : 'MBI-TNT-101';
 
   return (

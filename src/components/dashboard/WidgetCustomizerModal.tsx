@@ -196,6 +196,13 @@ export const ALL_DASHBOARD_WIDGETS: WidgetDefinition[] = [
     defaultZone: 'sidebar',
   },
   {
+    id: 'multi_branch_telemetry',
+    title: 'Multi-Branch Real-Time Mesh Telemetry',
+    category: 'Operations',
+    description: 'Consolidated inter-branch transfer tracking, warehouse bin sync, and centralized chain analytics.',
+    defaultZone: 'main',
+  },
+  {
     id: 'privacy_mode',
     title: 'Privacy & Display Mode',
     category: 'Operations',
@@ -206,31 +213,32 @@ export const ALL_DASHBOARD_WIDGETS: WidgetDefinition[] = [
 
 export const DEFAULT_MAIN_SECTIONS = [
   'pharmacy_erp_kpi_metrics',
-  'pharmacy_erp_analytics_hub',
-  'fefo_expiry_status',
+  'receivables_payables',
   'todays_profit',
   'recent_sales',
   'sales_expenses',
-  'receivables_payables',
-  'top_products',
   'sales_trend',
-  'weekly_revenue_trajectory',
-  'therapeutic_category_mix',
-  'hourly_rush_velocity',
-  'fast_skus_margin_matrix',
-  'missed_sales_demand',
-  'ai_expiry_loss_prevention',
+  'top_products',
 ];
 
 export const DEFAULT_SIDEBAR_SECTIONS = [
+  'fefo_expiry_status',
+  'expiry_alerts',
+  'therapeutic_category_mix',
+  'weekly_revenue_trajectory',
+  'missed_sales_demand',
+  'udhar_aging_whatsapp',
+  'reorder_suggestions',
+  'pharmacy_erp_analytics_hub',
+  'hourly_rush_velocity',
+  'fast_skus_margin_matrix',
+  'ai_expiry_loss_prevention',
+  'anti_theft_audit_radar',
+  'multi_branch_telemetry',
   'low_stock_alerts',
   'privacy_mode',
   'stock_inventory',
   'bank_accounts',
-  'reorder_suggestions',
-  'expiry_alerts',
-  'udhar_aging_whatsapp',
-  'anti_theft_audit_radar',
 ];
 
 export const DEFAULT_WIDGET_VISIBILITY: Record<string, boolean> = {
@@ -257,6 +265,7 @@ export const DEFAULT_WIDGET_VISIBILITY: Record<string, boolean> = {
   udhar_aging_whatsapp: true,
   ai_expiry_loss_prevention: true,
   anti_theft_audit_radar: true,
+  multi_branch_telemetry: true,
 };
 
 interface WidgetCustomizerModalProps {

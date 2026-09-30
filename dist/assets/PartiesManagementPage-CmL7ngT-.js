@@ -1,0 +1,1 @@
+import{j as t,ap as r}from"./app.js";import"./vendor-react-BQxMjDSt.js";import"./vendor-pdf-B-UH9VPZ.js";import"./vendor-charts-DC3vn0Id.js";import"./vendor-icons-BU3wNc3Q.js";const i=()=>t.jsx(r,{});export{i as PartiesManagementPage,i as default};

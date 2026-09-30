@@ -139,6 +139,38 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     });
   }, [medicines, selectedCategory, selectedCompany, search]);
 
+  // Track categories and companies already assigned to selected tenant
+  const assignedCategorySet = useMemo(() => {
+    if (!selectedTenantId) return new Set<string>();
+    const set = new Set<string>();
+    medicines.forEach(m => {
+      if (m.assignedTenantIds?.includes(selectedTenantId) && m.category) {
+        set.add(m.category.trim().toLowerCase());
+      }
+    });
+    return set;
+  }, [medicines, selectedTenantId]);
+
+  const assignedCompanySet = useMemo(() => {
+    if (!selectedTenantId) return new Set<string>();
+    const set = new Set<string>();
+    medicines.forEach(m => {
+      if (m.assignedTenantIds?.includes(selectedTenantId)) {
+        const comp = m.company?.trim() || m.brandName?.trim();
+        if (comp) set.add(comp.toLowerCase());
+      }
+    });
+    return set;
+  }, [medicines, selectedTenantId]);
+
+  const isSelectedCategoryAlreadyAssigned = useMemo(() => {
+    return selectedCategory !== 'ALL' && assignedCategorySet.has(selectedCategory.trim().toLowerCase());
+  }, [selectedCategory, assignedCategorySet]);
+
+  const isSelectedCompanyAlreadyAssigned = useMemo(() => {
+    return selectedCompany !== 'ALL' && assignedCompanySet.has(selectedCompany.trim().toLowerCase());
+  }, [selectedCompany, assignedCompanySet]);
+
   // Reset page to 1 whenever category, company, or search filter changes
   useEffect(() => {
     setCurrentPage(1);
@@ -151,33 +183,57 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     return filteredMedicines.slice(start, start + pageSize);
   }, [filteredMedicines, currentPage, pageSize]);
 
-  // Toggle selection of all currently filtered items
+  // Toggle selection of all currently filtered items (excluding already assigned)
   const toggleSelectAllFiltered = useCallback(() => {
-    const filteredIds = filteredMedicines.map(m => m.id);
-    const allInFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedMedIdsSet.has(id));
+    const unassignedFilteredIds = filteredMedicines
+      .filter(m => !selectedTenantId || !m.assignedTenantIds?.includes(selectedTenantId))
+      .map(m => m.id);
+
+    if (unassignedFilteredIds.length === 0) {
+      if (showToast) showToast('All filtered medicines are already assigned to this store.');
+      return;
+    }
+
+    const allInFilteredSelected = unassignedFilteredIds.every(id => selectedMedIdsSet.has(id));
 
     if (allInFilteredSelected) {
-      const filterIdSet = new Set(filteredIds);
+      const filterIdSet = new Set(unassignedFilteredIds);
       setSelectedMedIds(prev => prev.filter(id => !filterIdSet.has(id)));
     } else {
-      setSelectedMedIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+      setSelectedMedIds(prev => Array.from(new Set([...prev, ...unassignedFilteredIds])));
     }
-  }, [filteredMedicines, selectedMedIdsSet]);
+  }, [filteredMedicines, selectedMedIdsSet, selectedTenantId, showToast]);
 
-  // 1-Click Select ALL Entire Central Catalog (all 24,456 items)
+  // 1-Click Select ALL Entire Central Catalog (excluding already assigned)
   const handleSelectEntireCatalog = useCallback(() => {
-    const allIds = medicines.map(m => m.id);
-    if (selectedMedIds.length === allIds.length) {
+    const unassignedAllIds = medicines
+      .filter(m => !selectedTenantId || !m.assignedTenantIds?.includes(selectedTenantId))
+      .map(m => m.id);
+
+    if (unassignedAllIds.length === 0) {
+      if (showToast) showToast('Entire catalog is already assigned to this store.');
+      return;
+    }
+
+    if (selectedMedIds.length === unassignedAllIds.length) {
       setSelectedMedIds([]);
     } else {
-      setSelectedMedIds(allIds);
+      setSelectedMedIds(unassignedAllIds);
     }
-  }, [medicines, selectedMedIds.length]);
+  }, [medicines, selectedMedIds.length, selectedTenantId, showToast]);
 
-  // Add/Toggle an entire category to selection
+  // Add/Toggle an entire category to selection (excluding already assigned)
   const handleSelectEntireCategory = useCallback((catName: string) => {
-    const catMeds = medicines.filter(m => (m.category || 'General') === catName).map(m => m.id);
-    const allCatSelected = catMeds.length > 0 && catMeds.every(id => selectedMedIdsSet.has(id));
+    const catMeds = medicines
+      .filter(m => (m.category || 'General') === catName && (!selectedTenantId || !m.assignedTenantIds?.includes(selectedTenantId)))
+      .map(m => m.id);
+
+    if (catMeds.length === 0) {
+      if (showToast) showToast(`All items in category "${catName}" are already assigned to this store.`);
+      return;
+    }
+
+    const allCatSelected = catMeds.every(id => selectedMedIdsSet.has(id));
 
     if (allCatSelected) {
       const catSet = new Set(catMeds);
@@ -185,14 +241,23 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     } else {
       setSelectedMedIds(prev => Array.from(new Set([...prev, ...catMeds])));
     }
-  }, [medicines, selectedMedIdsSet]);
+  }, [medicines, selectedMedIdsSet, selectedTenantId, showToast]);
 
-  // Add/Toggle an entire company to selection
+  // Add/Toggle an entire company to selection (excluding already assigned)
   const handleSelectEntireCompany = useCallback((companyName: string) => {
     const compMeds = medicines
-      .filter(m => (m.company?.trim() || m.brandName?.trim() || 'Standard Pharma').toLowerCase() === companyName.toLowerCase())
+      .filter(m => 
+        (m.company?.trim() || m.brandName?.trim() || 'Standard Pharma').toLowerCase() === companyName.toLowerCase() &&
+        (!selectedTenantId || !m.assignedTenantIds?.includes(selectedTenantId))
+      )
       .map(m => m.id);
-    const allCompSelected = compMeds.length > 0 && compMeds.every(id => selectedMedIdsSet.has(id));
+
+    if (compMeds.length === 0) {
+      if (showToast) showToast(`All items for company "${companyName}" are already assigned to this store.`);
+      return;
+    }
+
+    const allCompSelected = compMeds.every(id => selectedMedIdsSet.has(id));
 
     if (allCompSelected) {
       const compSet = new Set(compMeds);
@@ -200,13 +265,20 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     } else {
       setSelectedMedIds(prev => Array.from(new Set([...prev, ...compMeds])));
     }
-  }, [medicines, selectedMedIdsSet]);
+  }, [medicines, selectedMedIdsSet, selectedTenantId, showToast]);
 
   const toggleSelectOne = useCallback((id: string) => {
+    const target = medicines.find(m => m.id === id);
+    if (target && selectedTenantId && target.assignedTenantIds?.includes(selectedTenantId)) {
+      if (!selectedMedIdsSet.has(id)) {
+        if (showToast) showToast(`"${target.name}" is already assigned to this store.`);
+        return;
+      }
+    }
     setSelectedMedIds(prev =>
       selectedMedIdsSet.has(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
-  }, [selectedMedIdsSet]);
+  }, [selectedMedIdsSet, medicines, selectedTenantId, showToast]);
 
   const handleExecuteAssignment = async () => {
     if (!selectedTenantId) {
@@ -489,15 +561,22 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               </p>
               
               <div className="flex flex-col gap-1.5 pt-1">
-                <button
-                  type="button"
-                  disabled={isAssigning || !selectedTenantId}
-                  onClick={handleAssignActiveCategoryDirectly}
-                  className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Assign All "{selectedCategory}"</span>
-                </button>
+                {isSelectedCategoryAlreadyAssigned ? (
+                  <div className="w-full py-2 px-3 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Category Already Assigned to Store</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isAssigning || !selectedTenantId}
+                    onClick={handleAssignActiveCategoryDirectly}
+                    className="w-full py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Assign All "{selectedCategory}"</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -530,15 +609,22 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               </p>
               
               <div className="flex flex-col gap-1.5 pt-1">
-                <button
-                  type="button"
-                  disabled={isAssigning || !selectedTenantId}
-                  onClick={handleAssignActiveCompanyDirectly}
-                  className="w-full py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Assign All "{selectedCompany}"</span>
-                </button>
+                {isSelectedCompanyAlreadyAssigned ? (
+                  <div className="w-full py-2 px-3 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Company Already Assigned to Store</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isAssigning || !selectedTenantId}
+                    onClick={handleAssignActiveCompanyDirectly}
+                    className="w-full py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Assign All "{selectedCompany}"</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -675,6 +761,7 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               {categories.map(cat => {
                 const count = categoryCounts[cat] || 0;
                 const isActive = selectedCategory === cat;
+                const isCatAssigned = assignedCategorySet.has(cat.trim().toLowerCase());
                 return (
                   <button
                     key={cat}
@@ -682,10 +769,13 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                       isActive
                         ? 'bg-sky-600 text-white shadow-sm'
+                        : isCatAssigned
+                        ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/40'
                         : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
                     }`}
                   >
                     <span>{cat}</span>
+                    {isCatAssigned && <span className="text-[9px] font-bold text-emerald-400">✓ Assigned</span>}
                     <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
                       {count}
                     </span>
@@ -715,6 +805,7 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               {sortedCompanies.map(comp => {
                 const count = companyCounts[comp] || 0;
                 const isActive = selectedCompany.toLowerCase() === comp.toLowerCase();
+                const isCompAssigned = assignedCompanySet.has(comp.toLowerCase());
                 return (
                   <button
                     key={comp}
@@ -722,10 +813,13 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                       isActive
                         ? 'bg-purple-600 text-white shadow-sm'
+                        : isCompAssigned
+                        ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/40'
                         : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
                     }`}
                   >
                     <span>{comp}</span>
+                    {isCompAssigned && <span className="text-[9px] font-bold text-emerald-400">✓ Assigned</span>}
                     <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/30 text-white font-mono">
                       {count}
                     </span>

@@ -201,9 +201,12 @@ export const AiSupportModule: React.FC = () => {
         const data = await res.json();
         if (data.success && Array.isArray(data.sessions)) {
           setSessions(data.sessions);
-          if (!selectedSessionId && data.sessions.length > 0) {
-            setSelectedSessionId(data.sessions[0].id);
-          }
+          setSelectedSessionId((currentSelectedId) => {
+            if (currentSelectedId && data.sessions.some((s: ChatSession) => s.id === currentSelectedId)) {
+              return currentSelectedId;
+            }
+            return data.sessions.length > 0 ? data.sessions[0].id : null;
+          });
         }
       }
     } catch (e) {

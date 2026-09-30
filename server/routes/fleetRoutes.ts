@@ -906,6 +906,311 @@ fleetRouter.post('/users/delete', async (req: TenantRequest, res: Response): Pro
   }
 });
 
+// 12a. Save User Access & Switchboard Permissions: POST /api/fleet/permissions/save
+fleetRouter.post('/permissions/save', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, userId, profile, effective, updatedBy } = req.body;
+    if (!userId) {
+      res.status(400).json({ success: false, error: 'userId is required' });
+      return;
+    }
+
+    const cleanTenantId = tenantId || 'tenant_main_pharmacy';
+    const permissionsJsonPath = path.resolve(process.cwd(), '.master_permissions.json');
+    let permissionsStore: Record<string, any> = {};
+
+    try {
+      if (fs.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(fs.readFileSync(permissionsJsonPath, 'utf-8') || '{}');
+      }
+    } catch (e) {}
+
+    const permKey = `${cleanTenantId}_${userId}`;
+    permissionsStore[permKey] = {
+      tenantId: cleanTenantId,
+      userId,
+      profile,
+      effective,
+      updatedBy: updatedBy || 'Master Admin',
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      fs.writeFileSync(permissionsJsonPath, JSON.stringify(permissionsStore, null, 2), 'utf-8');
+    } catch (e) {}
+
+    // Save to MariaDB if available
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, entity_type, details, created_at)
+           VALUES (?, ?, ?, 'PERMISSIONS_CONFIGURED', 'USER_ACCESS', ?, NOW())
+           ON DUPLICATE KEY UPDATE details = VALUES(details), created_at = NOW();`,
+          [
+            `perm_${cleanTenantId}_${userId}_${Date.now()}`,
+            cleanTenantId,
+            userId,
+            JSON.stringify({ profile, effective, updatedBy: updatedBy || 'Master Admin' })
+          ]
+        );
+      } catch (dbErr) {}
+    }
+
+    // Broadcast live event to all connected terminals
+    broadcastGlobalEvent({
+      type: 'PERMISSIONS_UPDATED',
+      payload: { tenantId: cleanTenantId, userId, profile, effective }
+    });
+
+    res.json({
+      success: true,
+      message: `Permissions for ${userId} saved successfully and broadcast to all terminals.`,
+      tenantId: cleanTenantId,
+      userId
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error saving permissions' });
+  }
+});
+
+// 12b. Get User Permissions: GET /api/fleet/permissions/:userId
+fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const tenantId = (req.query.tenantId as string) || 'tenant_main_pharmacy';
+    const permissionsJsonPath = path.resolve(process.cwd(), '.master_permissions.json');
+    let permissionsStore: Record<string, any> = {};
+
+    try {
+      if (fs.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(fs.readFileSync(permissionsJsonPath, 'utf-8') || '{}');
+      }
+    } catch (e) {}
+
+    const permKey = `${tenantId}_${userId}`;
+    const record = permissionsStore[permKey] || permissionsStore[`${userId}`] || null;
+
+    if (record) {
+      res.json({ success: true, profile: record.profile, effective: record.effective });
+      return;
+    }
+
+    res.json({ success: false, message: 'No custom override profile found' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error fetching permissions' });
+  }
+});
+
+// 12c. Update Tenant Plan: POST /api/fleet/plan & POST /api/fleet/tenants/:id/plan
+const handlePlanUpdate = async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const targetTenantId = req.params.id || req.body.tenantId || req.body.tenant_id;
+    const { plan, durationDays, maxDevices, expiresAt } = req.body;
+
+    if (!targetTenantId || !plan) {
+      res.status(400).json({ success: false, error: 'tenantId and plan are required' });
+      return;
+    }
+
+    const expiryDate = expiresAt || new Date(Date.now() + (Number(durationDays) || 365) * 86400000).toISOString();
+    const maxUsers = Number(maxDevices) || (plan.toLowerCase().includes('enterprise') ? 15 : plan.toLowerCase().includes('business') ? 5 : 2);
+
+    // 1. Update MariaDB
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_tenants 
+           SET plan = ?, subscription_plan = ?, max_devices = ?, trial_expiry_date = ?, updated_at = NOW() 
+           WHERE id = ? OR tenant_id = ?;`,
+          [plan, plan, maxUsers, expiryDate, targetTenantId, targetTenantId]
+        );
+      } catch (dbErr) {}
+    }
+
+    // 2. Update local files
+    try {
+      const tenantsJsonPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(fs.readFileSync(tenantsJsonPath, 'utf-8') || '[]');
+        const t = tenants.find((x: any) => x.id === targetTenantId || x.tenant_id === targetTenantId);
+        if (t) {
+          t.plan = plan;
+          t.subscription_plan = plan;
+          t.maxDevices = maxUsers;
+          t.trialExpiryDate = expiryDate;
+          t.updatedAt = new Date().toISOString();
+          fs.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        const users = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        users.forEach((u: any) => {
+          if (u.installationId === targetTenantId || u.tenantId === targetTenantId || u.id === targetTenantId) {
+            u.plan = plan;
+            u.updatedAt = new Date().toISOString();
+          }
+        });
+        fs.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    // 3. Broadcast Plan Changed Event
+    broadcastGlobalEvent({
+      type: 'TENANT_PLAN_CHANGED',
+      payload: { tenantId: targetTenantId, plan, maxDevices: maxUsers, expiresAt: expiryDate }
+    });
+
+    res.json({
+      success: true,
+      message: `Plan updated to "${plan}" for tenant ${targetTenantId}`,
+      tenantId: targetTenantId,
+      plan,
+      maxDevices: maxUsers,
+      expiresAt: expiryDate
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error updating plan' });
+  }
+};
+
+fleetRouter.post('/plan', handlePlanUpdate);
+fleetRouter.post('/tenants/:id/plan', handlePlanUpdate);
+
+// 12d. Toggle Tenant Lock / Kill Switch: POST /api/fleet/tenants/toggle-lock
+fleetRouter.post('/tenants/toggle-lock', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, lockStatus } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+    const isSuspended = lockStatus === 'Suspended';
+    const statusVal = isSuspended ? 'Suspended' : 'Active';
+    const killFlag = isSuspended ? 1 : 0;
+
+    // 1. Update MariaDB
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_tenants SET status = ?, is_active = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
+          [statusVal, isSuspended ? 0 : 1, tenantId, tenantId]
+        );
+        await pool.query(
+          `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = NOW() WHERE tenant_id = ? OR installation_id = ?;`,
+          [statusVal, killFlag, tenantId, tenantId]
+        );
+      } catch (dbErr) {}
+    }
+
+    // 2. Update local files
+    try {
+      const tenantsJsonPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(fs.readFileSync(tenantsJsonPath, 'utf-8') || '[]');
+        const t = tenants.find((x: any) => x.id === tenantId || x.tenant_id === tenantId);
+        if (t) {
+          t.status = statusVal;
+          t.isSuspended = isSuspended;
+          t.isTrialActive = !isSuspended && t.isTrialActive;
+          t.updatedAt = new Date().toISOString();
+          fs.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        const users = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        users.forEach((u: any) => {
+          if (u.installationId === tenantId || u.tenantId === tenantId || u.id === tenantId) {
+            u.status = statusVal;
+            u.isKillSwitchActive = isSuspended;
+            u.updatedAt = new Date().toISOString();
+          }
+        });
+        fs.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    broadcastGlobalEvent({
+      type: 'TENANT_LOCK_STATUS_CHANGED',
+      payload: { tenantId, status: statusVal, isSuspended }
+    });
+
+    res.json({ success: true, message: `Tenant ${tenantId} status set to ${statusVal}`, status: statusVal, isSuspended });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error toggling lock' });
+  }
+});
+
+// 12e. Delete Tenant: POST /api/fleet/tenants/delete
+fleetRouter.post('/tenants/delete', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const targetTenantId = req.body.tenant_id || req.body.tenantId || req.body.id;
+    if (!targetTenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(`DELETE FROM mbi_users WHERE tenant_id = ? OR installation_id = ?;`, [targetTenantId, targetTenantId]);
+        await pool.query(`DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;`, [targetTenantId, targetTenantId]);
+      } catch (dbErr) {}
+    }
+
+    try {
+      const tenantsJsonPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(tenantsJsonPath)) {
+        let tenants = JSON.parse(fs.readFileSync(tenantsJsonPath, 'utf-8') || '[]');
+        tenants = tenants.filter((x: any) => x.id !== targetTenantId && x.tenant_id !== targetTenantId);
+        fs.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        let users = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        users = users.filter((u: any) => u.installationId !== targetTenantId && u.tenantId !== targetTenantId && u.id !== targetTenantId);
+        fs.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    broadcastGlobalEvent({
+      type: 'TENANT_DELETED',
+      payload: { tenantId: targetTenantId }
+    });
+
+    res.json({ success: true, message: `Tenant ${targetTenantId} deleted successfully` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error deleting tenant' });
+  }
+});
+
+// 12f. Force Sync Tenant: POST /api/fleet/sync
+fleetRouter.post('/sync', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId } = req.body;
+    broadcastGlobalEvent({
+      type: 'TENANT_SYNC_REQUESTED',
+      payload: { tenantId: tenantId || 'all', timestamp: new Date().toISOString() }
+    });
+    res.json({ success: true, message: `Sync triggered for ${tenantId || 'all'}` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error triggering sync' });
+  }
+});
+
 // 13. List Fleet & Tenant API Keys: GET /api/fleet/keys (Authoritative from MariaDB)
 fleetRouter.get('/keys', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
@@ -1681,6 +1986,152 @@ fleetRouter.post('/alert', async (req: TenantRequest, res: Response): Promise<vo
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error dispatching alert' });
+  }
+});
+
+// 22. Toggle Remote Tenant Lock / Unlock: POST /api/fleet/tenants/toggle-lock
+fleetRouter.post('/tenants/toggle-lock', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, lockStatus, status } = req.body;
+    const tid = tenantId;
+    const nextStatus = lockStatus || status || 'Suspended';
+    const isSuspended = nextStatus === 'Suspended';
+
+    if (!tid) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
+          [nextStatus, tid, tid]
+        );
+        await pool.query(
+          `UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = NOW() WHERE tenant_id = ?;`,
+          [isSuspended ? 1 : 0, nextStatus, tid]
+        );
+      } catch (dbErr) {
+        console.warn('[MariaDB toggle-lock error]:', dbErr);
+      }
+    }
+
+    // Update local disk cache
+    try {
+      if (fs.existsSync(syncFile)) {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+        if (Array.isArray(syncData.mbi_tenants)) {
+          syncData.mbi_tenants = syncData.mbi_tenants.map((t: any) => {
+            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
+              return { ...t, status: nextStatus, isSuspended };
+            }
+            return t;
+          });
+          syncData.tenants = syncData.mbi_tenants;
+          fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+        }
+      }
+
+      const masterTenantsFile = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(fs.readFileSync(masterTenantsFile, 'utf-8') || '[]');
+        if (Array.isArray(fileTenants)) {
+          const updated = fileTenants.map((t: any) => {
+            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
+              return { ...t, status: nextStatus, isSuspended };
+            }
+            return t;
+          });
+          fs.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // Broadcast SSE / WebSocket lock event
+    broadcastTenantEvent(tid, {
+      type: 'TENANT_LOCK_STATUS_CHANGED',
+      payload: {
+        tenantId: tid,
+        status: nextStatus,
+        isSuspended,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    broadcastGlobalEvent({
+      type: 'FLEET_TENANT_UPDATED',
+      payload: {
+        tenantId: tid,
+        status: nextStatus,
+        isSuspended
+      }
+    });
+
+    res.json({
+      success: true,
+      status: nextStatus,
+      isSuspended,
+      message: `Tenant ${tid} status updated to ${nextStatus}.`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error updating tenant lock status' });
+  }
+});
+
+// 23. Delete Tenant: POST /api/fleet/tenants/delete
+fleetRouter.post('/tenants/delete', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const tid = req.body.tenant_id || req.body.tenantId || req.body.id;
+    if (!tid) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query('DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;', [tid, tid]);
+        await pool.query('DELETE FROM mbi_users WHERE tenant_id = ?;', [tid]);
+        await pool.query('DELETE FROM mbi_licenses WHERE tenant_id = ?;', [tid]);
+      } catch (dbErr) {
+        console.warn('[MariaDB delete tenant error]:', dbErr);
+      }
+    }
+
+    // Disk sync cleanup
+    try {
+      if (fs.existsSync(syncFile)) {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+        if (Array.isArray(syncData.mbi_tenants)) {
+          syncData.mbi_tenants = syncData.mbi_tenants.filter((t: any) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
+          syncData.tenants = syncData.mbi_tenants;
+          fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+        }
+      }
+
+      const masterTenantsFile = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(fs.readFileSync(masterTenantsFile, 'utf-8') || '[]');
+        if (Array.isArray(fileTenants)) {
+          const updated = fileTenants.filter((t: any) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
+          fs.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    broadcastGlobalEvent({
+      type: 'FLEET_TENANT_DELETED',
+      payload: { tenantId: tid }
+    });
+
+    res.json({
+      success: true,
+      message: `Tenant ${tid} permanently deleted.`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error deleting tenant' });
   }
 });
 

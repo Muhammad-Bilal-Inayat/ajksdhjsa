@@ -299,6 +299,22 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     }
 
     const effective = computeEffectivePermissions(newProfile);
+
+    // Save directly to server fleet API
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/fleet/permissions/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: targetTenantId,
+          userId: newProfile.userId,
+          profile: newProfile,
+          effective,
+          updatedBy: 'Master Server Admin'
+        })
+      }).catch(() => {});
+    }
+
     window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: newProfile } }));
     window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective } }));
     window.dispatchEvent(new Event('storage'));
@@ -610,6 +626,10 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     const isGoldOrHigher = preset === 'GOLD' || isEnterprise;
     const isSilverOrHigher = preset === 'SILVER' || isGoldOrHigher;
 
+    const targetPlanName = isEnterprise ? 'Enterprise Multi-Branch' :
+                           preset === 'GOLD' ? 'Gold Business' :
+                           preset === 'SILVER' ? 'Silver Pro' : 'Basic (Starter)';
+
     SYSTEM_MENU_TREE.forEach(menu => {
       let isMenuEnabled = true;
       if (menu.id === 'onlineStore' || menu.id === 'bookers') {
@@ -623,7 +643,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       menu.submenus.forEach(sub => {
         let isSubEnabled = isMenuEnabled;
         if (sub.id === 'topProducts') {
-          isSubEnabled = isGoldOrHigher;
+          isSubEnabled = true; // Top products allowed on all retail tiers
         }
         if (sub.id === 'deliveryChallan' || sub.id === 'saleOrder' || sub.id === 'estimateQuotation' || sub.id === 'purchaseOrder' || sub.id === 'cheques' || sub.id === 'loanAccounts') {
           isSubEnabled = isSilverOrHigher;
@@ -644,14 +664,55 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       });
     });
 
+    // 1. Update selected user and active tenant plan storage
+    (selectedUser as any).plan = targetPlanName;
+    localStorage.setItem('mbi_active_plan_tier', targetPlanName);
+    localStorage.setItem('mbi_subscription_tier', targetPlanName);
+    localStorage.setItem('mbi_plan', targetPlanName);
+    localStorage.setItem('mbi_license_plan', targetPlanName);
+    localStorage.setItem(`mbi_plan_features_${targetTenantId}`, JSON.stringify({ plan: targetPlanName }));
+
+    const tenantSources = ['mbi_tenant', 'mbi_business', 'mbi_company'];
+    tenantSources.forEach(k => {
+      try {
+        const cur = localStorage.getItem(k);
+        if (cur) {
+          const p = JSON.parse(cur);
+          p.plan = targetPlanName;
+          p.subscription_plan = targetPlanName;
+          if (p.tenant) p.tenant.plan = targetPlanName;
+          if (p.business) p.business.plan = targetPlanName;
+          localStorage.setItem(k, JSON.stringify(p));
+        }
+      } catch {}
+    });
+
+    // 2. Post to backend server
+    if (typeof fetch !== 'undefined' && targetTenantId) {
+      fetch('/api/fleet/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: targetTenantId,
+          plan: targetPlanName
+        })
+      }).catch(() => {});
+    }
+
+    // 3. Dispatch plan change event
+    window.dispatchEvent(new CustomEvent('mbi-plan-updated', { detail: { plan: targetPlanName, tenantId: targetTenantId } }));
+    window.dispatchEvent(new CustomEvent('mbi-tenant-updated', { detail: { plan: targetPlanName, tenantId: targetTenantId } }));
+    window.dispatchEvent(new CustomEvent('saas-plans-updated', { detail: { plan: targetPlanName, tenantId: targetTenantId } }));
+
     commitProfile({
       ...profile,
+      plan: targetPlanName,
       isCustomOverrideActive: true,
       menuToggles: menus,
       submenuToggles: submenus,
       functionToggles: functions,
       actionToggles: actions
-    }, `⚡ Applied ${preset} Plan Feature Preset for ${selectedUser.name}!`);
+    }, `⚡ Applied ${targetPlanName} Plan Preset for ${selectedUser.name}!`);
   };
 
   const handleResetToRole = () => {

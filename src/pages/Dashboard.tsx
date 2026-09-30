@@ -256,16 +256,16 @@ export const Dashboard: React.FC = () => {
   const handleQuickPreset = (presetKey: keyof typeof PRESET_LAYOUTS) => {
     setActivePreset(presetKey);
     const preset = PRESET_LAYOUTS[presetKey];
-    const userPlan = (tenant as any)?.plan || (business as any)?.plan || 'platinum';
+    const userPlan = (tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'platinum';
     const newVis: Record<string, boolean> = {};
 
     DASHBOARD_WIDGETS_CONFIG.forEach(w => {
       const isAllowed = isWidgetAllowedInPlan(w, userPlan);
-      newVis[w.id] = isAllowed && preset.filter(w);
+      newVis[w.id] = isAllowed && (preset ? preset.filter(w) : true);
     });
 
     applyWidgetPreset(newVis);
-    emitToast(`Applied layout: ${preset.label}`, 'success');
+    if (preset) emitToast(`Applied layout: ${preset.label}`, 'success');
   };
   
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -289,16 +289,30 @@ export const Dashboard: React.FC = () => {
 
   // Sanitizers to prevent stale/invalid widget keys or empty dashboard state
   const sanitizeMain = (order?: string[]): string[] => {
-    if (!order || !Array.isArray(order)) return DEFAULT_MAIN_SECTIONS;
+    if (!order || !Array.isArray(order) || order.length === 0) return DEFAULT_MAIN_SECTIONS;
     const allIds = new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id));
     const valid = order.filter(id => allIds.has(id));
+    const validSet = new Set(valid);
+    DEFAULT_MAIN_SECTIONS.forEach(id => {
+      if (!validSet.has(id)) {
+        valid.push(id);
+        validSet.add(id);
+      }
+    });
     return valid.length > 0 ? valid : DEFAULT_MAIN_SECTIONS;
   };
 
   const sanitizeSidebar = (order?: string[]): string[] => {
-    if (!order || !Array.isArray(order)) return DEFAULT_SIDEBAR_SECTIONS;
+    if (!order || !Array.isArray(order) || order.length === 0) return DEFAULT_SIDEBAR_SECTIONS;
     const allIds = new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id));
     const valid = order.filter(id => allIds.has(id));
+    const validSet = new Set(valid);
+    DEFAULT_SIDEBAR_SECTIONS.forEach(id => {
+      if (!validSet.has(id)) {
+        valid.push(id);
+        validSet.add(id);
+      }
+    });
     return valid.length > 0 ? valid : DEFAULT_SIDEBAR_SECTIONS;
   };
 
@@ -312,6 +326,12 @@ export const Dashboard: React.FC = () => {
         }
       });
     }
+    // Ensure all 24 dashboard widgets are defaulted to true
+    validKeys.forEach(k => {
+      if (result[k] === undefined) {
+        result[k] = true;
+      }
+    });
     return result;
   };
 
@@ -409,6 +429,23 @@ export const Dashboard: React.FC = () => {
     setWidgetVisibility(next);
     updateDashboardWidgetVisibility(id, visible);
     localStorage.setItem('mbi_dashboard_widgets_v2', JSON.stringify(next));
+
+    if (visible && !mainOrder.includes(id) && !sidebarOrder.includes(id)) {
+      const widgetDef = DASHBOARD_WIDGETS_CONFIG.find(w => w.id === id) || ALL_DASHBOARD_WIDGETS.find(w => w.id === id);
+      const isSidebar = widgetDef?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
+      if (isSidebar) {
+        const newSide = [...sidebarOrder, id];
+        setSidebarOrder(newSide);
+        updateDashboardWidgetOrder(mainOrder, newSide);
+        localStorage.setItem('mbi_dashboard_sidebar_order_v3', JSON.stringify(newSide));
+      } else {
+        const newMain = [...mainOrder, id];
+        setMainOrder(newMain);
+        updateDashboardWidgetOrder(newMain, sidebarOrder);
+        localStorage.setItem('mbi_dashboard_main_order_v3', JSON.stringify(newMain));
+      }
+    }
+
     emitToast(`Widget ${visible ? 'shown' : 'hidden'}`, 'info');
   };
 
@@ -416,14 +453,46 @@ export const Dashboard: React.FC = () => {
     setWidgetVisibility(newVisibility);
     updateUserPreferences({ dashboardWidgets: newVisibility });
     localStorage.setItem('mbi_dashboard_widgets_v2', JSON.stringify(newVisibility));
-    emitToast('Widget preset applied successfully', 'success');
+
+    // Ensure all enabled widgets are in order lists
+    let newMain = [...mainOrder];
+    let newSide = [...sidebarOrder];
+    let changed = false;
+
+    Object.entries(newVisibility).forEach(([id, isVis]) => {
+      if (isVis && !newMain.includes(id) && !newSide.includes(id)) {
+        const widgetDef = DASHBOARD_WIDGETS_CONFIG.find(w => w.id === id) || ALL_DASHBOARD_WIDGETS.find(w => w.id === id);
+        const isSidebar = widgetDef?.zone === 'sidebar' || (widgetDef as any)?.defaultZone === 'sidebar';
+        if (isSidebar) {
+          newSide.push(id);
+        } else {
+          newMain.push(id);
+        }
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      setMainOrder(newMain);
+      setSidebarOrder(newSide);
+      updateDashboardWidgetOrder(newMain, newSide);
+      localStorage.setItem('mbi_dashboard_main_order_v3', JSON.stringify(newMain));
+      localStorage.setItem('mbi_dashboard_sidebar_order_v3', JSON.stringify(newSide));
+    }
+
+    emitToast('Widget layout applied & synchronized', 'success');
   };
 
   const resetWidgetDefaults = () => {
     setWidgetVisibility(DEFAULT_WIDGET_VISIBILITY);
+    setMainOrder(DEFAULT_MAIN_SECTIONS);
+    setSidebarOrder(DEFAULT_SIDEBAR_SECTIONS);
     resetDashboardWidgets();
+    updateDashboardWidgetOrder(DEFAULT_MAIN_SECTIONS, DEFAULT_SIDEBAR_SECTIONS);
     localStorage.setItem('mbi_dashboard_widgets_v2', JSON.stringify(DEFAULT_WIDGET_VISIBILITY));
-    emitToast('Dashboard widgets reset to default', 'info');
+    localStorage.setItem('mbi_dashboard_main_order_v3', JSON.stringify(DEFAULT_MAIN_SECTIONS));
+    localStorage.setItem('mbi_dashboard_sidebar_order_v3', JSON.stringify(DEFAULT_SIDEBAR_SECTIONS));
+    emitToast('Dashboard widgets reset to full default layout', 'info');
   };
 
   const handleChangeOrder = (newMainOrder: string[], newSidebarOrder: string[]) => {
@@ -3272,7 +3341,7 @@ export const Dashboard: React.FC = () => {
         mainOrder={mainOrder}
         sidebarOrder={sidebarOrder}
         onChangeOrder={handleChangeOrder}
-        userPlan={(tenant as any)?.plan || (business as any)?.plan || 'platinum'}
+        userPlan={(tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'platinum'}
       />
 
       {/* Invoice Print & Reprint Modal */}

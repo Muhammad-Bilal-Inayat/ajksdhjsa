@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Plus, Search, Filter, Download, Upload, FileSpreadsheet, 
   Package, AlertTriangle, CheckCircle2, Trash2, Edit, Check, Sparkles, RefreshCw,
   Sliders, Share2, MoreVertical, ChevronDown, ArrowUpDown, ArrowUpRight, ArrowDownLeft,
-  X, Layers, Briefcase, Scale, Calendar, Eye, ExternalLink, Printer, ArrowLeft, Scan
+  X, Layers, Briefcase, Scale, Calendar, Eye, ExternalLink, Printer, ArrowLeft, Scan,
+  Archive, ArchiveRestore
 } from 'lucide-react';
-import { dbMedicines, dbAuditLogs, dbInvoices, dbPurchaseOrders, dbSuppliers } from '../lib/db';
+import { dbMedicines, dbAuditLogs, dbInvoices, dbPurchaseOrders, dbSuppliers, invalidateStoreCache } from '../lib/db';
 import { Medicine, AuditLog, Invoice, PurchaseOrder, Supplier, Party } from '../types';
 import { forceSeedDemoProducts } from '../lib/seedData';
 import { v4 as uuidv4 } from 'uuid';
@@ -45,7 +46,7 @@ import { ChronicRefillsTab } from '../components/pharmacy/ChronicRefillsTab';
 import { SupplierReturnTab } from '../components/pharmacy/SupplierReturnTab';
 import { useHardwareBarcodeScanner } from '../hooks/useHardwareBarcodeScanner';
 import { playScannerBeep } from '../lib/barcodeAudio';
-import { syncAssignedMedicinesForTenant } from '../lib/centralMedicineDatabaseService';
+import { syncAssignedMedicinesForTenant, getAssignedMedicinesForTenant } from '../lib/centralMedicineDatabaseService';
 import { getCurrentBusinessContext } from '../lib/db';
 
 // Transaction item structure for the selected product
@@ -123,6 +124,48 @@ export const Inventory: React.FC = () => {
   // Bulk Edit & Multi-Select State
   const [selectedMedIds, setSelectedMedIds] = useState<string[]>([]);
   const [showBulkEditModal, setShowBulkEditModal] = useState(false);
+  const [showArchivedMode, setShowArchivedMode] = useState(false);
+
+  const handleArchiveMedicines = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const now = new Date().toISOString();
+    const idSet = new Set(ids);
+    const updatedList = medicines.map(m => {
+      if (idSet.has(m.id)) {
+        return { ...m, isArchived: true, archivedAt: now };
+      }
+      return m;
+    });
+    setMedicines(updatedList);
+    for (const id of ids) {
+      const m = medicines.find(item => item.id === id);
+      if (m) {
+        await dbMedicines.save({ ...m, isArchived: true, archivedAt: now });
+      }
+    }
+    setSelectedMedIds([]);
+    showToast(`📦 Archived ${ids.length} item(s). They are now hidden from software.`);
+  };
+
+  const handleUnarchiveMedicines = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const updatedList = medicines.map(m => {
+      if (idSet.has(m.id)) {
+        return { ...m, isArchived: false, archivedAt: undefined };
+      }
+      return m;
+    });
+    setMedicines(updatedList);
+    for (const id of ids) {
+      const m = medicines.find(item => item.id === id);
+      if (m) {
+        await dbMedicines.save({ ...m, isArchived: false, archivedAt: undefined });
+      }
+    }
+    setSelectedMedIds([]);
+    showToast(`✅ Restored / Unarchived ${ids.length} item(s) to active inventory.`);
+  };
 
   // Generic / Salt Master Quick View State
   const [showGenericModal, setShowGenericModal] = useState(false);
@@ -235,59 +278,158 @@ export const Inventory: React.FC = () => {
     }
   }, [location.search]);
 
+  const isLoadingDataRef = useRef(false);
+  const syncDebounceTimerRef = useRef<any>(null);
+
   useEffect(() => {
     loadAllData();
-    const handleSync = () => loadAllData();
+    const handleSync = () => {
+      if (syncDebounceTimerRef.current) {
+        clearTimeout(syncDebounceTimerRef.current);
+      }
+      syncDebounceTimerRef.current = setTimeout(() => {
+        invalidateStoreCache('medicines');
+        loadAllData();
+      }, 150);
+    };
+
     window.addEventListener('mbi-data-synced', handleSync);
     window.addEventListener('mbi-local-db-change', handleSync);
     window.addEventListener('mbi-stock-updated', handleSync);
     window.addEventListener('mbi-purchases-updated', handleSync);
+    window.addEventListener('mbi-medicines-updated', handleSync);
+    window.addEventListener('mbi-central-medicines-updated', handleSync);
+    window.addEventListener('mbi-central-assignments-updated', handleSync);
     window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
     return () => {
+      if (syncDebounceTimerRef.current) {
+        clearTimeout(syncDebounceTimerRef.current);
+      }
       window.removeEventListener('mbi-data-synced', handleSync);
       window.removeEventListener('mbi-local-db-change', handleSync);
       window.removeEventListener('mbi-stock-updated', handleSync);
       window.removeEventListener('mbi-purchases-updated', handleSync);
+      window.removeEventListener('mbi-medicines-updated', handleSync);
+      window.removeEventListener('mbi-central-medicines-updated', handleSync);
+      window.removeEventListener('mbi-central-assignments-updated', handleSync);
       window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
     };
   }, []);
 
   const loadAllData = async () => {
-    const ctx = getCurrentBusinessContext();
-    if (ctx?.tenantId) {
-      try {
-        await syncAssignedMedicinesForTenant(ctx.tenantId);
-      } catch {}
-    }
+    if (isLoadingDataRef.current) return;
+    isLoadingDataRef.current = true;
+    try {
+      const ctx = getCurrentBusinessContext();
+      const activeTenantId = tenant?.id || (tenant as any)?.tenantId || ctx?.tenantId || 'tenant-demo-01';
 
-    const meds = await dbMedicines.getScoped({ tenantId: ctx.tenantId });
-    setMedicines(meds || []);
+      // Invalidate local memory cache on load to ensure cross-window synchronization
+      invalidateStoreCache('medicines');
 
-    // If active medicine not in list or not set
-    if (meds && meds.length > 0) {
-      if (!activeMedicineId || !meds.find(m => m.id === activeMedicineId)) {
-        setActiveMedicineId(meds[0].id);
+      // Check if tenant has central assigned catalog
+      const assignedCentral = getAssignedMedicinesForTenant(activeTenantId);
+      let finalMeds: Medicine[] = [];
+
+      if (assignedCentral.length > 0) {
+        const allLocal: Medicine[] = (await dbMedicines.getAll()) || [];
+        const localMapByName = new Map<string, Medicine>();
+        for (const m of allLocal) {
+          if (m && m.name && ((m as any).tenantId === activeTenantId || (activeTenantId === 'tenant-demo-01' && ((m as any).tenantId === 'tenant-demo-01' || (m as any).tenantId === 'local-business-id')))) {
+            localMapByName.set(m.name.toLowerCase().trim(), m);
+          }
+        }
+
+        // Map strictly 1-to-1 with assignedCentral: EXACTLY assignedCentral.length items!
+        finalMeds = assignedCentral.map(centralMed => {
+          const normName = centralMed.name.toLowerCase().trim();
+          const existingLocal = localMapByName.get(normName);
+          const genericStr = centralMed.genericFormula || centralMed.genericName || '';
+          const companyStr = centralMed.company || centralMed.brandName || '';
+
+          return {
+            id: existingLocal?.id || `med_${activeTenantId}_${centralMed.id}`,
+            tenantId: activeTenantId,
+            name: centralMed.name,
+            genericName: genericStr,
+            genericFormula: genericStr,
+            brandName: centralMed.brandName || companyStr,
+            dosageForm: (centralMed.dosageForm as any) || 'Tablet',
+            strength: centralMed.strength || '',
+            category: centralMed.category || 'General Pharmacy',
+            manufacturer: companyStr,
+            company: companyStr,
+            salePrice: existingLocal?.salePrice || 0,
+            purchasePrice: existingLocal?.purchasePrice || 0,
+            mrp: existingLocal?.mrp || 0,
+            sellingPrice: existingLocal?.sellingPrice || 0,
+            quantity: existingLocal?.quantity !== undefined ? existingLocal.quantity : 20,
+            lowStockThreshold: existingLocal?.lowStockThreshold || 10,
+            minStock: existingLocal?.minStock || 10,
+            unit: centralMed.unit || existingLocal?.unit || 'Box',
+            barcode: existingLocal?.barcode || (centralMed as any).barcode || '',
+            batchNumber: existingLocal?.batchNumber || 'INIT-BATCH',
+            gstPercentage: existingLocal?.gstPercentage || 0,
+            expiryDate: existingLocal?.expiryDate || '',
+            batches: existingLocal?.batches || [],
+            isArchived: Boolean(existingLocal?.isArchived),
+            archivedAt: existingLocal?.archivedAt,
+            createdAt: existingLocal?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          } as unknown as Medicine;
+        });
+        // Also append any custom added items for this tenant that aren't central catalog
+        const existingNames = new Set(finalMeds.map(m => m.name.toLowerCase().trim()));
+        const customItems = allLocal.filter(m => 
+          m && m.name && !existingNames.has(m.name.toLowerCase().trim()) && 
+          ((m as any).tenantId === activeTenantId || (activeTenantId === 'tenant-demo-01' && ((m as any).tenantId === 'tenant-demo-01' || (m as any).tenantId === 'local-business-id')))
+        );
+        finalMeds = [...finalMeds, ...customItems];
+      } else {
+        // When 0 items are assigned from central catalog, show all local inventory items for this tenant
+        const allLocal: Medicine[] = (await dbMedicines.getAll()) || [];
+        const filtered = allLocal.filter(m => {
+          if (!m || !m.name) return false;
+          const mTenant = (m as any).tenantId;
+          if (!mTenant) return true;
+          if (mTenant === activeTenantId) return true;
+          if (activeTenantId === 'tenant-demo-01' && (mTenant === 'tenant-demo-01' || mTenant === 'local-business-id')) return true;
+          return false;
+        });
+        finalMeds = filtered.length > 0 ? filtered : allLocal;
       }
-    } else {
-      setActiveMedicineId(null);
+
+      setMedicines(finalMeds);
+
+      // If active medicine not in list or not set
+      if (finalMeds && finalMeds.length > 0) {
+        if (!activeMedicineId || !finalMeds.find(m => m.id === activeMedicineId)) {
+          setActiveMedicineId(finalMeds[0].id);
+        }
+      } else {
+        setActiveMedicineId('');
+      }
+
+      // Secondary transactions & logs loaded in microtask without blocking primary inventory render
+      queueMicrotask(async () => {
+        try {
+          const [allInvs, allPOs, allLogs, allSuppliers] = await Promise.all([
+            dbInvoices.getScoped({ tenantId: ctx.tenantId }),
+            dbPurchaseOrders.getScoped({ tenantId: ctx.tenantId }),
+            dbAuditLogs.getAll(),
+            dbSuppliers.getScoped({ tenantId: ctx.tenantId }),
+          ]);
+
+          setInvoices(allInvs || []);
+          setPurchaseOrders(allPOs || []);
+          setAuditLogs(allLogs || []);
+          setSuppliers(allSuppliers || []);
+        } catch (err) {}
+      });
+    } finally {
+      isLoadingDataRef.current = false;
     }
-
-    // Secondary transactions & logs loaded in microtask without blocking primary inventory render
-    queueMicrotask(async () => {
-      try {
-        const [allInvs, allPOs, allLogs, allSuppliers] = await Promise.all([
-          dbInvoices.getScoped({ tenantId: ctx.tenantId }),
-          dbPurchaseOrders.getScoped({ tenantId: ctx.tenantId }),
-          dbAuditLogs.getAll(),
-          dbSuppliers.getScoped({ tenantId: ctx.tenantId }),
-        ]);
-
-        setInvoices(allInvs || []);
-        setPurchaseOrders(allPOs || []);
-        setAuditLogs(allLogs || []);
-        setSuppliers(allSuppliers || []);
-      } catch (err) {}
-    });
   };
 
   const handleConfirmQuarantine = async (medicineId: string, batchNumber: string, recallRecord: ProductRecallRecord) => {
@@ -382,18 +524,23 @@ export const Inventory: React.FC = () => {
     }
   };
 
-  // Active selected medicine
-  const activeMedicine = useMemo(() => {
-    return medicines.find((m) => m.id === activeMedicineId) || medicines[0] || null;
-  }, [medicines, activeMedicineId]);
-
   // Incremental display limit for infinite / massive inventory catalogs without lag
   const [itemDisplayLimit, setItemDisplayLimit] = useState(100);
+
+  const archivedCount = useMemo(() => medicines.filter(m => Boolean(m.isArchived)).length, [medicines]);
+  const activeCount = useMemo(() => medicines.filter(m => !m.isArchived).length, [medicines]);
 
   // Filtered medicines for left list
   const filteredMeds = useMemo(() => {
     const q = debouncedSearchItem.toLowerCase().trim();
     return medicines.filter((m) => {
+      // Strict Archive Partitioning: In active mode, hide archived items; in archived mode, show ONLY archived items
+      if (showArchivedMode) {
+        if (!m.isArchived) return false;
+      } else {
+        if (m.isArchived) return false;
+      }
+
       if (q) {
         const matchesSearch =
           m.name.toLowerCase().includes(q) ||
@@ -428,12 +575,17 @@ export const Inventory: React.FC = () => {
 
       return true;
     });
-  }, [medicines, debouncedSearchItem, categoryFilter, stockStatusFilter]);
+  }, [medicines, debouncedSearchItem, categoryFilter, stockStatusFilter, showArchivedMode]);
+
+  // Active selected medicine (scoped to current view mode)
+  const activeMedicine = useMemo(() => {
+    return filteredMeds.find((m) => m.id === activeMedicineId) || filteredMeds[0] || null;
+  }, [filteredMeds, activeMedicineId]);
 
   // Reset display limit when filtering or searching
   useEffect(() => {
     setItemDisplayLimit(100);
-  }, [debouncedSearchItem, categoryFilter, stockStatusFilter]);
+  }, [debouncedSearchItem, categoryFilter, stockStatusFilter, showArchivedMode]);
 
   const displayedMeds = useMemo(() => {
     return filteredMeds.slice(0, itemDisplayLimit);
@@ -923,12 +1075,101 @@ export const Inventory: React.FC = () => {
                         onClick={() => setShowMoreActionsDropdown(false)} 
                       />
                       <div 
-                        className="absolute right-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-slate-800"
+                        className="absolute right-0 top-full mt-1.5 w-72 max-h-[calc(100vh-190px)] overflow-y-auto scrollbar-thin bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-slate-800"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="px-3.5 py-1.5 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                          <span>Inventory Actions</span>
+                          <span>{showArchivedMode ? '📦 Archived Vault Actions' : '⚡ Inventory Actions'}</span>
                           <span className="text-[10px] text-slate-400 font-normal">{filteredMeds.length} items</span>
+                        </div>
+
+                        {/* Group 0: Archive & Unarchive Actions */}
+                        <div className="py-1 bg-slate-50/50 dark:bg-slate-950/30">
+                          {showArchivedMode ? (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setShowMoreActionsDropdown(false);
+                                  const targetIds = selectedMedIds.length > 0 
+                                    ? selectedMedIds 
+                                    : (activeMedicine ? [activeMedicine.id] : filteredMeds.map(m => m.id));
+                                  handleUnarchiveMedicines(targetIds);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between font-bold cursor-pointer"
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <ArchiveRestore className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Unarchive / Restore to Inventory</span>
+                                </span>
+                                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 rounded-full font-bold">
+                                  {selectedMedIds.length > 0 ? `${selectedMedIds.length} sel` : 'Active'}
+                                </span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setShowMoreActionsDropdown(false);
+                                  setShowArchivedMode(false);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between font-medium cursor-pointer"
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                  <span>Back to Active Inventory</span>
+                                </span>
+                                <span className="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-bold">
+                                  {activeCount} items
+                                </span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setShowMoreActionsDropdown(false);
+                                  const targetIds = selectedMedIds.length > 0 
+                                    ? selectedMedIds 
+                                    : (activeMedicine ? [activeMedicine.id] : []);
+                                  if (targetIds.length === 0) {
+                                    showToast('Please select at least 1 item or click an item to archive.');
+                                    return;
+                                  }
+                                  handleArchiveMedicines(targetIds);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center justify-between font-medium cursor-pointer"
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <Archive className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                                  <span>Archive Selected Items (Hide)</span>
+                                </span>
+                                {selectedMedIds.length > 0 && (
+                                  <span className="text-[10px] bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 rounded-full font-bold">
+                                    {selectedMedIds.length} sel
+                                  </span>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setShowMoreActionsDropdown(false);
+                                  setShowArchivedMode(true);
+                                }}
+                                className="w-full px-3.5 py-2 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between font-medium cursor-pointer"
+                              >
+                                <span className="flex items-center gap-2.5">
+                                  <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                  <span>View Archived Vault</span>
+                                </span>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                                  archivedCount > 0 
+                                    ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200' 
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                }`}>
+                                  {archivedCount} archived
+                                </span>
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         {/* Group 1: Batch & Import / Export */}
@@ -1059,6 +1300,22 @@ export const Inventory: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              {/* Archived Mode Alert Banner */}
+              {showArchivedMode && (
+                <div className="px-3.5 py-2 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between text-xs text-amber-800 dark:text-amber-200">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Archive className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Archived Items Vault ({filteredMeds.length} hidden items)</span>
+                  </span>
+                  <button
+                    onClick={() => setShowArchivedMode(false)}
+                    className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold transition shadow-xs cursor-pointer"
+                  >
+                    Exit Archive View
+                  </button>
+                </div>
+              )}
 
               {/* Items List Table Header */}
               <div className="px-3.5 py-2 bg-slate-100/90 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold text-slate-600 uppercase tracking-wider">
@@ -1363,6 +1620,27 @@ export const Inventory: React.FC = () => {
                         <Sliders className="w-3.5 h-3.5" />
                         <span className="text-[11px]">Adjust Item</span>
                       </button>
+
+                      {/* ARCHIVE / UNARCHIVE ITEM BUTTON */}
+                      {activeMedicine.isArchived ? (
+                        <button
+                          onClick={() => handleUnarchiveMedicines([activeMedicine.id])}
+                          className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 border border-emerald-200 shadow-2xs transition active:scale-95 cursor-pointer"
+                          title="Restore / Unarchive this medicine to active inventory"
+                        >
+                          <ArchiveRestore className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-[11px]">Unarchive Item</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleArchiveMedicines([activeMedicine.id])}
+                          className="bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 border border-slate-200 hover:border-rose-200 shadow-2xs transition active:scale-95 cursor-pointer"
+                          title="Archive this medicine (hide totally from software)"
+                        >
+                          <Archive className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="text-[11px]">Archive</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 

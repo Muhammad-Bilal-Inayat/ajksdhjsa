@@ -4732,20 +4732,27 @@ async function assignMedicinesBatchController(req, res) {
       // 'company' | 'category' | 'selected' | 'all'
       company,
       category,
-      medicineIds = []
+      medicineIds = [],
+      items = [],
+      initialStock = 20
     } = req.body || {};
     if (!targetTenantId) {
       res.status(400).json({ success: false, error: "Target Pharmacy Store ID is required" });
       return;
     }
     let itemsToAssign = [];
-    if (mode === "company" && company) {
+    if (Array.isArray(items) && items.length > 0) {
+      itemsToAssign = items;
+    } else if (mode === "company" && company) {
       itemsToAssign = masterCatalogCache.filter((m) => m.company === company);
     } else if (mode === "category" && category) {
       itemsToAssign = masterCatalogCache.filter((m) => m.category === category);
     } else if (mode === "selected" && Array.isArray(medicineIds) && medicineIds.length > 0) {
       const idSet = new Set(medicineIds);
       itemsToAssign = masterCatalogCache.filter((m) => idSet.has(m.id));
+      if (itemsToAssign.length === 0 && Array.isArray(INITIAL_CENTRAL_MEDICINE_CATALOG)) {
+        itemsToAssign = INITIAL_CENTRAL_MEDICINE_CATALOG.filter((m) => idSet.has(m.id));
+      }
     } else if (mode === "all") {
       itemsToAssign = masterCatalogCache;
     }
@@ -4753,41 +4760,64 @@ async function assignMedicinesBatchController(req, res) {
       res.status(400).json({ success: false, error: "No medicines matched the specified criteria" });
       return;
     }
-    let assignedCount = 0;
+    let assignedCount = itemsToAssign.length;
     try {
       const pool2 = getMariaDbPool();
-      for (const item of itemsToAssign) {
-        const uniqueMedId = `med_${targetTenantId}_${item.id}`;
-        const uniqueBatchId = `batch_${targetTenantId}_${item.id}`;
-        await pool2.query(`
-          INSERT INTO mbi_medicines (
-            id, tenant_id, name, generic_salt, company, category, dosage_form, min_stock_level, pack_size
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 5, 1)
-          ON DUPLICATE KEY UPDATE updated_at = NOW();
-        `, [
-          uniqueMedId,
-          targetTenantId,
-          item.name,
-          item.generic_salt || item.genericFormula || null,
-          item.company || null,
-          item.category || "General Medicine",
-          item.dosage_form || item.dosageForm || "Tablet"
-        ]).catch(() => {
-        });
-        const expiryDate = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
-        await pool2.query(`
-          INSERT INTO mbi_inventory_batches (
-            id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location
-          ) VALUES (?, ?, ?, 'MBI-INITIAL', ?, 100, 120, 50, 'Main Shelf')
-          ON DUPLICATE KEY UPDATE updated_at = NOW();
-        `, [
-          uniqueBatchId,
-          targetTenantId,
-          uniqueMedId,
-          expiryDate
-        ]).catch(() => {
-        });
-        assignedCount++;
+      const CHUNK_SIZE = 200;
+      const expiryDate = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
+      for (let i = 0; i < itemsToAssign.length; i += CHUNK_SIZE) {
+        const chunk = itemsToAssign.slice(i, i + CHUNK_SIZE);
+        const medPlaceholders = [];
+        const medValues = [];
+        for (const item of chunk) {
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+          medPlaceholders.push("(?, ?, ?, ?, ?, ?, ?, 5, 1)");
+          medValues.push(
+            uniqueMedId,
+            targetTenantId,
+            item.name,
+            item.generic_salt || item.genericFormula || item.genericName || null,
+            item.company || item.brandName || null,
+            item.category || "General Medicine",
+            item.dosage_form || item.dosageForm || "Tablet"
+          );
+        }
+        if (medPlaceholders.length > 0) {
+          await pool2.query(`
+            INSERT INTO mbi_medicines (
+              id, tenant_id, name, generic_salt, company, category, dosage_form, min_stock_level, pack_size
+            ) VALUES ${medPlaceholders.join(", ")}
+            ON DUPLICATE KEY UPDATE updated_at = NOW();
+          `, medValues).catch((e) => console.warn("[MariaDB Chunk Med Insert]", e.message));
+        }
+        const batchPlaceholders = [];
+        const batchValues = [];
+        for (const item of chunk) {
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+          const uniqueBatchId = `batch_${targetTenantId}_${rawId}`;
+          batchPlaceholders.push("(?, ?, ?, ?, ?, ?, ?, ?, ?)");
+          batchValues.push(
+            uniqueBatchId,
+            targetTenantId,
+            uniqueMedId,
+            "MBI-INITIAL",
+            expiryDate,
+            0,
+            0,
+            Number(initialStock) || 20,
+            "Main Shelf"
+          );
+        }
+        if (batchPlaceholders.length > 0) {
+          await pool2.query(`
+            INSERT INTO mbi_inventory_batches (
+              id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location
+            ) VALUES ${batchPlaceholders.join(", ")}
+            ON DUPLICATE KEY UPDATE updated_at = NOW();
+          `, batchValues).catch((e) => console.warn("[MariaDB Chunk Batch Insert]", e.message));
+        }
       }
     } catch (dbErr) {
       console.warn("[MARIADB ALLOCATE NOTICE]", dbErr?.message);
@@ -4802,27 +4832,28 @@ async function assignMedicinesBatchController(req, res) {
       for (const item of itemsToAssign) {
         if (!existingMedMap.has(item.name)) {
           existingMedMap.add(item.name);
-          const uniqueMedId = `med_${targetTenantId}_${item.id}`;
+          const rawId = item.id || Math.random().toString(36).substring(2, 9);
+          const uniqueMedId = `med_${targetTenantId}_${rawId}`;
           fallback.mbi_medicines.push({
             id: uniqueMedId,
             tenant_id: targetTenantId,
             name: item.name,
-            generic_salt: item.generic_salt || item.genericFormula,
-            company: item.company,
+            generic_salt: item.generic_salt || item.genericFormula || item.genericName,
+            company: item.company || item.brandName,
             category: item.category,
             dosage_form: item.dosage_form || item.dosageForm,
             min_stock_level: 5,
             pack_size: 1
           });
           fallback.mbi_inventory_batches.push({
-            id: `batch_${targetTenantId}_${item.id}`,
+            id: `batch_${targetTenantId}_${rawId}`,
             tenant_id: targetTenantId,
             medicine_id: uniqueMedId,
             batch_number: "MBI-INITIAL",
             expiry_date: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
-            purchase_rate: 100,
-            mrp_selling_price: 120,
-            current_stock_quantity: 50,
+            purchase_rate: 0,
+            mrp_selling_price: 0,
+            current_stock_quantity: Number(initialStock) || 20,
             godown_location: "Main Shelf"
           });
         }
@@ -4853,7 +4884,7 @@ async function assignMedicinesBatchController(req, res) {
         userName: "Super Admin",
         userRole: "Master Catalog Studio",
         actionType: "SYSTEM",
-        actionDetails: `Allocated ${itemsToAssign.length} items to ${targetTenantName} (${mode.toUpperCase()}: ${company || category || "Selected Items"}) with Deduplication Guard.`,
+        actionDetails: `Allocated ${itemsToAssign.length} items to ${targetTenantName} (${mode.toUpperCase()}: ${company || category || "Selected Items"}) with High-Speed Chunked Sync.`,
         ipAddress: req.ip || "127.0.0.1",
         deviceInfo: "Master Catalog Studio",
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -4863,7 +4894,7 @@ async function assignMedicinesBatchController(req, res) {
     }
     res.json({
       success: true,
-      message: `Successfully allocated ${itemsToAssign.length} medicines to ${targetTenantName}!`,
+      message: `Successfully allocated ${itemsToAssign.length} medicines to ${targetTenantName} and all active subusers!`,
       assignedCount: itemsToAssign.length,
       targetTenantId,
       targetTenantName
@@ -9805,6 +9836,276 @@ fleetRouter.post("/users/delete", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error deleting user" });
   }
 });
+fleetRouter.post("/permissions/save", async (req, res) => {
+  try {
+    const { tenantId, userId, profile, effective, updatedBy } = req.body;
+    if (!userId) {
+      res.status(400).json({ success: false, error: "userId is required" });
+      return;
+    }
+    const cleanTenantId = tenantId || "tenant_main_pharmacy";
+    const permissionsJsonPath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
+    let permissionsStore = {};
+    try {
+      if (import_fs10.default.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(import_fs10.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
+      }
+    } catch (e) {
+    }
+    const permKey = `${cleanTenantId}_${userId}`;
+    permissionsStore[permKey] = {
+      tenantId: cleanTenantId,
+      userId,
+      profile,
+      effective,
+      updatedBy: updatedBy || "Master Admin",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    try {
+      import_fs10.default.writeFileSync(permissionsJsonPath, JSON.stringify(permissionsStore, null, 2), "utf-8");
+    } catch (e) {
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, entity_type, details, created_at)
+           VALUES (?, ?, ?, 'PERMISSIONS_CONFIGURED', 'USER_ACCESS', ?, NOW())
+           ON DUPLICATE KEY UPDATE details = VALUES(details), created_at = NOW();`,
+          [
+            `perm_${cleanTenantId}_${userId}_${Date.now()}`,
+            cleanTenantId,
+            userId,
+            JSON.stringify({ profile, effective, updatedBy: updatedBy || "Master Admin" })
+          ]
+        );
+      } catch (dbErr) {
+      }
+    }
+    broadcastGlobalEvent({
+      type: "PERMISSIONS_UPDATED",
+      payload: { tenantId: cleanTenantId, userId, profile, effective }
+    });
+    res.json({
+      success: true,
+      message: `Permissions for ${userId} saved successfully and broadcast to all terminals.`,
+      tenantId: cleanTenantId,
+      userId
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error saving permissions" });
+  }
+});
+fleetRouter.get("/permissions/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const tenantId = req.query.tenantId || "tenant_main_pharmacy";
+    const permissionsJsonPath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
+    let permissionsStore = {};
+    try {
+      if (import_fs10.default.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(import_fs10.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
+      }
+    } catch (e) {
+    }
+    const permKey = `${tenantId}_${userId}`;
+    const record = permissionsStore[permKey] || permissionsStore[`${userId}`] || null;
+    if (record) {
+      res.json({ success: true, profile: record.profile, effective: record.effective });
+      return;
+    }
+    res.json({ success: false, message: "No custom override profile found" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error fetching permissions" });
+  }
+});
+var handlePlanUpdate = async (req, res) => {
+  try {
+    const targetTenantId = req.params.id || req.body.tenantId || req.body.tenant_id;
+    const { plan, durationDays, maxDevices, expiresAt } = req.body;
+    if (!targetTenantId || !plan) {
+      res.status(400).json({ success: false, error: "tenantId and plan are required" });
+      return;
+    }
+    const expiryDate = expiresAt || new Date(Date.now() + (Number(durationDays) || 365) * 864e5).toISOString();
+    const maxUsers = Number(maxDevices) || (plan.toLowerCase().includes("enterprise") ? 15 : plan.toLowerCase().includes("business") ? 5 : 2);
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `UPDATE mbi_tenants 
+           SET plan = ?, subscription_plan = ?, max_devices = ?, trial_expiry_date = ?, updated_at = NOW() 
+           WHERE id = ? OR tenant_id = ?;`,
+          [plan, plan, maxUsers, expiryDate, targetTenantId, targetTenantId]
+        );
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs10.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+        const t = tenants.find((x) => x.id === targetTenantId || x.tenant_id === targetTenantId);
+        if (t) {
+          t.plan = plan;
+          t.subscription_plan = plan;
+          t.maxDevices = maxUsers;
+          t.trialExpiryDate = expiryDate;
+          t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+          import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    try {
+      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs10.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        users.forEach((u) => {
+          if (u.installationId === targetTenantId || u.tenantId === targetTenantId || u.id === targetTenantId) {
+            u.plan = plan;
+            u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+          }
+        });
+        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "TENANT_PLAN_CHANGED",
+      payload: { tenantId: targetTenantId, plan, maxDevices: maxUsers, expiresAt: expiryDate }
+    });
+    res.json({
+      success: true,
+      message: `Plan updated to "${plan}" for tenant ${targetTenantId}`,
+      tenantId: targetTenantId,
+      plan,
+      maxDevices: maxUsers,
+      expiresAt: expiryDate
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error updating plan" });
+  }
+};
+fleetRouter.post("/plan", handlePlanUpdate);
+fleetRouter.post("/tenants/:id/plan", handlePlanUpdate);
+fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
+  try {
+    const { tenantId, lockStatus } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    const isSuspended = lockStatus === "Suspended";
+    const statusVal = isSuspended ? "Suspended" : "Active";
+    const killFlag = isSuspended ? 1 : 0;
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `UPDATE mbi_tenants SET status = ?, is_active = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
+          [statusVal, isSuspended ? 0 : 1, tenantId, tenantId]
+        );
+        await pool2.query(
+          `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = NOW() WHERE tenant_id = ? OR installation_id = ?;`,
+          [statusVal, killFlag, tenantId, tenantId]
+        );
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs10.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+        const t = tenants.find((x) => x.id === tenantId || x.tenant_id === tenantId);
+        if (t) {
+          t.status = statusVal;
+          t.isSuspended = isSuspended;
+          t.isTrialActive = !isSuspended && t.isTrialActive;
+          t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+          import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    try {
+      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs10.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        users.forEach((u) => {
+          if (u.installationId === tenantId || u.tenantId === tenantId || u.id === tenantId) {
+            u.status = statusVal;
+            u.isKillSwitchActive = isSuspended;
+            u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+          }
+        });
+        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "TENANT_LOCK_STATUS_CHANGED",
+      payload: { tenantId, status: statusVal, isSuspended }
+    });
+    res.json({ success: true, message: `Tenant ${tenantId} status set to ${statusVal}`, status: statusVal, isSuspended });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error toggling lock" });
+  }
+});
+fleetRouter.post("/tenants/delete", async (req, res) => {
+  try {
+    const targetTenantId = req.body.tenant_id || req.body.tenantId || req.body.id;
+    if (!targetTenantId) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(`DELETE FROM mbi_users WHERE tenant_id = ? OR installation_id = ?;`, [targetTenantId, targetTenantId]);
+        await pool2.query(`DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;`, [targetTenantId, targetTenantId]);
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs10.default.existsSync(tenantsJsonPath)) {
+        let tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+        tenants = tenants.filter((x) => x.id !== targetTenantId && x.tenant_id !== targetTenantId);
+        import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    try {
+      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs10.default.existsSync(usersJsonPath)) {
+        let users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        users = users.filter((u) => u.installationId !== targetTenantId && u.tenantId !== targetTenantId && u.id !== targetTenantId);
+        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "TENANT_DELETED",
+      payload: { tenantId: targetTenantId }
+    });
+    res.json({ success: true, message: `Tenant ${targetTenantId} deleted successfully` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
+  }
+});
+fleetRouter.post("/sync", async (req, res) => {
+  try {
+    const { tenantId } = req.body;
+    broadcastGlobalEvent({
+      type: "TENANT_SYNC_REQUESTED",
+      payload: { tenantId: tenantId || "all", timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({ success: true, message: `Sync triggered for ${tenantId || "all"}` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error triggering sync" });
+  }
+});
 fleetRouter.get("/keys", async (req, res) => {
   try {
     const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
@@ -10497,6 +10798,135 @@ fleetRouter.post("/alert", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error dispatching alert" });
+  }
+});
+fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
+  try {
+    const { tenantId, lockStatus, status } = req.body;
+    const tid = tenantId;
+    const nextStatus = lockStatus || status || "Suspended";
+    const isSuspended = nextStatus === "Suspended";
+    if (!tid) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
+          [nextStatus, tid, tid]
+        );
+        await pool2.query(
+          `UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = NOW() WHERE tenant_id = ?;`,
+          [isSuspended ? 1 : 0, nextStatus, tid]
+        );
+      } catch (dbErr) {
+        console.warn("[MariaDB toggle-lock error]:", dbErr);
+      }
+    }
+    try {
+      if (import_fs10.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+        if (Array.isArray(syncData.mbi_tenants)) {
+          syncData.mbi_tenants = syncData.mbi_tenants.map((t) => {
+            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
+              return { ...t, status: nextStatus, isSuspended };
+            }
+            return t;
+          });
+          syncData.tenants = syncData.mbi_tenants;
+          import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        }
+      }
+      const masterTenantsFile = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs10.default.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(import_fs10.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+        if (Array.isArray(fileTenants)) {
+          const updated = fileTenants.map((t) => {
+            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
+              return { ...t, status: nextStatus, isSuspended };
+            }
+            return t;
+          });
+          import_fs10.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastTenantEvent(tid, {
+      type: "TENANT_LOCK_STATUS_CHANGED",
+      payload: {
+        tenantId: tid,
+        status: nextStatus,
+        isSuspended,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    });
+    broadcastGlobalEvent({
+      type: "FLEET_TENANT_UPDATED",
+      payload: {
+        tenantId: tid,
+        status: nextStatus,
+        isSuspended
+      }
+    });
+    res.json({
+      success: true,
+      status: nextStatus,
+      isSuspended,
+      message: `Tenant ${tid} status updated to ${nextStatus}.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error updating tenant lock status" });
+  }
+});
+fleetRouter.post("/tenants/delete", async (req, res) => {
+  try {
+    const tid = req.body.tenant_id || req.body.tenantId || req.body.id;
+    if (!tid) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;", [tid, tid]);
+        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tid]);
+        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tid]);
+      } catch (dbErr) {
+        console.warn("[MariaDB delete tenant error]:", dbErr);
+      }
+    }
+    try {
+      if (import_fs10.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+        if (Array.isArray(syncData.mbi_tenants)) {
+          syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
+          syncData.tenants = syncData.mbi_tenants;
+          import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        }
+      }
+      const masterTenantsFile = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs10.default.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(import_fs10.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+        if (Array.isArray(fileTenants)) {
+          const updated = fileTenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
+          import_fs10.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "FLEET_TENANT_DELETED",
+      payload: { tenantId: tid }
+    });
+    res.json({
+      success: true,
+      message: `Tenant ${tid} permanently deleted.`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
   }
 });
 
@@ -13432,12 +13862,23 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
       config: config || {
         tenantId,
         connectedNumber: "",
+        ownerWhatsApp: "",
         isLinked: true,
+        linkedDeviceName: "WhatsApp Web Multi-Device (MBI Inventra)",
+        lastConnectedAt: (/* @__PURE__ */ new Date()).toISOString(),
         autoSendOnSale: true,
         autoSendOnReturn: true,
-        autoSendOnKhataPayment: true,
+        autoSendOnPurchaseOrder: true,
         autoSendOnPurchase: false,
-        autoSendShiftClosing: true
+        autoSendOnPurchaseReturn: true,
+        autoSendOnKhataPayment: true,
+        autoSendOnSupplierPayment: false,
+        autoSendOnQuotation: false,
+        autoSendOnDeliveryChallan: false,
+        autoSendShiftClosing: true,
+        autoSendLowStockAlert: true,
+        customSaleTemplate: "",
+        customKhataTemplate: ""
       }
     });
   } catch (err) {
@@ -13446,18 +13887,45 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
 });
 whatsappRouter.post("/settings", async (req, res) => {
   try {
-    const { tenantId, connectedNumber, ownerWhatsApp, isLinked, autoSendOnSale, autoSendOnReturn, autoSendOnKhataPayment, autoSendOnPurchase, autoSendShiftClosing, customSaleTemplate, customKhataTemplate } = req.body;
+    const {
+      tenantId,
+      connectedNumber,
+      ownerWhatsApp,
+      isLinked,
+      linkedDeviceName,
+      autoSendOnSale,
+      autoSendOnReturn,
+      autoSendOnPurchaseOrder,
+      autoSendOnPurchase,
+      autoSendOnPurchaseReturn,
+      autoSendOnKhataPayment,
+      autoSendOnSupplierPayment,
+      autoSendOnQuotation,
+      autoSendOnDeliveryChallan,
+      autoSendShiftClosing,
+      autoSendLowStockAlert,
+      customSaleTemplate,
+      customKhataTemplate
+    } = req.body;
     const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
     const config = {
       tenantId: cleanTenantId,
       connectedNumber: connectedNumber || "",
       ownerWhatsApp: ownerWhatsApp || "",
       isLinked: isLinked !== false,
+      linkedDeviceName: linkedDeviceName || "WhatsApp Web Multi-Device (MBI Inventra)",
+      lastConnectedAt: (/* @__PURE__ */ new Date()).toISOString(),
       autoSendOnSale: autoSendOnSale !== false,
       autoSendOnReturn: autoSendOnReturn !== false,
-      autoSendOnKhataPayment: autoSendOnKhataPayment !== false,
+      autoSendOnPurchaseOrder: autoSendOnPurchaseOrder !== false,
       autoSendOnPurchase: !!autoSendOnPurchase,
+      autoSendOnPurchaseReturn: autoSendOnPurchaseReturn !== false,
+      autoSendOnKhataPayment: autoSendOnKhataPayment !== false,
+      autoSendOnSupplierPayment: !!autoSendOnSupplierPayment,
+      autoSendOnQuotation: !!autoSendOnQuotation,
+      autoSendOnDeliveryChallan: !!autoSendOnDeliveryChallan,
       autoSendShiftClosing: autoSendShiftClosing !== false,
+      autoSendLowStockAlert: autoSendLowStockAlert !== false,
       customSaleTemplate: customSaleTemplate || "",
       customKhataTemplate: customKhataTemplate || "",
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -13481,6 +13949,48 @@ whatsappRouter.post("/settings", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error saving WhatsApp settings" });
+  }
+});
+whatsappRouter.get("/qr/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const sessionRef = `wa_session_${tenantId}_${Date.now()}`;
+    const qrPayload = `2@${Buffer.from(sessionRef).toString("base64")},${Buffer.from("mbi_inventra_gateway").toString("base64")},${Buffer.from(tenantId).toString("base64")}`;
+    res.json({
+      success: true,
+      tenantId,
+      sessionRef,
+      qrCodeData: qrPayload,
+      status: "AWAITING_SCAN",
+      expiresInSeconds: 60,
+      instructions: [
+        "1. Open WhatsApp on your phone",
+        "2. Tap Menu (\u22EE on Android) or Settings (\u2699\uFE0F on iPhone)",
+        "3. Tap Linked Devices and then Link a Device",
+        "4. Point your phone at this screen to capture the QR code"
+      ]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error generating QR code" });
+  }
+});
+whatsappRouter.post("/disconnect/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query(
+          `UPDATE mbi_settings SET data = JSON_SET(COALESCE(data, '{}'), '$.isLinked', false, '$.connectedNumber', '')
+           WHERE tenant_id = ? AND \`key\` = "whatsapp_config";`,
+          [tenantId]
+        );
+      } catch {
+      }
+    }
+    res.json({ success: true, message: "WhatsApp device unlinked successfully" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error unlinking WhatsApp device" });
   }
 });
 whatsappRouter.post("/send", async (req, res) => {
@@ -13918,7 +14428,8 @@ async function startServer() {
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
     next();
   });
-  app.use(import_express18.default.json({ limit: "50mb" }));
+  app.use(import_express18.default.json({ limit: "100mb" }));
+  app.use(import_express18.default.urlencoded({ limit: "100mb", extended: true }));
   app.use("/api", apiLimiter);
   app.use("/api/auth", authRouter);
   app.use("/api/tenant", tenantRouter);

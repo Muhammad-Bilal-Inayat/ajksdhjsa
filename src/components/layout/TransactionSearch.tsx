@@ -490,16 +490,16 @@ export const TransactionSearch: React.FC = () => {
         }
       },
       {
-        id: 'fn-firebase-cloud',
-        title: 'Firebase Cloud Multi-Device Sync...',
-        subtitle: 'Sync sales, inventory & khata real-time across multiple counters and mobile devices',
-        category: 'Modal',
-        keywords: ['firebase', 'cloud sync', 'multi device', 'cloud login', 'online sync', 'multi counter'],
-        icon: Sparkles,
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-700',
+        id: 'fn-online-store',
+        title: 'Online Storefront & Digital Orders...',
+        subtitle: 'Manage digital pharmacy catalog, online customer orders & e-commerce web storefront',
+        category: 'Page',
+        keywords: ['online store', 'digital store', 'web store', 'e-commerce', 'online orders', 'storefront', 'online'],
+        icon: Globe,
+        iconBg: 'bg-indigo-100',
+        iconColor: 'text-indigo-700',
         action: () => {
-          window.dispatchEvent(new CustomEvent('open-firebase-auth'));
+          navigate('/online-store');
         }
       },
       {

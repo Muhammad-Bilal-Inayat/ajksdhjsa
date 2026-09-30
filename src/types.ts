@@ -673,6 +673,8 @@ export interface Medicine {
   leadTimeDays?: number;
   batches?: MedicineBatch[];
   serialNumbers?: string[];
+  isArchived?: boolean; // Archived Item: Totally hidden from normal software operations
+  archivedAt?: string;
   // Controlled & Regulatory Access Controls
   isControlled?: boolean; // Controlled / Restricted Item: ON/OFF
   isNarcotic?: boolean; // Narcotic Item: ON/OFF

@@ -1,4 +1,4 @@
-export type PlanTier = 'silver' | 'gold' | 'platinum';
+export type PlanTier = 'silver' | 'gold' | 'platinum' | 'basic' | 'business' | 'enterprise';
 export type WidgetZone = 'main' | 'sidebar';
 export type WidgetCategory = 'kpi' | 'sales' | 'inventory' | 'finance' | 'security' | 'operations';
 
@@ -13,16 +13,27 @@ export interface DashboardWidgetConfig {
   badge?: string;
 }
 
-export const PLAN_ORDER: Record<PlanTier, number> = {
+export const PLAN_ORDER: Record<string, number> = {
   silver: 1,
+  basic: 1,
+  standard: 1,
+  trial: 1,
   gold: 2,
+  business: 2,
+  pro: 2,
   platinum: 3,
+  enterprise: 3,
+  vip: 3,
+  premium: 3,
 };
 
-export const PLAN_WIDGET_LIMITS: Record<PlanTier, number> = {
+export const PLAN_WIDGET_LIMITS: Record<string, number> = {
   silver: 10,
+  basic: 10,
   gold: 18,
+  business: 18,
   platinum: 24,
+  enterprise: 24,
 };
 
 export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
@@ -128,7 +139,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'fefo_expiry_status',
     title: '30/60/90 Days FEFO Expiry Status Radar',
     description: 'Real-time First-Expiry First-Out tracker highlighting medicines expiring in 30, 60, 90, and 180 days.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'gold',
     defaultVisible: true,
     category: 'inventory',
@@ -147,7 +158,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'therapeutic_category_mix',
     title: 'Therapeutic Drug Category Mix',
     description: 'Segmented stock mix chart, categorical sales breakdown, and margin percentages across drug classes.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'gold',
     defaultVisible: true,
     category: 'inventory',
@@ -156,7 +167,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'weekly_revenue_trajectory',
     title: 'Weekly Revenue & Bill Trajectory',
     description: 'Daily counter performance across all active retail terminals with automatic peak day tagging.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'gold',
     defaultVisible: true,
     category: 'finance',
@@ -174,7 +185,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'missed_sales_demand',
     title: 'Missed Sales & Patient Demand Registry',
     description: 'Tracks out-of-stock inquiries, prescription shortages, and estimated lost revenue for smart ordering.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'gold',
     defaultVisible: true,
     category: 'sales',
@@ -206,7 +217,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'pharmacy_erp_analytics_hub',
     title: 'Multi-Branch ERP Analytics Hub',
     description: 'Switchable multi-tab analytics engine with 7-Day Sales, Category Mix, Rush Hours, and Fast SKUs Matrix.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'platinum',
     defaultVisible: true,
     category: 'kpi',
@@ -216,7 +227,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'hourly_rush_velocity',
     title: 'Hourly Doctor Rush Hours Velocity & Staffing',
     description: 'Identifies dual-peak doctor consultant rush hours with automated cashier staffing recommendations.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'platinum',
     defaultVisible: true,
     category: 'operations',
@@ -226,7 +237,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'fast_skus_margin_matrix',
     title: 'Fast SKUs & Profit Margins Matrix',
     description: 'Real-time stock turnover rates, monthly consumption velocity, supplier profit margins, and remaining stock.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'platinum',
     defaultVisible: true,
     category: 'sales',
@@ -235,7 +246,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'ai_expiry_loss_prevention',
     title: 'AI Expiry Loss Prevention & Supplier Debit Notes',
     description: 'Calculates claimable credit value, generates supplier debit return notes, and saves 100% wastage.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'platinum',
     defaultVisible: true,
     category: 'inventory',
@@ -255,7 +266,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     id: 'multi_branch_telemetry',
     title: 'Multi-Branch Real-Time Mesh Telemetry',
     description: 'Consolidated inter-branch transfer tracking, warehouse bin sync, and centralized chain analytics.',
-    zone: 'main',
+    zone: 'sidebar',
     minPlan: 'platinum',
     defaultVisible: true,
     category: 'operations',
@@ -314,10 +325,39 @@ export const PRESET_LAYOUTS = {
   },
 };
 
+/**
+ * Normalizes any plan string or dual-name format:
+ * - Enterprise / Platinum Enterprise -> 'platinum'
+ * - Business / Gold Business -> 'gold'
+ * - Basic / Silver Basic -> 'silver'
+ */
+export function normalizeDashboardPlan(rawPlan?: string | null): 'silver' | 'gold' | 'platinum' {
+  if (!rawPlan) return 'silver';
+  const p = String(rawPlan).trim().toLowerCase();
+  if (p.includes('enterprise') || p.includes('platinum') || p.includes('multi-branch') || p.includes('vip') || p.includes('premium') || p.includes('lifetime')) {
+    return 'platinum';
+  }
+  if (p.includes('business') || p.includes('gold') || p.includes('pro')) {
+    return 'gold';
+  }
+  if (p.includes('basic') || p.includes('silver') || p.includes('standard') || p.includes('trial') || p.includes('free')) {
+    return 'silver';
+  }
+  return 'silver';
+}
+
+export function formatPlanDualName(rawPlan?: string | null): string {
+  const norm = normalizeDashboardPlan(rawPlan);
+  if (norm === 'platinum') return 'Platinum Enterprise';
+  if (norm === 'gold') return 'Gold Business';
+  return 'Silver Basic';
+}
+
 export function isWidgetAllowedInPlan(widget: DashboardWidgetConfig, userPlan: string = 'silver'): boolean {
-  const normPlan = (userPlan || 'silver').toLowerCase() as PlanTier;
+  const normPlan = normalizeDashboardPlan(userPlan);
   const currentRank = PLAN_ORDER[normPlan] || 1;
-  const reqRank = PLAN_ORDER[widget.minPlan] || 1;
+  const reqNorm = normalizeDashboardPlan(widget.minPlan);
+  const reqRank = PLAN_ORDER[reqNorm] || 1;
   return currentRank >= reqRank;
 }
 

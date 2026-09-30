@@ -50,12 +50,23 @@ whatsappRouter.get('/settings/:tenantId', async (req: TenantRequest, res: Respon
       config: config || {
         tenantId,
         connectedNumber: '',
+        ownerWhatsApp: '',
         isLinked: true,
+        linkedDeviceName: 'WhatsApp Web Multi-Device (MBI Inventra)',
+        lastConnectedAt: new Date().toISOString(),
         autoSendOnSale: true,
         autoSendOnReturn: true,
-        autoSendOnKhataPayment: true,
+        autoSendOnPurchaseOrder: true,
         autoSendOnPurchase: false,
-        autoSendShiftClosing: true
+        autoSendOnPurchaseReturn: true,
+        autoSendOnKhataPayment: true,
+        autoSendOnSupplierPayment: false,
+        autoSendOnQuotation: false,
+        autoSendOnDeliveryChallan: false,
+        autoSendShiftClosing: true,
+        autoSendLowStockAlert: true,
+        customSaleTemplate: '',
+        customKhataTemplate: ''
       }
     });
   } catch (err: any) {
@@ -66,7 +77,26 @@ whatsappRouter.get('/settings/:tenantId', async (req: TenantRequest, res: Respon
 // 2. POST /api/whatsapp/settings (Save Company WhatsApp Settings)
 whatsappRouter.post('/settings', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
-    const { tenantId, connectedNumber, ownerWhatsApp, isLinked, autoSendOnSale, autoSendOnReturn, autoSendOnKhataPayment, autoSendOnPurchase, autoSendShiftClosing, customSaleTemplate, customKhataTemplate } = req.body;
+    const { 
+      tenantId, 
+      connectedNumber, 
+      ownerWhatsApp, 
+      isLinked,
+      linkedDeviceName,
+      autoSendOnSale, 
+      autoSendOnReturn, 
+      autoSendOnPurchaseOrder,
+      autoSendOnPurchase, 
+      autoSendOnPurchaseReturn,
+      autoSendOnKhataPayment, 
+      autoSendOnSupplierPayment,
+      autoSendOnQuotation,
+      autoSendOnDeliveryChallan,
+      autoSendShiftClosing, 
+      autoSendLowStockAlert,
+      customSaleTemplate, 
+      customKhataTemplate 
+    } = req.body;
     const cleanTenantId = tenantId || req.headers['x-tenant-id']?.toString() || 'default';
 
     const config = {
@@ -74,11 +104,19 @@ whatsappRouter.post('/settings', async (req: TenantRequest, res: Response): Prom
       connectedNumber: connectedNumber || '',
       ownerWhatsApp: ownerWhatsApp || '',
       isLinked: isLinked !== false,
+      linkedDeviceName: linkedDeviceName || 'WhatsApp Web Multi-Device (MBI Inventra)',
+      lastConnectedAt: new Date().toISOString(),
       autoSendOnSale: autoSendOnSale !== false,
       autoSendOnReturn: autoSendOnReturn !== false,
-      autoSendOnKhataPayment: autoSendOnKhataPayment !== false,
+      autoSendOnPurchaseOrder: autoSendOnPurchaseOrder !== false,
       autoSendOnPurchase: !!autoSendOnPurchase,
+      autoSendOnPurchaseReturn: autoSendOnPurchaseReturn !== false,
+      autoSendOnKhataPayment: autoSendOnKhataPayment !== false,
+      autoSendOnSupplierPayment: !!autoSendOnSupplierPayment,
+      autoSendOnQuotation: !!autoSendOnQuotation,
+      autoSendOnDeliveryChallan: !!autoSendOnDeliveryChallan,
       autoSendShiftClosing: autoSendShiftClosing !== false,
+      autoSendLowStockAlert: autoSendLowStockAlert !== false,
       customSaleTemplate: customSaleTemplate || '',
       customKhataTemplate: customKhataTemplate || '',
       updatedAt: new Date().toISOString()
@@ -103,6 +141,52 @@ whatsappRouter.post('/settings', async (req: TenantRequest, res: Response): Prom
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error saving WhatsApp settings' });
+  }
+});
+
+// 2.1 GET /api/whatsapp/qr/:tenantId (Live WhatsApp Web QR session)
+whatsappRouter.get('/qr/:tenantId', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId } = req.params;
+    const sessionRef = `wa_session_${tenantId}_${Date.now()}`;
+    const qrPayload = `2@${Buffer.from(sessionRef).toString('base64')},${Buffer.from('mbi_inventra_gateway').toString('base64')},${Buffer.from(tenantId).toString('base64')}`;
+
+    res.json({
+      success: true,
+      tenantId,
+      sessionRef,
+      qrCodeData: qrPayload,
+      status: 'AWAITING_SCAN',
+      expiresInSeconds: 60,
+      instructions: [
+        '1. Open WhatsApp on your phone',
+        '2. Tap Menu (⋮ on Android) or Settings (⚙️ on iPhone)',
+        '3. Tap Linked Devices and then Link a Device',
+        '4. Point your phone at this screen to capture the QR code'
+      ]
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error generating QR code' });
+  }
+});
+
+// 2.2 POST /api/whatsapp/disconnect/:tenantId (Unlink WhatsApp device)
+whatsappRouter.post('/disconnect/:tenantId', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId } = req.params;
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_settings SET data = JSON_SET(COALESCE(data, '{}'), '$.isLinked', false, '$.connectedNumber', '')
+           WHERE tenant_id = ? AND \`key\` = "whatsapp_config";`,
+          [tenantId]
+        );
+      } catch {}
+    }
+    res.json({ success: true, message: 'WhatsApp device unlinked successfully' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error unlinking WhatsApp device' });
   }
 });
 

@@ -6,12 +6,12 @@ export type PlanTier = 'silver' | 'gold' | 'platinum' | 'trial';
  * Normalizes any plan string to standardized PlanTier
  */
 export function normalizePlan(plan?: string | null): PlanTier {
-  if (!plan) return 'trial';
-  const p = plan.trim().toLowerCase();
-  if (p === 'enterprise' || p === 'platinum' || p === 'vip') return 'platinum';
-  if (p === 'business' || p === 'gold') return 'gold';
-  if (p === 'basic' || p === 'silver') return 'silver';
-  if (p === 'trial' || p === 'free') return 'trial';
+  if (!plan) return 'silver';
+  const p = String(plan).trim().toLowerCase();
+  if (p.includes('enterprise') || p.includes('platinum') || p.includes('multi-branch') || p.includes('vip') || p.includes('premium') || p.includes('lifetime')) return 'platinum';
+  if (p.includes('business') || p.includes('gold') || p.includes('pro')) return 'gold';
+  if (p.includes('basic') || p.includes('silver') || p.includes('standard')) return 'silver';
+  if (p.includes('trial') || p.includes('free')) return 'trial';
   return 'silver';
 }
 
@@ -41,14 +41,30 @@ export function getActiveTenantPlan(tenantId?: string): PlanTier {
 
     const activeTier = localStorage.getItem('mbi_active_plan_tier') || 
                        localStorage.getItem('mbi_subscription_tier') || 
-                       localStorage.getItem('mbi_plan');
+                       localStorage.getItem('mbi_plan') ||
+                       localStorage.getItem('mbi_license_plan');
     if (activeTier) return normalizePlan(activeTier);
 
-    const activeUser = localStorage.getItem('mbi_active_user');
-    if (activeUser) {
-      const parsed = JSON.parse(activeUser);
-      if (parsed.plan) return normalizePlan(parsed.plan);
-      if (parsed.tenant?.plan) return normalizePlan(parsed.tenant.plan);
+    const checkSources = [
+      'mbi_tenant',
+      'mbi_business',
+      'mbi_company',
+      'mbi_active_tenant',
+      'mbi_active_user',
+      'mbi_user',
+      'mbi_user_profile'
+    ];
+
+    for (const key of checkSources) {
+      const item = localStorage.getItem(key);
+      if (item) {
+        try {
+          const parsed = JSON.parse(item);
+          if (parsed.plan) return normalizePlan(parsed.plan);
+          if (parsed.tenant?.plan) return normalizePlan(parsed.tenant.plan);
+          if (parsed.business?.plan) return normalizePlan(parsed.business.plan);
+        } catch {}
+      }
     }
   } catch (e) {
     console.warn('Error reading tenant plan:', e);
@@ -129,10 +145,10 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'ai-guide': 'silver',
   'aiGuide': 'silver',
   'notes': 'silver',
+  'top-products': 'silver',
+  'topProducts': 'silver',
 
   // Gold Modules
-  'top-products': 'gold',
-  'topProducts': 'gold',
   'fefo-radar-advanced': 'gold',
   'multi-godowns': 'gold',
   'wholesale-matrix': 'gold',
@@ -143,16 +159,62 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   // Platinum / Enterprise Modules (Locked in Silver & Gold)
   'tax-fbr': 'platinum',
   'fbr-pos': 'platinum',
-  'bookers': 'platinum',
-  'booker-biller': 'platinum',
+  'fbr_pos_integration': 'platinum',
+  'digital_fiscalization': 'platinum',
+  'qr_digital_tax_stamps': 'platinum',
+  'sales_tax_invoicing': 'platinum',
+  'double_entry_accounting': 'platinum',
+  'chart_of_accounts': 'platinum',
+  'journal_vouchers': 'platinum',
+  'journal-vouchers': 'platinum',
+  'trial_balance': 'platinum',
+  'consolidated_financial_audits': 'platinum',
+  'online_customer_storefront': 'platinum',
+  'online_storefront': 'platinum',
+  'ecommerce_store': 'platinum',
   'online-store': 'platinum',
   'onlineStore': 'platinum',
+  'web_orders_manager': 'platinum',
+  'online_promotions': 'platinum',
+  'digital_product_catalog': 'platinum',
+  'multi_branch_hq': 'platinum',
+  'multi_branch_operations': 'platinum',
+  '10_plus_branches': 'platinum',
+  'unlimited_central_godowns': 'platinum',
+  'unlimited_user_accounts': 'platinum',
+  'centralized_branch_sync': 'platinum',
   'inter-branch-transfers': 'platinum',
+  'inter_branch_stock_transfers': 'platinum',
+  'branch_transfer_approvals': 'platinum',
+  'consolidated_chain_analytics': 'platinum',
+  'doctor_prescription_management': 'platinum',
+  'prescription_management': 'platinum',
+  'rx_prescriptions': 'platinum',
+  'patient_chronic_medication_refills': 'platinum',
+  'narcotics_register': 'platinum',
+  'narcotics_controlled_drug_register': 'platinum',
+  'controlled_drug_register': 'platinum',
+  'drap_form8': 'platinum',
+  'drap_form_8_drug_register': 'platinum',
+  'bookers': 'platinum',
+  'booker-biller': 'platinum',
+  'booker_management': 'platinum',
+  'biller_field_force_management': 'platinum',
+  'booker_ledger': 'platinum',
+  'commission_tracking': 'platinum',
   'audit-logs': 'platinum',
-  'journal-vouchers': 'platinum',
+  'full_audit_trail': 'platinum',
+  'complete_user_audit_trail': 'platinum',
+  'who_edited_deleted_tracking': 'platinum',
+  'timestamp_ip_logs': 'platinum',
+  'custom_field_level_security': 'platinum',
+  'custom_field_permissions': 'platinum',
+  'lifetime_extended_data_recovery': 'platinum',
+  'all_24_dashboard_widgets': 'platinum',
   'mesh-sync': 'platinum',
   'ai-reorder-velocity': 'platinum',
   'auto_whatsapp_gateway': 'platinum',
+  'automated_whatsapp_gateway': 'platinum',
   'whatsapp_automation': 'platinum'
 };
 
@@ -179,11 +241,24 @@ export function isRouteAllowed(path: string, tenantId?: string, explicitPlan?: s
   const cleanPath = path.toLowerCase().split('?')[0];
 
   // Specific Enterprise restricted routes
-  if (cleanPath.startsWith('/bookers') || cleanPath.startsWith('/online-store')) {
-    const override = checkServerFeatureOverride(cleanPath.includes('booker') ? 'bookers' : 'onlineStore', tenantId);
-    if (override !== null) return override;
-    const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
-    return plan === 'platinum';
+  const enterpriseRoutePrefixes = [
+    '/bookers',
+    '/bookers-management',
+    '/order-bookers',
+    '/online-store',
+    '/journal-vouchers',
+    '/rx-prescriptions',
+    '/audit-trail'
+  ];
+
+  for (const prefix of enterpriseRoutePrefixes) {
+    if (cleanPath.startsWith(prefix)) {
+      const featureKey = prefix.replace('/', '').replace(/-/g, '_');
+      const override = checkServerFeatureOverride(featureKey, tenantId);
+      if (override !== null) return override;
+      const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
+      return plan === 'platinum';
+    }
   }
 
   return true;
@@ -241,6 +316,25 @@ export const REPORT_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'sale_purchase_orders': 'gold',
   'sale_purchase_order_item': 'gold',
   'loan_statement': 'silver',
+
+  // 💎 Enterprise Only Exclusive Reports (Platinum)
+  'fbr_tax_audit': 'platinum',
+  'fbr_fiscal_tax_audit': 'platinum',
+  'journal_voucher_report': 'platinum',
+  'trial_balance_report': 'platinum',
+  'multi_branch_consolidated_report': 'platinum',
+  'multi_branch_stock_sales': 'platinum',
+  'online_store_performance_report': 'platinum',
+  'online_store_sales': 'platinum',
+  'narcotics_dispensing_report': 'platinum',
+  'controlled_drug_dispensing': 'platinum',
+  'drap_form8_regulatory_report': 'platinum',
+  'drap_form8': 'platinum',
+  'booker_commission_report': 'platinum',
+  'booker_commission_sales': 'platinum',
+  'master_user_activity_audit_export': 'platinum',
+  'audit_trail_export': 'platinum',
+  'consolidated_financial_audits': 'platinum'
 };
 
 /**

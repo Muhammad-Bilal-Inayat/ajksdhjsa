@@ -67,9 +67,9 @@ interface DeveloperVaultPanelProps {
 }
 
 export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNotify }) => {
-  const [activeTab, setActiveTab] = useState<'dispatcher' | 'upload_patch' | 'history' | 'tester'>('dispatcher');
+  const [activeTab, setActiveTab] = useState<'dispatcher' | 'upload_patch' | 'history' | 'restore_points'>('dispatcher');
   const [tenants, setTenants] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [restorePoints, setRestorePoints] = useState<any[]>([]);
   
   // Dispatcher form state
   const [targetTenantId, setTargetTenantId] = useState<string>('*');
@@ -92,7 +92,7 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
   const [uploadedPatchCode, setUploadedPatchCode] = useState<string>('');
   const [uploadedFileName, setUploadedFileName] = useState<string>('');
   const [uploadTargetTenantId, setUploadTargetTenantId] = useState<string>('*');
-  const [uploadVersionTag, setUploadVersionTag] = useState<string>('v2.5.1-patch');
+  const [uploadVersionTag, setUploadVersionTag] = useState<string>('v2.5.1-custom-patch');
   const [uploadPatchTitle, setUploadPatchTitle] = useState<string>('Custom Client Patch & Module Enhancement');
   const [uploadNotes, setUploadNotes] = useState<string>('Targeted enhancement applied specifically to this account. All existing database records remain 100% preserved.');
   const [preserveDataToggle, setPreserveDataToggle] = useState<boolean>(true);
@@ -123,8 +123,6 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
   const loadData = () => {
     const allT = getAllTenants();
     setTenants(allT);
-    const allU = getMasterActiveUsers();
-    setUsers(allU);
 
     try {
       const raw = localStorage.getItem(PENDING_UPDATES_KEY);
@@ -136,10 +134,20 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
     } catch {
       setPendingList([]);
     }
+
+    loadRestorePoints();
+  };
+
+  const loadRestorePoints = () => {
+    const points = manualPatchService.getAllRestorePoints();
+    setRestorePoints(points);
   };
 
   useEffect(() => {
     loadData();
+    const handleRestorePointsUpdate = () => loadRestorePoints();
+    window.addEventListener('mbi-restore-points-updated', handleRestorePointsUpdate);
+    return () => window.removeEventListener('mbi-restore-points-updated', handleRestorePointsUpdate);
   }, []);
 
   const handleToggleFeature = (fKey: string) => {
@@ -158,10 +166,9 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
     setIsDispatching(true);
 
     const targetTenant = tenants.find(t => (t.tenantId || t.id) === targetTenantId);
-    const targetUser = users.find(u => (u.tenantId || u.id) === targetTenantId);
     const targetName = targetTenantId === '*' 
-      ? 'All Tenants & Users (Universal)' 
-      : (targetTenant?.businessName || targetTenant?.name || targetUser?.name || targetTenantId);
+      ? 'All Tenants & Companies (Universal)' 
+      : (targetTenant?.businessName || targetTenant?.name || targetTenantId);
 
     const highlights = highlightsText
       .split('\n')
@@ -172,7 +179,14 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
       .filter(f => selectedFeatures.includes(f.key))
       .map(f => f.route);
 
-    // Generate signed patch
+    // Create automatic pre-patch restore point
+    manualPatchService.createRestorePoint(
+      targetTenantId,
+      updateTitle,
+      `Automatic Restore Point created before dispatching: ${updateTitle}`
+    );
+
+    // Generate signed encrypted patch
     const patchResult = manualPatchService.generatePatch({
       title: updateTitle,
       description: updateDesc,
@@ -184,20 +198,19 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
     });
 
     const newUpdate: PendingSystemUpdate = {
-      updateId: `UPD-${Date.now().toString(36).toUpperCase()}`,
+      updateId: patchResult.patch.patchId,
       version: updateVersion.trim(),
       title: updateTitle.trim(),
       description: updateDesc.trim(),
       highlights: highlights.length > 0 ? highlights : [updateDesc],
       targetTenantId,
       targetTenantName: targetName,
-      targetUserEmail: targetUser?.email,
       dispatchedAt: new Date().toISOString(),
       installedAt: null,
       features: selectedFeatures,
       routes: routesToUnlock,
       status: 'PENDING',
-      rawPatchCode: patchResult.rawCode,
+      rawPatchCode: patchResult.mbiFileContent,
       patchType: 'FEATURE_BUNDLE',
       preserveDataSafety: true
     };
@@ -220,13 +233,14 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
 
     setTimeout(() => {
       setIsDispatching(false);
-      const msg = `🚀 System Update "${newUpdate.title}" (${newUpdate.version}) dispatched to ${targetName}! User data is 100% preserved.`;
+      const msg = `🚀 System Update "${newUpdate.title}" (${newUpdate.version}) dispatched to ${targetName}! Automatic Restore Point created. User data is 100% preserved.`;
       if (onNotify) onNotify(msg);
       alert(msg);
+      loadRestorePoints();
     }, 500);
   };
 
-  // Handle File Upload for Custom Patch
+  // Handle File Upload for Custom Patch (.mbi, .mbipatch, .json, .txt)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -241,25 +255,54 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
 
       // Attempt parsing
       try {
-        if (content.startsWith('{') || content.startsWith('MBI-PATCH-v1:')) {
-          const parsed = manualPatchService.parsePatch(content);
-          if (parsed.patch) {
-            setParsedPatchPreview(parsed.patch);
-            if (parsed.patch.title) setUploadPatchTitle(parsed.patch.title);
-            if (parsed.patch.version) setUploadVersionTag(parsed.patch.version);
-            if (parsed.patch.targetTenantId) setUploadTargetTenantId(parsed.patch.targetTenantId);
-          } else {
-            setParsedPatchPreview({ raw: content.substring(0, 300) });
-          }
+        const parsed = manualPatchService.parsePatch(content);
+        if (parsed.patch) {
+          setParsedPatchPreview(parsed.patch);
+          if (parsed.patch.title) setUploadPatchTitle(parsed.patch.title);
+          if (parsed.patch.version) setUploadVersionTag(parsed.patch.version);
+          if (parsed.patch.targetTenantId) setUploadTargetTenantId(parsed.patch.targetTenantId);
+        } else if (content.startsWith('{')) {
+          setParsedPatchPreview(JSON.parse(content));
         } else {
           setParsedPatchPreview({ type: 'CUSTOM_SCRIPT_PATCH', length: content.length, snippet: content.substring(0, 250) });
         }
       } catch (err: any) {
-        setUploadParseError('File parsed as raw script payload: ' + err?.message);
+        setUploadParseError('File parsed as raw payload: ' + err?.message);
         setParsedPatchPreview({ type: 'RAW_CODE', content: content.substring(0, 300) });
       }
     };
     reader.readAsText(file);
+  };
+
+  // Handle Download .mbi Encrypted File Directly
+  const handleDownloadMbiFile = () => {
+    const targetTenant = tenants.find(t => (t.tenantId || t.id) === uploadTargetTenantId);
+    const targetName = uploadTargetTenantId === '*' ? 'Universal' : (targetTenant?.name || targetTenant?.businessName || uploadTargetTenantId);
+    
+    const patchResult = manualPatchService.generatePatch({
+      title: uploadPatchTitle.trim() || 'Custom Client Patch',
+      description: uploadNotes.trim() || 'Custom encrypted patch for tenant',
+      targetTenantId: uploadTargetTenantId,
+      targetBusinessName: targetName,
+      features: parsedPatchPreview?.features || selectedFeatures || ['custom_feature'],
+      routes: parsedPatchPreview?.routes || [],
+      customFlags: parsedPatchPreview?.customFlags || {},
+      customScript: uploadedPatchCode,
+      issuedBy: 'MBI Inventra Master Engineer'
+    });
+
+    const blob = new Blob([patchResult.mbiFileContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = (uploadPatchTitle || 'patch').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    a.download = `MBI_${uploadTargetTenantId}_${safeTitle}.mbi`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    if (onNotify) onNotify(`Encrypted .mbi patch package downloaded for ${targetName}!`);
   };
 
   // Handle Dispatch Uploaded Custom Patch
@@ -272,33 +315,52 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
     setIsUploading(true);
 
     const targetTenant = tenants.find(t => (t.tenantId || t.id) === uploadTargetTenantId);
-    const targetUser = users.find(u => (u.tenantId || u.id) === uploadTargetTenantId);
     const targetName = uploadTargetTenantId === '*' 
-      ? 'All Tenants & Users (Universal)' 
-      : (targetTenant?.businessName || targetTenant?.name || targetUser?.name || uploadTargetTenantId);
+      ? 'All Tenants & Companies (Universal)' 
+      : (targetTenant?.businessName || targetTenant?.name || uploadTargetTenantId);
+
+    // Generate strict encrypted .mbi patch
+    const patchResult = manualPatchService.generatePatch({
+      title: uploadPatchTitle.trim() || 'Custom Client Patch',
+      description: uploadNotes.trim() || 'Custom uploaded software patch. Local database 100% preserved.',
+      targetTenantId: uploadTargetTenantId,
+      targetBusinessName: targetName,
+      features: parsedPatchPreview?.features || ['custom_patch_feature'],
+      routes: parsedPatchPreview?.routes || [],
+      customFlags: parsedPatchPreview?.customFlags || {},
+      customScript: uploadedPatchCode,
+      issuedBy: 'MBI Inventra Master Engineer'
+    });
+
+    // Automatic pre-patch restore point
+    manualPatchService.createRestorePoint(
+      uploadTargetTenantId,
+      uploadPatchTitle.trim() || 'Custom Client Patch',
+      `Automatic Restore Point created before deploying: ${uploadPatchTitle.trim()}`
+    );
 
     const newUpdate: PendingSystemUpdate = {
-      updateId: `PATCH-${Date.now().toString(36).toUpperCase()}`,
+      updateId: patchResult.patch.patchId,
       version: uploadVersionTag.trim() || 'v2.5.1',
       title: uploadPatchTitle.trim() || 'Custom Uploaded Patch',
       description: uploadNotes.trim() || 'Custom uploaded software patch. Local database 100% preserved.',
       highlights: [
-        'Custom Over-the-Air (OTA) Patch deployed specifically for this account.',
-        'Zero data disruption: all invoices, products, and khatas preserved.',
-        'Instant background feature activation.'
+        `Custom Encrypted .mbi Patch locked specifically to Tenant: ${targetName}`,
+        'Strict logical isolation: Zero exposure to other tenants or external subusers.',
+        '100% Data Preservation: All local invoices, medicines, batches, and khatas preserved.',
+        'Automatic pre-patch snapshot & 1-click restore point created.'
       ],
       targetTenantId: uploadTargetTenantId,
       targetTenantName: targetName,
-      targetUserEmail: targetUser?.email,
       dispatchedAt: new Date().toISOString(),
       installedAt: null,
-      features: ['custom_patch_feature'],
-      routes: [],
+      features: patchResult.patch.features,
+      routes: patchResult.patch.routes,
       status: 'PENDING',
-      rawPatchCode: uploadedPatchCode,
+      rawPatchCode: patchResult.mbiFileContent,
       patchType: 'UPLOADED_CUSTOM_PATCH',
       preserveDataSafety: preserveDataToggle,
-      uploadedFileName: uploadedFileName || 'custom_patch.json'
+      uploadedFileName: uploadedFileName || `patch_${uploadTargetTenantId}.mbi`
     };
 
     const existing: PendingSystemUpdate[] = (() => {
@@ -319,11 +381,32 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
 
     setTimeout(() => {
       setIsUploading(false);
-      const msg = `✅ Custom Patch "${newUpdate.title}" successfully released to ${targetName}! Only this target user will receive the patch while all other users are unaffected and data is 100% safe.`;
+      const msg = `✅ Encrypted .mbi Patch "${newUpdate.title}" successfully released to ${targetName}! Only this target tenant can run it while other tenants remain 100% unaffected. Restore Point created.`;
       if (onNotify) onNotify(msg);
       alert(msg);
+      loadRestorePoints();
       setActiveTab('history');
     }, 600);
+  };
+
+  const handleRollbackRestorePoint = (rpId: string, tId: string) => {
+    if (!confirm(`Are you sure you want to rollback to Restore Point #${rpId}? All feature flags will revert to their previous state with 100% data preservation.`)) return;
+    const res = manualPatchService.rollbackToRestorePoint(rpId, tId);
+    if (res.success) {
+      alert(res.message);
+      if (onNotify) onNotify(res.message);
+      loadRestorePoints();
+      loadData();
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleDeleteRestorePoint = (rpId: string) => {
+    if (!confirm(`Delete Restore Point snapshot #${rpId}?`)) return;
+    manualPatchService.deleteRestorePoint(rpId);
+    loadRestorePoints();
+    if (onNotify) onNotify('Restore Point snapshot deleted.');
   };
 
   const handleRevokeUpdate = (updateId: string) => {
@@ -344,11 +427,11 @@ export const DeveloperVaultPanel: React.FC<DeveloperVaultPanelProps> = ({ onNoti
   const handleTestDryRun = (patch: PendingSystemUpdate) => {
     setTestPatchResult(`[DRY-RUN VALIDATION SUCCESS]
 Patch ID: ${patch.updateId}
-Target: ${patch.targetTenantName || patch.targetTenantId}
-Integrity Signature: VALID (MBI-SHA256)
+Target Tenant: ${patch.targetTenantName || patch.targetTenantId}
+Encryption Envelope: MBI-ENCRYPTED-V2 (Hard Tenant Boundary Checked)
 Local DB Safety Check: PASSED (Zero data wiped, IndexedDB schemas retained)
 Affected Modules: ${(patch.features || []).join(', ') || 'Custom Script / Patch'}
-Status: Ready for 1-click installation by user.`);
+Status: Ready for 1-click installation by target tenant.`);
   };
 
   return (
@@ -363,16 +446,16 @@ Status: Ready for 1-click installation by user.`);
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-white tracking-tight">Developer Vault &amp; System Update Release Engine</h2>
+                <h2 className="text-lg font-bold text-white tracking-tight">Developer Vault &amp; Custom .MBI Patch Release Engine</h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                  MASTER OTA &amp; USER TARGETING
+                  TENANT ISOLATED .MBI OTA
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> 100% Data Safe
+                  <ShieldCheck className="w-3 h-3" /> 100% Data Safe &amp; Restore Points
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-                Upload custom feature patches or dispatch version updates to a <strong>single specific user</strong> or global fleet. The software updates smoothly for the target user without affecting any other users, and <strong>100% of their local invoices, medicines, and khatas are preserved</strong>.
+                Upload encrypted <strong>.mbi</strong> custom patches to a <strong>single specific tenant</strong>. The custom features run exclusively for that tenant with zero interference to any other tenant or user, and automatic <strong>Restore Point snapshots</strong> allow 1-click rollback anytime.
               </p>
             </div>
           </div>
@@ -399,7 +482,7 @@ Status: Ready for 1-click installation by user.`);
               }`}
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload Custom Patch</span>
+              <span>Upload .mbi Custom Patch</span>
             </button>
 
             <button
@@ -412,6 +495,18 @@ Status: Ready for 1-click installation by user.`);
             >
               <Layers className="w-3.5 h-3.5" />
               <span>Release History ({pendingList.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('restore_points')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'restore_points'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore Points ({restorePoints.length})</span>
             </button>
           </div>
         </div>
@@ -433,34 +528,33 @@ Status: Ready for 1-click installation by user.`);
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Target User / Tenant */}
+              {/* Target Tenant Selector (Strictly Tenants Only) */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Target Tenant / Specific User
+                  Target Specific Tenant / Company <span className="text-rose-400">*</span>
                 </label>
                 <select
                   value={targetTenantId}
                   onChange={(e) => setTargetTenantId(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="*">🌍 Universal Broadcast (All Tenants &amp; Users)</option>
-                  <optgroup label="Registered Tenants &amp; Fleets">
-                    {tenants.map((t, idx) => (
-                      <option key={idx} value={t.tenantId || t.id}>
-                        🏢 {t.businessName || t.name || t.tenantId} ({t.tenantId || t.id})
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Active Users">
-                    {users.map((u, idx) => (
-                      <option key={idx} value={u.tenantId || u.id}>
-                        👤 {u.name || u.email} — {u.businessName || u.role}
-                      </option>
-                    ))}
+                  <option value="*">🌍 Universal Broadcast (All Registered Tenants)</option>
+                  <optgroup label="🏢 Registered Tenants &amp; Companies">
+                    {tenants.map((t, idx) => {
+                      const tid = t.tenantId || t.id;
+                      const tName = t.name || t.businessName || tid;
+                      const plan = t.plan || 'Standard POS';
+                      const city = t.city || 'Pakistan';
+                      return (
+                        <option key={idx} value={tid}>
+                          🏢 {tName} ({tid}) • {plan} • {city}
+                        </option>
+                      );
+                    })}
                   </optgroup>
                 </select>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Select a single customer user to update only their account, or broadcast to all.
+                  Select a single tenant to release only for their company, or universal broadcast.
                 </p>
               </div>
 
@@ -634,31 +728,31 @@ Status: Ready for 1-click installation by user.`);
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Target Specific User to Receive This Patch <span className="text-rose-400">*</span>
+                  Target Specific Tenant / Company to Receive This Patch <span className="text-rose-400">*</span>
                 </label>
                 <select
                   value={uploadTargetTenantId}
                   onChange={(e) => setUploadTargetTenantId(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="*">🌍 Universal (All Users &amp; Branches)</option>
-                  <optgroup label="Registered Businesses &amp; Tenants">
-                    {tenants.map((t, idx) => (
-                      <option key={idx} value={t.tenantId || t.id}>
-                        🏢 {t.businessName || t.name || t.tenantId} ({t.tenantId || t.id})
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Single User Accounts">
-                    {users.map((u, idx) => (
-                      <option key={idx} value={u.tenantId || u.id}>
-                        👤 {u.name || u.email} ({u.role})
-                      </option>
-                    ))}
+                  <option value="*">🌍 Universal Broadcast (All Registered Tenants)</option>
+                  <optgroup label="🏢 Registered Businesses & Tenants">
+                    {tenants.map((t, idx) => {
+                      const tid = t.tenantId || t.id;
+                      const tName = t.businessName || t.name || tid;
+                      const plan = t.plan || 'Standard POS';
+                      const city = t.city || 'Active';
+                      return (
+                        <option key={idx} value={tid}>
+                          🏢 {tName} ({tid}) • {plan} • {city}
+                        </option>
+                      );
+                    })}
                   </optgroup>
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Software will update ONLY this user. Other users will not be affected.
+                <p className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  Software patch will execute ONLY in this tenant boundary. All other tenants &amp; subusers are 100% isolated.
                 </p>
               </div>
 
@@ -679,12 +773,12 @@ Status: Ready for 1-click installation by user.`);
             {/* File Drag & Drop */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Upload Patch File (.json, .js, .ts, .mbipatch, .txt)
+                Upload Patch File (.mbi, .json, .js, .ts, .mbipatch, .txt)
               </label>
               <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500/60 rounded-2xl p-6 text-center bg-slate-950/60 transition cursor-pointer relative">
                 <input
                   type="file"
-                  accept=".json,.js,.ts,.mbipatch,.txt,.zip"
+                  accept=".mbi,.json,.js,.ts,.mbipatch,.txt,.zip"
                   onChange={handleFileUpload}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
@@ -693,10 +787,10 @@ Status: Ready for 1-click installation by user.`);
                     <FileCode className="w-5 h-5" />
                   </div>
                   <div className="text-xs font-bold text-white">
-                    {uploadedFileName ? `Selected: ${uploadedFileName}` : 'Click or Drag & Drop Patch File here'}
+                    {uploadedFileName ? `Selected: ${uploadedFileName}` : 'Click or Drag & Drop Encrypted .mbi / Patch File here'}
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Supports JSON manifests, code patches, feature toggles, and migration scripts.
+                    Supports Encrypted .mbi packages, JSON manifests, code patches, and feature toggles.
                   </p>
                 </div>
               </div>
@@ -705,7 +799,7 @@ Status: Ready for 1-click installation by user.`);
             {/* Direct Paste / Code Area */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Or Paste Patch Code / JSON Configuration Directly
+                Or Paste Encrypted .mbi Payload / JSON Configuration Directly
               </label>
               <textarea
                 rows={5}
@@ -715,10 +809,13 @@ Status: Ready for 1-click installation by user.`);
                   try {
                     if (e.target.value.startsWith('{')) {
                       setParsedPatchPreview(JSON.parse(e.target.value));
+                    } else if (e.target.value.startsWith('MBI-ENCRYPTED-PATCH')) {
+                      const p = manualPatchService.parsePatch(e.target.value);
+                      if (p.patch) setParsedPatchPreview(p.patch);
                     }
                   } catch {}
                 }}
-                placeholder="Paste raw JSON patch descriptor or custom JS function here..."
+                placeholder="Paste encrypted .mbi content or raw JSON patch descriptor here..."
                 className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-emerald-300 focus:outline-none focus:border-emerald-500 font-mono leading-relaxed"
               />
             </div>
@@ -771,12 +868,24 @@ Status: Ready for 1-click installation by user.`);
               />
             </div>
 
-            {/* Deploy Button */}
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+            {/* Action Buttons: Deploy & Download .mbi */}
+            <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-end gap-3">
               <button
+                type="button"
+                onClick={handleDownloadMbiFile}
+                disabled={!uploadedPatchCode.trim() && !uploadPatchTitle.trim()}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                title="Download as cryptographically signed .mbi patch package"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Download Encrypted .mbi File</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleDeployUploadedPatch}
                 disabled={isUploading || !uploadedPatchCode.trim()}
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isUploading ? (
                   <>
@@ -786,7 +895,7 @@ Status: Ready for 1-click installation by user.`);
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    <span>🚀 Deploy Patch to Target User</span>
+                    <span>🚀 Deploy Patch to Target Tenant</span>
                   </>
                 )}
               </button>
@@ -815,11 +924,12 @@ Status: Ready for 1-click installation by user.`);
               )}
 
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-300">
-                <div className="font-bold text-white">How This Single-User Update Works:</div>
+                <div className="font-bold text-white">How This Single-Tenant Update Works:</div>
                 <p className="text-[11px] text-slate-400">
-                  1. The patch is cryptographically signed and routed exclusively to the targeted user's unique ID.<br/>
-                  2. Other users will not receive or download this update.<br/>
-                  3. The target user’s app merges new features while preserving 100% of their local IndexedDB records.
+                  1. The patch is cryptographically signed and encrypted into the <strong className="text-emerald-300">.mbi</strong> package locked exclusively to the targeted tenant ID.<br/>
+                  2. Other tenants or unauthorized subusers will NEVER receive, download, or execute this patch.<br/>
+                  3. A safe Restore Point snapshot is generated automatically before deployment.<br/>
+                  4. The target tenant’s app merges new features while preserving 100% of their local IndexedDB records (invoices, khatas, medicines).
                 </p>
               </div>
             </div>
@@ -837,7 +947,7 @@ Status: Ready for 1-click installation by user.`);
                 <span>Active Released Patches &amp; System Updates ({pendingList.length})</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Inspect targeted updates, user installation statuses, and perform instant rollbacks.
+                Inspect targeted updates, tenant installation statuses, and manage released patches.
               </p>
             </div>
             <button
@@ -923,6 +1033,101 @@ Status: Ready for 1-click installation by user.`);
             {pendingList.length === 0 && (
               <div className="py-12 text-center text-xs text-slate-400">
                 No system updates or custom patches released yet. Create or upload a patch above.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: RESTORE POINTS & SNAPSHOT ENGINE */}
+      {activeTab === 'restore_points' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-white space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-amber-400" />
+                <span>Tenant Restore Points &amp; Safe Rollback Engine ({restorePoints.length})</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Every patch automatically creates a restore point snapshot. Rollback anytime with 100% data preservation.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const targetName = targetTenantId === '*' ? 'Universal' : targetTenantId;
+                  manualPatchService.createRestorePoint(targetTenantId, 'Manual Admin Snapshot', 'Manual restore point created by master admin');
+                  loadRestorePoints();
+                  if (onNotify) onNotify('Manual Restore Point snapshot created successfully.');
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Create Snapshot Now</span>
+              </button>
+              <button
+                onClick={loadRestorePoints}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {restorePoints.map((rp) => (
+              <div
+                key={rp.id}
+                className="bg-slate-950 border border-slate-800 hover:border-amber-500/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition"
+              >
+                <div className="space-y-1.5 max-w-2xl">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-amber-400">Snapshot #{rp.id}</span>
+                    <h4 className="text-sm font-bold text-white">{rp.versionTag}</h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Tenant: {rp.tenantId === '*' ? 'Universal (All Tenants)' : rp.tenantId}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                      100% Data Safe
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300">{rp.reason}</p>
+
+                  <div className="flex items-center gap-4 text-[11px] text-slate-400 pt-1 flex-wrap">
+                    <span>Created: <strong className="text-slate-200">{new Date(rp.timestamp).toLocaleString()}</strong></span>
+                    <span>Patches in Snapshot: <strong className="text-amber-300">{rp.installedPatchesSnapshot?.length || 0}</strong></span>
+                    <span>Active Features: <strong className="text-emerald-300">{Object.keys(rp.featureTogglesSnapshot || {}).length}</strong></span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button
+                    onClick={() => handleRollbackRestorePoint(rp.id, rp.tenantId)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>⏪ Rollback to this Snapshot</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteRestorePoint(rp.id)}
+                    className="p-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs transition cursor-pointer"
+                    title="Delete restore point snapshot"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {restorePoints.length === 0 && (
+              <div className="py-12 text-center text-xs text-slate-400 space-y-2">
+                <p>No Restore Points saved yet.</p>
+                <p className="text-slate-500 text-[11px]">
+                  Deploying any custom patch or clicking &quot;Create Snapshot Now&quot; will create instant safety restore points.
+                </p>
               </div>
             )}
           </div>

@@ -137,7 +137,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [permissionVersion, setPermissionVersion] = useState<number>(0);
 
   useEffect(() => {
-    const handlePermissionsUpdated = () => {
+    const handlePermissionsUpdated = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const relevantKeys = [
+          'mbi_user_access_profile',
+          'mbi_effective_permissions',
+          'mbi_master_active_users_v3',
+          'mbi_master_tenants_v1',
+          'mbi_saas_pricing_plans_v2',
+          'user_preferences'
+        ];
+        if (!relevantKeys.includes(e.key)) return;
+      }
       setPermissionVersion(v => v + 1);
     };
     window.addEventListener('mbi-user-access-profile-updated', handlePermissionsUpdated);
@@ -480,6 +491,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const visibleSettingsTabs = useMemo(() => {
     return SETTINGS_TABS.filter(tab => isSettingsTabAllowedInPlan(tab.key, currentPlan, currentTid));
   }, [currentPlan, currentTid]);
+
+  // Memoized categorized reports to prevent heavy recalculations on sidebar menu toggles
+  const filteredCategorizedReports = useMemo(() => {
+    return getFilteredCategorizedReports(activePlanTier, currentTid);
+  }, [activePlanTier, currentTid]);
 
   // Sync & Share is guaranteed available across all plans
   const isSyncAllowed = settings.modules?.syncShare !== false;
@@ -1003,9 +1019,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Sub Menu Items (Natural flow when expanded, NEVER inside collapsed sidebar) */}
                 {item.subItems && isExpanded && !isCollapsed && (
-                  <div className="bg-slate-50 dark:bg-slate-800/50 py-1 border-l-[3px] border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-150 rounded-r-xl">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 py-1 border-l-[3px] border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-1 duration-75 rounded-r-xl">
                     {item.label === 'Reports' || item.label.includes('Report') || item.id === 'reports' ? (
-                      getFilteredCategorizedReports(activePlanTier, currentTid).map((cat, catIdx) => {
+                      filteredCategorizedReports.map((cat, catIdx) => {
                         const CatIcon = cat.categoryIcon || BarChart3;
                         return (
                           <div key={cat.id || catIdx} className="mb-2">

@@ -584,10 +584,21 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         })
       }).catch(() => {});
 
-      // 2. Update Local Tenant Status
+      // 2. Update Local Tenant Status & React State
       updateTenantStatus(tenant.id, nextStatus);
+      if (tenant.tenantId && tenant.tenantId !== tenant.id) {
+        updateTenantStatus(tenant.tenantId, nextStatus);
+      }
+      setTenants(prev => prev.map(t => {
+        if (t.id === tenant.id || t.tenantId === tid || t.id === tid) {
+          return { ...t, status: nextStatus, isSuspended: !isCurrentlySuspended };
+        }
+        return t;
+      }));
+
       if (isCurrentlySuspended) {
         unlockRemoteInstance(tenant.id);
+        if (tenant.tenantId) unlockRemoteInstance(tenant.tenantId);
       } else {
         executeRemoteKillSwitch(tenant.id, 'emergency_lock', 'Master Admin Company Lockout');
       }
@@ -619,6 +630,8 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         }
       } catch (e) {}
 
+      window.dispatchEvent(new CustomEvent('mbi-tenants-updated'));
+      window.dispatchEvent(new Event('storage'));
       refreshAllFleetData();
       onNotify(isCurrentlySuspended 
         ? `✅ Company "${tenant.name}" & all sub-users have been UNLOCKED and restored!` 
@@ -1043,7 +1056,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                           )}
                         </div>
                         <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Expires: {t.trialExpiryDate ? new Date(t.trialExpiryDate).toLocaleDateString() : 'Never (Lifetime)'}
+                          Expires: {t.trialExpiryDate && !isNaN(new Date(t.trialExpiryDate).getTime()) ? new Date(t.trialExpiryDate).toLocaleDateString() : 'Active (Perpetual / Lifetime)'}
                         </div>
                       </div>
 

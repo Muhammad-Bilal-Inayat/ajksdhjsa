@@ -1,6 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { Users, Search, Send, ShieldCheck, Eye, Trash2, CheckCircle2, Building2, Package, X } from 'lucide-react';
-import { getCustomerAssignmentSummaries, getAssignedMedicinesForCustomer, bulkRemoveAssignments } from '../../../lib/centralMedicineDatabaseService';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Users, Search, Send, ShieldCheck, Eye, Trash2, CheckCircle2, Building2, Package, X, RefreshCw, AlertTriangle, Edit } from 'lucide-react';
+import { 
+  getCustomerAssignmentSummaries, 
+  getAssignedMedicinesForCustomer, 
+  unassignMedicinesFromCustomer 
+} from '../../../lib/centralMedicineDatabaseService';
 import { CentralMedicine } from '../../../types';
 
 interface CustomersTabProps {
@@ -16,8 +20,22 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   const [viewingTenant, setViewingTenant] = useState<{ tenantId: string; name: string } | null>(null);
   const [customerMeds, setCustomerMeds] = useState<CentralMedicine[]>([]);
   const [customerMedSearch, setCustomerMedSearch] = useState('');
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const summaries = useMemo(() => getCustomerAssignmentSummaries(), []);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setRefreshCounter(c => c + 1);
+    };
+    window.addEventListener('mbi-central-assignments-updated', handleUpdate);
+    window.addEventListener('mbi-medicines-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('mbi-central-assignments-updated', handleUpdate);
+      window.removeEventListener('mbi-medicines-updated', handleUpdate);
+    };
+  }, []);
+
+  const summaries = useMemo(() => getCustomerAssignmentSummaries(), [refreshCounter]);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return summaries;
@@ -30,24 +48,60 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
   }, [summaries, search]);
 
   const handleViewAssigned = (tenantId: string, name: string) => {
-    const meds = getAssignedMedicinesForCustomer(tenantId);
+    const meds = getAssignedMedicinesForTenant(tenantId);
     setViewingTenant({ tenantId, name });
     setCustomerMeds(meds);
     setCustomerMedSearch('');
   };
 
-  const handleUnassignSingle = (medicineId: string) => {
+  const handleUnassignSingle = async (medicineId: string) => {
     if (!viewingTenant) return;
     if (!confirm(`Revoke assignment of this medicine for ${viewingTenant.name}?`)) return;
 
-    bulkRemoveAssignments({
-      tenantIds: [viewingTenant.tenantId],
-      medicineIds: [medicineId]
-    });
+    setIsProcessing(true);
+    try {
+      await unassignMedicinesFromCustomer({
+        tenantId: viewingTenant.tenantId,
+        medicineIds: [medicineId],
+        deleteFromInventory: true
+      });
 
-    const updated = getAssignedMedicinesForCustomer(viewingTenant.tenantId);
-    setCustomerMeds(updated);
-    onRefresh();
+      const updated = getAssignedMedicinesForTenant(viewingTenant.tenantId);
+      setCustomerMeds(updated);
+      setRefreshCounter(c => c + 1);
+      onRefresh();
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnassignAllForTenant = async (tenantId: string, tenantName: string) => {
+    const meds = getAssignedMedicinesForTenant(tenantId);
+    const count = meds.length;
+    if (count === 0) {
+      alert(`No assigned medicines found for "${tenantName}".`);
+      return;
+    }
+    if (!confirm(`⚠️ Are you sure you want to unassign and remove ALL ${count} assigned medicines from "${tenantName}"? This tenant's inventory will be reset.`)) return;
+
+    setIsProcessing(true);
+    try {
+      await unassignMedicinesFromCustomer({
+        tenantId,
+        medicineIds: meds.map(m => m.id),
+        deleteFromInventory: true
+      });
+
+      if (viewingTenant?.tenantId === tenantId) {
+        setCustomerMeds([]);
+      }
+      setRefreshCounter(c => c + 1);
+      onRefresh();
+    } catch (e) {
+      console.error('Failed to unassign medicines:', e);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const filteredCustomerMeds = useMemo(() => {
@@ -134,23 +188,37 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="pt-3 border-t border-slate-800/80 flex items-center gap-2">
-              <button
-                onClick={() => onOpenAssignForCustomer(cust.tenantId, cust.name)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-medium transition-colors shadow-sm shadow-sky-600/20"
-              >
-                <Send className="w-3.5 h-3.5" />
-                Assign Medicines
-              </button>
+            <div className="pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onOpenAssignForCustomer(cust.tenantId, cust.name)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-medium transition-colors shadow-sm shadow-sky-600/20"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Assign / Change
+                </button>
 
-              <button
-                onClick={() => handleViewAssigned(cust.tenantId, cust.name)}
-                className="flex items-center justify-center gap-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
-                title="View customer assigned inventory"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                View ({cust.assignedCount})
-              </button>
+                <button
+                  onClick={() => handleViewAssigned(cust.tenantId, cust.name)}
+                  className="flex items-center justify-center gap-1 py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                  title="View customer assigned inventory"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  View ({cust.assignedCount})
+                </button>
+              </div>
+
+              {cust.assignedCount > 0 && (
+                <button
+                  disabled={isProcessing}
+                  onClick={() => handleUnassignAllForTenant(cust.tenantId, cust.name)}
+                  className="w-full flex items-center justify-center gap-1.5 py-1 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-[11px] font-medium transition-colors"
+                  title="Unassign all medicines and wipe tenant inventory"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Unassign All / Wipe Tenant Stock
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -182,9 +250,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               </button>
             </div>
 
-            {/* Filter Input */}
-            <div className="p-4 border-b border-slate-800 bg-slate-950/40">
-              <div className="relative">
+            {/* Filter Input & Batch Actions */}
+            <div className="p-4 border-b border-slate-800 bg-slate-950/40 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
@@ -194,6 +262,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
                 />
               </div>
+
+              {customerMeds.length > 0 && (
+                <button
+                  disabled={isProcessing}
+                  onClick={() => handleUnassignAllForTenant(viewingTenant.tenantId, viewingTenant.name)}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Unassign All ({customerMeds.length})
+                </button>
+              )}
             </div>
 
             {/* Medicine List */}
@@ -215,6 +294,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
                     </div>
 
                     <button
+                      disabled={isProcessing}
                       onClick={() => handleUnassignSingle(item.id)}
                       className="p-1.5 text-slate-400 hover:text-rose-400 rounded hover:bg-slate-800 text-xs flex items-center gap-1 transition-colors"
                       title="Unassign medicine from this customer"
@@ -227,7 +307,20 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({
               )}
             </div>
 
-            <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex justify-end">
+            <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex justify-between items-center">
+              <button
+                onClick={() => {
+                  const tId = viewingTenant.tenantId;
+                  const tName = viewingTenant.name;
+                  setViewingTenant(null);
+                  onOpenAssignForCustomer(tId, tName);
+                }}
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium rounded-lg flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Assign More Medicines
+              </button>
+
               <button
                 onClick={() => setViewingTenant(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg"

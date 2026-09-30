@@ -12,6 +12,22 @@ const CENTRAL_AUDIT_STORAGE_KEY = 'mbi_central_medicine_audit_v3';
 let _inMemoryCentralMedicinesCache: CentralMedicine[] | null = null;
 let _inMemoryAssignmentsCache: MedicineAssignmentRecord[] | null = null;
 
+export function invalidateCentralMedicinesCache(): void {
+  _inMemoryCentralMedicinesCache = null;
+  _inMemoryAssignmentsCache = null;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === CENTRAL_MEDICINE_DB_STORAGE_KEY) {
+      _inMemoryCentralMedicinesCache = null;
+    }
+    if (e.key === CENTRAL_ASSIGNMENTS_STORAGE_KEY) {
+      _inMemoryAssignmentsCache = null;
+    }
+  });
+}
+
 // Clean string normalizer for duplicate prevention
 export function normalizeMedicineKey(name: string, brandOrCompany?: string): string {
   const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -253,6 +269,23 @@ export function getCustomerAssignmentSummaries(): {
 }
 
 /**
+ * Get the exact list of Central Medicines assigned to a specific tenant
+ */
+export function getAssignedMedicinesForTenant(tenantId: string): CentralMedicine[] {
+  if (!tenantId) return [];
+  invalidateCentralMedicinesCache();
+  const centralMeds = getCentralMedicines();
+  const assignments = getCentralMedicineAssignments().filter(a => a.tenantId === tenantId);
+  const assignedMedIds = new Set<string>([
+    ...assignments.map(a => a.medicineId),
+    ...centralMeds.filter(m => m.assignedTenantIds?.includes(tenantId)).map(m => m.id)
+  ]);
+
+  return centralMeds.filter(m => assignedMedIds.has(m.id));
+}
+
+
+/**
  * Add or Update Central Medicine (Master Only)
  */
 export function saveCentralMedicineRecord(data: Partial<CentralMedicine> & { name: string; category: string }): {
@@ -431,24 +464,32 @@ export async function assignMedicinesToCustomer(params: {
   const list = getCentralMedicines();
   const assignments = getCentralMedicineAssignments();
   const now = new Date().toISOString();
-  let assignedCount = 0;
 
+  // Deduplication: Only pick medicines that are not already assigned to this tenant
   const targetMeds = list.filter(m => medicineIds.includes(m.id));
+  const unassignedTargetMeds = targetMeds.filter(m => !m.assignedTenantIds || !m.assignedTenantIds.includes(tenantId));
+
+  if (unassignedTargetMeds.length === 0) {
+    return {
+      success: false,
+      assignedCount: 0,
+      message: 'All selected medicines are already assigned to this customer.'
+    };
+  }
+
+  const unassignedIdSet = new Set(unassignedTargetMeds.map(m => m.id));
 
   // Update central medicine assignedTenantIds in-memory
   const updatedCentralList = list.map(item => {
-    if (medicineIds.includes(item.id)) {
+    if (unassignedIdSet.has(item.id)) {
       const assigned = item.assignedTenantIds || [];
       const names = item.assignedCustomerNames || [];
-      if (!assigned.includes(tenantId)) {
-        assignedCount++;
-        return {
-          ...item,
-          assignedTenantIds: [...assigned, tenantId],
-          assignedCustomerNames: names.includes(tenantName) ? names : [...names, tenantName],
-          updatedAt: now
-        };
-      }
+      return {
+        ...item,
+        assignedTenantIds: [...assigned, tenantId],
+        assignedCustomerNames: names.includes(tenantName) ? names : [...names, tenantName],
+        updatedAt: now
+      };
     }
     return item;
   });
@@ -458,7 +499,7 @@ export async function assignMedicinesToCustomer(params: {
   // Record assignments
   const existingAssignKeySet = new Set(assignments.map(a => `${a.tenantId}__${a.medicineId}`));
   const newAssignments: MedicineAssignmentRecord[] = [];
-  for (const med of targetMeds) {
+  for (const med of unassignedTargetMeds) {
     const key = `${tenantId}__${med.id}`;
     if (!existingAssignKeySet.has(key)) {
       existingAssignKeySet.add(key);
@@ -484,12 +525,12 @@ export async function assignMedicinesToCustomer(params: {
 
   // Provision into client inventory database using high-speed atomic saveBatch
   try {
-    const clientMedicines: Medicine[] = targetMeds.map(med => {
+    const clientMedicines: Medicine[] = unassignedTargetMeds.map(med => {
       const genericStr = med.genericFormula || med.genericName || '';
       const companyStr = med.company || med.brandName || '';
 
       return {
-        id: 'med_' + uuidv4().replace(/-/g, '').substring(0, 10),
+        id: `med_${tenantId}_${med.id}`,
         tenantId,
         name: med.name,
         genericName: genericStr,
@@ -508,8 +549,8 @@ export async function assignMedicinesToCustomer(params: {
         lowStockThreshold: 10,
         minStock: 10,
         unit: med.unit || 'Box',
-        barcode: '',
-        batchNumber: '',
+        barcode: (med as any).barcode || '',
+        batchNumber: 'INIT-BATCH',
         gstPercentage: 0,
         expiryDate: '',
         batches: [],
@@ -518,7 +559,7 @@ export async function assignMedicinesToCustomer(params: {
       } as unknown as Medicine;
     });
 
-    await dbMedicines.saveBatch(clientMedicines, { skipCentralSync: true });
+    await dbMedicines.saveBatch(clientMedicines, { skipCentralSync: true, skipSync: true });
 
     // Asynchronously allocate into MariaDB & broadcast to all subusers via server endpoint
     try {
@@ -529,8 +570,8 @@ export async function assignMedicinesToCustomer(params: {
           targetTenantId: tenantId,
           targetTenantName: tenantName,
           mode: 'selected',
-          medicineIds,
-          items: targetMeds,
+          medicineIds: Array.from(unassignedIdSet),
+          items: unassignedTargetMeds,
           initialStock
         })
       }).catch(err => console.warn('[Server Assign Sync Notice]', err));
@@ -541,18 +582,18 @@ export async function assignMedicinesToCustomer(params: {
 
   logCentralMedicineAudit({
     action: 'ASSIGN',
-    description: `Assigned ${targetMeds.length} medicines to customer "${tenantName}" (${tenantId})`,
+    description: `Assigned ${unassignedTargetMeds.length} medicines to customer "${tenantName}" (${tenantId})`,
     performedBy: adminName,
-    affectedCount: targetMeds.length,
+    affectedCount: unassignedTargetMeds.length,
     tenantId,
     tenantName,
-    details: { medicineIds }
+    details: { medicineIds: Array.from(unassignedIdSet) }
   });
 
   return {
     success: true,
-    assignedCount: targetMeds.length,
-    message: `Successfully assigned ${targetMeds.length} medicines to "${tenantName}".`
+    assignedCount: unassignedTargetMeds.length,
+    message: `Successfully assigned ${unassignedTargetMeds.length} medicines to "${tenantName}".`
   };
 }
 
@@ -562,6 +603,7 @@ export async function assignMedicinesToCustomer(params: {
 export async function syncAssignedMedicinesForTenant(tenantId: string): Promise<number> {
   if (!tenantId) return 0;
   try {
+    invalidateCentralMedicinesCache();
     const centralMeds = getCentralMedicines();
     const assignments = getCentralMedicineAssignments().filter(a => a.tenantId === tenantId);
     const assignedMedIds = new Set<string>();
@@ -579,7 +621,7 @@ export async function syncAssignedMedicinesForTenant(tenantId: string): Promise<
 
     // Get current tenant's local inventory
     const allMeds = (await dbMedicines.getAll()) || [];
-    const existingClientMeds = allMeds.filter(m => !(m as any).tenantId || (m as any).tenantId === tenantId);
+    const existingClientMeds = allMeds.filter(m => !(m as any).tenantId || (m as any).tenantId === tenantId || (tenantId === 'tenant-demo-01' && ((m as any).tenantId === 'tenant-demo-01' || (m as any).tenantId === 'local-business-id')));
     const existingNames = new Set(existingClientMeds.map(m => (m.name || '').toLowerCase().trim()));
 
     const newMedsToBatch: Medicine[] = [];
@@ -597,7 +639,7 @@ export async function syncAssignedMedicinesForTenant(tenantId: string): Promise<
       const companyStr = centralItem.company || centralItem.brandName || '';
 
       newMedsToBatch.push({
-        id: 'med_' + uuidv4().replace(/-/g, '').substring(0, 10),
+        id: `med_${tenantId}_${centralItem.id}`,
         tenantId,
         name: centralItem.name,
         genericName: genericStr,
@@ -612,12 +654,12 @@ export async function syncAssignedMedicinesForTenant(tenantId: string): Promise<
         purchasePrice: 0,
         mrp: 0,
         sellingPrice: 0,
-        quantity: 0,
+        quantity: 20,
         lowStockThreshold: 10,
         minStock: 10,
         unit: centralItem.unit || 'Box',
-        barcode: '',
-        batchNumber: '',
+        barcode: (centralItem as any).barcode || '',
+        batchNumber: 'INIT-BATCH',
         gstPercentage: 0,
         expiryDate: '',
         batches: [],
@@ -627,7 +669,7 @@ export async function syncAssignedMedicinesForTenant(tenantId: string): Promise<
     }
 
     if (newMedsToBatch.length > 0) {
-      await dbMedicines.saveBatch(newMedsToBatch, { skipCentralSync: true });
+      await dbMedicines.saveBatch(newMedsToBatch, { skipCentralSync: true, skipSync: true });
     }
     return newMedsToBatch.length;
   } catch (err) {
@@ -695,6 +737,12 @@ export async function unassignMedicinesFromCustomer(params: {
     } catch (e) {
       console.warn('Could not batch delete from inventory:', e);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mbi-medicines-updated', { detail: { tenantId } }));
+    window.dispatchEvent(new CustomEvent('mbi-central-assignments-updated', { detail: { tenantId } }));
+    window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'medicines' } }));
   }
 
   logCentralMedicineAudit({
@@ -1213,12 +1261,7 @@ export function syncCustomerCreatedItem(
  * Returns ONLY medicines assigned to this customer/tenant or created by this customer.
  */
 export function getAssignedMedicinesForCustomer(tenantId: string): CentralMedicine[] {
-  if (!tenantId) return [];
-  const list = getCentralMedicines();
-  return list.filter(m => 
-    m.assignedTenantIds?.includes(tenantId) || 
-    m.sourceTenantId === tenantId
-  );
+  return getAssignedMedicinesForTenant(tenantId);
 }
 
 /**

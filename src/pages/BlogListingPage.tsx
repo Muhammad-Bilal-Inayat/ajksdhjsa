@@ -84,7 +84,7 @@ export const BlogListingPage: React.FC = () => {
   }, [posts]);
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans selection:bg-blue-500 selection:text-white transition-colors duration-200 ${
+    <div className={`blog-theme-root min-h-screen flex flex-col font-sans selection:bg-blue-500 selection:text-white transition-colors duration-200 ${
       isDark ? 'bg-[#0b0f19] text-slate-100' : 'bg-slate-50 text-slate-900'
     }`}>
       {/* Header Navigation */}

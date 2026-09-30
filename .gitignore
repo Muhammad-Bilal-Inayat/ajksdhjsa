@@ -7,7 +7,7 @@ coverage/
 .env*
 !.env.example
 .master_client_backups/
-.master_audit_logs.json
 .server_backups_vault/
-.sync_data.json
+.*.json
+*.json.bak
 

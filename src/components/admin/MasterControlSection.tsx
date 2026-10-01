@@ -726,34 +726,109 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   };
 
   const handleSwitchSessionToUser = () => {
-    const tenantIdToUse = targetTenantId || selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.id;
-    const storeNameToUse = selectedUser.storeName || selectedUser.name || 'Store';
+    const tenantIdToUse = targetTenantId || selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.id || 'tenant-demo-01';
+    const storeNameToUse = selectedUser.storeName || selectedUser.name || 'My Pharmacy Store';
     const normalizedRole = normalizeUserRole(selectedUser.role as any);
+    const userEmail = selectedUser.id.includes('@') ? selectedUser.id : `${selectedUser.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@pharma.pk`;
+    const targetPlan = (selectedUser as any).plan || profile.plan || 'Enterprise';
+
+    const allTenantsList = getAllTenants();
+    const existingTenant = allTenantsList.find(t => t.id === tenantIdToUse || t.tenantId === tenantIdToUse || t.name === storeNameToUse);
+
     const simUser = {
       id: selectedUser.id,
+      uid: selectedUser.id,
       name: selectedUser.name,
+      displayName: selectedUser.name,
       role: normalizedRole,
       storeName: storeNameToUse,
       tenantId: tenantIdToUse,
-      email: selectedUser.id.includes('@') ? selectedUser.id : `${selectedUser.id}@inventra.pos`
+      plan: targetPlan,
+      email: userEmail
     };
-    localStorage.setItem('active_simulated_user', JSON.stringify(simUser));
-    localStorage.setItem('active_simulated_role', normalizedRole);
+
+    const simProfile = {
+      id: selectedUser.id,
+      name: selectedUser.name,
+      email: userEmail,
+      role: normalizedRole === 'Primary Admin' ? 'Admin' : normalizedRole,
+      pin: selectedUser.passcode || '1234',
+      businessId: tenantIdToUse,
+      tenantId: tenantIdToUse,
+      plan: targetPlan,
+      createdAt: new Date().toISOString()
+    };
+
+    const simBusiness = {
+      id: tenantIdToUse,
+      tenantId: tenantIdToUse,
+      name: storeNameToUse,
+      ownerUid: selectedUser.id,
+      members: [selectedUser.id],
+      phone: existingTenant?.phone || existingTenant?.ownerPhone || '03001234567',
+      mobile: existingTenant?.phone || existingTenant?.ownerPhone || '03001234567',
+      email: userEmail,
+      address: existingTenant?.address || `${existingTenant?.city || 'Lahore'}, Pakistan`,
+      city: existingTenant?.city || 'Lahore',
+      state: 'Punjab',
+      pincode: '54000',
+      businessType: 'Pharmacy POS & General Store',
+      currency: 'PKR',
+      vatPercentage: 0,
+      invoicePrefix: storeNameToUse.slice(0, 3).toUpperCase() + '-',
+      plan: targetPlan,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const simTenant = existingTenant || {
+      id: tenantIdToUse,
+      tenantId: tenantIdToUse,
+      name: storeNameToUse,
+      ownerName: selectedUser.name,
+      ownerEmail: userEmail,
+      ownerPhone: '03001234567',
+      city: 'Lahore',
+      plan: targetPlan,
+      status: 'Active',
+      isTrialActive: false,
+      paidLicenseActive: true,
+      trialExpiryDate: new Date(Date.now() + 365 * 86400000).toISOString()
+    };
+
+    // Store seamless shadow authentication state for instantaneous tenant loading
+    localStorage.setItem('mock_session', JSON.stringify(simUser));
+    localStorage.setItem('mock_user_profile', JSON.stringify(simProfile));
+    localStorage.setItem('mock_business', JSON.stringify(simBusiness));
+    localStorage.setItem('mbi_active_tenant_cache', JSON.stringify(simTenant));
+    localStorage.setItem('mbi_active_tenant_id', tenantIdToUse);
+    localStorage.setItem('mbi_active_business_id', tenantIdToUse);
     localStorage.setItem('mbi_active_tenant', tenantIdToUse);
     localStorage.setItem('activeTenantId', tenantIdToUse);
+    localStorage.setItem('active_simulated_user', JSON.stringify(simUser));
+    localStorage.setItem('active_simulated_role', normalizedRole);
     localStorage.setItem('mbi_user_access_active_id', selectedUser.id);
     localStorage.setItem('mbi_master_control_last_selected_user', selectedUser.id);
     localStorage.setItem('mbi_store_name', storeNameToUse);
+    localStorage.setItem('mbi_last_active_route', '/user');
+    localStorage.setItem('mbi_active_plan_tier', targetPlan);
+    localStorage.setItem('mbi_subscription_tier', targetPlan);
+    localStorage.setItem('mbi_is_shadow_mode', 'true');
+    localStorage.setItem('mbi_shadow_target_name', storeNameToUse);
+    localStorage.setItem('mbi_shadow_token', 'master_stealth_switch');
 
     commitProfile(profile);
 
     window.dispatchEvent(new CustomEvent('mbi-user-role-changed', { detail: { role: normalizedRole, user: simUser } }));
     window.dispatchEvent(new CustomEvent('mbi-tenant-changed', { detail: { tenantId: tenantIdToUse, storeName: storeNameToUse } }));
+    window.dispatchEvent(new CustomEvent('mbi-user-logged-in', { detail: { user: simUser } }));
     window.dispatchEvent(new Event('storage'));
 
-    // Open User Workspace in a new browser tab for immediate live testing
+    // Open User Workspace with shadow URL parameters for instant 100% login bypass in any tab
+    const launchUrl = `/user?shadow_token=master_stealth_switch&tenant_id=${encodeURIComponent(tenantIdToUse)}&user_id=${encodeURIComponent(selectedUser.id)}&user_name=${encodeURIComponent(selectedUser.name)}&user_role=${encodeURIComponent(normalizedRole)}&store_name=${encodeURIComponent(storeNameToUse)}`;
+
     if (typeof window !== 'undefined') {
-      window.open('/', '_blank');
+      window.open(launchUrl, '_blank');
     }
 
     setSaveStatusMsg(`⚡ Switched to Tenant "${storeNameToUse}" (${tenantIdToUse})! Launched user workspace in a new tab.`);

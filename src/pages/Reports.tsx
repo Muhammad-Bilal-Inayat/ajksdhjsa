@@ -28,6 +28,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isReportAllowedInPlan, normalizePlanTier } from '../lib/planFeatureManager';
 import { isReportAllowed, getActiveTenantPlan, PlanTier } from '../utils/planPermissions';
+import { isMasterAdminAuthenticated } from '../lib/masterServerService';
 import { CATEGORIZED_REPORTS, getFilteredCategorizedReports, ReportCategoryGroup } from '../components/layout/navigationConfig';
 import { PurchasePrintModal } from '../components/purchases/PurchasePrintModal';
 import { InvoicePrintModal } from '../components/sales/InvoicePrintModal';
@@ -390,15 +391,15 @@ export const Reports: React.FC = () => {
     return getActiveTenantPlan(effectiveTenantId);
   }, [effectiveTenantId, currentPlan, tenant, userProfile]);
 
-  const isMasterOrPrimary = activeRole === 'Primary Admin' || (userProfile as any)?.isPrimaryOwner === true || planTier === 'platinum';
+  const isGlobalMaster = (userProfile as any)?.role === 'Master Admin' || (userProfile as any)?.email === 'm.bilalinayat786@gmail.com' || isMasterAdminAuthenticated();
 
   const categorizedAllowedReports = useMemo(() => {
     return getFilteredCategorizedReports(planTier, effectiveTenantId);
   }, [planTier, effectiveTenantId]);
 
   const allowedReports = useMemo(() => {
-    return REPORT_LIST.filter(r => isMasterOrPrimary || isReportAllowed(r.id, effectiveTenantId, planTier));
-  }, [planTier, effectiveTenantId, isMasterOrPrimary]);
+    return REPORT_LIST.filter(r => isGlobalMaster || isReportAllowed(r.id, effectiveTenantId, planTier));
+  }, [planTier, effectiveTenantId, isGlobalMaster]);
 
   // Active Report Selection
   const [activeReportId, setActiveReportId] = useState<string>('sale');

@@ -277,7 +277,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           tenantId: paramTenantId,
           name: storeName,
           ownerName: targetTenant?.ownerName || userName,
-          plan: targetTenant?.plan || 'Enterprise',
+          plan: targetTenant?.plan || 'Basic',
           status: targetTenant?.status || 'Active',
           paidLicenseActive: true
         }));

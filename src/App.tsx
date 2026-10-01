@@ -116,14 +116,11 @@ const HelpDeskPage = lazyWithRetry(() => import('./pages/HelpDeskPage').then(m =
 const SoftwareUpdatesPage = lazyWithRetry(() => import('./pages/SoftwareUpdatesPage').then(m => ({ default: m.SoftwareUpdatesPage })));
 const AiAssistantPage = lazyWithRetry(() => import('./pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
 
-// Lightweight, instant suspense loader
+import { RouteSkeletonLoader } from './components/common/RouteSkeletonLoader';
+
+// Lightweight, instant suspense skeleton loader
 function RouteLoader() {
-  return (
-    <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 space-y-3">
-      <div className="w-8 h-8 border-3 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
-      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Loading module...</p>
-    </div>
-  );
+  return <RouteSkeletonLoader type="general" />;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

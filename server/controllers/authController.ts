@@ -316,34 +316,35 @@ export async function loginController(req: TenantRequest, res: Response): Promis
     } catch (hwidErr) {}
 
 
-    // Update is_online in MariaDB and auto-confirm primary device if unbound
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-        pool.execute(
-          'UPDATE mbi_users SET is_online = 1, last_login_at = CURRENT_TIMESTAMP WHERE id = ?;',
-          [authenticatedUser.id]
-        ).catch(() => {});
-
-        // Auto-confirm primary device if unbound (1st device registration)
-        if (clientHwid && isPlaceholderHwid) {
-          pool.query(
-            `UPDATE mbi_licenses 
-             SET bound_hwid = ?,
-                 bound_hardware_ids = ?,
-                 updated_at = CURRENT_TIMESTAMP 
-             WHERE tenant_id = ? OR id = ? OR client_name = ?;`,
-            [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
+    // Update is_online in background if MariaDB is active
+    if (isMariaDbConnected()) {
+      setImmediate(async () => {
+        try {
+          const pool = getMariaDbPool();
+          pool.execute(
+            'UPDATE mbi_users SET is_online = 1, last_login_at = CURRENT_TIMESTAMP WHERE id = ?;',
+            [authenticatedUser.id]
           ).catch(() => {});
 
-          pool.query(
-            `UPDATE mbi_users 
-             SET bound_hwid = ?, updated_at = CURRENT_TIMESTAMP 
-             WHERE id = ?;`,
-            [clientHwid, authenticatedUser.id]
-          ).catch(() => {});
-        }
-      } catch {}
+          if (clientHwid && isPlaceholderHwid) {
+            pool.query(
+              `UPDATE mbi_licenses 
+               SET bound_hwid = ?,
+                   bound_hardware_ids = ?,
+                   updated_at = CURRENT_TIMESTAMP 
+               WHERE tenant_id = ? OR id = ? OR client_name = ?;`,
+              [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
+            ).catch(() => {});
+
+            pool.query(
+              `UPDATE mbi_users 
+               SET bound_hwid = ?, updated_at = CURRENT_TIMESTAMP 
+               WHERE id = ?;`,
+              [clientHwid, authenticatedUser.id]
+            ).catch(() => {});
+          }
+        } catch {}
+      });
     }
 
     // Register active device connection
@@ -532,123 +533,125 @@ export async function registerTrialController(req: TenantRequest, res: Response)
       console.warn('[SQLITE VAULT PROVISION NOTICE]:', vaultErr);
     }
 
-    // 2. Persist Tenant, User, and Auto-Bound 10-Day Basic License to MariaDB if available
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-
-        // Insert License with First-Device Auto-Binding
+    // 2. Persist to MariaDB in background if database connection is active
+    if (isMariaDbConnected()) {
+      setImmediate(async () => {
         try {
+          const pool = getMariaDbPool();
+
+          // Insert License with First-Device Auto-Binding
+          try {
+            await pool.query(
+              `INSERT INTO mbi_licenses (
+                 id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+                 issue_date, expiry_date, max_devices, bound_hwid, bound_hardware_ids
+               ) VALUES (
+                 ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+                 CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?, ?
+               )
+               ON DUPLICATE KEY UPDATE 
+                 bound_hwid = VALUES(bound_hwid),
+                 bound_hardware_ids = VALUES(bound_hardware_ids),
+                 status = 'Active',
+                 plan = 'Basic',
+                 expiry_date = VALUES(expiry_date);`,
+              [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, clientHwid, JSON.stringify([clientHwid])]
+            );
+          } catch {
+            await pool.query(
+              `INSERT INTO mbi_licenses (
+                 id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
+                 issue_date, expiry_date, max_devices, bound_hardware_ids
+               ) VALUES (
+                 ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
+                 CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
+               )
+               ON DUPLICATE KEY UPDATE 
+                 bound_hardware_ids = VALUES(bound_hardware_ids),
+                 status = 'Active',
+                 plan = 'Basic',
+                 expiry_date = VALUES(expiry_date);`,
+              [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
+            ).catch(() => {});
+          }
+
+          // Insert Tenant with Basic Plan and Active Status
           await pool.query(
-            `INSERT INTO mbi_licenses (
-               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
-               issue_date, expiry_date, max_devices, bound_hwid, bound_hardware_ids
+            `INSERT INTO mbi_tenants (
+               id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
+               plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
              ) VALUES (
-               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
-               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?, ?
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+               'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, NOW(), CURRENT_TIMESTAMP
              )
              ON DUPLICATE KEY UPDATE 
-               bound_hwid = VALUES(bound_hwid),
-               bound_hardware_ids = VALUES(bound_hardware_ids),
-               status = 'Active',
+               tenant_id = COALESCE(VALUES(tenant_id), tenant_id, id),
+               organization_id = COALESCE(VALUES(organization_id), organization_id, id),
+               name = VALUES(name),
                plan = 'Basic',
-               expiry_date = VALUES(expiry_date);`,
-            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, clientHwid, JSON.stringify([clientHwid])]
-          );
-        } catch {
-          // Fallback if bound_hwid column does not exist
+               plan_id = 'Basic',
+               status = 'Active',
+               subscription_plan = 'Basic',
+               subscription_status = 'Active',
+               trial_expires_at = VALUES(trial_expires_at),
+               updated_at = CURRENT_TIMESTAMP;`,
+            [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail]
+          ).catch((err) => {
+            console.warn('[REGISTER TENANT DB NOTICE]:', err?.message);
+          });
+
+          // Insert Primary Admin User
           await pool.query(
-            `INSERT INTO mbi_licenses (
-               id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
-               issue_date, expiry_date, max_devices, bound_hardware_ids
+            `INSERT INTO mbi_users (
+               id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
              ) VALUES (
-               ?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active',
-               CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?
+               ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, NOW(), CURRENT_TIMESTAMP
              )
              ON DUPLICATE KEY UPDATE 
-               bound_hardware_ids = VALUES(bound_hardware_ids),
+               name = VALUES(name),
+               username = VALUES(username),
+               passcode = VALUES(passcode),
                status = 'Active',
-               plan = 'Basic',
-               expiry_date = VALUES(expiry_date);`,
-            [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, JSON.stringify([clientHwid])]
+               is_online = 1,
+               updated_at = CURRENT_TIMESTAMP;`,
+            [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword]
+          ).catch((err) => {
+            console.warn('[REGISTER USER DB NOTICE]:', err?.message);
+          });
+
+          // Insert Registration Lead for WhatsApp trial leads dashboard
+          const leadId = `lead_${Date.now()}`;
+          await pool.query(
+            `INSERT INTO mbi_registration_leads (
+               id, store_name, owner_name, username, phone, email, city, requested_plan, status, is_approved, activation_key, submitted_at, activated_at
+             ) VALUES (
+               ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'activated', 1, ?, ?, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               store_name = VALUES(store_name),
+               status = 'activated',
+               is_approved = 1,
+               activated_at = VALUES(activated_at);`,
+            [leadId, cleanStoreName, cleanOwnerName, cleanUsername, cleanPhone, cleanEmail, cleanCity, generatedKey, registrationDate, registrationDate]
           ).catch(() => {});
+
+          // Insert Registered Device in mbi_devices
+          const deviceId = `dev_${userId}_${clientHwid.slice(-6)}`;
+          await pool.query(
+            `INSERT INTO mbi_devices (
+               id, tenant_id, user_id, device_name, device_type, platform, browser_info, os, hwid, installation_id, authorization_key, status, first_authorized_at, last_seen_at
+             ) VALUES (
+               ?, ?, ?, ?, 'Desktop', 'Windows', 'Web Terminal', ?, ?, ?, ?, 'Active', ?, ?
+             )
+             ON DUPLICATE KEY UPDATE 
+               status = 'Active',
+               last_seen_at = CURRENT_TIMESTAMP;`,
+            [deviceId, tenantId, userId, clientDeviceModel, clientOs, clientHwid, clientHwid, generatedKey, registrationDate, registrationDate]
+          ).catch(() => {});
+        } catch (dbErr: any) {
+          // Ignored
         }
-        // Insert Tenant with Basic Plan and Active Status
-        await pool.query(
-          `INSERT INTO mbi_tenants (
-             id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
-             plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-             'Basic', 'Basic', 'Active', 'Basic', 'Active', 5000, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 1, NOW(), CURRENT_TIMESTAMP
-           )
-           ON DUPLICATE KEY UPDATE 
-             tenant_id = COALESCE(VALUES(tenant_id), tenant_id, id),
-             organization_id = COALESCE(VALUES(organization_id), organization_id, id),
-             name = VALUES(name),
-             plan = 'Basic',
-             plan_id = 'Basic',
-             status = 'Active',
-             subscription_plan = 'Basic',
-             subscription_status = 'Active',
-             trial_expires_at = VALUES(trial_expires_at),
-             updated_at = CURRENT_TIMESTAMP;`,
-          [tenantId, tenantId, tenantId, cleanStoreName, cleanCity, cleanOwnerName, cleanEmail, cleanPhone, cleanPhone, cleanEmail]
-        ).catch((err) => {
-          console.warn('[REGISTER TENANT DB NOTICE]:', err?.message);
-        });
-
-        // Insert Primary Admin User
-        await pool.query(
-          `INSERT INTO mbi_users (
-             id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, 'Active', 0, NOW(), CURRENT_TIMESTAMP
-           )
-           ON DUPLICATE KEY UPDATE 
-             name = VALUES(name),
-             username = VALUES(username),
-             passcode = VALUES(passcode),
-             status = 'Active',
-             is_online = 1,
-             updated_at = CURRENT_TIMESTAMP;`,
-          [userId, tenantId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword]
-        ).catch((err) => {
-          console.warn('[REGISTER USER DB NOTICE]:', err?.message);
-        });
-
-        // Insert Registration Lead for WhatsApp trial leads dashboard
-        const leadId = `lead_${Date.now()}`;
-        await pool.query(
-          `INSERT INTO mbi_registration_leads (
-             id, store_name, owner_name, username, phone, email, city, requested_plan, status, is_approved, activation_key, submitted_at, activated_at
-           ) VALUES (
-             ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'activated', 1, ?, ?, ?
-           )
-           ON DUPLICATE KEY UPDATE 
-             store_name = VALUES(store_name),
-             status = 'activated',
-             is_approved = 1,
-             activated_at = VALUES(activated_at);`,
-          [leadId, cleanStoreName, cleanOwnerName, cleanUsername, cleanPhone, cleanEmail, cleanCity, generatedKey, registrationDate, registrationDate]
-        ).catch(() => {});
-
-        // Insert Registered Device in mbi_devices
-        const deviceId = `dev_${userId}_${clientHwid.slice(-6)}`;
-        await pool.query(
-          `INSERT INTO mbi_devices (
-             id, tenant_id, user_id, device_name, device_type, platform, browser_info, os, hwid, installation_id, authorization_key, status, first_authorized_at, last_seen_at
-           ) VALUES (
-             ?, ?, ?, ?, 'Desktop', 'Windows', 'Web Terminal', ?, ?, ?, ?, 'Active', ?, ?
-           )
-           ON DUPLICATE KEY UPDATE 
-             status = 'Active',
-             last_seen_at = CURRENT_TIMESTAMP;`,
-          [deviceId, tenantId, userId, clientDeviceModel, clientOs, clientHwid, clientHwid, generatedKey, registrationDate, registrationDate]
-        ).catch(() => {});
-      } catch (dbErr: any) {
-        // Ignored
-      }
+      });
     }
 
     // 2. Update local sync file cache (.sync_data.json and .master_users.json)

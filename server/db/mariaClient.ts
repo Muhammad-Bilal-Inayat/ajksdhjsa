@@ -77,11 +77,11 @@ export function getMariaDbPool(): mysql.Pool {
         ...config,
         charset: 'utf8mb4',
         dateStrings: true,
-        connectTimeout: 10000,
+        connectTimeout: 800,
         enableKeepAlive: true,
         keepAliveInitialDelay: 10000,
         waitForConnections: true,
-        connectionLimit: 15,
+        connectionLimit: 10,
         queueLimit: 0,
       });
 
@@ -184,7 +184,7 @@ export async function isMariaDbAvailable(): Promise<boolean> {
   if (isConnected && now - lastPingTime < 30000) {
     return true;
   }
-  if (!isConnected && now - lastCheckTime < 30000) {
+  if (!isConnected && now - lastCheckTime < 60000) {
     return false;
   }
   try {

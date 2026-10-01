@@ -709,13 +709,17 @@ class AdminService {
 
 export const handleSilentSwitchUser = async (user: any) => {
   try {
-    const targetTenantId = user.tenantId || user.tenant_id || 'tenant_main';
-    const storeName = user.storeName || 'Pharmacy Store';
-    const userName = user.name || 'Staff User';
-    const userRole = user.role || 'Cashier';
-    const userId = user.id || `usr_${Date.now()}`;
+    const rawTargetId = user.tenantId || user.tenant_id || user.tenant || user.organization_id || user.storeId || user.businessId;
+    const targetTenantId = (rawTargetId && rawTargetId !== 'undefined' && rawTargetId !== 'null' && String(rawTargetId).trim() !== '') 
+      ? String(rawTargetId).trim() 
+      : (user.id && String(user.id).startsWith('usr_') && String(user.id).split('_')[1] ? String(user.id).split('_')[1] : 'tenant_main');
 
-    let shadowToken = `shadow_${Date.now()}`;
+    const storeName = user.storeName || user.pharmacyName || user.company || user.businessName || user.firmName || 'Pharmacy Store';
+    const userName = user.name || user.userName || user.username || user.displayName || 'Staff User';
+    const userRole = user.role || user.userRole || 'Primary Admin';
+    const userId = user.id || user.userId || `usr_${Date.now()}`;
+
+    let shadowToken = `shadow_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     try {
       const response = await fetch(`/api/admin/impersonate/${targetTenantId}`, {
         method: 'POST',
@@ -727,17 +731,82 @@ export const handleSilentSwitchUser = async (user: any) => {
           userId,
           userName,
           userRole,
-          tenantId: targetTenantId
+          tenantId: targetTenantId,
+          storeName
         })
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.shadowToken) shadowToken = data.shadowToken;
+        if (data.shadowToken || data.token) shadowToken = data.shadowToken || data.token;
       }
     } catch {}
 
+    const shadowBiz = {
+      id: targetTenantId,
+      tenantId: targetTenantId,
+      name: storeName,
+      ownerUid: userId,
+      members: [userId],
+      phone: user.phone || '03364585863',
+      mobile: user.phone || '03364585863',
+      email: user.email || `${userName.toLowerCase().replace(/\s+/g, '')}@mbiinventra.com`,
+      address: user.address || `${user.city || 'Lahore'}, Pakistan`,
+      city: user.city || 'Lahore',
+      currency: 'PKR',
+      vatPercentage: 0,
+      businessType: 'Retail Pharmacy & General Store',
+      invoicePrefix: (storeName || 'MBI').slice(0, 3).toUpperCase() + '-',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
     localStorage.setItem('mbi_shadow_token', shadowToken);
+    localStorage.setItem('mbi_active_token', shadowToken);
     localStorage.setItem('mbi_active_business_id', targetTenantId);
+    localStorage.setItem('mbi_active_tenant_id', targetTenantId);
+    localStorage.setItem('active_firm_id', targetTenantId);
+    localStorage.setItem('mbi_last_active_route', '/user');
+    localStorage.setItem('mbi_app_unlocked', 'true');
+
+    localStorage.setItem('mock_business', JSON.stringify(shadowBiz));
+    localStorage.setItem('mbi_user_businesses', JSON.stringify([shadowBiz]));
+    localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
+      id: targetTenantId,
+      tenantId: targetTenantId,
+      name: storeName,
+      ownerName: userName,
+      plan: 'Enterprise',
+      status: 'Active',
+      paidLicenseActive: true
+    }));
+
+    localStorage.setItem('mock_session', JSON.stringify({
+      uid: userId,
+      email: user.email || `${userName.toLowerCase().replace(/\s+/g, '')}@mbiinventra.com`,
+      displayName: userName,
+      role: userRole,
+      tenantId: targetTenantId
+    }));
+
+    localStorage.setItem('mock_user_profile', JSON.stringify({
+      id: userId,
+      name: userName,
+      email: user.email || `${userName.toLowerCase().replace(/\s+/g, '')}@mbiinventra.com`,
+      role: userRole,
+      businessId: targetTenantId,
+      tenantId: targetTenantId,
+      pin: user.passcode || '0000',
+      createdAt: new Date().toISOString()
+    }));
+
+    localStorage.setItem('active_simulated_user', JSON.stringify({
+      id: userId,
+      name: userName,
+      role: userRole,
+      tenantId: targetTenantId
+    }));
+    localStorage.setItem('active_simulated_role', userRole);
+
     localStorage.setItem('mbi_shadow_session', JSON.stringify({
       token: shadowToken,
       user,
@@ -746,8 +815,17 @@ export const handleSilentSwitchUser = async (user: any) => {
       isShadowMode: true
     }));
 
-    const targetUrl = `${window.location.origin}/?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetTenantId)}&user_id=${encodeURIComponent(userId)}&user_name=${encodeURIComponent(userName)}&user_role=${encodeURIComponent(userRole)}&store_name=${encodeURIComponent(storeName)}`;
-    window.open(targetUrl, '_blank');
+    window.dispatchEvent(new CustomEvent('mbi_tenant_changed', { detail: { tenantId: targetTenantId, name: storeName } }));
+    window.dispatchEvent(new CustomEvent('mbi_active_business_changed', { detail: shadowBiz }));
+    window.dispatchEvent(new CustomEvent('mbi-user-role-changed', { detail: { role: userRole, user: shadowBiz } }));
+    window.dispatchEvent(new Event('storage'));
+
+    const targetUrl = `${window.location.origin}/user?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetTenantId)}&user_id=${encodeURIComponent(userId)}&user_name=${encodeURIComponent(userName)}&user_role=${encodeURIComponent(userRole)}&store_name=${encodeURIComponent(storeName)}`;
+    
+    const newWin = window.open(targetUrl, '_blank');
+    if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+      window.location.href = targetUrl;
+    }
     return { success: true, shadowToken };
   } catch (err) {
     console.error('Failed to initiate shadow switch:', err);

@@ -14,7 +14,7 @@ import {
   evaluatePermission,
   computeEffectivePermissions
 } from '../../lib/userAccessControl';
-import { MasterActiveUser, getMasterActiveUsers, getAllTenants } from '../../lib/masterServerService';
+import { MasterActiveUser, getMasterActiveUsers, getAllTenants, syncTenantsFromServer, Tenant } from '../../lib/masterServerService';
 import { normalizeUserRole } from '../../lib/permissions';
 import { PermissionDiagnosticsPanel } from './PermissionDiagnosticsPanel';
 import {
@@ -58,58 +58,77 @@ interface MasterControlSectionProps {
 
 export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNotify }) => {
   const [isDebuggerOverlayOpen, setIsDebuggerOverlayOpen] = useState(false);
-  const [users, setUsers] = useState<MasterActiveUser[]>(() => getMasterActiveUsers());
-  const [selectedUserId, setSelectedUserId] = useState<string>(() => {
-    const list = getMasterActiveUsers();
-    return list[0]?.id || 'usr_admin_01';
+  const [tenants, setTenants] = useState<Tenant[]>(() => {
+    const list = getAllTenants();
+    return list.length > 0 ? list : [
+      {
+        id: 'tenant-demo-01',
+        tenantId: 'tenant-demo-01',
+        organizationId: 'tenant-demo-01',
+        licenseId: 'lic_demo',
+        name: 'My Pharmacy Store',
+        ownerName: 'Store Owner',
+        plan: 'Basic',
+        status: 'Active',
+        city: 'Lahore'
+      } as Tenant
+    ];
   });
 
-  // Scope Master Control strictly to Company Tenants / Primary Owners (Exclude regular staff/cashiers)
-  const ownerUsers = useMemo(() => {
-    const filtered = users.filter(u => {
-      const r = (u.role || '').toLowerCase();
-      // Strictly include company tenants / primary owners only, excluding sub-users and cashiers
-      return r === 'company tenant' || r === 'tenant' || r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || (u as any).isPrimaryOwner || (u as any).is_primary_owner === 1;
-    });
-    return filtered.length > 0 ? filtered : users;
-  }, [users]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>(() => {
+    const list = getAllTenants();
+    return list[0]?.tenantId || list[0]?.id || 'tenant-demo-01';
+  });
+
+  const selectedTenant = useMemo(() => {
+    return tenants.find(t => (t.tenantId && t.tenantId === selectedTenantId) || (t.id && t.id === selectedTenantId)) || tenants[0] || {
+      id: 'tenant-demo-01',
+      tenantId: 'tenant-demo-01',
+      name: 'My Pharmacy Store',
+      ownerName: 'Store Owner',
+      plan: 'Basic',
+      status: 'Active',
+      city: 'Lahore'
+    } as Tenant;
+  }, [tenants, selectedTenantId]);
+
+  const targetTenantId = selectedTenant.tenantId || selectedTenant.id || 'tenant-demo-01';
 
   const selectedUser = useMemo(() => {
-    return ownerUsers.find(u => u.id === selectedUserId || (u as any).tenantId === selectedUserId) || ownerUsers[0] || {
-      id: 'usr_admin_01',
-      name: 'Primary Admin',
-      role: 'Primary Admin',
-      storeName: 'Central Branch',
-      status: 'Active',
+    return {
+      id: selectedTenant.id || selectedTenant.tenantId || 'usr_tenant_owner',
+      tenantId: targetTenantId,
+      name: selectedTenant.name || 'Store Admin',
+      role: 'Company Tenant',
+      storeName: selectedTenant.name || 'Main Pharmacy',
+      status: selectedTenant.status || 'Active',
       isOnline: true,
-      passcode: '1234'
+      passcode: (selectedTenant as any).passcode || '1234',
+      plan: selectedTenant.plan || 'Basic'
     } as MasterActiveUser;
-  }, [ownerUsers, selectedUserId]);
-
-  const targetTenantId = selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.installationId || selectedUser.storeName || 'tenant_main_pharmacy';
+  }, [selectedTenant, targetTenantId]);
 
   const [profile, setProfile] = useState<UserAccessControlProfile>(() => {
     return getUserAccessControlProfile(
       selectedUser.id,
       selectedUser.role as any,
-      (selectedUser as any).plan || 'Pharmacy Pro',
+      (selectedTenant as any).plan || 'Pharmacy Pro',
       targetTenantId
     );
   });
 
-  // Reload profile when selected user changes
+  // Reload profile when selected tenant changes
   useEffect(() => {
-    if (selectedUser) {
-      const tid = selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.installationId || selectedUser.storeName || 'tenant_main_pharmacy';
+    if (targetTenantId) {
       const localProf = getUserAccessControlProfile(
         selectedUser.id,
         selectedUser.role as any,
-        (selectedUser as any).plan || 'Pharmacy Pro',
-        tid
+        (selectedTenant as any).plan || 'Pharmacy Pro',
+        targetTenantId
       );
       setProfile(localProf);
 
-      syncUserAccessControlProfileFromServer(selectedUser.id, tid).then(serverProf => {
+      syncUserAccessControlProfileFromServer(selectedUser.id, targetTenantId).then(serverProf => {
         if (serverProf) {
           setProfile(serverProf);
         }
@@ -118,72 +137,66 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       setIsDirty(false);
       setSaveStatusMsg(null);
     }
-  }, [selectedUserId]);
+  }, [selectedTenantId, targetTenantId]);
 
-  // Listen to live tenant and user creation events and fetch from server on mount
+  // Listen to live tenant creation events and fetch from server on mount
   useEffect(() => {
-    const fetchServerTenantsAndUsers = async () => {
+    const fetchServerTenants = async () => {
       try {
-        let tenantList: MasterActiveUser[] = [];
-
-        // 1. Fetch live tenants directly from MariaDB mbi_tenants
         const tenantRes = await fetch('/api/fleet/tenants', { cache: 'no-store' });
         if (tenantRes.ok) {
           const tenantJson = await tenantRes.json();
           if (Array.isArray(tenantJson?.tenants) && tenantJson.tenants.length > 0) {
-            tenantList = tenantJson.tenants.map((t: any) => ({
-              id: t.id || t.tenant_id,
-              tenantId: t.tenant_id || t.id,
-              name: t.name || t.legal_name || t.storeName || t.id,
-              role: 'Company Tenant',
-              storeName: t.name || t.legal_name || 'Main Pharmacy',
-              ownerName: t.owner_name || t.ownerName || 'Owner',
-              plan: t.plan || t.subscription_plan || 'Standard POS',
-              status: t.status || 'Active',
-              isOnline: true,
-              passcode: t.passcode || '1234'
-            }));
-          }
-        }
+            const seen = new Set<string>();
+            const sanitizedList: Tenant[] = [];
 
-        // 2. Also fetch primary owner users if available
-        const userRes = await fetch('/api/fleet/users', { cache: 'no-store' });
-        if (userRes.ok) {
-          const userJson = await userRes.json();
-          if (Array.isArray(userJson?.users)) {
-            const primaryUsers = userJson.users.filter((u: any) => {
-              const r = (u.role || '').toLowerCase();
-              return r === 'owner' || r === 'primary admin' || r === 'primary_admin' || r === 'admin' || r === 'super admin' || u.isPrimaryOwner || u.is_primary_owner === 1;
-            });
-            for (const pu of primaryUsers) {
-              const exists = tenantList.some(t => t.id === pu.id || t.tenantId === pu.tenantId);
-              if (!exists) {
-                tenantList.push(pu);
-              }
+            for (const t of tenantJson.tenants) {
+              const tid = t.tenant_id || t.id || t.tenantId;
+              if (!tid || seen.has(tid)) continue;
+              seen.add(tid);
+
+              sanitizedList.push({
+                id: t.id || tid,
+                tenantId: tid,
+                organizationId: t.organization_id || tid,
+                licenseId: t.license_id || `lic_${tid}`,
+                name: t.name || 'Pharmacy Store',
+                ownerName: t.owner_name || t.ownerName || 'Store Owner',
+                ownerPhone: t.owner_phone || '',
+                ownerEmail: t.owner_email || '',
+                city: t.city || 'Lahore',
+                plan: t.plan || t.subscription_plan || 'Basic',
+                status: t.status || 'Active',
+                passcode: t.passcode || '1234'
+              } as Tenant);
+            }
+
+            if (sanitizedList.length > 0) {
+              setTenants(sanitizedList);
+              return;
             }
           }
         }
-
-        if (tenantList.length > 0) {
-          setUsers(tenantList);
-          return;
-        }
       } catch (e) {}
-      setUsers(getMasterActiveUsers());
+
+      const localTenants = getAllTenants();
+      if (localTenants.length > 0) {
+        setTenants(localTenants);
+      }
     };
 
-    fetchServerTenantsAndUsers();
+    fetchServerTenants();
 
     const handleUpdate = () => {
-      fetchServerTenantsAndUsers();
+      fetchServerTenants();
     };
 
-    window.addEventListener('mbi-users-updated', handleUpdate);
     window.addEventListener('mbi-tenants-updated', handleUpdate);
+    window.addEventListener('mbi-users-updated', handleUpdate);
 
     return () => {
-      window.removeEventListener('mbi-users-updated', handleUpdate);
       window.removeEventListener('mbi-tenants-updated', handleUpdate);
+      window.removeEventListener('mbi-users-updated', handleUpdate);
     };
   }, []);
 
@@ -988,20 +1001,21 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
             </div>
           </div>
 
-          {/* User Selector Dropdown, Simulate & Save Button */}
+          {/* Tenant Selector Dropdown, Simulate & Save Button */}
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
               <UserCheck className="w-4 h-4 text-purple-400 ml-1.5" />
               <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="bg-transparent text-xs font-bold text-white focus:outline-none pr-3 cursor-pointer max-w-[280px] truncate"
+                value={selectedTenantId}
+                onChange={(e) => setSelectedTenantId(e.target.value)}
+                className="bg-transparent text-xs font-bold text-white focus:outline-none pr-3 cursor-pointer max-w-[320px] truncate"
               >
-                {ownerUsers.map(u => {
-                  const cleanName = (u.name || 'Store').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+                {tenants.map(t => {
+                  const cleanName = (t.name || 'Store').replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+                  const tid = t.tenantId || t.id;
                   return (
-                    <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                      {cleanName} ({u.tenantId || u.id}) • {u.role}
+                    <option key={tid} value={tid} className="bg-slate-900 text-white">
+                      {cleanName} ({tid}) • {t.plan || 'Basic'}
                     </option>
                   );
                 })}

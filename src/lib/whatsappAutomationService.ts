@@ -29,10 +29,10 @@ export interface TenantWhatsAppConfig {
 
 export const DEFAULT_WHATSAPP_CONFIG: TenantWhatsAppConfig = {
   tenantId: 'default',
-  connectedNumber: '',
-  ownerWhatsApp: '',
+  connectedNumber: '03281302636',
+  ownerWhatsApp: '03281302636',
   isLinked: true,
-  linkedDeviceName: 'WhatsApp Web Multi-Device (MBI Inventra)',
+  linkedDeviceName: 'WhatsApp Official Agent Gateway (+92 328 1302636)',
   lastConnectedAt: new Date().toISOString(),
   autoSendOnSale: true,
   autoSendOnReturn: true,

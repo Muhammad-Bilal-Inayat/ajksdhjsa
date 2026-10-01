@@ -134,7 +134,7 @@ export function loadSettings(): AiSettings {
         customKeys: Array.isArray(data.customKeys) && data.customKeys.length > 0 ? data.customKeys : INITIAL_KEYS,
         homePageEnabled: data.homePageEnabled ?? true,
         autoGreeting: data.autoGreeting || 'Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?',
-        humanSupportNumber: data.humanSupportNumber || '+923001234567'
+        humanSupportNumber: data.humanSupportNumber || '+923281302636'
       };
     }
   } catch (err) {
@@ -147,7 +147,7 @@ export function loadSettings(): AiSettings {
     customKeys: INITIAL_KEYS,
     homePageEnabled: true,
     autoGreeting: 'Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?',
-    humanSupportNumber: '+923001234567'
+    humanSupportNumber: '+923281302636'
   };
 }
 

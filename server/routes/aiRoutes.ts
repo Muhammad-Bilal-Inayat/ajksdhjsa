@@ -420,7 +420,7 @@ aiRouter.post('/settings', (req, res) => {
       customKeys: Array.isArray(customKeys) ? customKeys.filter((k: string) => k.trim().length > 5) : [],
       homePageEnabled: Boolean(homePageEnabled),
       autoGreeting: autoGreeting || 'Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?',
-      humanSupportNumber: humanSupportNumber || '+923001234567'
+      humanSupportNumber: humanSupportNumber || '+923281302636'
     });
 
     res.json({ success: true, status: getAiConfigStatus(), message: 'AI Assistant configuration updated successfully!' });

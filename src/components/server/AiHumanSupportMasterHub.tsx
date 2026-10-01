@@ -293,7 +293,7 @@ export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = (
           setHomeOn(data.status.homePageEnabled);
           setPlans(data.status.allowedPlans);
           setCustomGreeting(data.status.autoGreeting || '');
-          setSupportPhone(data.status.humanSupportNumber || '+92 300 1234567');
+          setSupportPhone(data.status.humanSupportNumber || '+92 328 1302636');
         }
       }
     } catch (e) {}

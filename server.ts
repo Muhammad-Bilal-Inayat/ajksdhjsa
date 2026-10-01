@@ -3080,35 +3080,24 @@ async function startServer() {
   const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
 
   if (hasDist && process.env.FORCE_VITE_DEV !== 'true') {
-    // 1. Serve compiled static assets
-    app.use('/assets', express.static(path.join(distPath, 'assets'), {
-      maxAge: '1y',
-      immutable: true,
-      fallthrough: true
-    }));
-
-    // 2. Fallback for nested asset paths
-    app.use('*/assets', express.static(path.join(distPath, 'assets'), {
-      maxAge: '1y',
-      fallthrough: true
-    }));
-
-    // 3. Serve public directory assets (favicons, icons, manifest, database)
-    app.use(express.static(path.join(process.cwd(), 'public'), {
-      maxAge: '1d'
-    }));
-
-    // 4. Serve root build files
+    // 1. Serve root dist directory (covers /assets, /registerSW.js, manifest, etc.)
     app.use(express.static(distPath, {
       maxAge: '1d',
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('index.html') || filePath.endsWith('sw.js') || filePath.endsWith('registerSW.js') || filePath.endsWith('manifest.webmanifest')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.includes('assets')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
       }
     }));
 
-    // 5. Clean SPA Catch-All Route
+    // 2. Serve public directory fallback
+    app.use(express.static(path.join(process.cwd(), 'public'), {
+      maxAge: '1d'
+    }));
+
+    // 3. Clean SPA Catch-All Route
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Endpoint not found' });

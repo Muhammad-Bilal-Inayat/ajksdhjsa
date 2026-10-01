@@ -17936,25 +17936,18 @@ async function startServer() {
   const distPath = import_path21.default.join(process.cwd(), "dist");
   const hasDist = import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"));
   if (hasDist && process.env.FORCE_VITE_DEV !== "true") {
-    app.use("/assets", import_express18.default.static(import_path21.default.join(distPath, "assets"), {
-      maxAge: "1y",
-      immutable: true,
-      fallthrough: true
-    }));
-    app.use("*/assets", import_express18.default.static(import_path21.default.join(distPath, "assets"), {
-      maxAge: "1y",
-      fallthrough: true
-    }));
-    app.use(import_express18.default.static(import_path21.default.join(process.cwd(), "public"), {
-      maxAge: "1d"
-    }));
     app.use(import_express18.default.static(distPath, {
       maxAge: "1d",
       setHeaders: (res, filePath) => {
         if (filePath.endsWith("index.html") || filePath.endsWith("sw.js") || filePath.endsWith("registerSW.js") || filePath.endsWith("manifest.webmanifest")) {
           res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        } else if (filePath.includes("assets")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         }
       }
+    }));
+    app.use(import_express18.default.static(import_path21.default.join(process.cwd(), "public"), {
+      maxAge: "1d"
     }));
     app.get("*", (req, res) => {
       if (req.path.startsWith("/api/")) {

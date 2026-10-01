@@ -312,6 +312,11 @@ export const GeneralTab: React.FC = () => {
                   checked={settings.general.enablePasscode}
                   onChange={(e) => {
                     const checked = e.target.checked;
+                    if (checked) {
+                      sessionStorage.removeItem('mbi_app_unlocked');
+                    } else {
+                      sessionStorage.setItem('mbi_app_unlocked', 'true');
+                    }
                     updateGeneral({ enablePasscode: checked });
                     if (checked && !settings.general.passcode) {
                       setIsPasscodeModalOpen(true);
@@ -876,9 +881,15 @@ export const GeneralTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  updateGeneral({ passcode: passcodeVal, enablePasscode: !!passcodeVal });
+                  const isEnabled = !!passcodeVal && passcodeVal.length >= 4;
+                  if (isEnabled) {
+                    sessionStorage.removeItem('mbi_app_unlocked');
+                  } else {
+                    sessionStorage.setItem('mbi_app_unlocked', 'true');
+                  }
+                  updateGeneral({ passcode: passcodeVal, enablePasscode: isEnabled });
                   setIsPasscodeModalOpen(false);
-                  showToast('Passcode updated successfully');
+                  showToast(isEnabled ? 'Passcode enabled & updated successfully' : 'Passcode cleared & disabled');
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold"
               >

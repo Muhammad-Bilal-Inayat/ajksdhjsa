@@ -18,6 +18,7 @@ export const AppLockModal: React.FC = () => {
   // App is locked if passcode is enabled AND session storage does not have 'true'
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
+    if (!settings?.general?.enablePasscode) return true;
     const sessionVal = sessionStorage.getItem('mbi_app_unlocked');
     return sessionVal === 'true';
   });
@@ -26,6 +27,7 @@ export const AppLockModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [shake, setShake] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevPasscodeEnabledRef = useRef<boolean>(isPasscodeEnabled);
 
   // Sync state if settings or passcode enabled changes
   useEffect(() => {
@@ -33,13 +35,47 @@ export const AppLockModal: React.FC = () => {
       setIsUnlocked(true);
       sessionStorage.setItem('mbi_app_unlocked', 'true');
     } else {
-      const sessionVal = sessionStorage.getItem('mbi_app_unlocked');
-      if (sessionVal !== 'true') {
+      if (prevPasscodeEnabledRef.current !== isPasscodeEnabled) {
+        // Toggled ON: enforce immediate PIN lock
+        sessionStorage.removeItem('mbi_app_unlocked');
         setIsUnlocked(false);
+        setEnteredPin('');
+        setErrorMsg('');
         setTimeout(() => inputRef.current?.focus(), 150);
+      } else {
+        const sessionVal = sessionStorage.getItem('mbi_app_unlocked');
+        if (sessionVal !== 'true') {
+          setIsUnlocked(false);
+          setTimeout(() => inputRef.current?.focus(), 150);
+        }
       }
     }
+    prevPasscodeEnabledRef.current = isPasscodeEnabled;
   }, [isPasscodeEnabled]);
+
+  // Listen for manual lock/unlock window events
+  useEffect(() => {
+    const handleLock = () => {
+      sessionStorage.removeItem('mbi_app_unlocked');
+      setIsUnlocked(false);
+      setEnteredPin('');
+      setErrorMsg('');
+      setTimeout(() => inputRef.current?.focus(), 150);
+    };
+    const handleUnlock = () => {
+      sessionStorage.setItem('mbi_app_unlocked', 'true');
+      setIsUnlocked(true);
+      setEnteredPin('');
+      setErrorMsg('');
+    };
+
+    window.addEventListener('mbi_lock_app', handleLock);
+    window.addEventListener('mbi_unlock_app', handleUnlock);
+    return () => {
+      window.removeEventListener('mbi_lock_app', handleLock);
+      window.removeEventListener('mbi_unlock_app', handleUnlock);
+    };
+  }, []);
 
   // Handle keypad number input
   const handleDigitPress = (digit: string) => {

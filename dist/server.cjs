@@ -8549,6 +8549,15 @@ tenantRouter.get("/features", async (req, res) => {
   try {
     const tenantId = req.tenantId || req.user?.tenantId || "tenant_main_pharmacy";
     let features = {};
+    let plan = "Basic";
+    try {
+      const master = getMasterVault();
+      const tenantRow = master.prepare("SELECT plan, status FROM mbi_tenants WHERE tenant_id = ? OR id = ?").get(tenantId, tenantId);
+      if (tenantRow && tenantRow.plan) {
+        plan = tenantRow.plan;
+      }
+    } catch (sqliteErr) {
+    }
     try {
       const pool2 = getMariaDbPool();
       const [settingsRows] = await pool2.query(
@@ -8561,24 +8570,12 @@ tenantRouter.get("/features", async (req, res) => {
         } catch {
         }
       }
-      if (Object.keys(features).length === 0) {
-        const [tenantRows] = await pool2.query(
-          "SELECT features_json FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;",
-          [tenantId, tenantId]
-        );
-        if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0].features_json) {
-          try {
-            features = typeof tenantRows[0].features_json === "string" ? JSON.parse(tenantRows[0].features_json) : tenantRows[0].features_json;
-          } catch {
-          }
-        }
-      }
     } catch (dbErr) {
-      console.warn("[TENANT FEATURES MARIADB READ NOTICE]", dbErr);
     }
     res.json({
       success: true,
       tenantId,
+      plan,
       features,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
@@ -8586,7 +8583,7 @@ tenantRouter.get("/features", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Failed to retrieve tenant features" });
   }
 });
-tenantRouter.post("/sync-operation", (req, res) => {
+tenantRouter.post("/sync-operation", async (req, res) => {
   try {
     const { operationId, entityType, entityId, operationType, payload, timestamp } = req.body;
     if (!operationId || !entityType || !operationType) {
@@ -8596,9 +8593,10 @@ tenantRouter.post("/sync-operation", (req, res) => {
       });
       return;
     }
-    const tenantId = req.tenantId;
-    const userId = req.user?.userId;
-    const deviceId = req.user?.deviceId || req.body.deviceId;
+    const tenantId = req.tenantId || "tenant_main";
+    if (payload && entityType) {
+      await syncRecordToMariaDb2(entityType, payload, tenantId);
+    }
     res.json({
       success: true,
       status: "SYNCED",
@@ -8613,15 +8611,20 @@ tenantRouter.post("/sync-operation", (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Sync operation failed" });
   }
 });
-tenantRouter.post("/sync-batch", (req, res) => {
+tenantRouter.post("/sync-batch", async (req, res) => {
   try {
     const { operations } = req.body;
     if (!Array.isArray(operations) || operations.length === 0) {
       res.json({ success: true, processedCount: 0, serverTimestamp: Date.now() });
       return;
     }
-    const tenantId = req.tenantId || req.headers["x-tenant-id"] || "tenant-main";
+    const tenantId = req.tenantId || req.headers["x-tenant-id"] || "tenant_main";
     const now = (/* @__PURE__ */ new Date()).toISOString();
+    for (const op of operations) {
+      if (op && op.entityType && (op.payload || op.data)) {
+        await syncRecordToMariaDb2(op.entityType, op.payload || op.data, String(tenantId));
+      }
+    }
     const results = operations.map((op) => ({
       operationId: op.operationId,
       status: "SYNCED",

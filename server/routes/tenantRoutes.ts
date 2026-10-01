@@ -1,6 +1,8 @@
 import express, { Response } from 'express';
 import { requireAuth, resolveTenant, TenantRequest } from '../middleware/tenantMiddleware';
 import { getMariaDbPool } from '../db/mariaClient';
+import { getMasterVault } from '../db/sqliteVaultManager';
+import { syncRecordToMariaDb } from '../controllers/syncController';
 
 export const tenantRouter = express.Router();
 
@@ -25,17 +27,27 @@ tenantRouter.get('/info', (req: TenantRequest, res: Response): void => {
 
 /**
  * GET /api/tenant/features
- * Returns the active 173-Feature matrix for the authenticated tenant from MariaDB table mbi_settings
+ * Returns the active Feature matrix for the authenticated tenant from Master Vault or MariaDB
  */
 tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId || req.user?.tenantId || 'tenant_main_pharmacy';
     let features: Record<string, boolean> = {};
+    let plan = 'Basic';
+
+    // 1. Read directly from SQLite Master Vault (0ms latency)
+    try {
+      const master = getMasterVault();
+      const tenantRow: any = master.prepare("SELECT plan, status FROM mbi_tenants WHERE tenant_id = ? OR id = ?").get(tenantId, tenantId);
+      if (tenantRow && tenantRow.plan) {
+        plan = tenantRow.plan;
+      }
+    } catch (sqliteErr) {}
 
     try {
       const pool = getMariaDbPool();
       
-      // 1. Try reading from mbi_settings table
+      // Try reading from mbi_settings table
       const [settingsRows]: any = await pool.query(
         'SELECT setting_value FROM mbi_settings WHERE tenant_id = ? AND setting_key = "granular_features_matrix" LIMIT 1;',
         [tenantId]
@@ -48,28 +60,12 @@ tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise
             : settingsRows[0].setting_value;
         } catch {}
       }
-
-      // 2. Fallback to mbi_tenants.features_json if mbi_settings is empty
-      if (Object.keys(features).length === 0) {
-        const [tenantRows]: any = await pool.query(
-          'SELECT features_json FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;',
-          [tenantId, tenantId]
-        );
-        if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0].features_json) {
-          try {
-            features = typeof tenantRows[0].features_json === 'string'
-              ? JSON.parse(tenantRows[0].features_json)
-              : tenantRows[0].features_json;
-          } catch {}
-        }
-      }
-    } catch (dbErr) {
-      console.warn('[TENANT FEATURES MARIADB READ NOTICE]', dbErr);
-    }
+    } catch (dbErr) {}
 
     res.json({
       success: true,
       tenantId,
+      plan,
       features,
       timestamp: new Date().toISOString()
     });
@@ -80,9 +76,9 @@ tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise
 
 /**
  * POST /api/tenant/sync-operation
- * Processes an atomic synchronization operation with deterministic deduplication
+ * Processes an atomic synchronization operation with deterministic deduplication & direct SQLite Vault write
  */
-tenantRouter.post('/sync-operation', (req: TenantRequest, res: Response): void => {
+tenantRouter.post('/sync-operation', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { operationId, entityType, entityId, operationType, payload, timestamp } = req.body;
 
@@ -94,10 +90,12 @@ tenantRouter.post('/sync-operation', (req: TenantRequest, res: Response): void =
       return;
     }
 
-    // Tenant context is guaranteed by resolveTenant middleware
-    const tenantId = req.tenantId!;
-    const userId = req.user?.userId;
-    const deviceId = req.user?.deviceId || req.body.deviceId;
+    const tenantId = req.tenantId || 'tenant_main';
+
+    // Persist payload directly into Tenant SQLite Vault
+    if (payload && entityType) {
+      await syncRecordToMariaDb(entityType, payload, tenantId);
+    }
 
     res.json({
       success: true,
@@ -118,7 +116,7 @@ tenantRouter.post('/sync-operation', (req: TenantRequest, res: Response): void =
  * POST /api/tenant/sync-batch
  * Processes bulk atomic synchronization operations with deduplication and fast batching
  */
-tenantRouter.post('/sync-batch', (req: TenantRequest, res: Response): void => {
+tenantRouter.post('/sync-batch', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { operations } = req.body;
 
@@ -127,8 +125,15 @@ tenantRouter.post('/sync-batch', (req: TenantRequest, res: Response): void => {
       return;
     }
 
-    const tenantId = req.tenantId || req.headers['x-tenant-id'] || 'tenant-main';
+    const tenantId = req.tenantId || req.headers['x-tenant-id'] || 'tenant_main';
     const now = new Date().toISOString();
+
+    // Ingest all operations into Tenant SQLite Vault
+    for (const op of operations) {
+      if (op && op.entityType && (op.payload || op.data)) {
+        await syncRecordToMariaDb(op.entityType, op.payload || op.data, String(tenantId));
+      }
+    }
 
     const results = operations.map((op: any) => ({
       operationId: op.operationId,
@@ -147,3 +152,4 @@ tenantRouter.post('/sync-batch', (req: TenantRequest, res: Response): void => {
     res.status(500).json({ success: false, error: err?.message || 'Batch sync failed' });
   }
 });
+

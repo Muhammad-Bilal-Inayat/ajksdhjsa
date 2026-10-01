@@ -17941,6 +17941,12 @@ async function startServer() {
   const distPath = import_path21.default.join(process.cwd(), "dist");
   const hasDist = import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"));
   if (hasDist && process.env.FORCE_VITE_DEV !== "true") {
+    const indexPath = import_path21.default.join(distPath, "index.html");
+    let indexHtml = "";
+    try {
+      indexHtml = import_fs21.default.readFileSync(indexPath, "utf-8");
+    } catch {
+    }
     app.use(import_express18.default.static(distPath, {
       maxAge: "1d",
       setHeaders: (res, filePath) => {
@@ -17958,8 +17964,13 @@ async function startServer() {
       if (req.path.startsWith("/api/")) {
         return res.status(404).json({ error: "Endpoint not found" });
       }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(import_path21.default.join(distPath, "index.html"));
+      if (indexHtml) {
+        res.send(indexHtml);
+      } else {
+        res.sendFile(indexPath);
+      }
     });
   } else {
     const { createServer: createViteServer } = await import("vite");

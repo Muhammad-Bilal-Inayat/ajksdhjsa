@@ -3080,6 +3080,12 @@ async function startServer() {
   const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
 
   if (hasDist && process.env.FORCE_VITE_DEV !== 'true') {
+    const indexPath = path.join(distPath, 'index.html');
+    let indexHtml = '';
+    try {
+      indexHtml = fs.readFileSync(indexPath, 'utf-8');
+    } catch {}
+
     // 1. Serve root dist directory (covers /assets, /registerSW.js, manifest, etc.)
     app.use(express.static(distPath, {
       maxAge: '1d',
@@ -3097,13 +3103,18 @@ async function startServer() {
       maxAge: '1d'
     }));
 
-    // 3. Clean SPA Catch-All Route
+    // 3. Clean SPA Catch-All Route (0ms in-memory instant response)
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'Endpoint not found' });
       }
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.sendFile(path.join(distPath, 'index.html'));
+      if (indexHtml) {
+        res.send(indexHtml);
+      } else {
+        res.sendFile(indexPath);
+      }
     });
   } else {
     // Vite middleware for lightning-fast hot development

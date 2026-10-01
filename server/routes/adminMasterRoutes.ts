@@ -3,6 +3,7 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import { getMariaDbPool, getMariaDbTableStats, testMariaDbConnection, isMariaDbAvailable } from '../db/mariaClient';
+import { getMasterVault, getTenantVault, checkVaultEngineHealth, listTenantUsers } from '../db/sqliteVaultManager';
 import { signJwt } from '../auth/jwt';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
@@ -59,11 +60,31 @@ adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Prom
     let users: any[] = [];
     let logs: any[] = [];
 
-    // Attempt MariaDB query if pool is reachable
+    // 1. Direct SQLite Master Hub Query (0ms latency)
+    try {
+      const master = getMasterVault();
+      const sqliteTenants: any[] = master.prepare(`
+        SELECT id, tenant_id, name, owner_name, owner_phone, city, plan, status 
+        FROM mbi_tenants 
+        WHERE name LIKE ? OR owner_name LIKE ? OR owner_phone LIKE ? OR city LIKE ? OR tenant_id LIKE ? 
+        LIMIT 15;
+      `).all(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+      if (Array.isArray(sqliteTenants) && sqliteTenants.length > 0) tenants = sqliteTenants;
+
+      const sqliteLicenses: any[] = master.prepare(`
+        SELECT id, tenant_id, license_key, client_name as tenant_name, bound_hwid, plan, status, expires_at 
+        FROM mbi_licenses 
+        WHERE license_key LIKE ? OR bound_hwid LIKE ? OR tenant_id LIKE ? OR client_name LIKE ?
+        LIMIT 15;
+      `).all(searchPattern, searchPattern, searchPattern, searchPattern);
+      if (Array.isArray(sqliteLicenses) && sqliteLicenses.length > 0) licenses = sqliteLicenses;
+    } catch (e) {}
+
+    // 2. Attempt MariaDB query if pool is reachable
     try {
       const pool = getMariaDbPool();
 
-      // 1. Search Tenants
+      // Search Tenants
       try {
         const [tenantRows]: any = await pool.query(
           `SELECT id, tenant_id, name, owner_name, owner_phone, city, drug_license_no, ntn_number, plan, status 
@@ -72,12 +93,12 @@ adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Prom
            LIMIT 15;`,
           [searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern, searchPattern]
         );
-        if (Array.isArray(tenantRows)) tenants = tenantRows;
+        if (Array.isArray(tenantRows) && tenants.length === 0) tenants = tenantRows;
       } catch (e) {
         // Table fallback
       }
 
-      // 2. Search Licenses & HWIDs
+      // Search Licenses & HWIDs
       try {
         const [licenseRows]: any = await pool.query(
           `SELECT l.id, l.tenant_id, l.license_key, l.bound_hwid, l.plan, l.status, l.expires_at, t.name as tenant_name 
@@ -87,7 +108,7 @@ adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Prom
            LIMIT 15;`,
           [searchPattern, searchPattern, searchPattern]
         );
-        if (Array.isArray(licenseRows)) licenses = licenseRows;
+        if (Array.isArray(licenseRows) && licenses.length === 0) licenses = licenseRows;
       } catch (e) {
         // Table fallback
       }
@@ -199,22 +220,32 @@ adminMasterRouter.post('/license/reset-hwid', async (req: TenantRequest, res: Re
       return;
     }
 
-    const pool = getMariaDbPool();
-    let result: any;
+    // 1. Reset in SQLite Master Vault (0ms latency)
+    try {
+      const master = getMasterVault();
+      if (license_key) {
+        master.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, status = 'Active' WHERE license_key = ?").run(license_key);
+      } else if (tenant_id) {
+        master.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, status = 'Active' WHERE tenant_id = ?").run(tenant_id);
+      }
+    } catch (sqliteErr) {}
 
-    if (license_key) {
-      [result] = await pool.query(
-        'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE license_key = ?;',
-        [license_key]
-      );
-    } else {
-      [result] = await pool.query(
-        'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;',
-        [tenant_id]
-      );
-    }
+    // 2. Reset in MariaDB (if available)
+    try {
+      const pool = getMariaDbPool();
+      if (license_key) {
+        await pool.query(
+          'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE license_key = ?;',
+          [license_key]
+        );
+      } else {
+        await pool.query(
+          'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;',
+          [tenant_id]
+        );
+      }
+    } catch (dbErr) {}
 
-    // Log the security reset in audit trail
     const target = license_key || tenant_id;
     await pool.query(
       'INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);',

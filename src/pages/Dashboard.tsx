@@ -802,59 +802,74 @@ export const Dashboard: React.FC = () => {
   };
 
   const receivablesList = useMemo(() => {
-    const list: Array<{ name: string; amount: number; phone: string }> = [];
-    suppliers.forEach(sup => {
-      const bal = Number(sup.balance) || 0;
-      if (bal > 0) {
-        list.push({
-          name: sup.name,
-          amount: bal,
-          phone: sup.phone || (sup as any).mobile || ''
-        });
-      }
-    });
-
-    if (list.length === 0) {
-      const customerDues: Record<string, { amount: number; phone: string }> = {};
-      invoices.forEach(inv => {
-        const due = Number(inv.balanceDue) || 0;
-        if (due > 0) {
-          const cName = inv.customerName || (inv as any).partyName || 'Customer';
-          if (!customerDues[cName]) {
-            customerDues[cName] = { amount: 0, phone: inv.customerPhone || '' };
-          }
-          customerDues[cName].amount += due;
+    try {
+      const list: Array<{ name: string; amount: number; phone: string }> = [];
+      (suppliers || []).forEach(sup => {
+        if (!sup) return;
+        const bal = Number(sup.balance) || 0;
+        if (bal > 0) {
+          list.push({
+            name: sup.name || 'Supplier',
+            amount: bal,
+            phone: sup.phone || (sup as any).mobile || ''
+          });
         }
       });
-      Object.entries(customerDues).forEach(([name, val]) => {
-        list.push({ name, amount: val.amount, phone: val.phone });
-      });
-    }
 
-    return list.sort((a, b) => b.amount - a.amount);
+      if (list.length === 0) {
+        const customerDues: Record<string, { amount: number; phone: string }> = {};
+        (invoices || []).forEach(inv => {
+          if (!inv) return;
+          const due = Number(inv.balanceDue) || 0;
+          if (due > 0) {
+            const cName = inv.customerName || (inv as any).partyName || 'Customer';
+            if (!customerDues[cName]) {
+              customerDues[cName] = { amount: 0, phone: inv.customerPhone || '' };
+            }
+            customerDues[cName].amount += due;
+          }
+        });
+        Object.entries(customerDues).forEach(([name, val]) => {
+          list.push({ name, amount: val.amount, phone: val.phone });
+        });
+      }
+
+      return list.sort((a, b) => b.amount - a.amount);
+    } catch {
+      return [];
+    }
   }, [suppliers, invoices]);
 
   const payablesList = useMemo(() => {
-    const list: Array<{ name: string; amount: number; phone: string }> = [];
-    suppliers.forEach(sup => {
-      const bal = Number(sup.balance) || 0;
-      if (bal < 0) {
-        list.push({
-          name: sup.name,
-          amount: Math.abs(bal),
-          phone: sup.phone || (sup as any).mobile || ''
-        });
-      }
-    });
-    return list.sort((a, b) => b.amount - a.amount);
+    try {
+      const list: Array<{ name: string; amount: number; phone: string }> = [];
+      (suppliers || []).forEach(sup => {
+        if (!sup) return;
+        const bal = Number(sup.balance) || 0;
+        if (bal < 0) {
+          list.push({
+            name: sup.name || 'Supplier',
+            amount: Math.abs(bal),
+            phone: sup.phone || (sup as any).mobile || ''
+          });
+        }
+      });
+      return list.sort((a, b) => b.amount - a.amount);
+    } catch {
+      return [];
+    }
   }, [suppliers]);
 
   const purchaseList = useMemo(() => {
-    return purchaseOrders.slice(0, 5).map(po => ({
-      name: po.supplierName || (po.items && po.items[0]?.name) || `PO #${po.orderNumber || po.id.slice(0, 6)}`,
-      amount: Number(po.totalAmount) || 0,
-      qty: `${po.items?.length || 1} items`
-    }));
+    try {
+      return (purchaseOrders || []).slice(0, 5).map(po => ({
+        name: po?.supplierName || (po?.items && po?.items[0]?.name) || `PO #${po?.orderNumber || (po?.id ? po.id.slice(0, 6) : '001')}`,
+        amount: Number(po?.totalAmount) || 0,
+        qty: `${po?.items?.length || 1} items`
+      }));
+    } catch {
+      return [];
+    }
   }, [purchaseOrders]);
 
   const effectiveReceivables = useMemo(() => {
@@ -866,14 +881,22 @@ export const Dashboard: React.FC = () => {
   }, [totalPayables, payablesList]);
 
   const totalBankBalance = useMemo(() => {
-    return bankAccounts.reduce((sum, b) => sum + (Number(b.currentBalance ?? b.openingBalance) || 0), 0);
+    try {
+      return (bankAccounts || []).reduce((sum, b) => sum + (Number(b?.currentBalance ?? b?.openingBalance) || 0), 0);
+    } catch {
+      return 0;
+    }
   }, [bankAccounts]);
 
   const cashInHandBalance = useMemo(() => {
-    if (activeCashierShift) {
-      return Number((activeCashierShift as any).cashBalance ?? activeCashierShift.openingCash ?? activeCashierShift.openingBalance) || 0;
+    try {
+      if (activeCashierShift) {
+        return Number((activeCashierShift as any)?.cashBalance ?? activeCashierShift?.openingCash ?? activeCashierShift?.openingBalance) || 0;
+      }
+      return Math.max(0, (todayMetrics.todaySale || 0) - (todayMetrics.todayExpenses || 0));
+    } catch {
+      return 0;
     }
-    return Math.max(0, (todayMetrics.todaySale || 0) - (todayMetrics.todayExpenses || 0));
   }, [activeCashierShift, todayMetrics]);
 
   // FEFO (First Expiry, First Out) Status & Breakdown Calculations
@@ -910,106 +933,118 @@ export const Dashboard: React.FC = () => {
       category: 'EXPIRED' | '30_DAYS' | '60_DAYS' | '90_DAYS' | '180_DAYS';
     }> = [];
 
-    medicines.forEach(med => {
-      const batches = (med.batches && med.batches.length > 0)
-        ? med.batches
-        : [{
-            id: med.id,
-            batchNumber: med.batchNumber || 'Batch-1',
-            expiryDate: med.expiryDate || '',
-            quantity: med.quantity || 0,
-            purchasePrice: med.purchasePrice || 0,
-            sellingPrice: med.sellingPrice || 0,
-            mrp: med.mrp || 0
-          }];
+    try {
+      (medicines || []).forEach(med => {
+        if (!med) return;
+        const batches = (med.batches && Array.isArray(med.batches) && med.batches.length > 0)
+          ? med.batches
+          : [{
+              id: med.id || 'med-1',
+              batchNumber: med.batchNumber || 'Batch-1',
+              expiryDate: med.expiryDate || '',
+              quantity: med.quantity || 0,
+              purchasePrice: med.purchasePrice || 0,
+              sellingPrice: med.sellingPrice || 0,
+              mrp: med.mrp || 0
+            }];
 
-      batches.forEach(b => {
-        const q = Number(b.quantity) || 0;
-        if (q <= 0 || !b.expiryDate) return;
-        const days = calculateDaysUntilExpiry(b.expiryDate);
-        const costPrice = Number(b.purchasePrice || med.purchasePrice || b.sellingPrice || 0);
-        const val = q * costPrice;
+        batches.forEach(b => {
+          if (!b) return;
+          const q = Number(b.quantity) || 0;
+          if (q <= 0 || !b.expiryDate) return;
+          let days = 999;
+          try {
+            days = calculateDaysUntilExpiry(b.expiryDate);
+          } catch {
+            days = 999;
+          }
+          const costPrice = Number(b.purchasePrice || med.purchasePrice || b.sellingPrice || 0);
+          const val = q * costPrice;
 
-        if (days < 0) {
-          expiredQty += q;
-          expiredCount += 1;
-          expiredValuation += val;
-          nearBatches.push({
-            id: `${med.id}-${b.batchNumber}`,
-            medicineId: med.id,
-            medicineName: med.name,
-            batchNumber: b.batchNumber,
-            expiryDate: b.expiryDate,
-            daysLeft: days,
-            quantity: q,
-            valuation: val,
-            category: 'EXPIRED'
-          });
-        } else if (days <= 30) {
-          within30Qty += q;
-          within30Count += 1;
-          within30Valuation += val;
-          nearBatches.push({
-            id: `${med.id}-${b.batchNumber}`,
-            medicineId: med.id,
-            medicineName: med.name,
-            batchNumber: b.batchNumber,
-            expiryDate: b.expiryDate,
-            daysLeft: days,
-            quantity: q,
-            valuation: val,
-            category: '30_DAYS'
-          });
-        } else if (days <= 60) {
-          within60Qty += q;
-          within60Count += 1;
-          within60Valuation += val;
-          nearBatches.push({
-            id: `${med.id}-${b.batchNumber}`,
-            medicineId: med.id,
-            medicineName: med.name,
-            batchNumber: b.batchNumber,
-            expiryDate: b.expiryDate,
-            daysLeft: days,
-            quantity: q,
-            valuation: val,
-            category: '60_DAYS'
-          });
-        } else if (days <= 90) {
-          within90Qty += q;
-          within90Count += 1;
-          within90Valuation += val;
-          nearBatches.push({
-            id: `${med.id}-${b.batchNumber}`,
-            medicineId: med.id,
-            medicineName: med.name,
-            batchNumber: b.batchNumber,
-            expiryDate: b.expiryDate,
-            daysLeft: days,
-            quantity: q,
-            valuation: val,
-            category: '90_DAYS'
-          });
-        } else if (days <= 180) {
-          within180Qty += q;
-          within180Count += 1;
-          within180Valuation += val;
-          nearBatches.push({
-            id: `${med.id}-${b.batchNumber}`,
-            medicineId: med.id,
-            medicineName: med.name,
-            batchNumber: b.batchNumber,
-            expiryDate: b.expiryDate,
-            daysLeft: days,
-            quantity: q,
-            valuation: val,
-            category: '180_DAYS'
-          });
-        }
+          if (days < 0) {
+            expiredQty += q;
+            expiredCount += 1;
+            expiredValuation += val;
+            nearBatches.push({
+              id: `${med.id}-${b.batchNumber || 'b1'}`,
+              medicineId: med.id,
+              medicineName: med.name || 'Medicine',
+              batchNumber: b.batchNumber || 'Batch-1',
+              expiryDate: b.expiryDate,
+              daysLeft: days,
+              quantity: q,
+              valuation: val,
+              category: 'EXPIRED'
+            });
+          } else if (days <= 30) {
+            within30Qty += q;
+            within30Count += 1;
+            within30Valuation += val;
+            nearBatches.push({
+              id: `${med.id}-${b.batchNumber || 'b1'}`,
+              medicineId: med.id,
+              medicineName: med.name || 'Medicine',
+              batchNumber: b.batchNumber || 'Batch-1',
+              expiryDate: b.expiryDate,
+              daysLeft: days,
+              quantity: q,
+              valuation: val,
+              category: '30_DAYS'
+            });
+          } else if (days <= 60) {
+            within60Qty += q;
+            within60Count += 1;
+            within60Valuation += val;
+            nearBatches.push({
+              id: `${med.id}-${b.batchNumber || 'b1'}`,
+              medicineId: med.id,
+              medicineName: med.name || 'Medicine',
+              batchNumber: b.batchNumber || 'Batch-1',
+              expiryDate: b.expiryDate,
+              daysLeft: days,
+              quantity: q,
+              valuation: val,
+              category: '60_DAYS'
+            });
+          } else if (days <= 90) {
+            within90Qty += q;
+            within90Count += 1;
+            within90Valuation += val;
+            nearBatches.push({
+              id: `${med.id}-${b.batchNumber || 'b1'}`,
+              medicineId: med.id,
+              medicineName: med.name || 'Medicine',
+              batchNumber: b.batchNumber || 'Batch-1',
+              expiryDate: b.expiryDate,
+              daysLeft: days,
+              quantity: q,
+              valuation: val,
+              category: '90_DAYS'
+            });
+          } else if (days <= 180) {
+            within180Qty += q;
+            within180Count += 1;
+            within180Valuation += val;
+            nearBatches.push({
+              id: `${med.id}-${b.batchNumber || 'b1'}`,
+              medicineId: med.id,
+              medicineName: med.name || 'Medicine',
+              batchNumber: b.batchNumber || 'Batch-1',
+              expiryDate: b.expiryDate,
+              daysLeft: days,
+              quantity: q,
+              valuation: val,
+              category: '180_DAYS'
+            });
+          }
+        });
       });
-    });
 
-    nearBatches.sort((a, b) => a.daysLeft - b.daysLeft);
+      nearBatches.sort((a, b) => a.daysLeft - b.daysLeft);
+    } catch (e) {
+      console.warn('FEFO calculations fallback:', e);
+    }
+
     const totalExpiryWatchQty = within30Qty + within60Qty + within90Qty + within180Qty;
     const totalExpiryWatchValuation = within30Valuation + within60Valuation + within90Valuation + within180Valuation;
 
@@ -1868,108 +1903,115 @@ export const Dashboard: React.FC = () => {
 
   {/* Smart Reorder Predictor calculation based on historical consumption */}
   const smartReorderPredictions = useMemo(() => {
-    // Map historical consumption from invoices (past 30 days)
-    const salesMap = new Map<string, number>();
-    invoices.forEach(inv => {
-      inv.items?.forEach(item => {
-        const idKey = item.medicineId;
-        const nameKey = (item.name || '').toLowerCase().trim();
-        const qty = Number(item.quantity) || 1;
-        if (idKey) salesMap.set(idKey, (salesMap.get(idKey) || 0) + qty);
-        if (nameKey) salesMap.set(nameKey, (salesMap.get(nameKey) || 0) + qty);
+    try {
+      // Map historical consumption from invoices (past 30 days)
+      const salesMap = new Map<string, number>();
+      (invoices || []).forEach(inv => {
+        if (!inv || !inv.items) return;
+        inv.items.forEach(item => {
+          if (!item) return;
+          const idKey = item.medicineId;
+          const nameKey = (item.name || '').toLowerCase().trim();
+          const qty = Number(item.quantity) || 1;
+          if (idKey) salesMap.set(idKey, (salesMap.get(idKey) || 0) + qty);
+          if (nameKey) salesMap.set(nameKey, (salesMap.get(nameKey) || 0) + qty);
+        });
       });
-    });
 
-    const sourceMeds: {
-      id: string;
-      name: string;
-      quantity: number;
-      lowStockThreshold: number;
-      manufacturer: string;
-      genericName?: string;
-      price: number;
-      purchasePrice?: number;
-    }[] = medicines.length > 0 ? medicines.map(m => ({
-      id: m.id,
-      name: m.name,
-      quantity: m.quantity,
-      lowStockThreshold: m.lowStockThreshold || 20,
-      manufacturer: m.manufacturer || '',
-      genericName: m.genericName || m.saltComposition || '',
-      price: m.sellingPrice || 0,
-      purchasePrice: m.purchasePrice || 0,
-    })) : lowStockAlerts.map(l => ({
-      id: l.id,
-      name: l.name,
-      quantity: l.quantity,
-      lowStockThreshold: l.lowStockThreshold || 20,
-      manufacturer: l.manufacturer || '',
-      genericName: '',
-      price: l.sellingPrice || 0,
-      purchasePrice: 0,
-    }));
+      const sourceMeds: {
+        id: string;
+        name: string;
+        quantity: number;
+        lowStockThreshold: number;
+        manufacturer: string;
+        genericName?: string;
+        price: number;
+        purchasePrice?: number;
+      }[] = (medicines && medicines.length > 0) ? medicines.map(m => ({
+        id: m?.id || '',
+        name: m?.name || 'Medicine',
+        quantity: Number(m?.quantity) || 0,
+        lowStockThreshold: Number(m?.lowStockThreshold) || 20,
+        manufacturer: m?.manufacturer || '',
+        genericName: m?.genericName || m?.saltComposition || '',
+        price: Number(m?.sellingPrice) || 0,
+        purchasePrice: Number(m?.purchasePrice) || 0,
+      })) : (lowStockAlerts || []).map(l => ({
+        id: l?.id || '',
+        name: l?.name || 'Medicine',
+        quantity: Number(l?.quantity) || 0,
+        lowStockThreshold: Number(l?.lowStockThreshold) || 20,
+        manufacturer: l?.manufacturer || '',
+        genericName: '',
+        price: Number(l?.sellingPrice) || 0,
+        purchasePrice: 0,
+      }));
 
-    return sourceMeds.map(med => {
-      const soldCount = Math.max(
-        salesMap.get(med.id) || 0,
-        salesMap.get(med.name.toLowerCase().trim()) || 0
-      );
+      return sourceMeds.map(med => {
+        const medName = String(med?.name || '').toLowerCase().trim();
+        const soldCount = Math.max(
+          (med?.id ? salesMap.get(med.id) : 0) || 0,
+          (medName ? salesMap.get(medName) : 0) || 0
+        );
 
-      // Estimated daily velocity (units/day)
-      const dailyVelocity = soldCount > 0 
-        ? Math.max(0.2, Number((soldCount / 30).toFixed(1)))
-        : Math.max(0.3, Number(((med.lowStockThreshold || 15) / 15).toFixed(1)));
+        // Estimated daily velocity (units/day)
+        const dailyVelocity = soldCount > 0 
+          ? Math.max(0.2, Number((soldCount / 30).toFixed(1)))
+          : Math.max(0.3, Number(((med.lowStockThreshold || 15) / 15).toFixed(1)));
 
-      const currentStock = Number(med.quantity) || 0;
-      const threshold = Number(med.lowStockThreshold) || 20;
-      const daysRemaining = currentStock === 0 ? 0 : Math.round(currentStock / dailyVelocity);
+        const currentStock = Number(med.quantity) || 0;
+        const threshold = Number(med.lowStockThreshold) || 20;
+        const daysRemaining = currentStock === 0 ? 0 : Math.round(currentStock / dailyVelocity);
 
-      let urgency: 'Emergency' | 'High' | 'Normal' = 'Normal';
-      let urgencyLabel = 'Normal';
-      let urgencyBadge = 'bg-blue-50 text-blue-700 border-blue-200';
+        let urgency: 'Emergency' | 'High' | 'Normal' = 'Normal';
+        let urgencyLabel = 'Normal';
+        let urgencyBadge = 'bg-blue-50 text-blue-700 border-blue-200';
 
-      if (currentStock === 0 || daysRemaining <= 3) {
-        urgency = 'Emergency';
-        urgencyLabel = currentStock === 0 ? 'Out of Stock' : 'Critical (≤3d)';
-        urgencyBadge = 'bg-rose-100 text-rose-800 border-rose-200';
-      } else if (daysRemaining <= 7 || currentStock <= threshold) {
-        urgency = 'High';
-        urgencyLabel = 'Urgent (≤7d)';
-        urgencyBadge = 'bg-amber-100 text-amber-800 border-amber-200';
-      } else if (daysRemaining <= 15) {
-        urgency = 'Normal';
-        urgencyLabel = 'Moderate (≤15d)';
-        urgencyBadge = 'bg-blue-50 text-blue-700 border-blue-200';
-      }
+        if (currentStock === 0 || daysRemaining <= 3) {
+          urgency = 'Emergency';
+          urgencyLabel = currentStock === 0 ? 'Out of Stock' : 'Critical (≤3d)';
+          urgencyBadge = 'bg-rose-100 text-rose-800 border-rose-200';
+        } else if (daysRemaining <= 7 || currentStock <= threshold) {
+          urgency = 'High';
+          urgencyLabel = 'Urgent (≤7d)';
+          urgencyBadge = 'bg-amber-100 text-amber-800 border-amber-200';
+        } else if (daysRemaining <= 15) {
+          urgency = 'Normal';
+          urgencyLabel = 'Moderate (≤15d)';
+          urgencyBadge = 'bg-blue-50 text-blue-700 border-blue-200';
+        }
 
-      // Reorder quantity target: 21 days lead stock
-      const targetDays = 21;
-      const suggestedQty = Math.max(
-        Math.ceil(dailyVelocity * targetDays) - currentStock,
-        (threshold * 2) - currentStock,
-        15
-      );
+        // Reorder quantity target: 21 days lead stock
+        const targetDays = 21;
+        const suggestedQty = Math.max(
+          Math.ceil(dailyVelocity * targetDays) - currentStock,
+          (threshold * 2) - currentStock,
+          15
+        );
 
-      return {
-        medicine: med,
-        soldCount,
-        dailyVelocity,
-        currentStock,
-        threshold,
-        daysRemaining,
-        urgency,
-        urgencyLabel,
-        urgencyBadge,
-        suggestedQty,
-        isReorderNeeded: currentStock <= threshold || daysRemaining <= 15,
-      };
-    })
-    .filter(p => p.isReorderNeeded)
-    .sort((a, b) => {
-      if (a.currentStock === 0 && b.currentStock > 0) return -1;
-      if (b.currentStock === 0 && a.currentStock > 0) return 1;
-      return a.daysRemaining - b.daysRemaining;
-    });
+        return {
+          medicine: med,
+          soldCount,
+          dailyVelocity,
+          currentStock,
+          threshold,
+          daysRemaining,
+          urgency,
+          urgencyLabel,
+          urgencyBadge,
+          suggestedQty,
+          isReorderNeeded: currentStock <= threshold || daysRemaining <= 15,
+        };
+      })
+      .filter(p => p.isReorderNeeded)
+      .sort((a, b) => {
+        if (a.currentStock === 0 && b.currentStock > 0) return -1;
+        if (b.currentStock === 0 && a.currentStock > 0) return 1;
+        return a.daysRemaining - b.daysRemaining;
+      });
+    } catch {
+      return [];
+    }
   }, [medicines, invoices, lowStockAlerts]);
 
   const handlePushToShortage = async (
@@ -2921,147 +2963,152 @@ export const Dashboard: React.FC = () => {
 
   // Dispatcher to render section by ID
   const renderSectionById = (sectionId: string) => {
-    const isPrivacyWidget = sectionId === 'privacy_mode';
-    const widgetContent = (() => {
-      switch (sectionId) {
-        case 'pharmacy_erp_kpi_metrics':
-          return (
-            <PharmacyKpiMetricsWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'pharmacy_erp_analytics_hub':
-          return (
-            <PharmacyErpAnalyticsHubWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'weekly_revenue_trajectory':
-          return (
-            <WeeklySalesTrajectoryWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'therapeutic_category_mix':
-          return (
-            <TherapeuticCategoryMixWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'hourly_rush_velocity':
-          return (
-            <HourlyRushVelocityWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'fast_skus_margin_matrix':
-          return (
-            <FastSkusMarginMatrixWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'missed_sales_demand':
-        case 'missed-sales-demand':
-          return <MissedSalesWidget maskValue={maskValue} />;
-        case 'udhar_aging_whatsapp':
-        case 'udhar-aging-whatsapp':
-          return <CustomerUdharAgingWidget maskValue={maskValue} />;
-        case 'ai_expiry_loss_prevention':
-        case 'ai-expiry-loss-prevention':
-          return <AiExpiryLossPreventionWidget maskValue={maskValue} />;
-        case 'anti_theft_audit_radar':
-        case 'anti-theft-audit-radar':
-          return <AntiTheftAuditWidget maskValue={maskValue} />;
-        case 'multi_branch_telemetry':
-        case 'multi-branch-telemetry':
-          return (
-            <PharmacyErpAnalyticsHubWidget
-              invoices={invoices}
-              medicines={medicines}
-              privacyMode={privacyMode}
-              maskValue={maskValue}
-              onNavigate={navigate}
-            />
-          );
-        case 'fefo_expiry_status':
-          return renderFEFOExpiryStatusWidget();
-        case 'todays_profit':
-          return renderTodaysProfitWidget();
-        case 'recent_sales':
-          return renderRecentSalesWidget();
-        case 'low_stock_alerts':
-          return renderLowStockAlertsWidget();
-        case 'expiry_alerts':
-          return renderExpiryAlertsWidget();
-        case 'reorder_suggestions':
-          return renderReorderSuggestionsWidget();
-        case 'sales_trend':
-          return renderSalesTrendSection();
-        case 'sales_expenses':
-          return renderSalesExpensesSection();
-        case 'receivables_payables':
-          return renderReceivablesPayablesSection();
-        case 'top_products': {
-          const isTopAllowed = isRouteAllowedInPlan('/top-products', (tenant as any)?.plan || (business as any)?.plan, authTenantId || tenant?.id).isAllowed;
-          return isTopAllowed ? renderTopProductsSection() : null;
+    try {
+      const isPrivacyWidget = sectionId === 'privacy_mode';
+      const widgetContent = (() => {
+        switch (sectionId) {
+          case 'pharmacy_erp_kpi_metrics':
+            return (
+              <PharmacyKpiMetricsWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'pharmacy_erp_analytics_hub':
+            return (
+              <PharmacyErpAnalyticsHubWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'weekly_revenue_trajectory':
+            return (
+              <WeeklySalesTrajectoryWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'therapeutic_category_mix':
+            return (
+              <TherapeuticCategoryMixWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'hourly_rush_velocity':
+            return (
+              <HourlyRushVelocityWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'fast_skus_margin_matrix':
+            return (
+              <FastSkusMarginMatrixWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'missed_sales_demand':
+          case 'missed-sales-demand':
+            return <MissedSalesWidget maskValue={maskValue} />;
+          case 'udhar_aging_whatsapp':
+          case 'udhar-aging-whatsapp':
+            return <CustomerUdharAgingWidget maskValue={maskValue} />;
+          case 'ai_expiry_loss_prevention':
+          case 'ai-expiry-loss-prevention':
+            return <AiExpiryLossPreventionWidget maskValue={maskValue} />;
+          case 'anti_theft_audit_radar':
+          case 'anti-theft-audit-radar':
+            return <AntiTheftAuditWidget maskValue={maskValue} />;
+          case 'multi_branch_telemetry':
+          case 'multi-branch-telemetry':
+            return (
+              <PharmacyErpAnalyticsHubWidget
+                invoices={invoices}
+                medicines={medicines}
+                privacyMode={privacyMode}
+                maskValue={maskValue}
+                onNavigate={navigate}
+              />
+            );
+          case 'fefo_expiry_status':
+            return renderFEFOExpiryStatusWidget();
+          case 'todays_profit':
+            return renderTodaysProfitWidget();
+          case 'recent_sales':
+            return renderRecentSalesWidget();
+          case 'low_stock_alerts':
+            return renderLowStockAlertsWidget();
+          case 'expiry_alerts':
+            return renderExpiryAlertsWidget();
+          case 'reorder_suggestions':
+            return renderReorderSuggestionsWidget();
+          case 'sales_trend':
+            return renderSalesTrendSection();
+          case 'sales_expenses':
+            return renderSalesExpensesSection();
+          case 'receivables_payables':
+            return renderReceivablesPayablesSection();
+          case 'top_products': {
+            const isTopAllowed = isRouteAllowedInPlan('/top-products', (tenant as any)?.plan || (business as any)?.plan || 'Basic', authTenantId || tenant?.id).isAllowed;
+            return isTopAllowed ? renderTopProductsSection() : null;
+          }
+          case 'stock_inventory':
+            return renderStockInventoryWidget();
+          case 'bank_accounts':
+            return renderBankAccountsWidget();
+          case 'privacy_mode':
+            return renderPrivacyModeWidget();
+          default:
+            return null;
         }
-        case 'stock_inventory':
-          return renderStockInventoryWidget();
-        case 'bank_accounts':
-          return renderBankAccountsWidget();
-        case 'privacy_mode':
-          return renderPrivacyModeWidget();
-        default:
-          return null;
-      }
-    })();
+      })();
 
-    if (!widgetContent) return null;
+      if (!widgetContent) return null;
 
-    // When Privacy Mode is active, blur every widget EXCEPT the privacy mode widget itself
-    if (privacyMode && !isPrivacyWidget) {
-      return (
-        <div className="relative group transition-all duration-300 rounded-xl overflow-hidden">
-          {/* Blurred Content */}
-          <div className="filter blur-[6px] select-none pointer-events-none opacity-65 transition-all duration-300 grayscale-[25%]">
-            {widgetContent}
-          </div>
-          {/* Privacy Protection Overlay Badge */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="bg-slate-900/60 backdrop-blur-xs text-white px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xl border border-white/20">
-              <Lock className="w-3.5 h-3.5 text-blue-400" />
-              <span>Privacy Masked</span>
+      // When Privacy Mode is active, blur every widget EXCEPT the privacy mode widget itself
+      if (privacyMode && !isPrivacyWidget) {
+        return (
+          <div className="relative group transition-all duration-300 rounded-xl overflow-hidden">
+            {/* Blurred Content */}
+            <div className="filter blur-[6px] select-none pointer-events-none opacity-65 transition-all duration-300 grayscale-[25%]">
+              {widgetContent}
+            </div>
+            {/* Privacy Protection Overlay Badge */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+              <div className="bg-slate-900/60 backdrop-blur-xs text-white px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xl border border-white/20">
+                <Lock className="w-3.5 h-3.5 text-blue-400" />
+                <span>Privacy Masked</span>
+              </div>
             </div>
           </div>
-        </div>
-      );
-    }
+        );
+      }
 
-    return widgetContent;
+      return widgetContent;
+    } catch (widgetErr) {
+      console.warn(`[Dashboard Safe Fallback] Handled render error for widget: ${sectionId}`, widgetErr);
+      return null;
+    }
   };
 
   const allWidgetIds = useMemo(() => new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id)), []);

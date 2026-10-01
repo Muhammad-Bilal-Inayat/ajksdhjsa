@@ -363,6 +363,20 @@ export async function seedMariaDbDefaults(currentPool?: mysql.Pool): Promise<voi
 
       await p.query("UPDATE mbi_licenses SET tenant_id = (SELECT id FROM mbi_tenants WHERE mbi_tenants.id = mbi_licenses.tenant_id OR mbi_tenants.name = mbi_licenses.client_name LIMIT 1) WHERE tenant_id IS NULL OR tenant_id = '';");
       await p.query("UPDATE mbi_users u JOIN mbi_tenants t ON (u.email_or_phone = t.owner_phone OR u.phone = t.owner_phone OR u.email = t.owner_email OR u.tenant_id = t.id) SET u.tenant_id = t.id WHERE u.tenant_id IS NULL OR u.tenant_id = '';");
+
+      // 5. Purge dummy/orphan global medicines and unwanted test users so new tenants start with 0 data
+      await p.query("DELETE FROM medicines WHERE tenant_id IN ('global', 'local-business-id') OR id LIKE 'med-%' OR id = '0ccade3c-14cb-481e-acac-69994329e154' OR tenant_id IS NULL OR tenant_id = '';").catch(() => {});
+      await p.query("DELETE FROM mbi_medicines WHERE tenant_id IN ('global', 'local-business-id') OR id LIKE 'med-%' OR id = '0ccade3c-14cb-481e-acac-69994329e154' OR tenant_id IS NULL OR tenant_id = '';").catch(() => {});
+      await p.query(`
+        DELETE FROM mbi_users 
+        WHERE id NOT IN ('admin-master', 'u1', 'usr_mbi_admin') 
+        AND (
+          id LIKE 'usr_shadow_%' OR 
+          id LIKE 'shadow_%' OR 
+          name IN ('sjdfhjsdf', 'LKFJDSFJ', 'aaaaaa', 'skdjfslkdj', 'bbb', 'jahskjahdkj', 'new test 1', 'M KAMRAM', 'sam', 'Dr Hassan', 'Dr. Bilal', 'Hanzala', 'Fgdfg (Primary Admin)', 'Sdfsdfsdf (Primary Admin)', 'Aaaaaa (Primary Admin)', 'M RIZWAN', 'muhammadsulaimanrazahameedi', 'Store Owner') OR 
+          username IN ('sjdfhjsdf', 'aaaaaa', 'skdjfslkdj', 'bbb', 'jahskjahdkj', 'fgdfg', 'sdfsdfsdf')
+        );
+      `).catch(() => {});
     } catch (repairErr: any) {
       // Non-blocking auto repair
     }

@@ -387,17 +387,16 @@ export const Inventory: React.FC = () => {
         );
         finalMeds = [...finalMeds, ...customItems];
       } else {
-        // When 0 items are assigned from central catalog, show all local inventory items for this tenant
+        // When 0 items are assigned from central catalog, show strictly local inventory items for this tenant
         const allLocal: Medicine[] = (await dbMedicines.getAll()) || [];
         const filtered = allLocal.filter(m => {
           if (!m || !m.name) return false;
           const mTenant = (m as any).tenantId;
-          if (!mTenant) return true;
           if (mTenant === activeTenantId) return true;
-          if (activeTenantId === 'tenant-demo-01' && (mTenant === 'tenant-demo-01' || mTenant === 'local-business-id')) return true;
+          if (activeTenantId === 'tenant-demo-01' && (mTenant === 'tenant-demo-01' || mTenant === 'local-business-id' || !mTenant)) return true;
           return false;
         });
-        finalMeds = filtered.length > 0 ? filtered : allLocal;
+        finalMeds = filtered;
       }
 
       setMedicines(finalMeds);

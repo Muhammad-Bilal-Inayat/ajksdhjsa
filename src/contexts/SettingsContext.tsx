@@ -767,32 +767,32 @@ export const ALL_VALID_DASHBOARD_WIDGET_IDS = [
 
 export const DEFAULT_DASHBOARD_MAIN_SECTIONS = [
   'pharmacy_erp_kpi_metrics',
-  'receivables_payables',
   'todays_profit',
   'recent_sales',
+  'fefo_expiry_status',
+  'reorder_suggestions',
+  'top_products',
+  'weekly_revenue_trajectory',
+  'therapeutic_category_mix',
+  'hourly_rush_velocity',
+  'fast_skus_margin_matrix',
+  'missed_sales_demand',
+  'udhar_aging_whatsapp',
+  'ai_expiry_loss_prevention',
+  'anti_theft_audit_radar',
+  'receivables_payables',
   'sales_expenses',
   'sales_trend',
-  'top_products',
+  'pharmacy_erp_analytics_hub',
+  'multi_branch_telemetry',
 ];
 
 export const DEFAULT_DASHBOARD_SIDEBAR_SECTIONS = [
-  'fefo_expiry_status',
-  'expiry_alerts',
-  'therapeutic_category_mix',
-  'weekly_revenue_trajectory',
-  'missed_sales_demand',
-  'udhar_aging_whatsapp',
-  'reorder_suggestions',
-  'pharmacy_erp_analytics_hub',
-  'hourly_rush_velocity',
-  'fast_skus_margin_matrix',
-  'ai_expiry_loss_prevention',
-  'anti_theft_audit_radar',
-  'multi_branch_telemetry',
   'low_stock_alerts',
-  'privacy_mode',
+  'expiry_alerts',
   'stock_inventory',
   'bank_accounts',
+  'privacy_mode',
 ];
 
 export const DEFAULT_DASHBOARD_WIDGET_VISIBILITY: Record<string, boolean> = {

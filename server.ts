@@ -3075,11 +3075,11 @@ async function startServer() {
     }
   });
 
-  // Frontend SPA Static & Dev Serving Engine
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Frontend SPA Static & Dev Serving Engine (Instant 0ms pre-built serving)
   const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
 
-  if (isProduction && fs.existsSync(path.join(distPath, 'index.html'))) {
+  if (hasDist && process.env.FORCE_VITE_DEV !== 'true') {
     // 1. Serve compiled static assets
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',

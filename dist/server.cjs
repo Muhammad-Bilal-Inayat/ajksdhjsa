@@ -17933,9 +17933,9 @@ async function startServer() {
       });
     }
   });
-  const isProduction = process.env.NODE_ENV === "production";
   const distPath = import_path21.default.join(process.cwd(), "dist");
-  if (isProduction && import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"))) {
+  const hasDist = import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"));
+  if (hasDist && process.env.FORCE_VITE_DEV !== "true") {
     app.use("/assets", import_express18.default.static(import_path21.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,

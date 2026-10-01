@@ -325,10 +325,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date().toISOString()
         };
         setUserProfile(shadowProf);
-        localStorage.setItem('mbi_app_unlocked', 'true');
-        sessionStorage.setItem('mbi_app_unlocked', 'true');
+        localStorage.setItem('mock_user_profile', JSON.stringify(shadowProf));
+        setActiveRoleState(role);
 
-        if (cleanUserId || cleanUserName || uid) {
+        if (paramUserId) {
           setActiveUserState({
             id: uid,
             name: userName,

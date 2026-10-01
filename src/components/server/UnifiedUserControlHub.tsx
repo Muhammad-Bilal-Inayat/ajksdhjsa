@@ -193,6 +193,128 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     });
   }, [users, companyFilter, roleFilter, statusFilter, activeSearch, tenants]);
 
+  // ACTION 0: 1-CLICK SILENT SHADOW SWITCH INTO USER / TENANT WORKSPACE
+  const handleSilentSwitchUser = async (user: MasterActiveUser) => {
+    try {
+      const rawTargetTenantId = user.tenantId || user.storeId || (user as any).tenant_id || (user as any).businessId;
+      const targetTenantId = (rawTargetTenantId && rawTargetTenantId !== 'undefined' && rawTargetTenantId !== 'null' && String(rawTargetTenantId).trim() !== '')
+        ? String(rawTargetTenantId).trim()
+        : 'default';
+      const storeName = user.storeName || (user as any).companyName || 'Pharmacy Store';
+      const userName = user.name || 'Staff User';
+      const userRole = user.role || 'Primary Admin';
+
+      onNotify(`⚡ Silent switching into ${userName} (${userRole} - ${storeName})...`);
+
+      let shadowToken = `shadow_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      try {
+        const res = await fetch('/api/master/impersonate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('mbi_master_token') || 'master_auth'}`
+          },
+          body: JSON.stringify({
+            target_tenant_id: targetTenantId,
+            tenantId: targetTenantId,
+            userId: user.id,
+            userName,
+            userRole,
+            storeName
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) shadowToken = data.token;
+        }
+      } catch {}
+
+      localStorage.setItem('mbi_shadow_token', shadowToken);
+      localStorage.setItem('mbi_active_token', shadowToken);
+      localStorage.setItem('mbi_active_business_id', targetTenantId);
+      localStorage.setItem('mbi_active_tenant_id', targetTenantId);
+      localStorage.setItem('active_firm_id', targetTenantId);
+
+      const shadowBiz = {
+        id: targetTenantId,
+        tenantId: targetTenantId,
+        name: storeName,
+        ownerUid: user.id || `owner_${targetTenantId}`,
+        members: [user.id || `owner_${targetTenantId}`],
+        phone: user.emailOrPhone || '03364585863',
+        mobile: user.emailOrPhone || '03364585863',
+        email: user.emailOrPhone?.includes('@') ? user.emailOrPhone : `${targetTenantId}@mbiinventra.com`,
+        address: `${storeName}, Pakistan`,
+        city: 'Lahore',
+        currency: 'PKR',
+        vatPercentage: 0,
+        businessType: 'Retail Pharmacy & General Store',
+        invoicePrefix: (storeName || 'MBI').slice(0, 3).toUpperCase() + '-',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem('mock_business', JSON.stringify(shadowBiz));
+      localStorage.setItem('mbi_user_businesses', JSON.stringify([shadowBiz]));
+      localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
+        id: targetTenantId,
+        tenantId: targetTenantId,
+        name: storeName,
+        ownerName: userName,
+        plan: 'Platinum',
+        status: 'Active',
+        paidLicenseActive: true
+      }));
+
+      localStorage.setItem('mock_session', JSON.stringify({
+        uid: user.id,
+        email: user.emailOrPhone || 'user@mbiinventra.com',
+        displayName: userName,
+        role: userRole,
+        tenantId: targetTenantId
+      }));
+
+      localStorage.setItem('mock_user_profile', JSON.stringify({
+        id: user.id,
+        name: userName,
+        email: user.emailOrPhone || 'user@mbiinventra.com',
+        role: userRole,
+        businessId: targetTenantId,
+        tenantId: targetTenantId,
+        pin: user.passcode || '0000',
+        createdAt: new Date().toISOString()
+      }));
+
+      const appUserRecord = {
+        id: user.id,
+        name: userName,
+        emailOrPhone: user.emailOrPhone,
+        role: userRole,
+        status: 'Active',
+        passcode: user.passcode || '0000',
+        tenantId: targetTenantId,
+        canEditInvoices: user.permissions?.canEditBill ?? false
+      };
+      localStorage.setItem('active_simulated_user', JSON.stringify(appUserRecord));
+      localStorage.setItem('active_simulated_role', userRole);
+
+      window.dispatchEvent(new CustomEvent('mbi_tenant_changed', { detail: { tenantId: targetTenantId, name: storeName } }));
+      window.dispatchEvent(new CustomEvent('mbi_active_business_changed', { detail: shadowBiz }));
+      window.dispatchEvent(new CustomEvent('mbi-user-role-changed', { detail: { role: userRole, user: appUserRecord } }));
+      window.dispatchEvent(new Event('storage'));
+
+      const targetUrl = `${window.location.origin}/user?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetTenantId)}&store_name=${encodeURIComponent(storeName)}&user_name=${encodeURIComponent(userName)}&user_role=${encodeURIComponent(userRole)}`;
+
+      const newWin = window.open(targetUrl, '_blank');
+      if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
+        window.location.href = targetUrl;
+      }
+    } catch (err: any) {
+      console.error('Silent switch failed:', err);
+      onNotify(`⚠️ Silent switch error: ${err?.message || 'Unknown error'}`);
+    }
+  };
+
   // ACTION 1: SILENT SWITCH TOGGLE (Stealth Monitoring Mode)
   const handleToggleSilentSwitch = async (user: MasterActiveUser) => {
     const nextSilentState = !user.isSilentMonitored;

@@ -233,6 +233,9 @@ async function testMariaDbConnection() {
   }
 }
 async function isMariaDbAvailable() {
+  if (process.env.USE_MARIADB !== "true" && process.env.ENABLE_MARIADB !== "true") {
+    return false;
+  }
   const now = Date.now();
   if (isConnected && now - lastPingTime < 3e4) {
     return true;
@@ -9703,7 +9706,50 @@ fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
     const seenIds = /* @__PURE__ */ new Set();
-    const seenNames = /* @__PURE__ */ new Set();
+    try {
+      const masterDb = getMasterVault();
+      const rows = masterDb.prepare("SELECT * FROM mbi_tenants ORDER BY created_at DESC").all();
+      if (Array.isArray(rows) && rows.length > 0) {
+        for (const t of rows) {
+          const tid = t.tenant_id || t.id;
+          if (!tid || seenIds.has(tid)) continue;
+          seenIds.add(tid);
+          tenants.push({
+            id: t.id || tid,
+            tenant_id: tid,
+            tenantId: tid,
+            organization_id: tid,
+            name: t.name || "Pharmacy Store",
+            owner_name: t.owner_name || "Store Owner",
+            owner_phone: t.owner_phone || "",
+            owner_email: t.owner_email || "",
+            city: t.city || "Lahore",
+            address: t.address || "",
+            plan: t.plan || "Basic",
+            status: t.status || "Active",
+            api_key: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "")}_K7A8N2`,
+            apiKey: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "")}_K7A8N2`,
+            license_id: `lic_${tid}`,
+            trial_expiry_date: t.trial_expires_at || "Never (Lifetime)",
+            user_count: 1,
+            invoice_count: 0,
+            created_at: t.created_at || (/* @__PURE__ */ new Date()).toISOString(),
+            updated_at: t.updated_at || (/* @__PURE__ */ new Date()).toISOString()
+          });
+        }
+        if (tenants.length > 0) {
+          res.json({
+            success: true,
+            source: "sqlite_vault",
+            count: tenants.length,
+            tenants,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          });
+          return;
+        }
+      }
+    } catch (sqliteErr) {
+    }
     if (await isMariaDbAvailable()) {
       try {
         const pool3 = getMariaDbPool();

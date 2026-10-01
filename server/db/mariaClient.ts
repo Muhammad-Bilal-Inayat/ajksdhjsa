@@ -180,6 +180,10 @@ export async function testMariaDbConnection(): Promise<{
  * Checks if MariaDB is reachable with throttled retry logic to avoid connection flooding
  */
 export async function isMariaDbAvailable(): Promise<boolean> {
+  // If running in pure SQLite Vault engine (default), return false immediately (0ms) without socket timeouts
+  if (process.env.USE_MARIADB !== 'true' && process.env.ENABLE_MARIADB !== 'true') {
+    return false;
+  }
   const now = Date.now();
   if (isConnected && now - lastPingTime < 30000) {
     return true;

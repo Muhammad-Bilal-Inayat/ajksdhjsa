@@ -108,7 +108,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     return getUserAccessControlProfile(
       selectedUser.id,
       selectedUser.role as any,
-      (selectedTenant as any).plan || 'Pharmacy Pro',
+      selectedTenant?.plan || 'Basic',
       targetTenantId
     );
   });
@@ -119,7 +119,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       const localProf = getUserAccessControlProfile(
         selectedUser.id,
         selectedUser.role as any,
-        (selectedTenant as any).plan || 'Pharmacy Pro',
+        selectedTenant?.plan || 'Basic',
         targetTenantId
       );
       setProfile(localProf);
@@ -133,7 +133,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       setIsDirty(false);
       setSaveStatusMsg(null);
     }
-  }, [selectedTenantId, targetTenantId]);
+  }, [selectedTenantId, targetTenantId, selectedTenant]);
 
   // Listen to live tenant creation events and fetch from server on mount
   useEffect(() => {
@@ -223,33 +223,38 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     let totalFeatures = 0;
     let activeFeatures = 0;
 
-    SYSTEM_MENU_TREE.forEach(menu => {
-      totalFeatures += 1;
-      if (profile.menuToggles[menu.id] !== false) activeFeatures += 1;
+    const menuToggles = profile?.menuToggles || {};
+    const submenuToggles = profile?.submenuToggles || {};
+    const functionToggles = profile?.functionToggles || {};
+    const actionToggles = profile?.actionToggles || {};
 
-      menu.submenus.forEach(sub => {
+    (SYSTEM_MENU_TREE || []).forEach(menu => {
+      totalFeatures += 1;
+      if (menuToggles[menu.id] !== false) activeFeatures += 1;
+
+      (menu.submenus || []).forEach(sub => {
         totalFeatures += 1;
-        if (profile.submenuToggles[sub.id] !== false && profile.menuToggles[menu.id] !== false) {
+        if (submenuToggles[sub.id] !== false && menuToggles[menu.id] !== false) {
           activeFeatures += 1;
         }
 
-        sub.functions.forEach(fn => {
+        (sub.functions || []).forEach(fn => {
           totalFeatures += 1;
           if (
-            profile.functionToggles[fn.id] !== false &&
-            profile.submenuToggles[sub.id] !== false &&
-            profile.menuToggles[menu.id] !== false
+            functionToggles[fn.id] !== false &&
+            submenuToggles[sub.id] !== false &&
+            menuToggles[menu.id] !== false
           ) {
             activeFeatures += 1;
           }
 
-          fn.actions.forEach(act => {
+          (fn.actions || []).forEach(act => {
             totalFeatures += 1;
             if (
-              profile.actionToggles[act.id] !== false &&
-              profile.functionToggles[fn.id] !== false &&
-              profile.submenuToggles[sub.id] !== false &&
-              profile.menuToggles[menu.id] !== false
+              actionToggles[act.id] !== false &&
+              functionToggles[fn.id] !== false &&
+              submenuToggles[sub.id] !== false &&
+              menuToggles[menu.id] !== false
             ) {
               activeFeatures += 1;
             }

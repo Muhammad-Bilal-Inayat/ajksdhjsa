@@ -128,11 +128,17 @@ export function getTenantVault(tenantId: string): DatabaseSync {
       name TEXT NOT NULL,
       username TEXT UNIQUE,
       email_or_phone TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
       role TEXT NOT NULL DEFAULT 'Cashier',
       passcode TEXT NOT NULL DEFAULT '1234',
       bound_device_id TEXT,
       is_primary_owner INTEGER NOT NULL DEFAULT 0,
       is_active INTEGER NOT NULL DEFAULT 1,
+      is_online INTEGER NOT NULL DEFAULT 0,
+      is_kill_switch_active INTEGER NOT NULL DEFAULT 0,
+      permissions TEXT DEFAULT '{}',
+      notes TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -267,4 +273,217 @@ export function checkVaultEngineHealth(): {
     activeCachedTenants: tenantDbCache.size,
     walModeActive: String(row?.journal_mode || '').toUpperCase() === 'WAL'
   };
+}
+
+/**
+ * List all users for a given tenant strictly from tenant SQLite vault
+ */
+export function listTenantUsers(tenantId: string): any[] {
+  const vault = getTenantVault(tenantId);
+  const rows: any[] = vault.prepare(`
+    SELECT * FROM users 
+    ORDER BY CASE WHEN role IN ('Owner', 'Primary Admin', 'primary_admin') OR is_primary_owner = 1 THEN 0 ELSE 1 END, created_at ASC
+  `).all();
+
+  return rows.map(u => ({
+    id: u.id,
+    tenantId,
+    tenant_id: tenantId,
+    name: u.name,
+    username: u.username || u.name.toLowerCase().replace(/\s+/g, '_'),
+    emailOrPhone: u.email_or_phone || u.email || u.phone,
+    email: u.email || '',
+    phone: u.phone || '',
+    role: u.role || 'Cashier',
+    isPrimaryOwner: Boolean(u.is_primary_owner === 1 || u.role === 'Owner'),
+    is_primary_owner: u.is_primary_owner === 1 ? 1 : 0,
+    status: u.is_active === 1 ? 'Active' : 'Inactive',
+    passcode: u.passcode || '1234',
+    isOnline: Boolean(u.is_online === 1),
+    is_online: u.is_online === 1 ? 1 : 0,
+    isKillSwitchActive: Boolean(u.is_kill_switch_active === 1),
+    is_kill_switch_active: u.is_kill_switch_active === 1 ? 1 : 0,
+    permissions: typeof u.permissions === 'string' ? JSON.parse(u.permissions || '{}') : (u.permissions || {}),
+    notes: u.notes || '',
+    createdAt: u.created_at,
+    updatedAt: u.updated_at
+  }));
+}
+
+/**
+ * Upsert a user in tenant SQLite vault
+ */
+export function upsertTenantUser(tenantId: string, user: any): any {
+  const vault = getTenantVault(tenantId);
+  const permissionsStr = typeof user.permissions === 'object' ? JSON.stringify(user.permissions) : (user.permissions || '{}');
+
+  vault.prepare(`
+    INSERT INTO users (
+      id, name, username, email_or_phone, email, phone, role, passcode,
+      is_primary_owner, is_active, is_online, is_kill_switch_active, permissions, notes, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      username = excluded.username,
+      email_or_phone = excluded.email_or_phone,
+      email = excluded.email,
+      phone = excluded.phone,
+      role = excluded.role,
+      passcode = excluded.passcode,
+      is_active = excluded.is_active,
+      is_online = excluded.is_online,
+      is_kill_switch_active = excluded.is_kill_switch_active,
+      permissions = excluded.permissions,
+      notes = excluded.notes,
+      updated_at = datetime('now')
+  `).run(
+    user.id,
+    user.name,
+    user.username || user.name.toLowerCase().replace(/\s+/g, '_'),
+    user.emailOrPhone || user.phone || user.email || '',
+    user.email || '',
+    user.phone || '',
+    user.role || 'Cashier',
+    user.passcode || '1234',
+    user.isPrimaryOwner || user.is_primary_owner ? 1 : 0,
+    user.status === 'Inactive' || user.is_active === 0 ? 0 : 1,
+    user.isOnline || user.is_online ? 1 : 0,
+    user.isKillSwitchActive || user.is_kill_switch_active ? 1 : 0,
+    permissionsStr,
+    user.notes || '',
+    user.createdAt || new Date().toISOString()
+  );
+
+  return user;
+}
+
+/**
+ * Delete a user from tenant SQLite vault (protects primary owner)
+ */
+export function deleteTenantUser(tenantId: string, userId: string): boolean {
+  const vault = getTenantVault(tenantId);
+  const user: any = vault.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  if (!user || user.is_primary_owner === 1 || user.role === 'Owner') {
+    return false;
+  }
+  vault.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  return true;
+}
+
+/**
+ * Validate & enforce Single-Device Hardware Lock (HWID) per tenant license
+ */
+export function validateAndBindHwidLock(
+  tenantId: string,
+  userId: string,
+  hwid: string,
+  deviceModel: string,
+  os: string,
+  ipAddress: string
+): { allowed: boolean; boundHwid: string; isFirstDevice: boolean; error?: string } {
+  const master = getMasterVault();
+  
+  // 1. Check License Bound HWID
+  let license: any = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  
+  if (!license) {
+    // Provision license record for this tenant if not yet created
+    master.prepare(`
+      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, bound_hwid, created_at)
+      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', ?, datetime('now'))
+    `).run(`lic_${tenantId}`, tenantId, `MBI-LIC-${tenantId.slice(-6).toUpperCase()}`, tenantId, hwid || 'UNBOUND');
+    license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  }
+
+  let boundHwid = license?.bound_hwid || '';
+
+  const isPlaceholder = !boundHwid || 
+    boundHwid === 'UNBOUND' || 
+    boundHwid === 'HWID-PRIMARY-DEVICE' || 
+    boundHwid.startsWith('HWID-DEV1-') ||
+    boundHwid === 'HWID-LOCAL';
+
+  // If first login on unbound license -> auto-bind device #1
+  if (isPlaceholder && hwid) {
+    master.prepare(`
+      UPDATE mbi_licenses 
+      SET bound_hwid = ?
+      WHERE tenant_id = ?
+    `).run(hwid, tenantId);
+
+    // Register device in mbi_registered_devices
+    master.prepare(`
+      INSERT INTO mbi_registered_devices (
+        id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
+      ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        last_seen_at = datetime('now')
+    `).run(
+      `dev_${userId}_${hwid.slice(-6)}`,
+      tenantId,
+      userId,
+      deviceModel || 'POS Workstation',
+      os || 'Windows',
+      hwid,
+      hwid
+    );
+
+    return { allowed: true, boundHwid: hwid, isFirstDevice: true };
+  }
+
+  // If already bound, verify match
+  if (boundHwid && boundHwid !== hwid) {
+    return {
+      allowed: false,
+      boundHwid,
+      isFirstDevice: false,
+      error: 'Device Unauthorized: This company is locked to its registered primary device. You cannot log in from a 2nd terminal without Master Admin approval.'
+    };
+  }
+
+  // Update last seen
+  try {
+    master.prepare(`
+      UPDATE mbi_registered_devices 
+      SET last_seen_at = datetime('now') 
+      WHERE tenant_id = ? AND hwid_fingerprint = ?
+    `).run(tenantId, hwid);
+  } catch (e) {}
+
+  return { allowed: true, boundHwid, isFirstDevice: false };
+}
+
+/**
+ * Log atomic delta mutation in Tenant Outbox
+ */
+export function logDeltaMutation(
+  tenantId: string,
+  mutation: { mutationId: string; entityType: string; entityId: string; operation: string; payload: any }
+): void {
+  const vault = getTenantVault(tenantId);
+  vault.prepare(`
+    INSERT INTO sync_outbox_log (id, mutation_id, entity_type, entity_id, operation, payload_json, timestamp, is_synced)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 1)
+    ON CONFLICT(mutation_id) DO UPDATE SET
+      payload_json = excluded.payload_json,
+      timestamp = datetime('now')
+  `).run(
+    `mut_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    mutation.mutationId || `mut_${Date.now()}`,
+    mutation.entityType,
+    mutation.entityId,
+    mutation.operation || 'UPSERT',
+    JSON.stringify(mutation.payload || {})
+  );
+}
+
+/**
+ * Get delta changes since a specific timestamp for fast 0ms incremental delta sync
+ */
+export function getDeltaChangesSince(tenantId: string, lastTimestamp?: string): any[] {
+  const vault = getTenantVault(tenantId);
+  if (!lastTimestamp) {
+    return vault.prepare("SELECT * FROM sync_outbox_log ORDER BY timestamp ASC LIMIT 500").all();
+  }
+  return vault.prepare("SELECT * FROM sync_outbox_log WHERE timestamp > ? ORDER BY timestamp ASC LIMIT 500").all(lastTimestamp);
 }

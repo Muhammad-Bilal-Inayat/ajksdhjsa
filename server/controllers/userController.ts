@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getMariaDbPool } from '../db/mariaClient';
+import { listTenantUsers, upsertTenantUser, deleteTenantUser } from '../db/sqliteVaultManager';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
@@ -14,6 +15,15 @@ const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
  * NEVER returns records from other tenants when querying for a specific tenantId.
  */
 export function getFallbackUsers(tenantId?: string): any[] {
+  if (tenantId && tenantId !== 'all') {
+    try {
+      const sqliteUsers = listTenantUsers(tenantId);
+      if (sqliteUsers && sqliteUsers.length > 0) {
+        return sqliteUsers;
+      }
+    } catch (e) {}
+  }
+
   let allUsers: any[] = [];
   try {
     if (fs.existsSync(syncFile)) {
@@ -85,7 +95,19 @@ export async function getUsersController(req: Request, res: Response) {
       });
     }
 
-    // 1. Query MariaDB with strict WHERE tenant_id = ?
+    // 1. Fetch from Tenant SQLite Vault directly (0ms latency, physical isolation)
+    try {
+      if (tenantId !== 'all') {
+        const vaultUsers = listTenantUsers(tenantId);
+        if (vaultUsers && vaultUsers.length > 0) {
+          return res.json({ success: true, users: vaultUsers });
+        }
+      }
+    } catch (sqliteErr) {
+      console.warn('[SQLITE VAULT USER FETCH WARN]:', sqliteErr);
+    }
+
+    // 2. Query MariaDB with strict WHERE tenant_id = ?
     try {
       const pool = getMariaDbPool();
       let query: string;
@@ -101,7 +123,7 @@ export async function getUsersController(req: Request, res: Response) {
 
       const rows: any = await pool.query(query, params);
 
-      if (Array.isArray(rows)) {
+      if (Array.isArray(rows) && rows.length > 0) {
         const mapped = rows.map((u: any) => ({
           id: u.id,
           tenantId: u.tenant_id,
@@ -229,7 +251,14 @@ export async function createUserController(req: Request, res: Response) {
       }
     } catch (quotaErr) {}
 
-    // MariaDB write
+    // 1. Direct Tenant SQLite Vault write (0ms physical isolation)
+    try {
+      upsertTenantUser(tenantId, newUser);
+    } catch (sqliteErr) {
+      console.warn('[SQLITE VAULT USER CREATE WARN]:', sqliteErr);
+    }
+
+    // 2. MariaDB write (if available)
     try {
       const pool = getMariaDbPool();
       await pool.query(
@@ -344,6 +373,12 @@ export async function updateUserController(req: Request, res: Response) {
       updatedAt: new Date().toISOString()
     };
 
+    // 1. Direct SQLite Vault update
+    try {
+      upsertTenantUser(tenantId, updatedUser);
+    } catch (sqliteErr) {}
+
+    // 2. MariaDB write (if available)
     try {
       const pool = getMariaDbPool();
       let sql = 'UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?';
@@ -412,6 +447,17 @@ export async function toggleUserStatusController(req: Request, res: Response) {
     const newStatus = status || (existing?.status === 'Active' ? 'Inactive' : 'Active');
     const isKillActive = killSwitch !== undefined ? (killSwitch ? 1 : 0) : (existing?.is_kill_switch_active ? 1 : 0);
 
+    if (existing) {
+      existing.status = newStatus;
+      existing.is_kill_switch_active = isKillActive;
+      existing.isKillSwitchActive = Boolean(isKillActive);
+      existing.updatedAt = new Date().toISOString();
+      try {
+        upsertTenantUser(tenantId, existing);
+      } catch (sqliteErr) {}
+      saveFallbackUsers(tenantUsers, tenantId);
+    }
+
     try {
       const pool = getMariaDbPool();
       let sql = 'UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?';
@@ -422,14 +468,6 @@ export async function toggleUserStatusController(req: Request, res: Response) {
       }
       await pool.query(sql, params);
     } catch (dbErr) {}
-
-    if (existing) {
-      existing.status = newStatus;
-      existing.is_kill_switch_active = isKillActive;
-      existing.isKillSwitchActive = Boolean(isKillActive);
-      existing.updatedAt = new Date().toISOString();
-      saveFallbackUsers(tenantUsers, tenantId);
-    }
 
     if (tenantId) {
       try {
@@ -463,6 +501,15 @@ export async function resetPasscodeController(req: Request, res: Response) {
     const tenantUsers = getFallbackUsers(tenantId);
     const existing = tenantUsers.find(u => u.id === id);
 
+    if (existing) {
+      existing.passcode = passcode;
+      existing.updatedAt = new Date().toISOString();
+      try {
+        upsertTenantUser(tenantId, existing);
+      } catch (sqliteErr) {}
+      saveFallbackUsers(tenantUsers, tenantId);
+    }
+
     try {
       const pool = getMariaDbPool();
       let sql = 'UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?';
@@ -473,12 +520,6 @@ export async function resetPasscodeController(req: Request, res: Response) {
       }
       await pool.query(sql, params);
     } catch (dbErr) {}
-
-    if (existing) {
-      existing.passcode = passcode;
-      existing.updatedAt = new Date().toISOString();
-      saveFallbackUsers(tenantUsers, tenantId);
-    }
 
     if (tenantId) {
       try {
@@ -510,6 +551,12 @@ export async function deleteUserController(req: Request, res: Response) {
       return res.status(403).json({ success: false, error: 'Primary Store Owner account cannot be deleted' });
     }
 
+    // 1. Delete from SQLite Vault
+    try {
+      deleteTenantUser(tenantId, id);
+    } catch (sqliteErr) {}
+
+    // 2. Delete from MariaDB
     try {
       const pool = getMariaDbPool();
       let sql = 'DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)';
@@ -539,3 +586,4 @@ export async function deleteUserController(req: Request, res: Response) {
     return res.status(500).json({ success: false, error: error?.message || 'Failed to delete user' });
   }
 }
+

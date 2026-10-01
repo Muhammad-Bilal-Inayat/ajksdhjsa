@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { verifyJwt, UserJwtPayload } from '../auth/jwt';
+import { getDeltaChangesSince } from '../db/sqliteVaultManager';
 import { 
   handleBatchSyncController, 
   handleSyncRecordController, 
@@ -10,11 +11,33 @@ import {
 export const syncRouter = Router();
 
 /**
- * Snapshot & Single-Record Sync Endpoints for MariaDB & Multi-device Live Sync
+ * Snapshot & Single-Record Sync Endpoints for Native SQLite Vault & Multi-device Live Sync
  */
 syncRouter.get('/', handleGetSyncSnapshotController);
 syncRouter.post('/', handlePostSyncSnapshotController);
 syncRouter.post('/record', handleSyncRecordController);
+
+/**
+ * Incremental Delta Sync: GET /api/sync/delta?since=2026-10-01T12:00:00.000Z
+ * Returns only changed/mutated records since client's last sync point for 0ms ultra-fast streaming
+ */
+syncRouter.get('/delta', (req: Request, res: Response) => {
+  try {
+    const tenantId = (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || (req as any).user?.tenantId || 'tenant_main';
+    const since = req.query.since as string | undefined;
+
+    const changes = getDeltaChangesSince(tenantId, since);
+    res.json({
+      success: true,
+      tenantId,
+      changesCount: changes.length,
+      changes,
+      syncedAt: new Date().toISOString()
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to pull delta changes' });
+  }
+});
 
 
 interface SseClient {

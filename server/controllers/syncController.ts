@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
-import { getTenantVault, getMasterVault } from '../db/sqliteVaultManager';
+import { getTenantVault, getMasterVault, logDeltaMutation } from '../db/sqliteVaultManager';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import fs from 'fs';
 import path from 'path';
@@ -217,6 +217,15 @@ export async function syncRecordToMariaDb(entityType: string, record: any, tenan
         record.status || 'PAID'
       );
     }
+
+    // Record atomic mutation in Tenant Delta Outbox Log
+    logDeltaMutation(tId, {
+      mutationId: record.mutationId || record.idempotencyKey || `mut_${Date.now()}_${record.id.slice(-6)}`,
+      entityType,
+      entityId: record.id,
+      operation: 'UPSERT',
+      payload: record
+    });
   } catch (sqliteErr) {
     console.warn(`[SQLITE VAULT SYNC WARN for ${entityType}]:`, sqliteErr);
   }

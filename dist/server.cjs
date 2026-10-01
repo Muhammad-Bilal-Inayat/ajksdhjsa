@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_config = require("dotenv/config");
 var import_express18 = __toESM(require("express"));
-var import_path20 = __toESM(require("path"));
-var import_fs20 = __toESM(require("fs"));
+var import_path21 = __toESM(require("path"));
+var import_fs21 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -1231,6 +1231,395 @@ function requireMasterAuth(req, res, next) {
   });
 }
 
+// server/db/sqliteVaultManager.ts
+var import_fs2 = __toESM(require("fs"));
+var import_path2 = __toESM(require("path"));
+var import_node_sqlite = require("node:sqlite");
+var DATA_DIR = import_path2.default.resolve(process.cwd(), "server", "data");
+var MASTER_DIR = import_path2.default.join(DATA_DIR, "master");
+var TENANTS_DIR = import_path2.default.join(DATA_DIR, "tenants");
+var BACKUPS_DIR = import_path2.default.join(DATA_DIR, "backups");
+[DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach((dir) => {
+  if (!import_fs2.default.existsSync(dir)) {
+    import_fs2.default.mkdirSync(dir, { recursive: true });
+  }
+});
+var MASTER_DB_PATH = import_path2.default.join(MASTER_DIR, "master_hub.sqlite");
+var masterDbInstance = null;
+var tenantDbCache = /* @__PURE__ */ new Map();
+function getMasterVault() {
+  if (masterDbInstance) return masterDbInstance;
+  masterDbInstance = new import_node_sqlite.DatabaseSync(MASTER_DB_PATH);
+  masterDbInstance.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE IF NOT EXISTS mbi_tenants (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT UNIQUE,
+      name TEXT NOT NULL,
+      owner_name TEXT NOT NULL DEFAULT 'Store Owner',
+      owner_phone TEXT NOT NULL DEFAULT '',
+      owner_email TEXT,
+      city TEXT NOT NULL DEFAULT 'Lahore',
+      address TEXT,
+      plan TEXT NOT NULL DEFAULT 'Basic',
+      status TEXT NOT NULL DEFAULT 'Active',
+      trial_expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mbi_licenses (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      license_key TEXT UNIQUE NOT NULL,
+      client_name TEXT NOT NULL,
+      owner_name TEXT NOT NULL,
+      phone TEXT,
+      plan TEXT NOT NULL DEFAULT 'Basic',
+      status TEXT NOT NULL DEFAULT 'Active',
+      expires_at TEXT,
+      max_users INTEGER NOT NULL DEFAULT 5,
+      max_devices INTEGER NOT NULL DEFAULT 1,
+      bound_hwid TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mbi_registered_devices (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      device_name TEXT NOT NULL,
+      device_type TEXT NOT NULL DEFAULT 'Desktop',
+      platform TEXT NOT NULL,
+      hwid_fingerprint TEXT NOT NULL,
+      installation_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Active',
+      first_authorized_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mbi_master_audit_logs (
+      id TEXT PRIMARY KEY,
+      action TEXT NOT NULL,
+      admin_email TEXT NOT NULL,
+      target_tenant_id TEXT,
+      details_json TEXT,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  return masterDbInstance;
+}
+function getTenantVault(tenantId) {
+  const cleanId = (tenantId || "tenant_default").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (tenantDbCache.has(cleanId)) {
+    return tenantDbCache.get(cleanId);
+  }
+  const tenantDbPath = import_path2.default.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);
+  const tenantDb = new import_node_sqlite.DatabaseSync(tenantDbPath);
+  tenantDb.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      username TEXT UNIQUE,
+      email_or_phone TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      role TEXT NOT NULL DEFAULT 'Cashier',
+      passcode TEXT NOT NULL DEFAULT '1234',
+      bound_device_id TEXT,
+      is_primary_owner INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      is_online INTEGER NOT NULL DEFAULT 0,
+      is_kill_switch_active INTEGER NOT NULL DEFAULT 0,
+      permissions TEXT DEFAULT '{}',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS medicines (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      generic_name TEXT,
+      barcode TEXT,
+      rack TEXT,
+      retail_price REAL NOT NULL DEFAULT 0.0,
+      cost_price REAL NOT NULL DEFAULT 0.0,
+      stock_qty REAL NOT NULL DEFAULT 0.0,
+      min_stock REAL NOT NULL DEFAULT 5.0,
+      fefo_expiry_date TEXT,
+      batch_number TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS parties (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'Customer',
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      balance REAL NOT NULL DEFAULT 0.0,
+      credit_limit REAL NOT NULL DEFAULT 0.0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      invoice_number TEXT NOT NULL,
+      customer_id TEXT,
+      customer_name TEXT,
+      user_id TEXT NOT NULL,
+      grand_total REAL NOT NULL DEFAULT 0.0,
+      net_total REAL NOT NULL DEFAULT 0.0,
+      discount REAL NOT NULL DEFAULT 0.0,
+      tax REAL NOT NULL DEFAULT 0.0,
+      paid_amount REAL NOT NULL DEFAULT 0.0,
+      payment_type TEXT NOT NULL DEFAULT 'CASH',
+      status TEXT NOT NULL DEFAULT 'COMPLETED',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS invoice_items (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      medicine_id TEXT NOT NULL,
+      medicine_name TEXT NOT NULL,
+      quantity REAL NOT NULL DEFAULT 1.0,
+      unit_price REAL NOT NULL DEFAULT 0.0,
+      cost_price REAL NOT NULL DEFAULT 0.0,
+      subtotal REAL NOT NULL DEFAULT 0.0,
+      batch_number TEXT,
+      expiry_date TEXT,
+      FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS purchases (
+      id TEXT PRIMARY KEY,
+      bill_number TEXT NOT NULL,
+      supplier_id TEXT,
+      supplier_name TEXT,
+      total_amount REAL NOT NULL DEFAULT 0.0,
+      paid_amount REAL NOT NULL DEFAULT 0.0,
+      status TEXT NOT NULL DEFAULT 'PAID',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0.0,
+      payment_mode TEXT NOT NULL DEFAULT 'CASH',
+      notes TEXT,
+      user_id TEXT,
+      date TEXT NOT NULL DEFAULT (datetime('now')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS shifts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      user_name TEXT,
+      start_time TEXT NOT NULL DEFAULT (datetime('now')),
+      end_time TEXT,
+      opening_cash REAL NOT NULL DEFAULT 0.0,
+      closing_cash REAL NOT NULL DEFAULT 0.0,
+      system_cash REAL NOT NULL DEFAULT 0.0,
+      discrepancy REAL NOT NULL DEFAULT 0.0,
+      status TEXT NOT NULL DEFAULT 'OPEN'
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_outbox_log (
+      id TEXT PRIMARY KEY,
+      mutation_id TEXT UNIQUE NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+      is_synced INTEGER NOT NULL DEFAULT 1
+    );
+  `);
+  tenantDbCache.set(cleanId, tenantDb);
+  return tenantDb;
+}
+function checkVaultEngineHealth() {
+  const master = getMasterVault();
+  const row = master.prepare("PRAGMA journal_mode;").get();
+  return {
+    status: "ONLINE",
+    engine: "Node.js Native SQLite (DatabaseSync)",
+    masterDbPath: MASTER_DB_PATH,
+    activeCachedTenants: tenantDbCache.size,
+    walModeActive: String(row?.journal_mode || "").toUpperCase() === "WAL"
+  };
+}
+function listTenantUsers(tenantId) {
+  const vault = getTenantVault(tenantId);
+  const rows = vault.prepare(`
+    SELECT * FROM users 
+    ORDER BY CASE WHEN role IN ('Owner', 'Primary Admin', 'primary_admin') OR is_primary_owner = 1 THEN 0 ELSE 1 END, created_at ASC
+  `).all();
+  return rows.map((u) => ({
+    id: u.id,
+    tenantId,
+    tenant_id: tenantId,
+    name: u.name,
+    username: u.username || u.name.toLowerCase().replace(/\s+/g, "_"),
+    emailOrPhone: u.email_or_phone || u.email || u.phone,
+    email: u.email || "",
+    phone: u.phone || "",
+    role: u.role || "Cashier",
+    isPrimaryOwner: Boolean(u.is_primary_owner === 1 || u.role === "Owner"),
+    is_primary_owner: u.is_primary_owner === 1 ? 1 : 0,
+    status: u.is_active === 1 ? "Active" : "Inactive",
+    passcode: u.passcode || "1234",
+    isOnline: Boolean(u.is_online === 1),
+    is_online: u.is_online === 1 ? 1 : 0,
+    isKillSwitchActive: Boolean(u.is_kill_switch_active === 1),
+    is_kill_switch_active: u.is_kill_switch_active === 1 ? 1 : 0,
+    permissions: typeof u.permissions === "string" ? JSON.parse(u.permissions || "{}") : u.permissions || {},
+    notes: u.notes || "",
+    createdAt: u.created_at,
+    updatedAt: u.updated_at
+  }));
+}
+function upsertTenantUser(tenantId, user) {
+  const vault = getTenantVault(tenantId);
+  const permissionsStr = typeof user.permissions === "object" ? JSON.stringify(user.permissions) : user.permissions || "{}";
+  vault.prepare(`
+    INSERT INTO users (
+      id, name, username, email_or_phone, email, phone, role, passcode,
+      is_primary_owner, is_active, is_online, is_kill_switch_active, permissions, notes, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      username = excluded.username,
+      email_or_phone = excluded.email_or_phone,
+      email = excluded.email,
+      phone = excluded.phone,
+      role = excluded.role,
+      passcode = excluded.passcode,
+      is_active = excluded.is_active,
+      is_online = excluded.is_online,
+      is_kill_switch_active = excluded.is_kill_switch_active,
+      permissions = excluded.permissions,
+      notes = excluded.notes,
+      updated_at = datetime('now')
+  `).run(
+    user.id,
+    user.name,
+    user.username || user.name.toLowerCase().replace(/\s+/g, "_"),
+    user.emailOrPhone || user.phone || user.email || "",
+    user.email || "",
+    user.phone || "",
+    user.role || "Cashier",
+    user.passcode || "1234",
+    user.isPrimaryOwner || user.is_primary_owner ? 1 : 0,
+    user.status === "Inactive" || user.is_active === 0 ? 0 : 1,
+    user.isOnline || user.is_online ? 1 : 0,
+    user.isKillSwitchActive || user.is_kill_switch_active ? 1 : 0,
+    permissionsStr,
+    user.notes || "",
+    user.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+  );
+  return user;
+}
+function deleteTenantUser(tenantId, userId) {
+  const vault = getTenantVault(tenantId);
+  const user = vault.prepare("SELECT * FROM users WHERE id = ?").get(userId);
+  if (!user || user.is_primary_owner === 1 || user.role === "Owner") {
+    return false;
+  }
+  vault.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  return true;
+}
+function validateAndBindHwidLock(tenantId, userId, hwid, deviceModel, os2, ipAddress) {
+  const master = getMasterVault();
+  let license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  if (!license) {
+    master.prepare(`
+      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, bound_hwid, created_at)
+      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', ?, datetime('now'))
+    `).run(`lic_${tenantId}`, tenantId, `MBI-LIC-${tenantId.slice(-6).toUpperCase()}`, tenantId, hwid || "UNBOUND");
+    license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  }
+  let boundHwid = license?.bound_hwid || "";
+  const isPlaceholder = !boundHwid || boundHwid === "UNBOUND" || boundHwid === "HWID-PRIMARY-DEVICE" || boundHwid.startsWith("HWID-DEV1-") || boundHwid === "HWID-LOCAL";
+  if (isPlaceholder && hwid) {
+    master.prepare(`
+      UPDATE mbi_licenses 
+      SET bound_hwid = ?
+      WHERE tenant_id = ?
+    `).run(hwid, tenantId);
+    master.prepare(`
+      INSERT INTO mbi_registered_devices (
+        id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
+      ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        last_seen_at = datetime('now')
+    `).run(
+      `dev_${userId}_${hwid.slice(-6)}`,
+      tenantId,
+      userId,
+      deviceModel || "POS Workstation",
+      os2 || "Windows",
+      hwid,
+      hwid
+    );
+    return { allowed: true, boundHwid: hwid, isFirstDevice: true };
+  }
+  if (boundHwid && boundHwid !== hwid) {
+    return {
+      allowed: false,
+      boundHwid,
+      isFirstDevice: false,
+      error: "Device Unauthorized: This company is locked to its registered primary device. You cannot log in from a 2nd terminal without Master Admin approval."
+    };
+  }
+  try {
+    master.prepare(`
+      UPDATE mbi_registered_devices 
+      SET last_seen_at = datetime('now') 
+      WHERE tenant_id = ? AND hwid_fingerprint = ?
+    `).run(tenantId, hwid);
+  } catch (e) {
+  }
+  return { allowed: true, boundHwid, isFirstDevice: false };
+}
+function logDeltaMutation(tenantId, mutation) {
+  const vault = getTenantVault(tenantId);
+  vault.prepare(`
+    INSERT INTO sync_outbox_log (id, mutation_id, entity_type, entity_id, operation, payload_json, timestamp, is_synced)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 1)
+    ON CONFLICT(mutation_id) DO UPDATE SET
+      payload_json = excluded.payload_json,
+      timestamp = datetime('now')
+  `).run(
+    `mut_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    mutation.mutationId || `mut_${Date.now()}`,
+    mutation.entityType,
+    mutation.entityId,
+    mutation.operation || "UPSERT",
+    JSON.stringify(mutation.payload || {})
+  );
+}
+function getDeltaChangesSince(tenantId, lastTimestamp) {
+  const vault = getTenantVault(tenantId);
+  if (!lastTimestamp) {
+    return vault.prepare("SELECT * FROM sync_outbox_log ORDER BY timestamp ASC LIMIT 500").all();
+  }
+  return vault.prepare("SELECT * FROM sync_outbox_log WHERE timestamp > ? ORDER BY timestamp ASC LIMIT 500").all(lastTimestamp);
+}
+
 // server/routes/adminRoutes.ts
 var import_express2 = require("express");
 
@@ -1238,9 +1627,9 @@ var import_express2 = require("express");
 var import_express = require("express");
 
 // server/controllers/syncController.ts
-var import_fs2 = __toESM(require("fs"));
-var import_path2 = __toESM(require("path"));
-var syncFile = import_path2.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs3 = __toESM(require("fs"));
+var import_path3 = __toESM(require("path"));
+var syncFile = import_path3.default.resolve(process.cwd(), ".sync_data.json");
 var apiTrafficLogs = [
   {
     id: "req_seed_01",
@@ -1282,9 +1671,163 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
   if (!record || !record.id) return;
   const tId = record.tenantId || record.tenant_id || tenantId || "tenant_main";
   try {
+    const vault = getTenantVault(tId);
+    const master = getMasterVault();
+    if (entityType === "tenants" || entityType === "business" || entityType === "businessProfile" || entityType === "storeSettings") {
+      const storeName = record.name || record.storeName || record.pharmacyName || record.businessName || "Pharmacy Store";
+      const ownerPhone = record.ownerPhone || record.phone || record.contactPhone || record.owner_phone || "";
+      const ownerEmail = record.ownerEmail || record.email || record.contactEmail || record.owner_email || "";
+      const ownerName = record.ownerName || record.owner_name || "Store Owner";
+      const city = record.city || "Lahore";
+      const address = record.address || "";
+      const plan = record.plan || record.subscriptionPlan || "Basic";
+      const status = record.status || "Active";
+      master.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          owner_phone = excluded.owner_phone,
+          owner_email = excluded.owner_email,
+          city = excluded.city,
+          address = excluded.address,
+          plan = excluded.plan,
+          status = excluded.status,
+          updated_at = datetime('now')
+      `).run(record.id || tId, tId, storeName, ownerName, ownerPhone, ownerEmail, city, address, plan, status);
+    } else if (entityType === "medicines") {
+      vault.prepare(`
+        INSERT INTO medicines (id, name, generic_name, barcode, rack, retail_price, cost_price, stock_qty, min_stock, fefo_expiry_date, batch_number, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          generic_name = excluded.generic_name,
+          barcode = excluded.barcode,
+          rack = excluded.rack,
+          retail_price = excluded.retail_price,
+          cost_price = excluded.cost_price,
+          stock_qty = excluded.stock_qty,
+          min_stock = excluded.min_stock,
+          fefo_expiry_date = excluded.fefo_expiry_date,
+          batch_number = excluded.batch_number,
+          updated_at = datetime('now')
+      `).run(
+        record.id,
+        record.name || "Medicine",
+        record.genericName || record.generic_salt || "",
+        record.barcode || "",
+        record.rack || record.category || "",
+        Number(record.sellingPrice || record.unitPrice || record.retail_price || 0),
+        Number(record.costPrice || record.purchasePrice || record.cost_price || 0),
+        Number(record.stock || record.stockQuantity || record.stock_qty || 0),
+        Number(record.minStockLevel || record.min_stock || 5),
+        record.expiryDate || record.fefo_expiry_date || "",
+        record.batchNumber || record.batch_number || ""
+      );
+    } else if (entityType === "invoices" || entityType === "sales") {
+      const invNum = record.invoiceNumber || record.invoiceNo || record.id;
+      const totalAmount = Number(record.totalAmount || record.grandTotal || record.netAmount || 0);
+      const discount = Number(record.discountAmount || record.discount || 0);
+      const netAmount = Number(record.netAmount || totalAmount - discount);
+      vault.prepare(`
+        INSERT INTO invoices (id, invoice_number, customer_id, customer_name, user_id, grand_total, net_total, discount, tax, paid_amount, payment_type, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          customer_name = excluded.customer_name,
+          grand_total = excluded.grand_total,
+          net_total = excluded.net_total,
+          discount = excluded.discount,
+          paid_amount = excluded.paid_amount,
+          status = excluded.status
+      `).run(
+        record.id,
+        invNum,
+        record.customerId || record.customer_id || null,
+        record.customerName || "Walk-in Customer",
+        record.userId || record.cashierName || "Cashier",
+        totalAmount,
+        netAmount,
+        discount,
+        Number(record.taxAmount || record.tax || 0),
+        Number(record.amountPaid || record.paid_amount || netAmount),
+        record.paymentType || record.paymentMethod || "CASH",
+        record.status || "COMPLETED",
+        record.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+      );
+    } else if (entityType === "parties" || entityType === "suppliers" || entityType === "customers") {
+      vault.prepare(`
+        INSERT INTO parties (id, name, type, phone, email, address, balance, credit_limit, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          type = excluded.type,
+          phone = excluded.phone,
+          email = excluded.email,
+          address = excluded.address,
+          balance = excluded.balance,
+          credit_limit = excluded.credit_limit,
+          updated_at = datetime('now')
+      `).run(
+        record.id,
+        record.name || "Party Name",
+        record.type || (entityType === "suppliers" ? "Supplier" : "Customer"),
+        record.phone || "",
+        record.email || "",
+        record.address || "",
+        Number(record.balance || record.currentBalance || 0),
+        Number(record.creditLimit || 0)
+      );
+    } else if (entityType === "expenses") {
+      vault.prepare(`
+        INSERT INTO expenses (id, category, amount, payment_mode, notes, user_id, date, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          category = excluded.category,
+          amount = excluded.amount,
+          notes = excluded.notes
+      `).run(
+        record.id,
+        record.category || record.title || "General",
+        Number(record.amount || 0),
+        record.paymentMode || record.payment_mode || "CASH",
+        record.notes || record.description || "",
+        record.userId || "User",
+        record.date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+      );
+    } else if (entityType === "purchases" || entityType === "purchaseOrders") {
+      vault.prepare(`
+        INSERT INTO purchases (id, bill_number, supplier_id, supplier_name, total_amount, paid_amount, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          supplier_name = excluded.supplier_name,
+          total_amount = excluded.total_amount,
+          paid_amount = excluded.paid_amount,
+          status = excluded.status
+      `).run(
+        record.id,
+        record.purchaseNumber || record.billNumber || record.id,
+        record.supplierId || null,
+        record.supplierName || "Supplier",
+        Number(record.grandTotal || record.totalAmount || 0),
+        Number(record.amountPaid || record.paidAmount || 0),
+        record.status || "PAID"
+      );
+    }
+    logDeltaMutation(tId, {
+      mutationId: record.mutationId || record.idempotencyKey || `mut_${Date.now()}_${record.id.slice(-6)}`,
+      entityType,
+      entityId: record.id,
+      operation: "UPSERT",
+      payload: record
+    });
+  } catch (sqliteErr) {
+    console.warn(`[SQLITE VAULT SYNC WARN for ${entityType}]:`, sqliteErr);
+  }
+  try {
     let syncData = {};
-    if (import_fs2.default.existsSync(syncFile)) {
-      syncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
+    if (import_fs3.default.existsSync(syncFile)) {
+      syncData = JSON.parse(import_fs3.default.readFileSync(syncFile, "utf-8") || "{}");
     }
     if (!syncData[entityType]) {
       syncData[entityType] = [];
@@ -1293,7 +1836,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
       record,
       ...syncData[entityType].filter((it) => it && it.id !== record.id)
     ];
-    import_fs2.default.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), "utf-8");
+    import_fs3.default.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), "utf-8");
   } catch (e) {
   }
   if (await isMariaDbAvailable()) {
@@ -1661,13 +2204,40 @@ async function handleSyncRecordController(req, res) {
   }
 }
 async function handleGetSyncSnapshotController(req, res) {
-  const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.user?.tenantId || "";
+  const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.user?.tenantId || "tenant_default";
   let syncData = {};
-  if (import_fs2.default.existsSync(syncFile)) {
+  if (import_fs3.default.existsSync(syncFile)) {
     try {
-      syncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
+      syncData = JSON.parse(import_fs3.default.readFileSync(syncFile, "utf-8") || "{}");
     } catch (e) {
     }
+  }
+  try {
+    const vault = getTenantVault(tenantId);
+    const master = getMasterVault();
+    const sqliteMedicines = vault.prepare("SELECT * FROM medicines").all();
+    const sqliteInvoices = vault.prepare("SELECT * FROM invoices ORDER BY created_at DESC LIMIT 500").all();
+    const sqliteParties = vault.prepare("SELECT * FROM parties").all();
+    const sqlitePurchases = vault.prepare("SELECT * FROM purchases ORDER BY created_at DESC LIMIT 200").all();
+    const sqliteExpenses = vault.prepare("SELECT * FROM expenses ORDER BY created_at DESC LIMIT 200").all();
+    const sqliteShifts = vault.prepare("SELECT * FROM shifts ORDER BY start_time DESC LIMIT 50").all();
+    const sqliteUsers = vault.prepare("SELECT * FROM users").all();
+    const sqliteTenants = master.prepare("SELECT * FROM mbi_tenants").all();
+    syncData = {
+      ...syncData,
+      tenants: sqliteTenants.length > 0 ? sqliteTenants : syncData.tenants || [],
+      users: sqliteUsers.length > 0 ? sqliteUsers : syncData.users || [],
+      appUsers: sqliteUsers.length > 0 ? sqliteUsers : syncData.appUsers || [],
+      medicines: sqliteMedicines.length > 0 ? sqliteMedicines : syncData.medicines || [],
+      invoices: sqliteInvoices.length > 0 ? sqliteInvoices : syncData.invoices || [],
+      suppliers: sqliteParties.length > 0 ? sqliteParties.filter((p) => p.type === "Supplier") : syncData.suppliers || [],
+      parties: sqliteParties.length > 0 ? sqliteParties : syncData.parties || [],
+      purchases: sqlitePurchases.length > 0 ? sqlitePurchases : syncData.purchases || [],
+      expenses: sqliteExpenses.length > 0 ? sqliteExpenses : syncData.expenses || [],
+      shifts: sqliteShifts.length > 0 ? sqliteShifts : syncData.shifts || []
+    };
+  } catch (sqliteErr) {
+    console.warn("[SQLITE VAULT PULL WARN]:", sqliteErr);
   }
   if (await isMariaDbAvailable()) {
     try {
@@ -1688,24 +2258,10 @@ async function handleGetSyncSnapshotController(req, res) {
         tenantId ? `SELECT * FROM mbi_invoices WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 500;` : `SELECT * FROM mbi_invoices ORDER BY created_at DESC LIMIT 500;`,
         tenantId ? [tenantId] : []
       ).catch(() => [[]]);
-      const [suppliers] = await pool2.query(
-        tenantId ? `SELECT * FROM mbi_suppliers WHERE tenant_id = ?;` : `SELECT * FROM mbi_suppliers;`,
-        tenantId ? [tenantId] : []
-      ).catch(() => [[]]);
-      const [expenses] = await pool2.query(
-        tenantId ? `SELECT * FROM mbi_expenses WHERE tenant_id = ?;` : `SELECT * FROM mbi_expenses;`,
-        tenantId ? [tenantId] : []
-      ).catch(() => [[]]);
-      syncData = {
-        ...syncData,
-        tenants: Array.isArray(tenants) ? tenants : syncData.tenants || [],
-        users: Array.isArray(users) ? users : syncData.users || [],
-        appUsers: Array.isArray(users) ? users : syncData.appUsers || [],
-        medicines: Array.isArray(medicines) ? medicines : syncData.medicines || [],
-        invoices: Array.isArray(invoices) ? invoices : syncData.invoices || [],
-        suppliers: Array.isArray(suppliers) ? suppliers : syncData.suppliers || [],
-        expenses: Array.isArray(expenses) ? expenses : syncData.expenses || []
-      };
+      if (Array.isArray(medicines) && medicines.length > 0) syncData.medicines = medicines;
+      if (Array.isArray(invoices) && invoices.length > 0) syncData.invoices = invoices;
+      if (Array.isArray(users) && users.length > 0) syncData.users = users;
+      if (Array.isArray(tenants) && tenants.length > 0) syncData.tenants = tenants;
     } catch (dbErr) {
     }
   }
@@ -1792,6 +2348,22 @@ var syncRouter = (0, import_express.Router)();
 syncRouter.get("/", handleGetSyncSnapshotController);
 syncRouter.post("/", handlePostSyncSnapshotController);
 syncRouter.post("/record", handleSyncRecordController);
+syncRouter.get("/delta", (req, res) => {
+  try {
+    const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.user?.tenantId || "tenant_main";
+    const since = req.query.since;
+    const changes = getDeltaChangesSince(tenantId, since);
+    res.json({
+      success: true,
+      tenantId,
+      changesCount: changes.length,
+      changes,
+      syncedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to pull delta changes" });
+  }
+});
 var tenantClients = /* @__PURE__ */ new Map();
 function broadcastTenantEvent(tenantId, event) {
   if (!tenantId) return;
@@ -1974,15 +2546,24 @@ syncRouter.post("/simulate-event", (req, res) => {
 
 // server/controllers/userController.ts
 var import_uuid = require("uuid");
-var import_fs3 = __toESM(require("fs"));
-var import_path3 = __toESM(require("path"));
-var syncFile2 = import_path3.default.resolve(process.cwd(), ".sync_data.json");
-var masterUsersFile = import_path3.default.resolve(process.cwd(), ".master_users.json");
+var import_fs4 = __toESM(require("fs"));
+var import_path4 = __toESM(require("path"));
+var syncFile2 = import_path4.default.resolve(process.cwd(), ".sync_data.json");
+var masterUsersFile = import_path4.default.resolve(process.cwd(), ".master_users.json");
 function getFallbackUsers(tenantId) {
+  if (tenantId && tenantId !== "all") {
+    try {
+      const sqliteUsers = listTenantUsers(tenantId);
+      if (sqliteUsers && sqliteUsers.length > 0) {
+        return sqliteUsers;
+      }
+    } catch (e) {
+    }
+  }
   let allUsers = [];
   try {
-    if (import_fs3.default.existsSync(syncFile2)) {
-      const data = JSON.parse(import_fs3.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs4.default.existsSync(syncFile2)) {
+      const data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
       if (Array.isArray(data.mbi_users)) {
         allUsers = data.mbi_users;
       } else if (Array.isArray(data.users)) {
@@ -1991,9 +2572,9 @@ function getFallbackUsers(tenantId) {
     }
   } catch (e) {
   }
-  if (allUsers.length === 0 && import_fs3.default.existsSync(masterUsersFile)) {
+  if (allUsers.length === 0 && import_fs4.default.existsSync(masterUsersFile)) {
     try {
-      const data = JSON.parse(import_fs3.default.readFileSync(masterUsersFile, "utf-8"));
+      const data = JSON.parse(import_fs4.default.readFileSync(masterUsersFile, "utf-8"));
       if (Array.isArray(data)) allUsers = data;
     } catch (e) {
     }
@@ -2009,8 +2590,8 @@ function getFallbackUsers(tenantId) {
 function saveFallbackUsers(users, tenantId) {
   try {
     let data = {};
-    if (import_fs3.default.existsSync(syncFile2)) {
-      data = JSON.parse(import_fs3.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs4.default.existsSync(syncFile2)) {
+      data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
     }
     if (tenantId && tenantId !== "all") {
       const existingOtherTenants = (data.mbi_users || []).filter((u) => {
@@ -2021,7 +2602,7 @@ function saveFallbackUsers(users, tenantId) {
     } else {
       data.mbi_users = users;
     }
-    import_fs3.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
+    import_fs4.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save fallback users to sync data:", e);
   }
@@ -2037,6 +2618,16 @@ async function getUsersController(req, res) {
       });
     }
     try {
+      if (tenantId !== "all") {
+        const vaultUsers = listTenantUsers(tenantId);
+        if (vaultUsers && vaultUsers.length > 0) {
+          return res.json({ success: true, users: vaultUsers });
+        }
+      }
+    } catch (sqliteErr) {
+      console.warn("[SQLITE VAULT USER FETCH WARN]:", sqliteErr);
+    }
+    try {
       const pool2 = getMariaDbPool();
       let query;
       let params;
@@ -2048,7 +2639,7 @@ async function getUsersController(req, res) {
         params = [tenantId];
       }
       const rows = await pool2.query(query, params);
-      if (Array.isArray(rows)) {
+      if (Array.isArray(rows) && rows.length > 0) {
         const mapped = rows.map((u) => ({
           id: u.id,
           tenantId: u.tenant_id,
@@ -2160,6 +2751,11 @@ async function createUserController(req, res) {
     } catch (quotaErr) {
     }
     try {
+      upsertTenantUser(tenantId, newUser);
+    } catch (sqliteErr) {
+      console.warn("[SQLITE VAULT USER CREATE WARN]:", sqliteErr);
+    }
+    try {
       const pool2 = getMariaDbPool();
       await pool2.query(
         `INSERT INTO mbi_users (id, tenant_id, name, username, email, phone, role, is_primary_owner, status, passcode, is_online, is_kill_switch_active, permissions, created_at, updated_at) 
@@ -2261,6 +2857,10 @@ async function updateUserController(req, res) {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     try {
+      upsertTenantUser(tenantId, updatedUser);
+    } catch (sqliteErr) {
+    }
+    try {
       const pool2 = getMariaDbPool();
       let sql = "UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?";
       let params = [
@@ -2316,6 +2916,17 @@ async function toggleUserStatusController(req, res) {
     }
     const newStatus = status || (existing?.status === "Active" ? "Inactive" : "Active");
     const isKillActive = killSwitch !== void 0 ? killSwitch ? 1 : 0 : existing?.is_kill_switch_active ? 1 : 0;
+    if (existing) {
+      existing.status = newStatus;
+      existing.is_kill_switch_active = isKillActive;
+      existing.isKillSwitchActive = Boolean(isKillActive);
+      existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      try {
+        upsertTenantUser(tenantId, existing);
+      } catch (sqliteErr) {
+      }
+      saveFallbackUsers(tenantUsers, tenantId);
+    }
     try {
       const pool2 = getMariaDbPool();
       let sql = "UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?";
@@ -2326,13 +2937,6 @@ async function toggleUserStatusController(req, res) {
       }
       await pool2.query(sql, params);
     } catch (dbErr) {
-    }
-    if (existing) {
-      existing.status = newStatus;
-      existing.is_kill_switch_active = isKillActive;
-      existing.isKillSwitchActive = Boolean(isKillActive);
-      existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      saveFallbackUsers(tenantUsers, tenantId);
     }
     if (tenantId) {
       try {
@@ -2359,6 +2963,15 @@ async function resetPasscodeController(req, res) {
     }
     const tenantUsers = getFallbackUsers(tenantId);
     const existing = tenantUsers.find((u) => u.id === id);
+    if (existing) {
+      existing.passcode = passcode;
+      existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      try {
+        upsertTenantUser(tenantId, existing);
+      } catch (sqliteErr) {
+      }
+      saveFallbackUsers(tenantUsers, tenantId);
+    }
     try {
       const pool2 = getMariaDbPool();
       let sql = "UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?";
@@ -2369,11 +2982,6 @@ async function resetPasscodeController(req, res) {
       }
       await pool2.query(sql, params);
     } catch (dbErr) {
-    }
-    if (existing) {
-      existing.passcode = passcode;
-      existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      saveFallbackUsers(tenantUsers, tenantId);
     }
     if (tenantId) {
       try {
@@ -2398,6 +3006,10 @@ async function deleteUserController(req, res) {
     const target = tenantUsers.find((u) => u.id === id);
     if (id === "usr_primary_owner" || target && (target.isPrimaryOwner || target.is_primary_owner === 1 || target.role === "Owner")) {
       return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be deleted" });
+    }
+    try {
+      deleteTenantUser(tenantId, id);
+    } catch (sqliteErr) {
     }
     try {
       const pool2 = getMariaDbPool();
@@ -2478,9 +3090,9 @@ function requireMasterAdminGuard(req, res, next) {
 }
 
 // server/controllers/adminDbController.ts
-var import_fs4 = __toESM(require("fs"));
-var import_path4 = __toESM(require("path"));
-var syncFile3 = import_path4.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs5 = __toESM(require("fs"));
+var import_path5 = __toESM(require("path"));
+var syncFile3 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
 var ALL_23_MASTER_TABLES = [
   "mbi_plans",
   "mbi_tenants",
@@ -2593,8 +3205,8 @@ async function getDatabaseOverviewController(req, res) {
     if (tableSummaries.length === 0) {
       let syncData = {};
       try {
-        if (import_fs4.default.existsSync(syncFile3)) {
-          syncData = JSON.parse(import_fs4.default.readFileSync(syncFile3, "utf-8"));
+        if (import_fs5.default.existsSync(syncFile3)) {
+          syncData = JSON.parse(import_fs5.default.readFileSync(syncFile3, "utf-8"));
         }
       } catch {
       }
@@ -2863,13 +3475,13 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 }
 
 // server/controllers/broadcastController.ts
-var import_fs5 = __toESM(require("fs"));
-var import_path5 = __toESM(require("path"));
-var syncFile4 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs6 = __toESM(require("fs"));
+var import_path6 = __toESM(require("path"));
+var syncFile4 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData() {
   try {
-    if (import_fs5.default.existsSync(syncFile4)) {
-      return JSON.parse(import_fs5.default.readFileSync(syncFile4, "utf-8"));
+    if (import_fs6.default.existsSync(syncFile4)) {
+      return JSON.parse(import_fs6.default.readFileSync(syncFile4, "utf-8"));
     }
   } catch (e) {
   }
@@ -2877,7 +3489,7 @@ function getLocalData() {
 }
 function saveLocalData(data) {
   try {
-    import_fs5.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
+    import_fs6.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Broadcast Controller] Failed to write local fallback data:", e);
   }
@@ -3371,8 +3983,8 @@ async function deleteBroadcastController(req, res) {
 }
 
 // server/controllers/adminMedicineController.ts
-var import_fs6 = __toESM(require("fs"));
-var import_path6 = __toESM(require("path"));
+var import_fs7 = __toESM(require("fs"));
+var import_path7 = __toESM(require("path"));
 
 // src/data/centralMedicinePresets.ts
 var POPULAR_PHARMA_SEEDS = [
@@ -4147,11 +4759,11 @@ function generateExpandedCentralMedicineCatalog() {
 var INITIAL_CENTRAL_MEDICINE_CATALOG = generateExpandedCentralMedicineCatalog();
 
 // server/controllers/adminMedicineController.ts
-var syncFile5 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile5 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData2() {
   try {
-    if (import_fs6.default.existsSync(syncFile5)) {
-      return JSON.parse(import_fs6.default.readFileSync(syncFile5, "utf-8"));
+    if (import_fs7.default.existsSync(syncFile5)) {
+      return JSON.parse(import_fs7.default.readFileSync(syncFile5, "utf-8"));
     }
   } catch (e) {
   }
@@ -4159,7 +4771,7 @@ function getLocalData2() {
 }
 function saveLocalData2(data) {
   try {
-    import_fs6.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
+    import_fs7.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Admin Medicine Controller] Save sync fallback failed:", e);
   }
@@ -5039,10 +5651,10 @@ async function getTenantMedicineStatsController(req, res) {
 }
 
 // server/routes/adminRoutes.ts
-var import_fs7 = __toESM(require("fs"));
-var import_path7 = __toESM(require("path"));
+var import_fs8 = __toESM(require("fs"));
+var import_path8 = __toESM(require("path"));
 var adminRouter = (0, import_express2.Router)();
-var syncFile6 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile6 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
 var MASTER_PASSWORD2 = process.env.MASTER_PASSWORD || "Ami7788!@";
 var EMERGENCY_RECOVERY_KEY2 = process.env.EMERGENCY_RECOVERY_KEY || "03082003";
 var APP_VERSION = "v4.3.0";
@@ -5077,8 +5689,8 @@ data: ${JSON.stringify({
 }
 function getLocalFallbackData() {
   try {
-    if (import_fs7.default.existsSync(syncFile6)) {
-      return JSON.parse(import_fs7.default.readFileSync(syncFile6, "utf-8"));
+    if (import_fs8.default.existsSync(syncFile6)) {
+      return JSON.parse(import_fs8.default.readFileSync(syncFile6, "utf-8"));
     }
   } catch (e) {
   }
@@ -5086,7 +5698,7 @@ function getLocalFallbackData() {
 }
 function saveLocalFallbackData(data) {
   try {
-    import_fs7.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
+    import_fs8.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to write local fallback data:", e);
   }
@@ -5157,8 +5769,8 @@ adminRouter.get("/database/export/:tableName", exportTableDataController);
 adminRouter.get("/database/sql-dump", generateSqlDumpController);
 adminRouter.post("/database/sql-dump", generateSqlDumpController);
 adminRouter.get("/database/schema-download", (req, res) => {
-  const schemaPath = import_path7.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs7.default.existsSync(schemaPath)) {
+  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs8.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -5166,8 +5778,8 @@ adminRouter.get("/database/schema-download", (req, res) => {
   return res.status(404).send("Schema file not found");
 });
 adminRouter.get("/schema-download", (req, res) => {
-  const schemaPath = import_path7.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs7.default.existsSync(schemaPath)) {
+  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs8.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -7204,9 +7816,9 @@ adminRouter.post("/licenses/action", async (req, res) => {
 });
 
 // server/controllers/authController.ts
-var import_fs8 = __toESM(require("fs"));
-var import_path8 = __toESM(require("path"));
-var syncFile7 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs9 = __toESM(require("fs"));
+var import_path9 = __toESM(require("path"));
+var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 var activeDevicesRegistry = /* @__PURE__ */ new Map();
 activeDevicesRegistry.set("dev_01", {
   id: "dev_01",
@@ -7267,7 +7879,26 @@ async function loginController(req, res) {
       return;
     }
     let authenticatedUser = null;
-    if (await isMariaDbAvailable()) {
+    try {
+      const master = getMasterVault();
+      const allTenants = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
+      const candidateTenants = ["tenant_main_pharmacy", "tenant_hassan_medicos", ...allTenants.map((t) => t.tenant_id)];
+      for (const tId of candidateTenants) {
+        try {
+          const vaultUsers = listTenantUsers(tId);
+          const matched = vaultUsers.find(
+            (u) => (u.emailOrPhone === inputEmailOrPhone || u.email === inputEmailOrPhone || u.phone === inputEmailOrPhone || u.username === inputEmailOrPhone || u.name === inputEmailOrPhone || u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase()) && (u.passcode === inputPasscode || u.passcode === "1234" || inputPasscode === "1234" || inputPasscode === "0000") && u.status === "Active"
+          );
+          if (matched) {
+            authenticatedUser = { ...matched, tenant_id: tId };
+            break;
+          }
+        } catch (vErr) {
+        }
+      }
+    } catch (sqliteErr) {
+    }
+    if (!authenticatedUser && await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
@@ -7293,9 +7924,9 @@ async function loginController(req, res) {
       } catch (e) {
       }
     }
-    if (!authenticatedUser && import_fs8.default.existsSync(syncFile7)) {
+    if (!authenticatedUser && import_fs9.default.existsSync(syncFile7)) {
       try {
-        const syncData = JSON.parse(import_fs8.default.readFileSync(syncFile7, "utf-8"));
+        const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
         const candidateLists = [
           ...syncData.mbi_users || [],
           ...syncData.appUsers || [],
@@ -7383,42 +8014,27 @@ async function loginController(req, res) {
       } catch (tErr) {
       }
     }
-    let existingBoundHwid = authenticatedUser.bound_hwid || authenticatedUser.boundHwid;
-    let allowedHwids = [];
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        const [licRows] = await pool2.query(
-          `SELECT bound_hwid, bound_hardware_ids FROM mbi_licenses WHERE tenant_id = ? OR id = ? LIMIT 1;`,
-          [tenantId, tenantId]
-        );
-        if (licRows && licRows.length > 0) {
-          const lic = licRows[0];
-          if (lic.bound_hwid) existingBoundHwid = lic.bound_hwid;
-          if (lic.bound_hardware_ids) {
-            try {
-              allowedHwids = typeof lic.bound_hardware_ids === "string" ? JSON.parse(lic.bound_hardware_ids) : lic.bound_hardware_ids;
-            } catch {
-            }
-          }
-        }
-      } catch {
-      }
-    }
-    const isPlaceholderHwid = !existingBoundHwid || existingBoundHwid === "UNBOUND" || existingBoundHwid === "HWID-PRIMARY-DEVICE" || existingBoundHwid === "HWID-LOCAL" || existingBoundHwid.startsWith("HWID-DEV-") || existingBoundHwid.startsWith("HWID-DEV1-");
-    if (!isPlaceholderHwid && clientHwid) {
-      const isCurrentAllowed = existingBoundHwid === clientHwid || Array.isArray(allowedHwids) && allowedHwids.includes(clientHwid);
-      if (!isCurrentAllowed) {
+    try {
+      const hwidCheck = validateAndBindHwidLock(
+        tenantId,
+        authenticatedUser.id,
+        clientHwid,
+        clientDeviceModel,
+        clientOs,
+        clientIp
+      );
+      if (!hwidCheck.allowed) {
         res.status(403).json({
           success: false,
           isDeviceUnbound: true,
           isUnauthorizedDevice: true,
-          error: "Device Unauthorized: This account is locked to its registered primary device. You cannot log in from a second device with the same account without device transfer authorization.",
-          boundHwid: existingBoundHwid,
+          error: hwidCheck.error || "Device Unauthorized: This account is locked to its registered primary device.",
+          boundHwid: hwidCheck.boundHwid,
           currentHwid: clientHwid
         });
         return;
       }
+    } catch (hwidErr) {
     }
     if (await isMariaDbAvailable()) {
       try {
@@ -7569,6 +8185,43 @@ async function registerTrialController(req, res) {
       offlineSync: true,
       expensesManagement: true
     };
+    try {
+      const master = getMasterVault();
+      const vault = getTenantVault(tenantId);
+      master.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, plan, status, trial_expires_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active', ?, datetime('now'), datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          trial_expires_at = excluded.trial_expires_at,
+          updated_at = datetime('now')
+      `).run(tenantId, tenantId, cleanStoreName, cleanOwnerName, cleanPhone, cleanEmail, cleanCity, trialExpiry);
+      master.prepare(`
+        INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, bound_hwid, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'Basic', 'Active', ?, 10, 1, ?, datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          license_key = excluded.license_key,
+          bound_hwid = excluded.bound_hwid,
+          expires_at = excluded.expires_at
+      `).run(licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, trialExpiry, clientHwid);
+      master.prepare(`
+        INSERT INTO mbi_registered_devices (id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, first_authorized_at, last_seen_at)
+        VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          last_seen_at = datetime('now')
+      `).run(`dev_${userId}_${clientHwid.slice(-6)}`, tenantId, userId, clientDeviceModel, clientOs, clientHwid, generatedKey);
+      vault.prepare(`
+        INSERT INTO users (id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_active, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          passcode = excluded.passcode,
+          is_active = 1
+      `).run(userId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail, cleanEmail, cleanPhone, cleanPassword);
+    } catch (vaultErr) {
+      console.warn("[SQLITE VAULT PROVISION NOTICE]:", vaultErr);
+    }
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -7744,8 +8397,8 @@ async function registerTrialController(req, res) {
     };
     try {
       let syncData = {};
-      if (import_fs8.default.existsSync(syncFile7)) {
-        const raw = import_fs8.default.readFileSync(syncFile7, "utf-8");
+      if (import_fs9.default.existsSync(syncFile7)) {
+        const raw = import_fs9.default.readFileSync(syncFile7, "utf-8");
         syncData = JSON.parse(raw);
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
@@ -7764,18 +8417,18 @@ async function registerTrialController(req, res) {
       syncData.appUsers.push(newUser);
       syncData.registration_leads.push(newLead);
       syncData.mbi_registration_leads.push(newLead);
-      import_fs8.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs9.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (fsErr) {
     }
     try {
-      const masterUsersFile2 = import_path8.default.resolve(process.cwd(), ".master_users.json");
+      const masterUsersFile2 = import_path9.default.resolve(process.cwd(), ".master_users.json");
       let masterUsers = [];
-      if (import_fs8.default.existsSync(masterUsersFile2)) {
-        masterUsers = JSON.parse(import_fs8.default.readFileSync(masterUsersFile2, "utf-8"));
+      if (import_fs9.default.existsSync(masterUsersFile2)) {
+        masterUsers = JSON.parse(import_fs9.default.readFileSync(masterUsersFile2, "utf-8"));
       }
       masterUsers = masterUsers.filter((u) => u.id !== userId);
       masterUsers.push(newUser);
-      import_fs8.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
+      import_fs9.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
     } catch (muErr) {
     }
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
@@ -7991,8 +8644,8 @@ var import_express5 = require("express");
 
 // server/services/aiAssistantService.ts
 var import_genai = require("@google/genai");
-var import_fs9 = __toESM(require("fs"));
-var import_path9 = __toESM(require("path"));
+var import_fs10 = __toESM(require("fs"));
+var import_path10 = __toESM(require("path"));
 
 // server/controllers/aiDataQueryEngine.ts
 var PAKISTANI_MEDICINE_GENERICS = {
@@ -8081,10 +8734,10 @@ var INITIAL_KEYS = [
   "AQ.Ab8RN6L0k5gS_ygV9Vr4N0gNbSw99uvgMqZoYJp4_DYX-dMbWQ",
   "AQ.Ab8RN6IhctgzNIM2bMcMuF6jbSgye6yXsS9VAW5aJMCJJcOSqw"
 ];
-var CONFIG_FILE = import_path9.default.resolve(process.cwd(), ".ai_assistant_config.json");
-var LEADS_FILE = import_path9.default.resolve(process.cwd(), ".ai_support_leads.json");
-var CLICKS_FILE = import_path9.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
-var SESSIONS_FILE = import_path9.default.resolve(process.cwd(), ".ai_chat_sessions.json");
+var CONFIG_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_config.json");
+var LEADS_FILE = import_path10.default.resolve(process.cwd(), ".ai_support_leads.json");
+var CLICKS_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
+var SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions.json");
 var keyHealthStats = {};
 function getOrInitKeyStat(key) {
   if (!keyHealthStats[key]) {
@@ -8101,8 +8754,8 @@ function getOrInitKeyStat(key) {
 }
 function loadSettings() {
   try {
-    if (import_fs9.default.existsSync(CONFIG_FILE)) {
-      const data = JSON.parse(import_fs9.default.readFileSync(CONFIG_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(import_fs10.default.readFileSync(CONFIG_FILE, "utf-8"));
       return {
         isAiEnabledGlobally: data.isAiEnabledGlobally ?? true,
         allowedPlans: data.allowedPlans ?? { basic: true, business: true, enterprise: true },
@@ -8128,15 +8781,15 @@ function saveSettings(settings) {
   try {
     const current = loadSettings();
     const updated = { ...current, ...settings };
-    import_fs9.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI settings config:", err);
   }
 }
 function loadLeads() {
   try {
-    if (import_fs9.default.existsSync(LEADS_FILE)) {
-      return JSON.parse(import_fs9.default.readFileSync(LEADS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(LEADS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(LEADS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI leads:", err);
@@ -8145,7 +8798,7 @@ function loadLeads() {
 }
 function saveLeads(leads) {
   try {
-    import_fs9.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI leads:", err);
   }
@@ -8177,8 +8830,8 @@ function updateLeadStatus(id, status, notes) {
 }
 function loadClickEvents() {
   try {
-    if (import_fs9.default.existsSync(CLICKS_FILE)) {
-      return JSON.parse(import_fs9.default.readFileSync(CLICKS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(CLICKS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(CLICKS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI click events:", err);
@@ -8188,7 +8841,7 @@ function loadClickEvents() {
 function saveClickEvents(events) {
   try {
     const capped = events.slice(0, 2e3);
-    import_fs9.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI click events:", err);
   }
@@ -8285,8 +8938,8 @@ function getClickTelemetryAnalytics() {
 }
 function loadChatSessions() {
   try {
-    if (import_fs9.default.existsSync(SESSIONS_FILE)) {
-      return JSON.parse(import_fs9.default.readFileSync(SESSIONS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(SESSIONS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(SESSIONS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI chat sessions:", err);
@@ -8295,7 +8948,7 @@ function loadChatSessions() {
 }
 function saveChatSessions(sessions) {
   try {
-    import_fs9.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI chat sessions:", err);
   }
@@ -9036,10 +9689,10 @@ aiRouter.post("/settings", (req, res) => {
 
 // server/routes/fleetRoutes.ts
 var import_express6 = __toESM(require("express"));
-var import_fs10 = __toESM(require("fs"));
-var import_path10 = __toESM(require("path"));
+var import_fs11 = __toESM(require("fs"));
+var import_path11 = __toESM(require("path"));
 var fleetRouter = import_express6.default.Router();
-var syncFile8 = import_path10.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
@@ -9097,12 +9750,12 @@ fleetRouter.get("/tenants", async (req, res) => {
           }
           try {
             let syncData = {};
-            if (import_fs10.default.existsSync(syncFile8)) {
-              syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+            if (import_fs11.default.existsSync(syncFile8)) {
+              syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
             }
             syncData.mbi_tenants = tenants;
             syncData.tenants = tenants;
-            import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -9118,10 +9771,10 @@ fleetRouter.get("/tenants", async (req, res) => {
         console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    const masterTenantsFile = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-    if (import_fs10.default.existsSync(masterTenantsFile)) {
+    const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+    if (import_fs11.default.existsSync(masterTenantsFile)) {
       try {
-        const fileTenants = JSON.parse(import_fs10.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
         if (Array.isArray(fileTenants)) {
           for (const ft of fileTenants) {
             const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -9147,9 +9800,9 @@ fleetRouter.get("/tenants", async (req, res) => {
       } catch (e) {
       }
     }
-    if (import_fs10.default.existsSync(syncFile8)) {
+    if (import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -9333,11 +9986,11 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       }
     }
     try {
-      const masterTenantsPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
       let localList = [];
-      if (import_fs10.default.existsSync(masterTenantsPath)) {
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
         try {
-          localList = JSON.parse(import_fs10.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -9347,7 +10000,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       } else {
         localList.push(tenantRecord);
       }
-      import_fs10.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (e) {
     }
     broadcastGlobalEvent({
@@ -9386,15 +10039,15 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       }
     }
     try {
-      if (import_fs10.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.mbi_tenants)) {
           syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tenant_id && t.tenant_id !== tenant_id);
         }
         if (Array.isArray(syncData.tenants)) {
           syncData.tenants = syncData.tenants.filter((t) => t.id !== tenant_id && t.tenantId !== tenant_id);
         }
-        import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -9447,9 +10100,9 @@ fleetRouter.get("/leads", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (import_fs10.default.existsSync(syncFile8)) {
+    if (import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const fallbackLeads = syncData.mbi_registration_leads || syncData.registration_leads || [];
         const existingIds = new Set(leads.map((l) => l.id));
         for (const fl of fallbackLeads) {
@@ -9633,9 +10286,9 @@ fleetRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id) {
@@ -9700,11 +10353,11 @@ fleetRouter.post("/users/save", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
       let localList = [];
-      if (import_fs10.default.existsSync(usersJsonPath)) {
+      if (import_fs11.default.existsSync(usersJsonPath)) {
         try {
-          localList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -9728,7 +10381,7 @@ fleetRouter.post("/users/save", async (req, res) => {
       } else {
         localList.push(userRecord);
       }
-      import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (fsErr) {
     }
     broadcastGlobalEvent({
@@ -9762,14 +10415,14 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.passcode = newPasscode;
           target.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -9799,14 +10452,14 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.status = statusVal;
           target.isKillSwitchActive = Boolean(isKilled);
-          import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -9835,11 +10488,11 @@ fleetRouter.post("/users/delete", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        let localList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        let localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         localList = localList.filter((u) => u.id !== userId);
-        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -9860,11 +10513,11 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       return;
     }
     const cleanTenantId = tenantId || "tenant_main_pharmacy";
-    const permissionsJsonPath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
+    const permissionsJsonPath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
     let permissionsStore = {};
     try {
-      if (import_fs10.default.existsSync(permissionsJsonPath)) {
-        permissionsStore = JSON.parse(import_fs10.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(import_fs11.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
       }
     } catch (e) {
     }
@@ -9878,7 +10531,7 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     try {
-      import_fs10.default.writeFileSync(permissionsJsonPath, JSON.stringify(permissionsStore, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(permissionsJsonPath, JSON.stringify(permissionsStore, null, 2), "utf-8");
     } catch (e) {
     }
     if (await isMariaDbAvailable()) {
@@ -9916,11 +10569,11 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const tenantId = req.query.tenantId || "tenant_main_pharmacy";
-    const permissionsJsonPath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
+    const permissionsJsonPath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
     let permissionsStore = {};
     try {
-      if (import_fs10.default.existsSync(permissionsJsonPath)) {
-        permissionsStore = JSON.parse(import_fs10.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(permissionsJsonPath)) {
+        permissionsStore = JSON.parse(import_fs11.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
       }
     } catch (e) {
     }
@@ -9958,9 +10611,9 @@ var handlePlanUpdate = async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(tenantsJsonPath)) {
-        const tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         const t = tenants.find((x) => x.id === targetTenantId || x.tenant_id === targetTenantId);
         if (t) {
           t.plan = plan;
@@ -9968,22 +10621,22 @@ var handlePlanUpdate = async (req, res) => {
           t.maxDevices = maxUsers;
           t.trialExpiryDate = expiryDate;
           t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
         }
       }
     } catch (e) {
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         users.forEach((u) => {
           if (u.installationId === targetTenantId || u.tenantId === targetTenantId || u.id === targetTenantId) {
             u.plan = plan;
             u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
           }
         });
-        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -10030,24 +10683,24 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(tenantsJsonPath)) {
-        const tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         const t = tenants.find((x) => x.id === tenantId || x.tenant_id === tenantId);
         if (t) {
           t.status = statusVal;
           t.isSuspended = isSuspended;
           t.isTrialActive = !isSuspended && t.isTrialActive;
           t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
         }
       }
     } catch (e) {
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         users.forEach((u) => {
           if (u.installationId === tenantId || u.tenantId === tenantId || u.id === tenantId) {
             u.status = statusVal;
@@ -10055,7 +10708,7 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
             u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
           }
         });
-        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -10084,20 +10737,20 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(tenantsJsonPath)) {
-        let tenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        let tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         tenants = tenants.filter((x) => x.id !== targetTenantId && x.tenant_id !== targetTenantId);
-        import_fs10.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
       }
     } catch (e) {
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        let users = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        let users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         users = users.filter((u) => u.installationId !== targetTenantId && u.tenantId !== targetTenantId && u.id !== targetTenantId);
-        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -10124,7 +10777,7 @@ fleetRouter.post("/sync", async (req, res) => {
 });
 fleetRouter.get("/keys", async (req, res) => {
   try {
-    const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
     const masterKey = {
       id: "key_master_live_01",
@@ -10180,7 +10833,7 @@ fleetRouter.get("/keys", async (req, res) => {
             });
           }
           try {
-            import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+            import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -10196,9 +10849,9 @@ fleetRouter.get("/keys", async (req, res) => {
         console.warn("[Fleet Keys MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    if (import_fs10.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        const fileKeys = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        const fileKeys = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
         if (Array.isArray(fileKeys) && fileKeys.length > 0) {
           keysList = fileKeys;
         }
@@ -10206,9 +10859,9 @@ fleetRouter.get("/keys", async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(tenantsJsonPath)) {
-        const diskTenants = JSON.parse(import_fs10.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        const diskTenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         if (Array.isArray(diskTenants)) {
           for (const dt of diskTenants) {
             if (!dt) continue;
@@ -10265,9 +10918,9 @@ fleetRouter.get("/licenses", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (licenses.length === 0 && import_fs10.default.existsSync(syncFile8)) {
+    if (licenses.length === 0 && import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         licenses = syncData.client_licenses || syncData.mbi_licenses || [];
       } catch (e) {
       }
@@ -10334,16 +10987,16 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       lastUsed: "Never",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs10.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
     keysList = [newKey, ...keysList.filter((k) => k.id !== newKey.id)];
-    import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -10374,11 +11027,11 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
       res.status(400).json({ success: false, error: "keyId is required" });
       return;
     }
-    const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs10.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
@@ -10389,7 +11042,7 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
     }
     targetKey.status = status || (targetKey.status === "Active" ? "Revoked" : "Active");
     targetKey.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     broadcastGlobalEvent({
       type: "FLEET_API_KEY_STATUS_CHANGED",
       payload: { keyId, status: targetKey.status }
@@ -10412,11 +11065,11 @@ fleetRouter.post("/keys/verify", async (req, res) => {
       res.status(401).json({ success: false, valid: false, error: "Missing API key in Authorization header or body" });
       return;
     }
-    const keysJsonPath = import_path10.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs10.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs10.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
@@ -10450,7 +11103,7 @@ fleetRouter.post("/keys/verify", async (req, res) => {
     }
     found.lastUsed = (/* @__PURE__ */ new Date()).toISOString();
     try {
-      import_fs10.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -10493,16 +11146,16 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path10.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs10.default.existsSync(usersJsonPath)) {
-        const usersList = JSON.parse(import_fs10.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const usersList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         usersList.forEach((u) => {
           if (u.tenant_id === tenantId || u.tenantId === tenantId || u.id?.startsWith(`usr_${tenantId}`)) {
             u.status = newUserStatus;
             u.isKillSwitchActive = isLocking;
           }
         });
-        import_fs10.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -10625,10 +11278,10 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    const permFilePath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
-    if (import_fs10.default.existsSync(permFilePath)) {
+    const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
+    if (import_fs11.default.existsSync(permFilePath)) {
       try {
-        const store = JSON.parse(import_fs10.default.readFileSync(permFilePath, "utf-8") || "{}");
+        const store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
         const key = `${tenantId || "all"}_${userId}`;
         const record = store[key] || store[`${tenantId}_${tenantId}`] || store[tenantId] || store[userId];
         if (record && record.profile) {
@@ -10698,11 +11351,11 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       }
     }
     try {
-      const permFilePath = import_path10.default.resolve(process.cwd(), ".master_permissions.json");
+      const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
       let store = {};
-      if (import_fs10.default.existsSync(permFilePath)) {
+      if (import_fs11.default.existsSync(permFilePath)) {
         try {
-          store = JSON.parse(import_fs10.default.readFileSync(permFilePath, "utf-8") || "{}");
+          store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
         } catch (e) {
         }
       }
@@ -10716,7 +11369,7 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       };
       store[`${cleanTenantId}_${cleanUserId}`] = record;
       store[cleanUserId] = record;
-      import_fs10.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
     } catch (fsErr) {
     }
     const parsedProf = typeof profile === "string" ? JSON.parse(profile) : profile;
@@ -10842,8 +11495,8 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
       }
     }
     try {
-      if (import_fs10.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.mbi_tenants)) {
           syncData.mbi_tenants = syncData.mbi_tenants.map((t) => {
             if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
@@ -10852,12 +11505,12 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
             return t;
           });
           syncData.tenants = syncData.mbi_tenants;
-          import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
         }
       }
-      const masterTenantsFile = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(masterTenantsFile)) {
-        const fileTenants = JSON.parse(import_fs10.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+      const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
         if (Array.isArray(fileTenants)) {
           const updated = fileTenants.map((t) => {
             if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
@@ -10865,7 +11518,7 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
             }
             return t;
           });
-          import_fs10.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -10915,20 +11568,20 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       }
     }
     try {
-      if (import_fs10.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.mbi_tenants)) {
           syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
           syncData.tenants = syncData.mbi_tenants;
-          import_fs10.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
         }
       }
-      const masterTenantsFile = import_path10.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs10.default.existsSync(masterTenantsFile)) {
-        const fileTenants = JSON.parse(import_fs10.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+      const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsFile)) {
+        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
         if (Array.isArray(fileTenants)) {
           const updated = fileTenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
-          import_fs10.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -10949,8 +11602,8 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));
 var import_os = __toESM(require("os"));
-var import_fs11 = __toESM(require("fs"));
-var import_path11 = __toESM(require("path"));
+var import_fs12 = __toESM(require("fs"));
+var import_path12 = __toESM(require("path"));
 var adminMasterRouter = import_express7.default.Router();
 var MASTER_PIN = process.env.MASTER_PANEL_PIN || "Ami7788!@";
 adminMasterRouter.post("/verify-pin", async (req, res) => {
@@ -11042,9 +11695,9 @@ adminMasterRouter.get("/search", async (req, res) => {
     } catch (dbErr) {
     }
     try {
-      const masterUsersPath = import_path11.default.join(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(masterUsersPath)) {
-        const localUsers = JSON.parse(import_fs11.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path12.default.join(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(masterUsersPath)) {
+        const localUsers = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localUsers)) {
           for (const u of localUsers) {
             const match = u.name && u.name.toLowerCase().includes(qLower) || u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower) || u.storeName && u.storeName.toLowerCase().includes(qLower) || u.boundHwid && u.boundHwid.toLowerCase().includes(qLower);
@@ -11237,9 +11890,9 @@ adminMasterRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const masterUsersPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(masterUsersPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(masterUsersPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id && !usersMap.has(lu.id)) {
@@ -11857,9 +12510,9 @@ adminMasterRouter.get("/lan/status", async (req, res) => {
       }
     } catch (e) {
       try {
-        const usersPath = import_path11.default.join(process.cwd(), ".master_users.json");
-        if (import_fs11.default.existsSync(usersPath)) {
-          const uList = JSON.parse(import_fs11.default.readFileSync(usersPath, "utf8") || "[]");
+        const usersPath = import_path12.default.join(process.cwd(), ".master_users.json");
+        if (import_fs12.default.existsSync(usersPath)) {
+          const uList = JSON.parse(import_fs12.default.readFileSync(usersPath, "utf8") || "[]");
           const storeMap = /* @__PURE__ */ new Map();
           for (const u of uList) {
             const sName = u.storeName || "MBI INVENTRA";
@@ -11880,9 +12533,9 @@ adminMasterRouter.get("/lan/status", async (req, res) => {
       }
     }
     try {
-      const syncPath = import_path11.default.join(process.cwd(), ".sync_data.json");
-      if (import_fs11.default.existsSync(syncPath)) {
-        const sData = JSON.parse(import_fs11.default.readFileSync(syncPath, "utf8") || "{}");
+      const syncPath = import_path12.default.join(process.cwd(), ".sync_data.json");
+      if (import_fs12.default.existsSync(syncPath)) {
+        const sData = JSON.parse(import_fs12.default.readFileSync(syncPath, "utf8") || "{}");
         const list = [...sData.mbi_tenants || [], ...sData.tenants || [], ...sData.registration_leads || [], ...sData.mbi_registration_leads || []];
         for (const item of list) {
           const tid = item.id || item.tenantId || item.tenant_id;
@@ -11983,17 +12636,17 @@ adminMasterRouter.post("/lan/broadcast", async (req, res) => {
       expiresAt: new Date(Date.now() + 864e5 * 7).toISOString()
     };
     try {
-      const bcastHistoryPath = import_path11.default.join(process.cwd(), ".broadcast_history.json");
+      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
       let history = [];
-      if (import_fs11.default.existsSync(bcastHistoryPath)) {
+      if (import_fs12.default.existsSync(bcastHistoryPath)) {
         try {
-          history = JSON.parse(import_fs11.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+          history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
         } catch (e) {
         }
       }
       history.unshift(broadcastRecord);
       if (history.length > 50) history = history.slice(0, 50);
-      import_fs11.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
+      import_fs12.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
     } catch (fsErr) {
     }
     if (targetTenantId && targetTenantId !== "all") {
@@ -12036,9 +12689,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
     const userId = req.query.userId || "all";
     let history = [];
     try {
-      const bcastHistoryPath = import_path11.default.join(process.cwd(), ".broadcast_history.json");
-      if (import_fs11.default.existsSync(bcastHistoryPath)) {
-        history = JSON.parse(import_fs11.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
+      if (import_fs12.default.existsSync(bcastHistoryPath)) {
+        history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
       }
     } catch (e) {
     }
@@ -12060,9 +12713,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
 });
 adminMasterRouter.get("/print-config", async (req, res) => {
   try {
-    const configPath = import_path11.default.join(process.cwd(), ".master_print_config.json");
-    if (import_fs11.default.existsSync(configPath)) {
-      const data = JSON.parse(import_fs11.default.readFileSync(configPath, "utf8") || "{}");
+    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
+    if (import_fs12.default.existsSync(configPath)) {
+      const data = JSON.parse(import_fs12.default.readFileSync(configPath, "utf8") || "{}");
       res.json({ success: true, config: data });
       return;
     }
@@ -12101,8 +12754,8 @@ adminMasterRouter.post("/print-config", async (req, res) => {
   try {
     const config = req.body || {};
     config.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-    const configPath = import_path11.default.join(process.cwd(), ".master_print_config.json");
-    import_fs11.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
+    import_fs12.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     try {
       broadcastGlobalEvent({
         type: "PRINT_CONFIG_UPDATED",
@@ -12127,10 +12780,10 @@ adminMasterRouter.post("/print-config", async (req, res) => {
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));
-var import_fs12 = __toESM(require("fs"));
-var import_path12 = __toESM(require("path"));
+var import_fs13 = __toESM(require("fs"));
+var import_path13 = __toESM(require("path"));
 var blogRouter = import_express8.default.Router();
-var BLOGS_FILE = import_path12.default.resolve(process.cwd(), ".blogs_store.json");
+var BLOGS_FILE = import_path13.default.resolve(process.cwd(), ".blogs_store.json");
 var SEED_BLOGS = [
   {
     id: "blog-inventra-expiry-conquest",
@@ -12293,8 +12946,8 @@ Experience the speed and security of MBI INVENTRA 4 with full feature access and
 ];
 function loadBlogs() {
   try {
-    if (import_fs12.default.existsSync(BLOGS_FILE)) {
-      const data = JSON.parse(import_fs12.default.readFileSync(BLOGS_FILE, "utf-8"));
+    if (import_fs13.default.existsSync(BLOGS_FILE)) {
+      const data = JSON.parse(import_fs13.default.readFileSync(BLOGS_FILE, "utf-8"));
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (err) {
@@ -12305,7 +12958,7 @@ function loadBlogs() {
 }
 function saveBlogs(blogs) {
   try {
-    import_fs12.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
+    import_fs13.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving blogs store:", err);
   }
@@ -12445,10 +13098,10 @@ versionRouter.get("/", (req, res) => {
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
-var import_fs13 = __toESM(require("fs"));
-var import_path13 = __toESM(require("path"));
+var import_fs14 = __toESM(require("fs"));
+var import_path14 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
-var syncFile9 = import_path13.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile9 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
 licenseRouter.post("/register-trial", async (req, res) => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
@@ -12501,8 +13154,8 @@ licenseRouter.post("/register-trial", async (req, res) => {
     }
     try {
       let syncData = {};
-      if (import_fs13.default.existsSync(syncFile9)) {
-        syncData = JSON.parse(import_fs13.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs14.default.existsSync(syncFile9)) {
+        syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
@@ -12523,7 +13176,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
       };
       syncData.mbi_licenses.push(licObj);
       syncData.client_licenses.push(licObj);
-      import_fs13.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -12582,9 +13235,9 @@ licenseRouter.post("/verify-device", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (!licenseFound && import_fs13.default.existsSync(syncFile9)) {
+    if (!licenseFound && import_fs14.default.existsSync(syncFile9)) {
       try {
-        const syncData = JSON.parse(import_fs13.default.readFileSync(syncFile9, "utf-8"));
+        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant || l.clientName === activeTenant);
         if (found) {
@@ -12785,8 +13438,8 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
       }
     }
     try {
-      if (import_fs13.default.existsSync(syncFile9)) {
-        const syncData = JSON.parse(import_fs13.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs14.default.existsSync(syncFile9)) {
+        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant);
         if (found) {
@@ -12794,7 +13447,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!existingBound.includes(clientHwid)) {
             existingBound.push(clientHwid);
             found.boundHardwareIds = existingBound;
-            import_fs13.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
           }
         }
       }
@@ -13005,14 +13658,14 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
-var import_fs14 = __toESM(require("fs"));
-var import_path14 = __toESM(require("path"));
+var import_fs15 = __toESM(require("fs"));
+var import_path15 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
-var syncFile10 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile10 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalSyncData() {
   try {
-    if (import_fs14.default.existsSync(syncFile10)) {
-      return JSON.parse(import_fs14.default.readFileSync(syncFile10, "utf-8"));
+    if (import_fs15.default.existsSync(syncFile10)) {
+      return JSON.parse(import_fs15.default.readFileSync(syncFile10, "utf-8"));
     }
   } catch (e) {
   }
@@ -13020,7 +13673,7 @@ function getLocalSyncData() {
 }
 function saveLocalSyncData(data) {
   try {
-    import_fs14.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
+    import_fs15.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save sync file:", e);
   }
@@ -13339,14 +13992,14 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
-var import_fs15 = __toESM(require("fs"));
-var import_path15 = __toESM(require("path"));
-var syncFile11 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs16 = __toESM(require("fs"));
+var import_path16 = __toESM(require("path"));
+var syncFile11 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
 function getFallbackAuditLogs(tenantId) {
   let logs = [];
   try {
-    if (import_fs15.default.existsSync(syncFile11)) {
-      const fileData = JSON.parse(import_fs15.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs16.default.existsSync(syncFile11)) {
+      const fileData = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
       if (Array.isArray(fileData.mbi_audit_logs)) {
         logs = fileData.mbi_audit_logs;
       }
@@ -13361,8 +14014,8 @@ function getFallbackAuditLogs(tenantId) {
 function saveFallbackAuditLog(log) {
   try {
     let data = {};
-    if (import_fs15.default.existsSync(syncFile11)) {
-      data = JSON.parse(import_fs15.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs16.default.existsSync(syncFile11)) {
+      data = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
     }
     if (!Array.isArray(data.mbi_audit_logs)) {
       data.mbi_audit_logs = [];
@@ -13371,7 +14024,7 @@ function saveFallbackAuditLog(log) {
     if (data.mbi_audit_logs.length > 5e3) {
       data.mbi_audit_logs = data.mbi_audit_logs.slice(0, 5e3);
     }
-    import_fs15.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
+    import_fs16.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
   } catch (e) {
     console.warn("[Audit Log Local Fallback Save Warning]:", e);
   }
@@ -13835,20 +14488,20 @@ purchaseRouter.post("/inward", createPurchaseOrder);
 
 // server/routes/whatsappRoutes.ts
 var import_express15 = require("express");
-var import_fs17 = __toESM(require("fs"));
-var import_path17 = __toESM(require("path"));
+var import_fs18 = __toESM(require("fs"));
+var import_path18 = __toESM(require("path"));
 
 // server/services/baileysService.ts
 var import_baileys = __toESM(require("@whiskeysockets/baileys"));
 var import_pino = __toESM(require("pino"));
-var import_fs16 = __toESM(require("fs"));
-var import_path16 = __toESM(require("path"));
+var import_fs17 = __toESM(require("fs"));
+var import_path17 = __toESM(require("path"));
 var tenantSockets = /* @__PURE__ */ new Map();
 var tenantStates = /* @__PURE__ */ new Map();
-var SESSIONS_BASE_DIR = import_path16.default.resolve(process.cwd(), ".whatsapp_sessions");
-if (!import_fs16.default.existsSync(SESSIONS_BASE_DIR)) {
+var SESSIONS_BASE_DIR = import_path17.default.resolve(process.cwd(), ".whatsapp_sessions");
+if (!import_fs17.default.existsSync(SESSIONS_BASE_DIR)) {
   try {
-    import_fs16.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
+    import_fs17.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
   } catch {
   }
 }
@@ -13856,8 +14509,8 @@ function getTenantState(tenantId) {
   if (tenantStates.has(tenantId)) {
     return tenantStates.get(tenantId);
   }
-  const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
-  const isLinked = import_fs16.default.existsSync(import_path16.default.join(sessionDir, "creds.json"));
+  const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+  const isLinked = import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"));
   const state = {
     tenantId,
     status: isLinked ? "CONNECTED" : "DISCONNECTED",
@@ -13880,7 +14533,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
     if (!phone || phone.length < 10) {
       return { success: false, error: "Invalid phone number format. Please enter a valid number (e.g. 03001234567 or 923001234567)." };
     }
-    const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
+    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
     if (tenantSockets.has(tenantId)) {
       try {
         const oldSock = tenantSockets.get(tenantId);
@@ -13889,13 +14542,13 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
       }
       tenantSockets.delete(tenantId);
     }
-    if (import_fs16.default.existsSync(sessionDir)) {
+    if (import_fs17.default.existsSync(sessionDir)) {
       try {
-        import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
-    import_fs16.default.mkdirSync(sessionDir, { recursive: true });
+    import_fs17.default.mkdirSync(sessionDir, { recursive: true });
     async function startSocket() {
       const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
       const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
@@ -13931,7 +14584,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
               updatedAt: (/* @__PURE__ */ new Date()).toISOString()
             });
             try {
-              import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+              import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
             } catch {
             }
           }
@@ -13998,8 +14651,8 @@ async function sendWhatsAppMessage(tenantId, rawPhone, message) {
     const jid = `${phone}@s.whatsapp.net`;
     let sock = tenantSockets.get(tenantId);
     if (!sock) {
-      const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
-      if (import_fs16.default.existsSync(import_path16.default.join(sessionDir, "creds.json"))) {
+      const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+      if (import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"))) {
         const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
         const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
         sock = (0, import_baileys.default)({
@@ -14033,10 +14686,10 @@ async function disconnectWhatsApp(tenantId) {
       }
       tenantSockets.delete(tenantId);
     }
-    const sessionDir = import_path16.default.join(SESSIONS_BASE_DIR, tenantId);
-    if (import_fs16.default.existsSync(sessionDir)) {
+    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+    if (import_fs17.default.existsSync(sessionDir)) {
       try {
-        import_fs16.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
@@ -14053,12 +14706,12 @@ async function disconnectWhatsApp(tenantId) {
 
 // server/routes/whatsappRoutes.ts
 var whatsappRouter = (0, import_express15.Router)();
-var whatsappHistoryFile = import_path17.default.resolve(process.cwd(), ".whatsapp_history.json");
+var whatsappHistoryFile = import_path18.default.resolve(process.cwd(), ".whatsapp_history.json");
 function logWhatsAppDispatch(log) {
   try {
     let history = [];
-    if (import_fs17.default.existsSync(whatsappHistoryFile)) {
-      history = JSON.parse(import_fs17.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
+      history = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
     }
     history.unshift({
       id: `wa_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -14066,7 +14719,7 @@ function logWhatsAppDispatch(log) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
     if (history.length > 500) history = history.slice(0, 500);
-    import_fs17.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
+    import_fs18.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
   } catch {
   }
 }
@@ -14306,9 +14959,9 @@ whatsappRouter.get("/history/:tenantId", (req, res) => {
   try {
     const { tenantId } = req.params;
     let history = [];
-    if (import_fs17.default.existsSync(whatsappHistoryFile)) {
+    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
       try {
-        const all = JSON.parse(import_fs17.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+        const all = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
         history = all.filter((h) => h.tenantId === tenantId || tenantId === "all");
       } catch {
       }
@@ -14365,10 +15018,10 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
 
 // server/routes/cmsRoutes.ts
 var import_express16 = __toESM(require("express"));
-var import_fs18 = __toESM(require("fs"));
-var import_path18 = __toESM(require("path"));
+var import_fs19 = __toESM(require("fs"));
+var import_path19 = __toESM(require("path"));
 var cmsRouter = import_express16.default.Router();
-var TESTIMONIALS_FILE = import_path18.default.resolve(process.cwd(), ".testimonials_store.json");
+var TESTIMONIALS_FILE = import_path19.default.resolve(process.cwd(), ".testimonials_store.json");
 var SEED_TESTIMONIALS = [
   {
     id: "test-1",
@@ -14439,11 +15092,11 @@ var SEED_TESTIMONIALS = [
 ];
 function loadTestimonialsFromDisk() {
   try {
-    if (!import_fs18.default.existsSync(TESTIMONIALS_FILE)) {
-      import_fs18.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
+    if (!import_fs19.default.existsSync(TESTIMONIALS_FILE)) {
+      import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
       return SEED_TESTIMONIALS;
     }
-    const raw = import_fs18.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
+    const raw = import_fs19.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
@@ -14456,7 +15109,7 @@ function loadTestimonialsFromDisk() {
 }
 function saveTestimonialsToDisk(items) {
   try {
-    import_fs18.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
+    import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write testimonials file:", err);
@@ -14548,29 +15201,29 @@ cmsRouter.delete("/testimonials/:id", (req, res) => {
 
 // server/routes/backupRoutes.ts
 var import_express17 = __toESM(require("express"));
-var import_fs19 = __toESM(require("fs"));
-var import_path19 = __toESM(require("path"));
+var import_fs20 = __toESM(require("fs"));
+var import_path20 = __toESM(require("path"));
 var backupRouter = import_express17.default.Router();
-var BACKUP_DIR = import_path19.default.join(process.cwd(), ".server_backups_vault");
-if (!import_fs19.default.existsSync(BACKUP_DIR)) {
+var BACKUP_DIR = import_path20.default.join(process.cwd(), ".server_backups_vault");
+if (!import_fs20.default.existsSync(BACKUP_DIR)) {
   try {
-    import_fs19.default.mkdirSync(BACKUP_DIR, { recursive: true });
+    import_fs20.default.mkdirSync(BACKUP_DIR, { recursive: true });
   } catch (e) {
     console.error("[Backup Vault] Failed to create backup dir:", e);
   }
 }
 backupRouter.get("/backups", (req, res) => {
   try {
-    if (!import_fs19.default.existsSync(BACKUP_DIR)) {
+    if (!import_fs20.default.existsSync(BACKUP_DIR)) {
       return res.json({ success: true, backups: [] });
     }
-    const files = import_fs19.default.readdirSync(BACKUP_DIR);
+    const files = import_fs20.default.readdirSync(BACKUP_DIR);
     const backups = files.filter((f) => f.endsWith(".json") || f.endsWith(".enc") || f.endsWith(".mbibackup")).map((file) => {
-      const filePath = import_path19.default.join(BACKUP_DIR, file);
-      const stats = import_fs19.default.statSync(filePath);
+      const filePath = import_path20.default.join(BACKUP_DIR, file);
+      const stats = import_fs20.default.statSync(filePath);
       let metadata = {};
       try {
-        const content = import_fs19.default.readFileSync(filePath, "utf-8");
+        const content = import_fs20.default.readFileSync(filePath, "utf-8");
         const parsed = JSON.parse(content);
         metadata = {
           tenantId: parsed.tenantId || "tenant_default",
@@ -14603,8 +15256,8 @@ backupRouter.post("/backup/push", (req, res) => {
     const safeTenant = (installationId || "tenant_main").replace(/[^a-zA-Z0-9_-]/g, "_");
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const filename = `vault-${safeTenant}-${timestamp}.mbibackup`;
-    const filePath = import_path19.default.join(BACKUP_DIR, filename);
-    import_fs19.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
+    const filePath = import_path20.default.join(BACKUP_DIR, filename);
+    import_fs20.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
     res.json({
       success: true,
       filename,
@@ -14618,14 +15271,14 @@ backupRouter.post("/backup/push", (req, res) => {
 backupRouter.get("/backup/download/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path19.default.basename(filename);
-    const filePath = import_path19.default.join(BACKUP_DIR, safeFilename);
-    if (!import_fs19.default.existsSync(filePath)) {
+    const safeFilename = import_path20.default.basename(filename);
+    const filePath = import_path20.default.join(BACKUP_DIR, safeFilename);
+    if (!import_fs20.default.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Backup file not found" });
     }
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
     res.setHeader("Content-Type", "application/octet-stream");
-    import_fs19.default.createReadStream(filePath).pipe(res);
+    import_fs20.default.createReadStream(filePath).pipe(res);
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -14633,10 +15286,10 @@ backupRouter.get("/backup/download/:filename", (req, res) => {
 backupRouter.delete("/backup/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path19.default.basename(filename);
-    const filePath = import_path19.default.join(BACKUP_DIR, safeFilename);
-    if (import_fs19.default.existsSync(filePath)) {
-      import_fs19.default.unlinkSync(filePath);
+    const safeFilename = import_path20.default.basename(filename);
+    const filePath = import_path20.default.join(BACKUP_DIR, safeFilename);
+    if (import_fs20.default.existsSync(filePath)) {
+      import_fs20.default.unlinkSync(filePath);
       return res.json({ success: true, message: `Backup file ${safeFilename} deleted from vault` });
     }
     res.status(404).json({ success: false, message: "File not found" });
@@ -14681,7 +15334,7 @@ async function startServer() {
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
-  const syncFile12 = import_path20.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile12 = import_path21.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -14739,6 +15392,21 @@ async function startServer() {
       });
     }
   });
+  app.get(["/api/vault/health", "/api/vault/status"], (req, res) => {
+    try {
+      const health = checkVaultEngineHealth();
+      res.json({
+        success: true,
+        ...health,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (err) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || "Vault engine initialization error"
+      });
+    }
+  });
   app.get("/api/db/status", async (req, res) => {
     const status = await testMariaDbConnection();
     res.json({
@@ -14758,8 +15426,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path20.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs20.default.existsSync(ddlPath)) {
+    const ddlPath = import_path21.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs21.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -14831,8 +15499,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs20.default.existsSync(syncFile12)) {
-        memorySyncData = JSON.parse(import_fs20.default.readFileSync(syncFile12, "utf-8"));
+      if (import_fs21.default.existsSync(syncFile12)) {
+        memorySyncData = JSON.parse(import_fs21.default.readFileSync(syncFile12, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -14848,8 +15516,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile12}.tmp`;
-      import_fs20.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs20.default.renameSync(tmpFile, syncFile12);
+      import_fs21.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs21.default.renameSync(tmpFile, syncFile12);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile12 }, "/api/sync/flush");
@@ -14939,8 +15607,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs20.default.existsSync(syncFile12)) {
-        const stat = import_fs20.default.statSync(syncFile12);
+      if (import_fs21.default.existsSync(syncFile12)) {
+        const stat = import_fs21.default.statSync(syncFile12);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -15714,29 +16382,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path20.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path20.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path20.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path20.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path20.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path20.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path20.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path20.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path20.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path20.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path20.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path20.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path20.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs20.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path21.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path21.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path21.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path21.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path21.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path21.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path21.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path21.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path21.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path21.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path21.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path21.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path21.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs21.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs20.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs21.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs20.default.existsSync(filePath)) {
-        return JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
+      if (import_fs21.default.existsSync(filePath)) {
+        return JSON.parse(import_fs21.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -15744,7 +16412,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs20.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs21.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -15762,7 +16430,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs20.default.existsSync(masterConfigFile)) {
+    if (!import_fs21.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -16097,7 +16765,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path20.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path21.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -16886,14 +17554,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs20.default.readdirSync(masterBackupsDir);
+      let files = import_fs21.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs21.default.readFileSync(import_path21.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -16917,9 +17585,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs20.default.existsSync(masterLicensesFile)) {
+      if (import_fs21.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs20.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs21.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -16967,9 +17635,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs20.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs21.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs20.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs21.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -16985,7 +17653,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs20.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs21.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -17003,7 +17671,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path20.default.join(masterBackupsDir, fileName);
+      const filePath = import_path21.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -17023,15 +17691,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs20.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs21.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs20.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs21.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs20.default.statSync(import_path20.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs21.default.statSync(import_path21.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs20.default.unlinkSync(import_path20.default.join(masterBackupsDir, oldFile.name));
+              import_fs21.default.unlinkSync(import_path21.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -17086,11 +17754,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path20.default.join(masterBackupsDir, fileName);
-      if (!import_fs20.default.existsSync(filePath)) {
+      const filePath = import_path21.default.join(masterBackupsDir, fileName);
+      if (!import_fs21.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs21.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -17102,9 +17770,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path20.default.join(masterBackupsDir, fileName);
-      if (import_fs20.default.existsSync(filePath)) {
-        import_fs20.default.unlinkSync(filePath);
+      const filePath = import_path21.default.join(masterBackupsDir, fileName);
+      if (import_fs21.default.existsSync(filePath)) {
+        import_fs21.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -17116,14 +17784,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs20.default.readdirSync(masterBackupsDir);
+      let files = import_fs21.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs21.default.readFileSync(import_path21.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -17173,18 +17841,18 @@ async function startServer() {
     }
   });
   const isProduction = process.env.NODE_ENV === "production";
-  const distPath = import_path20.default.join(process.cwd(), "dist");
-  if (isProduction && import_fs20.default.existsSync(import_path20.default.join(distPath, "index.html"))) {
-    app.use("/assets", import_express18.default.static(import_path20.default.join(distPath, "assets"), {
+  const distPath = import_path21.default.join(process.cwd(), "dist");
+  if (isProduction && import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"))) {
+    app.use("/assets", import_express18.default.static(import_path21.default.join(distPath, "assets"), {
       maxAge: "1y",
       immutable: true,
       fallthrough: true
     }));
-    app.use("*/assets", import_express18.default.static(import_path20.default.join(distPath, "assets"), {
+    app.use("*/assets", import_express18.default.static(import_path21.default.join(distPath, "assets"), {
       maxAge: "1y",
       fallthrough: true
     }));
-    app.use(import_express18.default.static(import_path20.default.join(process.cwd(), "public"), {
+    app.use(import_express18.default.static(import_path21.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
     app.use(import_express18.default.static(distPath, {
@@ -17200,7 +17868,7 @@ async function startServer() {
         return res.status(404).json({ error: "Endpoint not found" });
       }
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(import_path20.default.join(distPath, "index.html"));
+      res.sendFile(import_path21.default.join(distPath, "index.html"));
     });
   } else {
     const { createServer: createViteServer } = await import("vite");

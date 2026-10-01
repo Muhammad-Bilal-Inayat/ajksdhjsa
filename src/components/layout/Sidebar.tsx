@@ -40,6 +40,7 @@ import {
   isReportAllowed as isPlanReportAllowed, 
   isRouteAllowed as isPlanRouteAllowed, 
   getActiveTenantPlan, 
+  normalizePlan,
   isPlanSufficient,
   PlanTier 
 } from '../../utils/planPermissions';

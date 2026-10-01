@@ -196,7 +196,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // ACTION 0: 1-CLICK SILENT SHADOW SWITCH INTO USER / TENANT WORKSPACE
   const handleSilentSwitchUser = async (user: MasterActiveUser) => {
     try {
-      const rawTargetTenantId = user.tenantId || user.storeId || (user as any).tenant_id || (user as any).businessId;
+      const rawTargetTenantId = user.tenantId || (user as any).storeId || (user as any).tenant_id || (user as any).businessId;
       const targetTenantId = (rawTargetTenantId && rawTargetTenantId !== 'undefined' && rawTargetTenantId !== 'null' && String(rawTargetTenantId).trim() !== '')
         ? String(rawTargetTenantId).trim()
         : 'default';

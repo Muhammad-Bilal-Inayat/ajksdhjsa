@@ -347670,6 +347670,40 @@
   ],
   "appUsers": [
     {
+      "id": "u_1790859394966",
+      "name": "234567",
+      "emailOrPhone": "0300000",
+      "role": "Primary Admin",
+      "status": "Joined",
+      "passcode": "0000",
+      "tenantId": "tenant-a66adf5d",
+      "canEditInvoices": true,
+      "createdAt": "2026-10-01T12:56:34.974Z",
+      "updatedAt": "2026-10-01T12:56:34.975Z",
+      "firmId": "firm-main",
+      "createdById": "u_1790859394966",
+      "lastUpdatedById": "u_1790859394966",
+      "lastUpdatedAt": "2026-10-01T12:56:34.977Z",
+      "syncStatus": "pending"
+    },
+    {
+      "id": "u_1790850901436",
+      "name": "bb",
+      "emailOrPhone": "030000000",
+      "role": "Primary Admin",
+      "status": "Joined",
+      "passcode": "0000",
+      "tenantId": "tenant-7fb6cb51",
+      "canEditInvoices": true,
+      "createdAt": "2026-10-01T10:35:01.441Z",
+      "updatedAt": "2026-10-01T10:35:01.442Z",
+      "firmId": "firm-main",
+      "createdById": "u_1790850901436",
+      "lastUpdatedById": "u_1790850901436",
+      "lastUpdatedAt": "2026-10-01T10:35:01.443Z",
+      "syncStatus": "pending"
+    },
+    {
       "id": "usr_shadow_1790793540677",
       "name": "M Bilal Inayat",
       "emailOrPhone": "mbilalinayat@mbiinventra.com",
@@ -348145,10 +348179,78 @@
       "lastSyncTime": "2026-09-29T12:33:55.196Z",
       "isOnline": true,
       "updatedAt": "2026-09-29T12:33:55.200Z"
+    },
+    {
+      "id": "usr_1790850894206_z242y",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "tenant_id": "tenant_1790850894206_j2sw3",
+      "name": "bb",
+      "username": "gggggg",
+      "emailOrPhone": "030000000",
+      "email": "m.bilalinayat786@gmail.com",
+      "phone": "030000000",
+      "passcode": "gggggg",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
+    },
+    {
+      "id": "usr_1790859394084_gbkwn",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "tenant_id": "tenant_1790859394083_o2c4r",
+      "name": "234567",
+      "username": "asdf",
+      "emailOrPhone": "0300000",
+      "email": "asdf@inventra.local",
+      "phone": "0300000",
+      "passcode": "aaaaaa",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
     }
   ],
   "users": [],
   "userActivities": [
+    {
+      "id": "l_1790859395142",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user 234567 (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790859395142,
+      "tenantId": "tenant-a66adf5d",
+      "firmId": "firm-main",
+      "createdById": "u_1790859394966",
+      "lastUpdatedById": "u_1790859394966",
+      "lastUpdatedAt": "2026-10-01T12:56:35.142Z",
+      "createdAt": "2026-10-01T12:56:35.142Z",
+      "updatedAt": "2026-10-01T12:56:35.142Z",
+      "syncStatus": "pending"
+    },
+    {
+      "id": "l_1790850901540",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user bb (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790850901540,
+      "tenantId": "tenant-7fb6cb51",
+      "firmId": "firm-main",
+      "createdById": "u_1790850901436",
+      "lastUpdatedById": "u_1790850901436",
+      "lastUpdatedAt": "2026-10-01T10:35:01.540Z",
+      "createdAt": "2026-10-01T10:35:01.540Z",
+      "updatedAt": "2026-10-01T10:35:01.540Z",
+      "syncStatus": "pending"
+    },
     {
       "id": "l_1790794501480",
       "userName": "Admin",
@@ -348318,13 +348420,354 @@
   ],
   "bookers": [],
   "bookerTransactions": [],
-  "registration_leads": [],
-  "tenants": [],
-  "client_licenses": [],
+  "registration_leads": [
+    {
+      "id": "lead_1790850900919",
+      "storeName": "Muhammad",
+      "ownerName": "bb",
+      "username": "gggggg",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "email": "m.bilalinayat786@gmail.com",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-0WTT-V302-KQUF",
+      "submittedAt": "2026-10-01T10:34:54.206Z",
+      "activatedAt": "2026-10-01T10:34:54.206Z"
+    },
+    {
+      "id": "lead_1790859394084",
+      "storeName": "asdfgh",
+      "ownerName": "234567",
+      "username": "asdf",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "email": "asdf@inventra.local",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-PKB2-PU57-EV0Q",
+      "submittedAt": "2026-10-01T12:56:34.084Z",
+      "activatedAt": "2026-10-01T12:56:34.084Z"
+    }
+  ],
+  "tenants": [
+    {
+      "id": "tenant_1790850894206_j2sw3",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "name": "Muhammad",
+      "ownerName": "bb",
+      "ownerPhone": "030000000",
+      "ownerEmail": "m.bilalinayat786@gmail.com",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T10:34:54.206Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    },
+    {
+      "id": "tenant_1790859394083_o2c4r",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "name": "asdfgh",
+      "ownerName": "234567",
+      "ownerPhone": "0300000",
+      "ownerEmail": "asdf@inventra.local",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T12:56:34.084Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    }
+  ],
+  "client_licenses": [
+    {
+      "id": "lic_1790850894206_ze4tq",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "licenseKey": "MBI-TR-0WTT-V302-KQUF",
+      "clientName": "Muhammad",
+      "ownerName": "bb",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-410INT-AFTP"
+      ]
+    },
+    {
+      "id": "lic_trial_1790850901436",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "licenseKey": "MBI-1GIO-CK88-MKKW",
+      "clientName": "Muhammad",
+      "ownerName": "bb",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-410INT-AFTP"
+      ]
+    },
+    {
+      "id": "lic_1790859394084_d1xy8",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "licenseKey": "MBI-TR-PKB2-PU57-EV0Q",
+      "clientName": "asdfgh",
+      "ownerName": "234567",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-F5KJE5-4ONA"
+      ]
+    },
+    {
+      "id": "lic_trial_1790859394967",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "licenseKey": "MBI-P5U8-CADI-BNAS",
+      "clientName": "asdfgh",
+      "ownerName": "234567",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-F5KJE5-4ONA"
+      ]
+    }
+  ],
   "storeSettings": [],
   "_tombstones": [],
-  "mbi_licenses": [],
-  "mbi_tenants": [],
-  "mbi_users": [],
-  "mbi_registration_leads": []
+  "mbi_licenses": [
+    {
+      "id": "lic_1790850894206_ze4tq",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "licenseKey": "MBI-TR-0WTT-V302-KQUF",
+      "clientName": "Muhammad",
+      "ownerName": "bb",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-410INT-AFTP"
+      ]
+    },
+    {
+      "id": "lic_trial_1790850901436",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "licenseKey": "MBI-1GIO-CK88-MKKW",
+      "clientName": "Muhammad",
+      "ownerName": "bb",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-410INT-AFTP"
+      ]
+    },
+    {
+      "id": "lic_1790859394084_d1xy8",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "licenseKey": "MBI-TR-PKB2-PU57-EV0Q",
+      "clientName": "asdfgh",
+      "ownerName": "234567",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-F5KJE5-4ONA"
+      ]
+    },
+    {
+      "id": "lic_trial_1790859394967",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "licenseKey": "MBI-P5U8-CADI-BNAS",
+      "clientName": "asdfgh",
+      "ownerName": "234567",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-F5KJE5-4ONA"
+      ]
+    }
+  ],
+  "mbi_tenants": [
+    {
+      "id": "tenant_1790850894206_j2sw3",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "name": "Muhammad",
+      "ownerName": "bb",
+      "ownerPhone": "030000000",
+      "ownerEmail": "m.bilalinayat786@gmail.com",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T10:34:54.206Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    },
+    {
+      "id": "tenant_1790859394083_o2c4r",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "name": "asdfgh",
+      "ownerName": "234567",
+      "ownerPhone": "0300000",
+      "ownerEmail": "asdf@inventra.local",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T12:56:34.084Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    }
+  ],
+  "mbi_users": [
+    {
+      "id": "usr_1790850894206_z242y",
+      "tenantId": "tenant_1790850894206_j2sw3",
+      "tenant_id": "tenant_1790850894206_j2sw3",
+      "name": "bb",
+      "username": "gggggg",
+      "emailOrPhone": "030000000",
+      "email": "m.bilalinayat786@gmail.com",
+      "phone": "030000000",
+      "passcode": "gggggg",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
+    },
+    {
+      "id": "usr_1790859394084_gbkwn",
+      "tenantId": "tenant_1790859394083_o2c4r",
+      "tenant_id": "tenant_1790859394083_o2c4r",
+      "name": "234567",
+      "username": "asdf",
+      "emailOrPhone": "0300000",
+      "email": "asdf@inventra.local",
+      "phone": "0300000",
+      "passcode": "aaaaaa",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
+    }
+  ],
+  "mbi_registration_leads": [
+    {
+      "id": "lead_1790850900919",
+      "storeName": "Muhammad",
+      "ownerName": "bb",
+      "username": "gggggg",
+      "phone": "030000000",
+      "city": "Sargodha",
+      "email": "m.bilalinayat786@gmail.com",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-0WTT-V302-KQUF",
+      "submittedAt": "2026-10-01T10:34:54.206Z",
+      "activatedAt": "2026-10-01T10:34:54.206Z"
+    },
+    {
+      "id": "lead_1790859394084",
+      "storeName": "asdfgh",
+      "ownerName": "234567",
+      "username": "asdf",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "email": "asdf@inventra.local",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-PKB2-PU57-EV0Q",
+      "submittedAt": "2026-10-01T12:56:34.084Z",
+      "activatedAt": "2026-10-01T12:56:34.084Z"
+    }
+  ]
 }

@@ -59,48 +59,40 @@ interface MasterControlSectionProps {
 export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNotify }) => {
   const [isDebuggerOverlayOpen, setIsDebuggerOverlayOpen] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>(() => {
-    const list = getAllTenants();
-    return list.length > 0 ? list : [
-      {
-        id: 'tenant-demo-01',
-        tenantId: 'tenant-demo-01',
-        organizationId: 'tenant-demo-01',
-        licenseId: 'lic_demo',
-        name: 'My Pharmacy Store',
-        ownerName: 'Store Owner',
-        plan: 'Basic',
-        status: 'Active',
-        city: 'Lahore'
-      } as Tenant
-    ];
+    return getAllTenants();
   });
 
   const [selectedTenantId, setSelectedTenantId] = useState<string>(() => {
     const list = getAllTenants();
-    return list[0]?.tenantId || list[0]?.id || 'tenant-demo-01';
+    return list[0]?.tenantId || list[0]?.id || '';
   });
 
   const selectedTenant = useMemo(() => {
-    return tenants.find(t => (t.tenantId && t.tenantId === selectedTenantId) || (t.id && t.id === selectedTenantId)) || tenants[0] || {
-      id: 'tenant-demo-01',
-      tenantId: 'tenant-demo-01',
-      name: 'My Pharmacy Store',
-      ownerName: 'Store Owner',
-      plan: 'Basic',
-      status: 'Active',
-      city: 'Lahore'
-    } as Tenant;
+    return tenants.find(t => (t.tenantId && t.tenantId === selectedTenantId) || (t.id && t.id === selectedTenantId)) || tenants[0] || null;
   }, [tenants, selectedTenantId]);
 
-  const targetTenantId = selectedTenant.tenantId || selectedTenant.id || 'tenant-demo-01';
+  const targetTenantId = selectedTenant?.tenantId || selectedTenant?.id || '';
 
   const selectedUser = useMemo(() => {
+    if (!selectedTenant) {
+      return {
+        id: 'usr_no_tenant',
+        tenantId: '',
+        name: 'No Active Tenants',
+        role: 'Company Tenant',
+        storeName: 'No Tenant Registered',
+        status: 'Inactive',
+        isOnline: false,
+        passcode: '1234',
+        plan: 'Basic'
+      } as MasterActiveUser;
+    }
     return {
       id: selectedTenant.id || selectedTenant.tenantId || 'usr_tenant_owner',
       tenantId: targetTenantId,
       name: selectedTenant.name || 'Store Admin',
       role: 'Company Tenant',
-      storeName: selectedTenant.name || 'Main Pharmacy',
+      storeName: selectedTenant.name || 'Pharmacy Store',
       status: selectedTenant.status || 'Active',
       isOnline: true,
       passcode: (selectedTenant as any).passcode || '1234',

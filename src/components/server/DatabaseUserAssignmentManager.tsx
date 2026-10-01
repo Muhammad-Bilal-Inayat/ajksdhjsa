@@ -74,41 +74,8 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
         const raw = localStorage.getItem(DB_ASSIGNMENTS_KEY);
         if (raw) {
           loaded = JSON.parse(raw);
-        } else {
-          // Default initial assignments
-          loaded = [
-            {
-              id: 'dba_001',
-              userId: 'u1',
-              userName: 'Primary Store Admin',
-              userEmail: 'vip123@admin.com',
-              userRole: 'Primary Admin',
-              tenantId: 'tenant-demo-01',
-              tenantName: 'Al-Madina Pharmacy & Store',
-              dbNodeId: 'mariadb_primary',
-              dbNodeName: 'MariaDB Primary Cluster (Port 3306 / Hostinger)',
-              accessPrivilege: 'FULL_ADMIN',
-              assignedAt: new Date().toISOString(),
-              status: 'ACTIVE',
-              notes: 'Full Read/Write and DDL permissions'
-            },
-            {
-              id: 'dba_002',
-              userId: 'usr_cashier_01',
-              userName: 'Counter Cashier 1',
-              userEmail: 'cashier@almadina.com',
-              userRole: 'Cashier',
-              tenantId: 'tenant-demo-01',
-              tenantName: 'Al-Madina Pharmacy & Store',
-              dbNodeId: 'cloud_sync_mem',
-              dbNodeName: 'Cloud In-Memory Sync Engine (Sub-ms Latency)',
-              accessPrivilege: 'READ_WRITE',
-              assignedAt: new Date().toISOString(),
-              status: 'ACTIVE',
-              notes: 'Scoped to POS billing and quick invoice creation'
-            }
-          ];
-          localStorage.setItem(DB_ASSIGNMENTS_KEY, JSON.stringify(loaded));
+          loaded = [];
+          localStorage.setItem(DB_ASSIGNMENTS_KEY, JSON.stringify([]));
         }
       }
 

@@ -2104,8 +2104,9 @@ async function createUserController(req, res) {
         error: "Each company can only have exactly ONE Primary Owner. New staff accounts must be created as Cashier, Manager, Pharmacist, or Staff."
       });
     }
+    const cleanTenantPrefix = tenantId.replace(/^tenant_/, "").replace(/[^a-zA-Z0-9]/g, "");
     const newUser = {
-      id: `usr_${(0, import_uuid.v4)().slice(0, 8)}`,
+      id: `usr_${cleanTenantPrefix || "t"}_${(0, import_uuid.v4)().slice(0, 7)}`,
       tenant_id: tenantId,
       tenantId,
       name,

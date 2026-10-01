@@ -170,8 +170,9 @@ export async function createUserController(req: Request, res: Response) {
       });
     }
 
+    const cleanTenantPrefix = tenantId.replace(/^tenant_/, '').replace(/[^a-zA-Z0-9]/g, '');
     const newUser = {
-      id: `usr_${uuidv4().slice(0, 8)}`,
+      id: `usr_${cleanTenantPrefix || 't'}_${uuidv4().slice(0, 7)}`,
       tenant_id: tenantId,
       tenantId: tenantId,
       name,

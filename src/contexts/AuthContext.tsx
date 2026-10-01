@@ -240,28 +240,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (typeof window === 'undefined') return;
       const urlParams = new URLSearchParams(window.location.search);
       const shadowToken = urlParams.get('shadow_token') || localStorage.getItem('mbi_shadow_token');
-      const paramTenantId = urlParams.get('tenant_id') || localStorage.getItem('mbi_active_business_id') || 'tenant_main';
-      const paramUserId = urlParams.get('user_id');
-      const paramUserName = urlParams.get('user_name');
-      const paramUserRole = urlParams.get('user_role');
-      const paramStoreName = urlParams.get('store_name');
+      const rawParamTenantId = urlParams.get('tenant_id');
+      const rawStoreName = urlParams.get('store_name');
+      const rawUserId = urlParams.get('user_id');
+      const rawUserName = urlParams.get('user_name');
+      const rawUserRole = urlParams.get('user_role');
+
+      // Defensive cleaning: Reject literal "undefined" or "null" strings from URL
+      const cleanTenantId = (rawParamTenantId && rawParamTenantId !== 'undefined' && rawParamTenantId !== 'null' && rawParamTenantId.trim() !== '') ? rawParamTenantId.trim() : null;
+      const cleanStore = (rawStoreName && rawStoreName !== 'undefined' && rawStoreName !== 'null') ? rawStoreName.trim() : null;
+      const cleanUserId = (rawUserId && rawUserId !== 'undefined' && rawUserId !== 'null') ? rawUserId.trim() : null;
+      const cleanUserName = (rawUserName && rawUserName !== 'undefined' && rawUserName !== 'null') ? rawUserName.trim() : null;
+      const cleanUserRole = (rawUserRole && rawUserRole !== 'undefined' && rawUserRole !== 'null') ? rawUserRole.trim() : null;
+
+      const storedTenantId = localStorage.getItem('mbi_active_business_id');
+      const fallbackTenantId = (storedTenantId && storedTenantId !== 'undefined' && storedTenantId !== 'null') ? storedTenantId : 'tenant_main';
+      const paramTenantId = cleanTenantId || fallbackTenantId;
 
       if (shadowToken) {
         localStorage.setItem('mbi_shadow_token', shadowToken);
         const allTenantsList = getAllTenants();
-        const targetTenant = allTenantsList.find(t => t.id === paramTenantId || t.tenantId === paramTenantId || t.name === paramStoreName);
+        const targetTenant = allTenantsList.find(t => 
+          (t.id && t.id === paramTenantId) || 
+          (t.tenantId && t.tenantId === paramTenantId) || 
+          (cleanStore && t.name === cleanStore)
+        );
 
-        const storeName = paramStoreName || targetTenant?.name || 'MBI INVENTRA Headquarters';
-        const role = (paramUserRole as UserRole) || (paramUserId ? 'Cashier' : 'Primary Admin');
-        const userName = paramUserName || (role === 'Primary Admin' ? (targetTenant?.ownerName || 'M Bilal Inayat') : 'Staff User');
-        const uid = paramUserId || `usr_shadow_${Date.now()}`;
+        const storeName = cleanStore || targetTenant?.name || 'MBI INVENTRA Pharmacy';
+        const role = (cleanUserRole as UserRole) || (cleanUserId ? 'Cashier' : 'Primary Admin');
+        const userName = cleanUserName || (role === 'Primary Admin' ? (targetTenant?.ownerName || 'Store Owner') : 'Staff User');
+        const uid = cleanUserId || `usr_shadow_${Date.now()}`;
 
         localStorage.setItem('mbi_active_business_id', paramTenantId);
         localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
           id: paramTenantId,
           tenantId: paramTenantId,
           name: storeName,
-          ownerName: targetTenant?.ownerName || 'M Bilal Inayat',
+          ownerName: targetTenant?.ownerName || userName,
           plan: targetTenant?.plan || 'Enterprise',
           status: targetTenant?.status || 'Active',
           paidLicenseActive: true

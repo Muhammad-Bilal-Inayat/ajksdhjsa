@@ -56,7 +56,7 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
   }, []);
 
   // Helper function to deduplicate and sanitize business profiles by ID
-  const isMasterAdmin = currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
+  const isMasterAdmin = currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com' || currentUser?.role === 'Master Admin' || userProfile?.role === 'Master Admin' || (typeof window !== 'undefined' && Boolean(localStorage.getItem('mbi_master_token')));
 
   const sanitizeBusinesses = (list: (Business | null | undefined)[], currentBiz?: Business | null): Business[] => {
     const map = new Map<string, Business>();

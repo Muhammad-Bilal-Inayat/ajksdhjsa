@@ -464,10 +464,14 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
   // Handle silent switch / impersonation into company workspace
   const handleSilentSwitchCompany = async (tenant: Tenant) => {
     try {
-      const targetId = tenant.tenantId || tenant.id;
-      const ownerName = (tenant as any).ownerName || (tenant as any).primaryAdminName || 'M Bilal Inayat';
+      const rawTargetId = tenant.tenantId || tenant.id || (tenant as any).tenant_id || (tenant as any).organization_id;
+      const targetId = (rawTargetId && rawTargetId !== 'undefined' && rawTargetId !== 'null' && String(rawTargetId).trim() !== '') 
+        ? String(rawTargetId).trim() 
+        : `tenant_${Date.now()}`;
+      const storeName = tenant.name || (tenant as any).storeName || (tenant as any).pharmacyName || 'Pharmacy Store';
+      const ownerName = (tenant as any).ownerName || (tenant as any).primaryAdminName || (tenant as any).owner_name || 'Store Owner';
       
-      onNotify(`⚡ Switching workspace into "${tenant.name}"...`);
+      onNotify(`⚡ Switching workspace into "${storeName}"...`);
 
       let shadowToken = `shadow_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       try {
@@ -480,7 +484,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
           body: JSON.stringify({
             target_tenant_id: targetId,
             tenantId: targetId,
-            storeName: tenant.name
+            storeName
           })
         });
         if (res.ok) {
@@ -498,7 +502,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       const shadowBiz = {
         id: targetId,
         tenantId: targetId,
-        name: tenant.name,
+        name: storeName,
         ownerUid: `owner_${targetId}`,
         members: [`owner_${targetId}`],
         phone: (tenant as any).phone || (tenant as any).ownerPhone || '03364585863',
@@ -509,7 +513,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         currency: 'PKR',
         vatPercentage: 0,
         businessType: 'Retail Pharmacy & General Store',
-        invoicePrefix: (tenant.name || 'MBI').slice(0, 3).toUpperCase() + '-',
+        invoicePrefix: (storeName || 'MBI').slice(0, 3).toUpperCase() + '-',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -519,7 +523,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       localStorage.setItem('mbi_active_tenant_cache', JSON.stringify({
         id: targetId,
         tenantId: targetId,
-        name: tenant.name,
+        name: storeName,
         ownerName,
         plan: tenant.plan || 'Platinum',
         status: tenant.status || 'Active',
@@ -545,17 +549,17 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         createdAt: new Date().toISOString()
       }));
 
-      window.dispatchEvent(new CustomEvent('mbi_tenant_changed', { detail: { tenantId: targetId, name: tenant.name } }));
+      window.dispatchEvent(new CustomEvent('mbi_tenant_changed', { detail: { tenantId: targetId, name: storeName } }));
       window.dispatchEvent(new CustomEvent('mbi_active_business_changed', { detail: shadowBiz }));
       window.dispatchEvent(new Event('storage'));
 
-      const targetUrl = `${window.location.origin}/dashboard?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}&store_name=${encodeURIComponent(tenant.name)}&user_name=${encodeURIComponent(ownerName)}&user_role=Primary%20Admin`;
+      const targetUrl = `${window.location.origin}/user?shadow_token=${encodeURIComponent(shadowToken)}&tenant_id=${encodeURIComponent(targetId)}&store_name=${encodeURIComponent(storeName)}&user_name=${encodeURIComponent(ownerName)}&user_role=Primary%20Admin`;
       
       const newWin = window.open(targetUrl, '_blank');
       if (!newWin || newWin.closed || typeof newWin.closed === 'undefined') {
         window.location.href = targetUrl;
       } else {
-        onNotify(`✅ Successfully switched into ${tenant.name} workspace`);
+        onNotify(`✅ Successfully switched into ${storeName} workspace`);
       }
     } catch (err) {
       console.error('Failed to switch company:', err);

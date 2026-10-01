@@ -230,8 +230,10 @@ export const Dashboard: React.FC = () => {
   } = useSettings();
   const { userProfile, activeUser, currentUser, tenant, business, tenantId: authTenantId } = useAuth();
   
-  const userId = activeUser?.id || userProfile?.id || currentUser?.uid || 'default_user';
-  const effectiveTenantId = authTenantId || tenant?.id || business?.tenantId || business?.id || 'tenant-demo-01';
+  const rawTenantId = authTenantId || tenant?.id || business?.tenantId || business?.id;
+  const effectiveTenantId = (rawTenantId && rawTenantId !== 'undefined' && rawTenantId !== 'null' && String(rawTenantId).trim() !== '') 
+    ? String(rawTenantId).trim() 
+    : 'tenant_main';
 
   // Privacy Mode
   const [privacyMode, setPrivacyMode] = useState(() => userPreferences?.privacyMode ?? (localStorage.getItem('mbi_privacy_mode') === 'true'));

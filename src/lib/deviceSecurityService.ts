@@ -184,7 +184,16 @@ export function isCurrentDeviceAuthorizedForSync(
   const matchedDevice = devices.find(d => d.userId === userId && d.installationId === currentInstId);
 
   if (!matchedDevice) {
-    // Multi-browser & Multi-device auto-enrollment for seamless cross-device synchronization
+    const existingActiveDevice = devices.find(d => d.userId === userId && d.status === 'Active');
+    if (existingActiveDevice && existingActiveDevice.installationId !== currentInstId) {
+      return {
+        authorized: false,
+        reason: `Device Mismatch: This account is locked to your registered device (${existingActiveDevice.deviceName || 'Primary Terminal'}). Contact Administrator to switch devices.`,
+        device: existingActiveDevice
+      };
+    }
+
+    // First-time device enrollment for this user: bind current hardware & installation
     const info = detectCurrentDeviceInfo();
     const newDev: UserDeviceRecord = {
       id: `dev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,

@@ -10,4 +10,7 @@ coverage/
 .server_backups_vault/
 .*.json
 *.json.bak
-
+server/data/**/*.sqlite
+server/data/**/*.sqlite-wal
+server/data/**/*.sqlite-shm
+server/data/backups/

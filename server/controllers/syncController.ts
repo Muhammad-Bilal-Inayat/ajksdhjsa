@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
+import { getTenantVault, getMasterVault } from '../db/sqliteVaultManager';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import fs from 'fs';
 import path from 'path';
@@ -62,13 +63,165 @@ export function recordApiTraffic(log: Omit<ApiTrafficLog, 'id'>) {
 }
 
 /**
- * Helper to persist a single record to MariaDB with resilient table mappings
+ * Persist a single record directly to Tenant SQLite Vault & Master Hub
  */
 export async function syncRecordToMariaDb(entityType: string, record: any, tenantId: string = 'tenant_main') {
   if (!record || !record.id) return;
   const tId = record.tenantId || record.tenant_id || tenantId || 'tenant_main';
 
-  // 1. Also keep local JSON backup up-to-date
+  // 1. Persist directly into Native SQLite Vault
+  try {
+    const vault = getTenantVault(tId);
+    const master = getMasterVault();
+
+    if (entityType === 'tenants' || entityType === 'business' || entityType === 'businessProfile' || entityType === 'storeSettings') {
+      const storeName = record.name || record.storeName || record.pharmacyName || record.businessName || 'Pharmacy Store';
+      const ownerPhone = record.ownerPhone || record.phone || record.contactPhone || record.owner_phone || '';
+      const ownerEmail = record.ownerEmail || record.email || record.contactEmail || record.owner_email || '';
+      const ownerName = record.ownerName || record.owner_name || 'Store Owner';
+      const city = record.city || 'Lahore';
+      const address = record.address || '';
+      const plan = record.plan || record.subscriptionPlan || 'Basic';
+      const status = record.status || 'Active';
+
+      master.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          owner_phone = excluded.owner_phone,
+          owner_email = excluded.owner_email,
+          city = excluded.city,
+          address = excluded.address,
+          plan = excluded.plan,
+          status = excluded.status,
+          updated_at = datetime('now')
+      `).run(record.id || tId, tId, storeName, ownerName, ownerPhone, ownerEmail, city, address, plan, status);
+    } else if (entityType === 'medicines') {
+      vault.prepare(`
+        INSERT INTO medicines (id, name, generic_name, barcode, rack, retail_price, cost_price, stock_qty, min_stock, fefo_expiry_date, batch_number, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          generic_name = excluded.generic_name,
+          barcode = excluded.barcode,
+          rack = excluded.rack,
+          retail_price = excluded.retail_price,
+          cost_price = excluded.cost_price,
+          stock_qty = excluded.stock_qty,
+          min_stock = excluded.min_stock,
+          fefo_expiry_date = excluded.fefo_expiry_date,
+          batch_number = excluded.batch_number,
+          updated_at = datetime('now')
+      `).run(
+        record.id,
+        record.name || 'Medicine',
+        record.genericName || record.generic_salt || '',
+        record.barcode || '',
+        record.rack || record.category || '',
+        Number(record.sellingPrice || record.unitPrice || record.retail_price || 0),
+        Number(record.costPrice || record.purchasePrice || record.cost_price || 0),
+        Number(record.stock || record.stockQuantity || record.stock_qty || 0),
+        Number(record.minStockLevel || record.min_stock || 5),
+        record.expiryDate || record.fefo_expiry_date || '',
+        record.batchNumber || record.batch_number || ''
+      );
+    } else if (entityType === 'invoices' || entityType === 'sales') {
+      const invNum = record.invoiceNumber || record.invoiceNo || record.id;
+      const totalAmount = Number(record.totalAmount || record.grandTotal || record.netAmount || 0);
+      const discount = Number(record.discountAmount || record.discount || 0);
+      const netAmount = Number(record.netAmount || totalAmount - discount);
+
+      vault.prepare(`
+        INSERT INTO invoices (id, invoice_number, customer_id, customer_name, user_id, grand_total, net_total, discount, tax, paid_amount, payment_type, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          customer_name = excluded.customer_name,
+          grand_total = excluded.grand_total,
+          net_total = excluded.net_total,
+          discount = excluded.discount,
+          paid_amount = excluded.paid_amount,
+          status = excluded.status
+      `).run(
+        record.id,
+        invNum,
+        record.customerId || record.customer_id || null,
+        record.customerName || 'Walk-in Customer',
+        record.userId || record.cashierName || 'Cashier',
+        totalAmount,
+        netAmount,
+        discount,
+        Number(record.taxAmount || record.tax || 0),
+        Number(record.amountPaid || record.paid_amount || netAmount),
+        record.paymentType || record.paymentMethod || 'CASH',
+        record.status || 'COMPLETED',
+        record.createdAt || new Date().toISOString()
+      );
+    } else if (entityType === 'parties' || entityType === 'suppliers' || entityType === 'customers') {
+      vault.prepare(`
+        INSERT INTO parties (id, name, type, phone, email, address, balance, credit_limit, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          type = excluded.type,
+          phone = excluded.phone,
+          email = excluded.email,
+          address = excluded.address,
+          balance = excluded.balance,
+          credit_limit = excluded.credit_limit,
+          updated_at = datetime('now')
+      `).run(
+        record.id,
+        record.name || 'Party Name',
+        record.type || (entityType === 'suppliers' ? 'Supplier' : 'Customer'),
+        record.phone || '',
+        record.email || '',
+        record.address || '',
+        Number(record.balance || record.currentBalance || 0),
+        Number(record.creditLimit || 0)
+      );
+    } else if (entityType === 'expenses') {
+      vault.prepare(`
+        INSERT INTO expenses (id, category, amount, payment_mode, notes, user_id, date, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          category = excluded.category,
+          amount = excluded.amount,
+          notes = excluded.notes
+      `).run(
+        record.id,
+        record.category || record.title || 'General',
+        Number(record.amount || 0),
+        record.paymentMode || record.payment_mode || 'CASH',
+        record.notes || record.description || '',
+        record.userId || 'User',
+        record.date || new Date().toISOString().split('T')[0]
+      );
+    } else if (entityType === 'purchases' || entityType === 'purchaseOrders') {
+      vault.prepare(`
+        INSERT INTO purchases (id, bill_number, supplier_id, supplier_name, total_amount, paid_amount, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          supplier_name = excluded.supplier_name,
+          total_amount = excluded.total_amount,
+          paid_amount = excluded.paid_amount,
+          status = excluded.status
+      `).run(
+        record.id,
+        record.purchaseNumber || record.billNumber || record.id,
+        record.supplierId || null,
+        record.supplierName || 'Supplier',
+        Number(record.grandTotal || record.totalAmount || 0),
+        Number(record.amountPaid || record.paidAmount || 0),
+        record.status || 'PAID'
+      );
+    }
+  } catch (sqliteErr) {
+    console.warn(`[SQLITE VAULT SYNC WARN for ${entityType}]:`, sqliteErr);
+  }
+
+  // 2. Also keep local JSON backup up-to-date
   try {
     let syncData: any = {};
     if (fs.existsSync(syncFile)) {
@@ -84,7 +237,7 @@ export async function syncRecordToMariaDb(entityType: string, record: any, tenan
     fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
   } catch (e) {}
 
-  // 2. Persist to MariaDB if available
+  // 3. Optional background sync to MariaDB if active (fallback)
   if (await isMariaDbAvailable()) {
     try {
       const pool = getMariaDbPool();
@@ -399,7 +552,7 @@ export async function handleSyncRecordController(req: Request, res: Response) {
  * Handle Snapshot Pull: GET /api/sync
  */
 export async function handleGetSyncSnapshotController(req: Request, res: Response) {
-  const tenantId = (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || (req as any).user?.tenantId || '';
+  const tenantId = (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || (req as any).user?.tenantId || 'tenant_default';
   
   let syncData: any = {};
   if (fs.existsSync(syncFile)) {
@@ -408,7 +561,38 @@ export async function handleGetSyncSnapshotController(req: Request, res: Respons
     } catch (e) {}
   }
 
-  // If MariaDB is available, enrich with live MariaDB data
+  // 1. Pull directly from Tenant SQLite Vault & Master Hub (0ms latency)
+  try {
+    const vault = getTenantVault(tenantId);
+    const master = getMasterVault();
+
+    const sqliteMedicines = vault.prepare("SELECT * FROM medicines").all();
+    const sqliteInvoices = vault.prepare("SELECT * FROM invoices ORDER BY created_at DESC LIMIT 500").all();
+    const sqliteParties = vault.prepare("SELECT * FROM parties").all();
+    const sqlitePurchases = vault.prepare("SELECT * FROM purchases ORDER BY created_at DESC LIMIT 200").all();
+    const sqliteExpenses = vault.prepare("SELECT * FROM expenses ORDER BY created_at DESC LIMIT 200").all();
+    const sqliteShifts = vault.prepare("SELECT * FROM shifts ORDER BY start_time DESC LIMIT 50").all();
+    const sqliteUsers = vault.prepare("SELECT * FROM users").all();
+    const sqliteTenants = master.prepare("SELECT * FROM mbi_tenants").all();
+
+    syncData = {
+      ...syncData,
+      tenants: sqliteTenants.length > 0 ? sqliteTenants : (syncData.tenants || []),
+      users: sqliteUsers.length > 0 ? sqliteUsers : (syncData.users || []),
+      appUsers: sqliteUsers.length > 0 ? sqliteUsers : (syncData.appUsers || []),
+      medicines: sqliteMedicines.length > 0 ? sqliteMedicines : (syncData.medicines || []),
+      invoices: sqliteInvoices.length > 0 ? sqliteInvoices : (syncData.invoices || []),
+      suppliers: sqliteParties.length > 0 ? sqliteParties.filter((p: any) => p.type === 'Supplier') : (syncData.suppliers || []),
+      parties: sqliteParties.length > 0 ? sqliteParties : (syncData.parties || []),
+      purchases: sqlitePurchases.length > 0 ? sqlitePurchases : (syncData.purchases || []),
+      expenses: sqliteExpenses.length > 0 ? sqliteExpenses : (syncData.expenses || []),
+      shifts: sqliteShifts.length > 0 ? sqliteShifts : (syncData.shifts || [])
+    };
+  } catch (sqliteErr) {
+    console.warn('[SQLITE VAULT PULL WARN]:', sqliteErr);
+  }
+
+  // 2. Fallback to live MariaDB if connected
   if (await isMariaDbAvailable()) {
     try {
       const pool = getMariaDbPool();
@@ -433,26 +617,10 @@ export async function handleGetSyncSnapshotController(req: Request, res: Respons
         tenantId ? [tenantId] : []
       ).catch(() => [[]]);
 
-      const [suppliers]: any = await pool.query(
-        tenantId ? `SELECT * FROM mbi_suppliers WHERE tenant_id = ?;` : `SELECT * FROM mbi_suppliers;`,
-        tenantId ? [tenantId] : []
-      ).catch(() => [[]]);
-
-      const [expenses]: any = await pool.query(
-        tenantId ? `SELECT * FROM mbi_expenses WHERE tenant_id = ?;` : `SELECT * FROM mbi_expenses;`,
-        tenantId ? [tenantId] : []
-      ).catch(() => [[]]);
-
-      syncData = {
-        ...syncData,
-        tenants: Array.isArray(tenants) ? tenants : (syncData.tenants || []),
-        users: Array.isArray(users) ? users : (syncData.users || []),
-        appUsers: Array.isArray(users) ? users : (syncData.appUsers || []),
-        medicines: Array.isArray(medicines) ? medicines : (syncData.medicines || []),
-        invoices: Array.isArray(invoices) ? invoices : (syncData.invoices || []),
-        suppliers: Array.isArray(suppliers) ? suppliers : (syncData.suppliers || []),
-        expenses: Array.isArray(expenses) ? expenses : (syncData.expenses || [])
-      };
+      if (Array.isArray(medicines) && medicines.length > 0) syncData.medicines = medicines;
+      if (Array.isArray(invoices) && invoices.length > 0) syncData.invoices = invoices;
+      if (Array.isArray(users) && users.length > 0) syncData.users = users;
+      if (Array.isArray(tenants) && tenants.length > 0) syncData.tenants = tenants;
     } catch (dbErr) {}
   }
 

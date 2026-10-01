@@ -31,6 +31,7 @@ import { cmsRouter } from './server/routes/cmsRoutes';
 import { backupRouter } from './server/routes/backupRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { testMariaDbConnection, initializeMariaDbSchema, syncRecordToMariaDb, getMariaDbTableStats, getMariaDbPool, isMariaDbAvailable } from './server/db/mariaClient';
+import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
 
 async function startServer() {
   const app = express();
@@ -109,6 +110,23 @@ async function startServer() {
         database: 'Offline Cache Mode',
         dbConnected: false,
         timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // SQLite Tenant-Isolated Vault Engine Diagnostics
+  app.get(['/api/vault/health', '/api/vault/status'], (req, res) => {
+    try {
+      const health = checkVaultEngineHealth();
+      res.json({
+        success: true,
+        ...health,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: err?.message || 'Vault engine initialization error'
       });
     }
   });

@@ -1,6 +1,58 @@
 {
-  "mbi_tenants": [],
-  "tenants": [],
+  "mbi_tenants": [
+    {
+      "id": "tenant_1790873341655_v3oyb",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "name": "Muhammad",
+      "ownerName": "bbb",
+      "ownerPhone": "0300000",
+      "ownerEmail": "m.bilalinayat786@gmail.com",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T16:49:01.655Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    }
+  ],
+  "tenants": [
+    {
+      "id": "tenant_1790873341655_v3oyb",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "name": "Muhammad",
+      "ownerName": "bbb",
+      "ownerPhone": "0300000",
+      "ownerEmail": "m.bilalinayat786@gmail.com",
+      "city": "Sargodha",
+      "planId": "Basic",
+      "plan": "Basic",
+      "status": "Active",
+      "subscriptionStatus": "Active",
+      "trialExpiresAt": "2026-10-11T16:49:01.655Z",
+      "features": {
+        "posBilling": true,
+        "barcodeScanner": true,
+        "medicineCatalog": true,
+        "inventoryBatches": true,
+        "khataLedgers": true,
+        "cashierShifts": true,
+        "thermalPrinting": true,
+        "offlineSync": true,
+        "expensesManagement": true
+      }
+    }
+  ],
   "medicines": [
     {
       "id": "med_407be5ad6b",
@@ -307900,6 +307952,23 @@
   "transactions": [],
   "appUsers": [
     {
+      "id": "u_1790873342433",
+      "name": "bbb",
+      "emailOrPhone": "0300000",
+      "role": "Primary Admin",
+      "status": "Joined",
+      "passcode": "0000",
+      "tenantId": "tenant-9412037a",
+      "canEditInvoices": true,
+      "createdAt": "2026-10-01T16:49:02.440Z",
+      "updatedAt": "2026-10-01T16:49:02.441Z",
+      "firmId": "firm-main",
+      "createdById": "u_1790873342433",
+      "lastUpdatedById": "u_1790873342433",
+      "lastUpdatedAt": "2026-10-01T16:49:02.443Z",
+      "syncStatus": "pending"
+    },
+    {
       "id": "usr_1790871951320_bykd",
       "name": "2312312312 (Primary Admin)",
       "username": "2312312312",
@@ -307919,9 +307988,43 @@
       "lastUpdatedById": "usr_active",
       "lastUpdatedAt": "2026-10-01T16:25:51.321Z",
       "syncStatus": "pending"
+    },
+    {
+      "id": "usr_1790873341655_ny1mm",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "tenant_id": "tenant_1790873341655_v3oyb",
+      "name": "bbb",
+      "username": "mbi",
+      "emailOrPhone": "0300000",
+      "email": "m.bilalinayat786@gmail.com",
+      "phone": "0300000",
+      "passcode": "aaaaaa",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
     }
   ],
   "userActivities": [
+    {
+      "id": "l_1790873342616",
+      "userName": "Admin",
+      "userRole": "Primary Admin",
+      "details": "Added staff user bbb (Primary Admin) to tenant tenant-demo-01",
+      "timestamp": 1790873342616,
+      "tenantId": "tenant-9412037a",
+      "firmId": "firm-main",
+      "createdById": "u_1790873342433",
+      "lastUpdatedById": "u_1790873342433",
+      "lastUpdatedAt": "2026-10-01T16:49:02.616Z",
+      "createdAt": "2026-10-01T16:49:02.616Z",
+      "updatedAt": "2026-10-01T16:49:02.616Z",
+      "syncStatus": "pending"
+    },
     {
       "id": "l_1790871951356",
       "userName": "Admin",
@@ -307936,6 +308039,133 @@
       "createdAt": "2026-10-01T16:25:51.357Z",
       "updatedAt": "2026-10-01T16:25:51.357Z",
       "syncStatus": "pending"
+    }
+  ],
+  "mbi_licenses": [
+    {
+      "id": "lic_1790873341655_l3d1r",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "licenseKey": "MBI-TR-1TYF-8555-6CX9",
+      "clientName": "Muhammad",
+      "ownerName": "bbb",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-O88SOG-Q0ZP"
+      ]
+    },
+    {
+      "id": "lic_trial_1790873342435",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "licenseKey": "MBI-WI6W-8W6Q-RP9E",
+      "clientName": "Muhammad",
+      "ownerName": "bbb",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-O88SOG-Q0ZP"
+      ]
+    }
+  ],
+  "mbi_users": [
+    {
+      "id": "usr_1790873341655_ny1mm",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "tenant_id": "tenant_1790873341655_v3oyb",
+      "name": "bbb",
+      "username": "mbi",
+      "emailOrPhone": "0300000",
+      "email": "m.bilalinayat786@gmail.com",
+      "phone": "0300000",
+      "passcode": "aaaaaa",
+      "role": "Owner",
+      "status": "Active",
+      "isPrimaryOwner": 1,
+      "is_primary_owner": 1,
+      "isPrimaryAdmin": 1,
+      "is_primary_admin": 1,
+      "isOnline": true,
+      "is_online": 1
+    }
+  ],
+  "client_licenses": [
+    {
+      "id": "lic_1790873341655_l3d1r",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "licenseKey": "MBI-TR-1TYF-8555-6CX9",
+      "clientName": "Muhammad",
+      "ownerName": "bbb",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-O88SOG-Q0ZP"
+      ]
+    },
+    {
+      "id": "lic_trial_1790873342435",
+      "tenantId": "tenant_1790873341655_v3oyb",
+      "licenseKey": "MBI-WI6W-8W6Q-RP9E",
+      "clientName": "Muhammad",
+      "ownerName": "bbb",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "plan": "Basic",
+      "status": "Active",
+      "issueDate": "2026-10-01",
+      "expiryDate": "2026-10-11",
+      "maxDevices": 10,
+      "boundHardwareIds": [
+        "HWID-O88SOG-Q0ZP"
+      ]
+    }
+  ],
+  "registration_leads": [
+    {
+      "id": "lead_1790873341695",
+      "storeName": "Muhammad",
+      "ownerName": "bbb",
+      "username": "mbi",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "email": "m.bilalinayat786@gmail.com",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-1TYF-8555-6CX9",
+      "submittedAt": "2026-10-01T16:49:01.655Z",
+      "activatedAt": "2026-10-01T16:49:01.655Z"
+    }
+  ],
+  "mbi_registration_leads": [
+    {
+      "id": "lead_1790873341695",
+      "storeName": "Muhammad",
+      "ownerName": "bbb",
+      "username": "mbi",
+      "phone": "0300000",
+      "city": "Sargodha",
+      "email": "m.bilalinayat786@gmail.com",
+      "requestedPlan": "Basic (10-Day Free Trial)",
+      "status": "activated",
+      "isApproved": true,
+      "activationKey": "MBI-TR-1TYF-8555-6CX9",
+      "submittedAt": "2026-10-01T16:49:01.655Z",
+      "activatedAt": "2026-10-01T16:49:01.655Z"
     }
   ]
 }

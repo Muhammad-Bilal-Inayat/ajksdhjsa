@@ -258,7 +258,7 @@ export const Dashboard: React.FC = () => {
   const handleQuickPreset = (presetKey: keyof typeof PRESET_LAYOUTS) => {
     setActivePreset(presetKey);
     const preset = PRESET_LAYOUTS[presetKey];
-    const userPlan = (tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'platinum';
+    const userPlan = (tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'silver';
     const newVis: Record<string, boolean> = {};
 
     DASHBOARD_WIDGETS_CONFIG.forEach(w => {
@@ -3111,23 +3111,32 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const currentEffectivePlan = (tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'silver';
+
   const allWidgetIds = useMemo(() => new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id)), []);
-  const activeWidgetsCount = ALL_DASHBOARD_WIDGETS.filter(w => widgetVisibility[w.id] !== false).length;
+  
+  // Strictly filter allowed widgets for the user's active plan (Basic: 10, Business: 18, Enterprise: 24)
+  const allowedPlanWidgets = useMemo(() => {
+    return DASHBOARD_WIDGETS_CONFIG.filter(w => isWidgetAllowedInPlan(w, currentEffectivePlan));
+  }, [currentEffectivePlan]);
+  const allowedPlanWidgetIds = useMemo(() => new Set(allowedPlanWidgets.map(w => w.id)), [allowedPlanWidgets]);
+
+  const activeWidgetsCount = allowedPlanWidgets.filter(w => widgetVisibility[w.id] !== false).length;
 
   const visibleMainSections = useMemo(() => {
     const list = mainOrder
-      .filter(id => allWidgetIds.has(id))
+      .filter(id => allWidgetIds.has(id) && allowedPlanWidgetIds.has(id))
       .filter(id => widgetVisibility[id] !== false);
     return list;
-  }, [mainOrder, widgetVisibility, allWidgetIds]);
+  }, [mainOrder, widgetVisibility, allWidgetIds, allowedPlanWidgetIds]);
 
   const visibleSidebarSections = useMemo(() => {
     const mainSet = new Set(mainOrder);
     const list = sidebarOrder
-      .filter(id => allWidgetIds.has(id) && !mainSet.has(id))
+      .filter(id => allWidgetIds.has(id) && !mainSet.has(id) && allowedPlanWidgetIds.has(id))
       .filter(id => widgetVisibility[id] !== false);
     return list;
-  }, [sidebarOrder, mainOrder, widgetVisibility, allWidgetIds]);
+  }, [sidebarOrder, mainOrder, widgetVisibility, allWidgetIds, allowedPlanWidgetIds]);
 
   return (
     <div className="space-y-4 max-w-full pb-12">
@@ -3395,7 +3404,7 @@ export const Dashboard: React.FC = () => {
         mainOrder={mainOrder}
         sidebarOrder={sidebarOrder}
         onChangeOrder={handleChangeOrder}
-        userPlan={(tenant as any)?.plan || (business as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'platinum'}
+        userPlan={currentEffectivePlan}
       />
 
       {/* Invoice Print & Reprint Modal */}

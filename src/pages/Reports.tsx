@@ -414,7 +414,7 @@ export const Reports: React.FC = () => {
 
       if (foundInAllowed) {
         setActiveReportId(foundInAllowed.id);
-      } else if (foundInAll && isMasterOrPrimary) {
+      } else if (foundInAll && isGlobalMaster) {
         setActiveReportId(foundInAll.id);
       } else if (allowedReports.length > 0) {
         setActiveReportId(allowedReports[0].id);
@@ -425,7 +425,7 @@ export const Reports: React.FC = () => {
     } else if (allowedReports.length > 0 && !allowedReports.some(r => r.id === activeReportId)) {
       setActiveReportId(allowedReports[0].id);
     }
-  }, [reportParam, allowedReports, isMasterOrPrimary]);
+  }, [reportParam, allowedReports, isGlobalMaster]);
 
   // Filter State
   const [datePreset, setDatePreset] = useState<string>('Custom');

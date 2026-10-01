@@ -20,7 +20,7 @@ export interface SoftwareFunctionItem {
   id: string;
   title: string;
   subtitle: string;
-  category: 'Function' | 'Setting' | 'Action' | 'Modal' | 'Report' | 'Tool';
+  category: 'Function' | 'Setting' | 'Action' | 'Modal' | 'Report' | 'Tool' | 'Page';
   scope?: 'user' | 'server' | 'all';
   keywords: string[];
   icon: any;

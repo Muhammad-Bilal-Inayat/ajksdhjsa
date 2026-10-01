@@ -14,7 +14,7 @@ import {
   evaluatePermission,
   computeEffectivePermissions
 } from '../../lib/userAccessControl';
-import { MasterActiveUser, getMasterActiveUsers } from '../../lib/masterServerService';
+import { MasterActiveUser, getMasterActiveUsers, getAllTenants } from '../../lib/masterServerService';
 import { normalizeUserRole } from '../../lib/permissions';
 import { PermissionDiagnosticsPanel } from './PermissionDiagnosticsPanel';
 import {

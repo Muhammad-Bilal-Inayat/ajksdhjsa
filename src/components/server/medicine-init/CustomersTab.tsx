@@ -3,6 +3,7 @@ import { Users, Search, Send, ShieldCheck, Eye, Trash2, CheckCircle2, Building2,
 import { 
   getCustomerAssignmentSummaries, 
   getAssignedMedicinesForCustomer, 
+  getAssignedMedicinesForTenant,
   unassignMedicinesFromCustomer 
 } from '../../../lib/centralMedicineDatabaseService';
 import { CentralMedicine } from '../../../types';

@@ -328,7 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('mock_user_profile', JSON.stringify(shadowProf));
         setActiveRoleState(role);
 
-        if (paramUserId) {
+        if (cleanUserId) {
           setActiveUserState({
             id: uid,
             name: userName,

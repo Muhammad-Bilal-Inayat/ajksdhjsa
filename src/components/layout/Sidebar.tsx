@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   setIsCollapsed
 }) => {
-  const { business, activeRole, activeUser, currentUser, tenant, tenantId, canAccess } = useAuth();
+  const { business, activeRole, activeUser, currentUser, tenant, tenantId, canAccess, userProfile } = useAuth();
   const { settings, userPreferences } = useSettings();
   const { openTransaction } = useTransactionDock();
   const location = useLocation();

@@ -9,7 +9,7 @@ USE `mbi72dn`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-SET time_zone = "+00:00";
+SET time_zone = "+05:00";
 
 -- ----------------------------------------------------------------------------
 -- 1. PLANS & TIERS
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS `mbi_tenants` (
   `owner_email` VARCHAR(255) NULL,
   `contact_phone` VARCHAR(64) NULL,
   `contact_email` VARCHAR(255) NULL,
-  `city` VARCHAR(128) NOT NULL DEFAULT 'Lahore',
+  `city` VARCHAR(128) NOT NULL DEFAULT 'Sargodha',
   `address` TEXT NULL,
   `drug_license_no` VARCHAR(128) NULL,
   `ntn_number` VARCHAR(64) NULL,

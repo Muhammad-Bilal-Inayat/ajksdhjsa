@@ -1142,101 +1142,6 @@ async function getAiChatHistoryFromMariaDb(options) {
   }
 }
 
-// server/middleware/tenantMiddleware.ts
-async function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({
-      success: false,
-      error: "Unauthorized: Missing or invalid Authorization Bearer header"
-    });
-    return;
-  }
-  const token = authHeader.split(" ")[1];
-  const result2 = verifyJwt(token);
-  if (!result2.valid || !result2.payload) {
-    res.status(401).json({
-      success: false,
-      error: `Unauthorized: ${result2.error || "Invalid session token"}`
-    });
-    return;
-  }
-  req.user = result2.payload;
-  req.tenantId = result2.payload.tenantId;
-  req.firmId = req.headers["x-firm-id"] || result2.payload.firmId || "firm_main";
-  req.isShadowMode = !!result2.payload.isShadowMode;
-  if (req.user?.userId && !req.isShadowMode) {
-    try {
-      const pool3 = getMariaDbPool();
-      const [uRows] = await pool3.query(
-        "SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;",
-        [req.user.userId]
-      );
-      if (uRows && uRows.length > 0) {
-        const u = uRows[0];
-        if (u.is_kill_switch_active === 1 || u.is_kill_switch_active === true || u.status === "Suspended") {
-          res.status(403).json({
-            success: false,
-            error: "Security Guard: Your account has been suspended by the Master Administrator."
-          });
-          return;
-        }
-      }
-    } catch (e) {
-    }
-  }
-  next();
-}
-function resolveTenant(req, res, next) {
-  if (!req.user || !req.user.tenantId) {
-    res.status(401).json({
-      success: false,
-      error: "Tenant context resolution failed: No authenticated tenant session"
-    });
-    return;
-  }
-  const sessionTenantId = req.user.tenantId;
-  const headerTenantId = req.headers["x-tenant-id"];
-  if (headerTenantId && headerTenantId !== sessionTenantId && !req.user.isMasterAdmin) {
-    console.warn(`[SECURITY ALERT] Cross-tenant spoofing attempt blocked. Session: ${sessionTenantId}, Claimed Header: ${headerTenantId}, IP: ${req.ip}`);
-    res.status(403).json({
-      success: false,
-      error: "Security Violation: Cross-company access attempt detected and blocked"
-    });
-    return;
-  }
-  req.tenantId = sessionTenantId;
-  req.tenantSchema = sanitizeSchemaName(sessionTenantId);
-  req.firmId = req.headers["x-firm-id"] || req.user.firmId || "firm_main";
-  next();
-}
-function requireMasterAuth(req, res, next) {
-  const masterPinHeader = req.headers["x-master-pin"];
-  const authHeader = req.headers.authorization;
-  const MASTER_PIN2 = process.env.MASTER_PANEL_PIN || "Ami7788!@";
-  if (masterPinHeader && (masterPinHeader === MASTER_PIN2 || masterPinHeader === "Ami7788!@" || masterPinHeader === "03082003")) {
-    req.masterAdmin = {
-      isMasterAdmin: true,
-      role: "MasterOwner",
-      iat: Math.floor(Date.now() / 1e3),
-      exp: Math.floor(Date.now() / 1e3) + 3600 * 24
-    };
-    return next();
-  }
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    const result2 = verifyJwt(token);
-    if (result2.valid && result2.payload?.isMasterAdmin) {
-      req.masterAdmin = result2.payload;
-      return next();
-    }
-  }
-  res.status(403).json({
-    success: false,
-    error: "Access Denied: Master Engineering credentials required"
-  });
-}
-
 // server/db/sqliteVaultManager.ts
 var import_fs2 = __toESM(require("fs"));
 var import_path2 = __toESM(require("path"));
@@ -1624,6 +1529,113 @@ function getDeltaChangesSince(tenantId, lastTimestamp) {
     return vault.prepare("SELECT * FROM sync_outbox_log ORDER BY timestamp ASC LIMIT 500").all();
   }
   return vault.prepare("SELECT * FROM sync_outbox_log WHERE timestamp > ? ORDER BY timestamp ASC LIMIT 500").all(lastTimestamp);
+}
+
+// server/middleware/tenantMiddleware.ts
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({
+      success: false,
+      error: "Unauthorized: Missing or invalid Authorization Bearer header"
+    });
+    return;
+  }
+  const token = authHeader.split(" ")[1];
+  const result2 = verifyJwt(token);
+  if (!result2.valid || !result2.payload) {
+    res.status(401).json({
+      success: false,
+      error: `Unauthorized: ${result2.error || "Invalid session token"}`
+    });
+    return;
+  }
+  req.user = result2.payload;
+  req.tenantId = result2.payload.tenantId;
+  req.firmId = req.headers["x-firm-id"] || result2.payload.firmId || "firm_main";
+  req.isShadowMode = !!result2.payload.isShadowMode;
+  if (req.user?.userId && !req.isShadowMode) {
+    try {
+      const masterDb = getMasterVault();
+      const u = masterDb.prepare("SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1").get(req.user.userId);
+      if (u) {
+        if (u.is_kill_switch_active === 1 || u.is_kill_switch_active === true || u.status === "Suspended") {
+          res.status(403).json({
+            success: false,
+            error: "Security Guard: Your account has been suspended by the Master Administrator."
+          });
+          return;
+        }
+      } else if (await isMariaDbAvailable()) {
+        const pool3 = getMariaDbPool();
+        const [uRows] = await pool3.query(
+          "SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;",
+          [req.user.userId]
+        );
+        if (uRows && uRows.length > 0) {
+          const mu = uRows[0];
+          if (mu.is_kill_switch_active === 1 || mu.is_kill_switch_active === true || mu.status === "Suspended") {
+            res.status(403).json({
+              success: false,
+              error: "Security Guard: Your account has been suspended by the Master Administrator."
+            });
+            return;
+          }
+        }
+      }
+    } catch (e) {
+    }
+  }
+  next();
+}
+function resolveTenant(req, res, next) {
+  if (!req.user || !req.user.tenantId) {
+    res.status(401).json({
+      success: false,
+      error: "Tenant context resolution failed: No authenticated tenant session"
+    });
+    return;
+  }
+  const sessionTenantId = req.user.tenantId;
+  const headerTenantId = req.headers["x-tenant-id"];
+  if (headerTenantId && headerTenantId !== sessionTenantId && !req.user.isMasterAdmin) {
+    console.warn(`[SECURITY ALERT] Cross-tenant spoofing attempt blocked. Session: ${sessionTenantId}, Claimed Header: ${headerTenantId}, IP: ${req.ip}`);
+    res.status(403).json({
+      success: false,
+      error: "Security Violation: Cross-company access attempt detected and blocked"
+    });
+    return;
+  }
+  req.tenantId = sessionTenantId;
+  req.tenantSchema = sanitizeSchemaName(sessionTenantId);
+  req.firmId = req.headers["x-firm-id"] || req.user.firmId || "firm_main";
+  next();
+}
+function requireMasterAuth(req, res, next) {
+  const masterPinHeader = req.headers["x-master-pin"];
+  const authHeader = req.headers.authorization;
+  const MASTER_PIN2 = process.env.MASTER_PANEL_PIN || "Ami7788!@";
+  if (masterPinHeader && (masterPinHeader === MASTER_PIN2 || masterPinHeader === "Ami7788!@" || masterPinHeader === "03082003")) {
+    req.masterAdmin = {
+      isMasterAdmin: true,
+      role: "MasterOwner",
+      iat: Math.floor(Date.now() / 1e3),
+      exp: Math.floor(Date.now() / 1e3) + 3600 * 24
+    };
+    return next();
+  }
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    const result2 = verifyJwt(token);
+    if (result2.valid && result2.payload?.isMasterAdmin) {
+      req.masterAdmin = result2.payload;
+      return next();
+    }
+  }
+  res.status(403).json({
+    success: false,
+    error: "Access Denied: Master Engineering credentials required"
+  });
 }
 
 // server/routes/adminRoutes.ts

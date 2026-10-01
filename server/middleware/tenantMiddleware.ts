@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyJwt, UserJwtPayload, MasterJwtPayload } from '../auth/jwt';
 import { sanitizeSchemaName } from '../db/tenantManager';
-import { getMariaDbPool } from '../db/mariaClient';
+import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
+import { getMasterVault } from '../db/sqliteVaultManager';
 
 // Extend Express Request type with Tenant, Firm & User Context
 export interface TenantRequest extends Request {
@@ -45,13 +46,9 @@ export async function requireAuth(req: TenantRequest, res: Response, next: NextF
   // Live Kill Switch validation
   if (req.user?.userId && !req.isShadowMode) {
     try {
-      const pool = getMariaDbPool();
-      const [uRows]: any = await pool.query(
-        'SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;',
-        [req.user.userId]
-      );
-      if (uRows && uRows.length > 0) {
-        const u = uRows[0];
+      const masterDb = getMasterVault();
+      const u: any = masterDb.prepare('SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1').get(req.user.userId);
+      if (u) {
         if (u.is_kill_switch_active === 1 || u.is_kill_switch_active === true || u.status === 'Suspended') {
           res.status(403).json({
             success: false,
@@ -59,9 +56,25 @@ export async function requireAuth(req: TenantRequest, res: Response, next: NextF
           });
           return;
         }
+      } else if (await isMariaDbAvailable()) {
+        const pool = getMariaDbPool();
+        const [uRows]: any = await pool.query(
+          'SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;',
+          [req.user.userId]
+        );
+        if (uRows && uRows.length > 0) {
+          const mu = uRows[0];
+          if (mu.is_kill_switch_active === 1 || mu.is_kill_switch_active === true || mu.status === 'Suspended') {
+            res.status(403).json({
+              success: false,
+              error: 'Security Guard: Your account has been suspended by the Master Administrator.'
+            });
+            return;
+          }
+        }
       }
     } catch (e) {
-      // In case of local pool delay, proceed with token claims
+      // Proceed with token claims
     }
   }
 

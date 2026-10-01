@@ -140,6 +140,9 @@ var isConnected = false;
 var lastPingTime = 0;
 var lastCheckTime = 0;
 var lastError = null;
+function isMariaDbConnected() {
+  return isConnected;
+}
 function getMariaDbPool() {
   if (!pool2) {
     try {
@@ -8200,12 +8203,8 @@ async function registerTrialController(req, res) {
           updated_at = datetime('now')
       `).run(tenantId, tenantId, cleanStoreName, cleanOwnerName, cleanPhone, cleanEmail, cleanCity, trialExpiry);
       master.prepare(`
-        INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, bound_hwid, created_at)
+        INSERT OR REPLACE INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, bound_hwid, created_at)
         VALUES (?, ?, ?, ?, ?, ?, 'Basic', 'Active', ?, 10, 1, ?, datetime('now'))
-        ON CONFLICT(tenant_id) DO UPDATE SET
-          license_key = excluded.license_key,
-          bound_hwid = excluded.bound_hwid,
-          expires_at = excluded.expires_at
       `).run(licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, trialExpiry, clientHwid);
       master.prepare(`
         INSERT INTO mbi_registered_devices (id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, first_authorized_at, last_seen_at)

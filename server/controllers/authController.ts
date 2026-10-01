@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { signJwt } from '../auth/jwt';
-import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
+import { getMariaDbPool, isMariaDbAvailable, isMariaDbConnected } from '../db/mariaClient';
 import { getMasterVault, getTenantVault, validateAndBindHwidLock, listTenantUsers } from '../db/sqliteVaultManager';
 import { TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastAdminEvent, broadcastFleetActivity } from '../routes/adminRoutes';
@@ -504,12 +504,8 @@ export async function registerTrialController(req: TenantRequest, res: Response)
 
       // Master Licenses with Auto-Bound HWID #1
       master.prepare(`
-        INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, bound_hwid, created_at)
+        INSERT OR REPLACE INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, bound_hwid, created_at)
         VALUES (?, ?, ?, ?, ?, ?, 'Basic', 'Active', ?, 10, 1, ?, datetime('now'))
-        ON CONFLICT(tenant_id) DO UPDATE SET
-          license_key = excluded.license_key,
-          bound_hwid = excluded.bound_hwid,
-          expires_at = excluded.expires_at
       `).run(licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, trialExpiry, clientHwid);
 
       // Master Registered Devices

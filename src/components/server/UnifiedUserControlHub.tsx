@@ -107,7 +107,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
             role: ru.role || 'Primary Admin',
             status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
             passcode: ru.passcode || '1234',
-            storeName: ru.storeName || 'My Pharmacy Store',
+            storeName: ru.storeName || 'Pharmacy Store',
             tenantId: ru.tenant_id || ru.tenantId || ru.installationId || 'tenant_main',
             installationId: ru.installationId || ru.tenant_id || 'NODE-CLIENT',
             boundHwid: ru.boundHwid || null,

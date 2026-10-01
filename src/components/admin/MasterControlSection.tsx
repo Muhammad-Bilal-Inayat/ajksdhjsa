@@ -79,25 +79,29 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         id: 'usr_no_tenant',
         tenantId: '',
         name: 'No Active Tenants',
+        emailOrPhone: '',
         role: 'Company Tenant',
         storeName: 'No Tenant Registered',
         status: 'Inactive',
         isOnline: false,
         passcode: '1234',
-        plan: 'Basic'
-      } as MasterActiveUser;
+        plan: 'Basic',
+        lastSyncTime: new Date().toISOString()
+      } as unknown as MasterActiveUser;
     }
     return {
       id: selectedTenant.id || selectedTenant.tenantId || 'usr_tenant_owner',
       tenantId: targetTenantId,
       name: selectedTenant.name || 'Store Admin',
+      emailOrPhone: (selectedTenant as any).ownerPhone || (selectedTenant as any).ownerEmail || '',
       role: 'Company Tenant',
       storeName: selectedTenant.name || 'Pharmacy Store',
       status: selectedTenant.status || 'Active',
       isOnline: true,
       passcode: (selectedTenant as any).passcode || '1234',
-      plan: selectedTenant.plan || 'Basic'
-    } as MasterActiveUser;
+      plan: selectedTenant.plan || 'Basic',
+      lastSyncTime: new Date().toISOString()
+    } as unknown as MasterActiveUser;
   }, [selectedTenant, targetTenantId]);
 
   const [profile, setProfile] = useState<UserAccessControlProfile>(() => {
@@ -160,7 +164,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
                 plan: t.plan || t.subscription_plan || 'Basic',
                 status: t.status || 'Active',
                 passcode: t.passcode || '1234'
-              } as Tenant);
+              } as unknown as Tenant);
             }
 
             if (sanitizedList.length > 0) {
@@ -731,8 +735,8 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   };
 
   const handleSwitchSessionToUser = () => {
-    const tenantIdToUse = targetTenantId || selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.id || 'tenant-demo-01';
-    const storeNameToUse = selectedUser.storeName || selectedUser.name || 'My Pharmacy Store';
+    const tenantIdToUse = targetTenantId || selectedUser.tenantId || (selectedUser as any).tenant_id || selectedUser.id || '';
+    const storeNameToUse = selectedUser.storeName || selectedUser.name || 'Pharmacy Store';
     const normalizedRole = normalizeUserRole(selectedUser.role as any);
     const userEmail = selectedUser.id.includes('@') ? selectedUser.id : `${selectedUser.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@pharma.pk`;
     const targetPlan = (selectedUser as any).plan || profile.plan || 'Enterprise';
@@ -1694,9 +1698,12 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       <PermissionDebuggerOverlay
         isOpen={isDebuggerOverlayOpen}
         onClose={() => setIsDebuggerOverlayOpen(false)}
-        users={users}
-        selectedUserId={selectedUserId}
-        onSelectUserId={(id) => setSelectedUserId(id)}
+        users={[selectedUser]}
+        selectedUserId={selectedUser.id}
+        onSelectUserId={(id) => {
+          const matchedTenant = tenants.find(t => t.id === id || t.tenantId === id);
+          if (matchedTenant) setSelectedTenantId(matchedTenant.tenantId || matchedTenant.id);
+        }}
         onSwitchSession={(user) => {
           handleSwitchSessionToUser();
           triggerNotify(`Active browser session switched to ${user.name} (${user.role})`);

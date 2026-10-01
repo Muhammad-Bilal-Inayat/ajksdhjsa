@@ -156,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <div className="min-w-0">
                         <p className="font-black text-xs text-slate-900 dark:text-white truncate">
-                          {business?.name || 'My Pharmacy Store'}
+                          {business?.name || 'Pharmacy Store'}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                           {business?.phone || business?.mobile || 'Primary Business Account'}

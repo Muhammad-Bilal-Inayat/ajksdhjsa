@@ -247,22 +247,26 @@ adminMasterRouter.post('/license/reset-hwid', async (req: TenantRequest, res: Re
     } catch (dbErr) {}
 
     const target = license_key || tenant_id;
-    await pool.query(
-      'INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);',
-      [
-        `audit_${Date.now()}`,
-        tenant_id || 'master',
-        'master_admin',
-        'HWID_RESET_EMERGENCY',
-        `Bound hardware HWID unlinked for ${target}. Ready for new laptop hardware key binding.`,
-        req.ip || '127.0.0.1'
-      ]
-    );
+    try {
+      if (await isMariaDbAvailable()) {
+        const pool = getMariaDbPool();
+        await pool.query(
+          'INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);',
+          [
+            `audit_${Date.now()}`,
+            tenant_id || 'master',
+            'master_admin',
+            'HWID_RESET_EMERGENCY',
+            `Bound hardware HWID unlinked for ${target}. Ready for new laptop hardware key binding.`,
+            req.ip || '127.0.0.1'
+          ]
+        );
+      }
+    } catch (auditErr) {}
 
     res.json({
       success: true,
-      message: `Hardware HWID successfully unlinked for ${target}. The client can now bind their new computer on next login with 1-click automatic backup restoration.`,
-      affectedRows: result.affectedRows
+      message: `Hardware HWID successfully unlinked for ${target}. The client can now bind their new computer on next login with 1-click automatic backup restoration.`
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error resetting hardware HWID' });

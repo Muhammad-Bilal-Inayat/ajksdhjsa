@@ -110,7 +110,7 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
         (business && business.name !== 'MBI INVENTRA' ? business.name : '') ||
         (userProfile?.name ? userProfile.name.replace(/\(Admin\)/g, '').trim() : '') ||
         currentUser?.displayName || 
-        'My Pharmacy Store';
+        'Pharmacy Store';
 
       const userDefault: Business = {
         id: business?.id && business.id !== 'local-business-id' ? business.id : `biz_${currentUser?.uid || userProfile?.id || Date.now()}`,

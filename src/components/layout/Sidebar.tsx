@@ -615,7 +615,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
                   <h1 className="text-[13px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
-                    {business?.name || 'My Pharmacy Store'}
+                    {business?.name || 'Pharmacy Store'}
                   </h1>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 font-medium mt-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>

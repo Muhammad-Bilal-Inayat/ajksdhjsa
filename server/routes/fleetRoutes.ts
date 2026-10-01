@@ -200,7 +200,7 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
         if (tenants.length === 0 && Array.isArray(syncData.invoices) && syncData.invoices.length > 0) {
           const inv = syncData.invoices[0];
           const tid = inv.tenantId || 'tenant_main';
-          const tName = inv.firmName || 'My Pharmacy Store';
+          const tName = inv.firmName || 'Pharmacy Store';
           tenants.push({
             id: tid,
             tenant_id: tid,
@@ -654,7 +654,7 @@ fleetRouter.post('/tenants/register', async (req: TenantRequest, res: Response):
       [
         cleanTenantId,
         cleanTenantId,
-        storeName || 'My Pharmacy Store',
+        storeName || 'Pharmacy Store',
         ownerName || 'Pharmacy Admin',
         phone || '',
         email || `${phone}@inventra.local`,

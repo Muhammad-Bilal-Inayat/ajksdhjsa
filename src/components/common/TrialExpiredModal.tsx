@@ -32,7 +32,7 @@ export const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({
   const handleWhatsAppSupport = (planName: string = 'Basic') => {
     const whatsappNum = '923364585863';
     const message = encodeURIComponent(
-      `Hello! My 10-day trial for pharmacy "${tenant?.name || business?.name || 'My Pharmacy Store'}" has expired. I want to activate the ${planName} Plan. Please share payment and license activation details.`
+      `Hello! My 10-day trial for pharmacy "${tenant?.name || business?.name || 'Pharmacy Store'}" has expired. I want to activate the ${planName} Plan. Please share payment and license activation details.`
     );
     window.open(`https://wa.me/${whatsappNum}?text=${message}`, '_blank');
   };

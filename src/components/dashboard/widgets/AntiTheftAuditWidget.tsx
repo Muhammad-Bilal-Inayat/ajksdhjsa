@@ -36,13 +36,13 @@ export const AntiTheftAuditWidget: React.FC<AntiTheftAuditWidgetProps> = ({ mask
 
       // 1. Fetch Invoices for Void / Cancelled Bills
       const allInvoices = await dbInvoices.getAll() as Invoice[];
-      const cancelledInvoices = (allInvoices || []).filter(inv => 
-        inv.status === 'Cancelled' || 
-        inv.status === 'Void' || 
-        inv.paymentStatus === 'Cancelled' ||
-        (inv.notes && inv.notes.toLowerCase().includes('cancelled')) ||
-        (inv.notes && inv.notes.toLowerCase().includes('void'))
-      );
+      const cancelledInvoices = (allInvoices || []).filter(inv => {
+        const anyInv = inv as any;
+        return anyInv.status === 'Cancelled' || 
+          anyInv.status === 'Void' || 
+          anyInv.paymentStatus === 'Cancelled' ||
+          (typeof anyInv.notes === 'string' && (anyInv.notes.toLowerCase().includes('cancelled') || anyInv.notes.toLowerCase().includes('void')));
+      });
 
       const todayVoidInvoices = cancelledInvoices.filter(inv => {
         const invDate = (inv.createdAt || inv.date || '').slice(0, 10);

@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const DEFAULT_BUSINESS_PROFILE: Business = { 
     id: 'biz_default', 
-    name: 'My Pharmacy Store', 
+    name: 'Pharmacy Store', 
     ownerUid: 'u_admin_default',
     members: ['u_admin_default'],
     phone: '',
@@ -926,7 +926,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           bizObj = {
             id: tenantId || 'biz_' + (uid || Date.now()),
-            name: matchedLead?.storeName || tenant?.name || currentUser?.displayName || 'My Pharmacy Store',
+            name: matchedLead?.storeName || tenant?.name || currentUser?.displayName || 'Pharmacy Store',
             ownerUid: uid || currentUser?.uid || 'u1',
             members: [uid || currentUser?.uid || 'u1'],
             phone: matchedLead?.phone || tenant?.ownerPhone || '',
@@ -959,7 +959,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const mockBiz: Business = { 
           id: tenantId || 'biz_' + (uid || Date.now()), 
-          name: isMasterAdmin ? 'MBI INVENTRA' : (matchedLead?.storeName || tenant?.name || currentUser?.displayName || 'My Pharmacy Store'), 
+          name: isMasterAdmin ? 'MBI INVENTRA' : (matchedLead?.storeName || tenant?.name || currentUser?.displayName || 'Pharmacy Store'), 
           ownerUid: profile.id,
           members: [profile.id],
           phone: isMasterAdmin ? '03364585863' : (matchedLead?.phone || tenant?.ownerPhone || ''),

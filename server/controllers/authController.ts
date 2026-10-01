@@ -326,7 +326,7 @@ export async function loginController(req: TenantRequest, res: Response): Promis
             [authenticatedUser.id]
           ).catch(() => {});
 
-          if (clientHwid && isPlaceholderHwid) {
+          if (clientHwid) {
             pool.query(
               `UPDATE mbi_licenses 
                SET bound_hwid = ?,

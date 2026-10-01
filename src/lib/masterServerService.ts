@@ -1311,7 +1311,7 @@ export function activateLicenseKey(licenseKey: string, targetTenantId?: string):
   saveClientLicense({
     id: uuidv4(),
     licenseKey: cleanKey,
-    clientName: target?.name || 'My Pharmacy Store',
+    clientName: target?.name || 'Pharmacy Store',
     ownerName: target?.ownerName || 'Admin',
     phone: target?.ownerPhone || '03364585863',
     city: target?.city || 'Pakistan',
@@ -2437,7 +2437,7 @@ export function createTenantForRegistration(params: {
     tenantId,
     organizationId: 'org-' + uuidv4().substring(0, 8),
     licenseId,
-    name: params.storeName || 'My Pharmacy Store',
+    name: params.storeName || 'Pharmacy Store',
     ownerName: params.ownerName || 'Store Owner',
     ownerEmail: params.email,
     ownerPhone: params.phone,

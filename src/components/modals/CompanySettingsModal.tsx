@@ -28,7 +28,7 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic initialization from active tenant / business session (never hardcoded defaults)
-  const initialStoreName = business?.name || tenant?.name || currentUser?.name || 'My Pharmacy Store';
+  const initialStoreName = business?.name || tenant?.name || currentUser?.name || 'Pharmacy Store';
   const initialAddress = business?.address || (tenant as any)?.address || '';
   const initialCity = business?.city || (tenant as any)?.city || 'Lahore';
   const initialState = business?.state || (tenant as any)?.state || 'Punjab';
@@ -82,7 +82,7 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
   // Dynamically sync when active business / tenant session updates
   useEffect(() => {
     if (business || tenant) {
-      const liveName = business?.name || tenant?.name || currentUser?.name || 'My Pharmacy Store';
+      const liveName = business?.name || tenant?.name || currentUser?.name || 'Pharmacy Store';
       setFormData(prev => ({
         ...prev,
         name: liveName,
@@ -328,7 +328,7 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
                     required
                     value={formData.name || ''}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. My Pharmacy Store"
+                    placeholder="e.g. Pharmacy Store"
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>

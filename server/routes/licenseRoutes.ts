@@ -14,7 +14,7 @@ const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 licenseRouter.post('/register-trial', async (req: TenantRequest, res: Response): Promise<void> => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
-    const cleanStoreName = (storeName || 'My Pharmacy Store').trim();
+    const cleanStoreName = (storeName || 'Pharmacy Store').trim();
     const cleanOwnerName = (ownerName || cleanStoreName || 'Store Owner').trim();
     const cleanPhone = (phone || '').trim();
     const cleanEmail = (email || `${cleanPhone || 'user'}@inventra.local`).trim();

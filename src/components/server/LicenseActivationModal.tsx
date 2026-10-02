@@ -35,6 +35,7 @@ import {
   activatePaidTenantLicense,
   logServerActivity,
   saveClientLicense,
+  saveMasterActiveUser,
   ClientLicense
 } from '../../lib/masterServerService';
 import { RegistrationLead } from '../../lib/registrationLeadsService';
@@ -62,6 +63,11 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
   const [ownerName, setOwnerName] = useState(initialTenant?.ownerName || initialLead?.ownerName || '');
   const [phone, setPhone] = useState(initialTenant?.ownerPhone || initialLead?.phone || '');
   const [city, setCity] = useState(initialTenant?.city || initialLead?.city || 'Lahore');
+
+  // Admin User Credentials
+  const [adminUsername, setAdminUsername] = useState('admin');
+  const [adminPasscode, setAdminPasscode] = useState('1234');
+  const [maxDevices, setMaxDevices] = useState<number>(3);
 
   // Plan Selection
   const [selectedPlanTier, setSelectedPlanTier] = useState<LicensePlanTier>(
@@ -116,13 +122,68 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
 
     const licenseKey = `MBI-${selectedPlanTier.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4)}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const expiryDateStr = expiryCalculation.isLifetime ? 'Lifetime' : expiryCalculation.expiryDateStr;
+    const effectiveTenantId = selectedTenantId || `tenant_${Date.now()}`;
+    const deviceSeats = maxDevices || (selectedPlanTier === 'Enterprise Multi-Branch' ? 20 : selectedPlanTier === 'Pharmacy Pro' ? 5 : 2);
+    const liveApiKey = `mbi_live_sec_${String(effectiveTenantId).replace(/[^a-zA-Z0-9]/g, '')}_K7A8N2`;
 
-    // 1. If existing tenant, upgrade tenant license
+    // 1. If existing tenant, upgrade tenant license, or create new Tenant record
     if (selectedTenantId) {
       activatePaidTenantLicense(selectedTenantId, selectedPlanTier, expiryCalculation.days);
+    } else {
+      const newTenantRecord: Tenant = {
+        id: effectiveTenantId,
+        tenantId: effectiveTenantId,
+        organizationId: effectiveTenantId,
+        licenseId: `lic_${effectiveTenantId}`,
+        name: clientName || 'Retail Pharmacy',
+        ownerName: ownerName || 'Store Owner',
+        ownerEmail: `${adminUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@mbiinventra.com`,
+        ownerPhone: phone || '',
+        city: city || 'Lahore',
+        address: city || 'Lahore, Pakistan',
+        plan: selectedPlanTier,
+        status: 'Active',
+        primaryAdminId: `usr_${effectiveTenantId}_admin`,
+        primaryAdminEmail: `${adminUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@mbiinventra.com`,
+        trialStartDate: new Date().toISOString(),
+        trialExpiryDate: expiryDateStr,
+        isTrialActive: false,
+        trialExpired: false,
+        paidLicenseActive: true,
+        maxDevices: deviceSeats,
+        featureToggles: {} as any,
+        apiKey: liveApiKey,
+        totalInvoicesCount: 0,
+        totalProductsCount: 0,
+        totalPartiesCount: 0,
+        lastSyncAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      saveTenant(newTenantRecord);
     }
 
-    // 2. Save Client License in Master Registry
+    // 2. Auto-Provision Primary Admin User Account with specified credentials
+    saveMasterActiveUser({
+      id: `usr_${effectiveTenantId}_admin`,
+      name: ownerName || 'Store Owner',
+      username: adminUsername || 'admin',
+      emailOrPhone: phone || adminUsername || 'admin',
+      role: 'Primary Admin',
+      status: 'Active',
+      passcode: adminPasscode || '1234',
+      storeName: clientName || 'Retail Pharmacy',
+      tenantId: effectiveTenantId,
+      installationId: '',
+      boundHwid: '',
+      lastSyncTime: new Date().toISOString(),
+      isOnline: false,
+      totalTransactions: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    // 3. Save Client License in Master Registry (Non-reversible permanent record)
     const newLicense: ClientLicense = {
       id: `lic_${Date.now()}`,
       licenseKey,
@@ -134,7 +195,7 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
       status: 'Active',
       issueDate: new Date().toISOString().slice(0, 10),
       expiryDate: expiryDateStr,
-      maxDevices: selectedPlanTier === 'Enterprise Multi-Branch' ? 20 : selectedPlanTier === 'Pharmacy Pro' ? 5 : 2,
+      maxDevices: deviceSeats,
       strictHardwareLock: true,
       maxOfflineDays: 30,
       boundHardwareIds: [],
@@ -160,16 +221,16 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
       saleStatus: balanceDue === 0 ? 'Paid' : amountPaid > 0 ? 'Partial' : 'Pending',
       paymentMethod,
       saleDate: new Date().toISOString().slice(0, 10),
-      notes: notes || `Activated ${selectedPlanTier} for ${selectedDuration}`,
+      notes: notes || `Activated ${selectedPlanTier} for ${selectedDuration} | User: ${adminUsername} / Pass: ${adminPasscode}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     saveClientLicense(newLicense);
 
-    // 3. Log Server Activity
+    // 4. Log Server Activity (Non-reversible permanent master audit trail)
     logServerActivity({
-      tenantId: selectedTenantId || 'new_tenant',
+      tenantId: effectiveTenantId,
       tenantName: clientName,
       userId: 'usr_master_admin',
       userName: 'Master Admin',
@@ -177,12 +238,12 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
       ipAddress: '127.0.0.1',
       action: 'LICENSE_PLAN_UPGRADE',
       actionType: 'ADMIN',
-      details: `Activated ${selectedPlanTier} (${selectedDuration}, Expiry: ${expiryDateStr}) for ${clientName} - Price: Rs. ${dealPrice}`,
+      details: `Generated License Deal: ${selectedPlanTier} (${selectedDuration}, Expiry: ${expiryDateStr}) for ${clientName} - Admin User: ${adminUsername} - Price: Rs. ${dealPrice}`,
       status: 'SUCCESS',
       deviceInfo: 'Master Server Activation Console'
     });
 
-    // 4. WhatsApp Sharing
+    // 5. WhatsApp Sharing
     if (autoShareWhatsApp && phone) {
       const waText = buildWhatsAppLicenseConfirmation({
         clientName,
@@ -204,7 +265,7 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
       window.open(`https://api.whatsapp.com/send?phone=${phoneWithCode}&text=${waText}`, '_blank');
     }
 
-    onSuccess?.(`License successfully activated for "${clientName}"! (${selectedPlanTier} - ${expiryDateStr})`);
+    onSuccess?.(`License successfully issued for "${clientName}"! Admin: ${adminUsername} / Pin: ${adminPasscode} (${selectedPlanTier} - ${expiryDateStr})`);
     onClose();
   };
 
@@ -289,6 +350,43 @@ export const LicenseActivationModal: React.FC<LicenseActivationModalProps> = ({
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="e.g. Lahore"
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Step 1b: Primary Admin User Login & Terminal Seats */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mb-1">🔑 Admin Login Username *</label>
+                <input
+                  type="text"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  placeholder="e.g. admin"
+                  className="w-full px-3 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-indigo-600 dark:text-indigo-400 mb-1">🔒 Admin Login PIN / Passcode *</label>
+                <input
+                  type="text"
+                  value={adminPasscode}
+                  onChange={(e) => setAdminPasscode(e.target.value)}
+                  placeholder="e.g. 1234"
+                  className="w-full px-3 py-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">💻 Max HWID Terminals Allowed</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={maxDevices}
+                  onChange={(e) => setMaxDevices(Number(e.target.value) || 1)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
             </div>

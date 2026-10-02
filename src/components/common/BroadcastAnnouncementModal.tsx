@@ -113,6 +113,11 @@ export const BroadcastAnnouncementModal: React.FC = () => {
     };
   }, []);
 
+  // Never show broadcast popup on /server master infrastructure console
+  if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/server') || window.location.pathname.startsWith('/master'))) {
+    return null;
+  }
+
   if (!isOpen || !activeBroadcast) return null;
 
   const isUrgent = activeBroadcast.priority === 'critical_notice' || activeBroadcast.type === 'urgent';

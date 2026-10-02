@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.3.7';
-export const RELEASE_NOTES = 'AI Daily Quotas, Page Scroll Stability & Master Limit Overrides (v4.3.7)';
+export const APP_VERSION = '4.3.8';
+export const RELEASE_NOTES = 'HWID Device Lock, 1-Key Disposable Burn, Butter Scroll & Nano-Speed Navigation (v4.3.8)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

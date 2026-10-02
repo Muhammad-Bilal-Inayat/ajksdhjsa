@@ -59,6 +59,11 @@ export const EmergencyLockScreen: React.FC = () => {
     };
   }, []);
 
+  // Never lock out the Central Master Server Admin (/server)
+  if (typeof window !== 'undefined' && (window.location.pathname.startsWith('/server') || window.location.pathname.startsWith('/master'))) {
+    return null;
+  }
+
   if (!lockState || !lockState.isLocked) return null;
 
   const handleAttemptUnlock = (e: React.FormEvent) => {

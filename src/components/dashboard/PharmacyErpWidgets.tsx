@@ -413,7 +413,7 @@ export const ActionRequiredWidget: React.FC<PharmacyErpWidgetProps> = ({
   const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
 
   const expiredCount = safeMedicines.filter(m => m.expiryDate && calculateDaysUntilExpiry(m.expiryDate) <= 0).length;
-  const lowStockCount = safeMedicines.filter(m => (Number(m.quantity) || 0) <= (Number(m.minStockAlert) || Number(m.reorderLevel) || 10)).length;
+  const lowStockCount = safeMedicines.filter(m => (Number(m.quantity) || 0) <= (Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number((m as any).minStock) || 10)).length;
   
   const pendingSuppliers = safeSuppliers.filter(s => (Number(s.balance) || 0) > 0);
   const supplierDueTotal = pendingSuppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
@@ -533,7 +533,7 @@ export const ActionRequiredWidget: React.FC<PharmacyErpWidgetProps> = ({
 // ─────────────────────────────────────────────────────────────────────────────
 export const MbiAiRecommendationWidget: React.FC<PharmacyErpWidgetProps> = ({ medicines = [], onNavigate }) => {
   const safeMedicines = Array.isArray(medicines) ? medicines : [];
-  const lowStock = safeMedicines.filter(m => (Number(m.quantity) || 0) <= (Number(m.minStockAlert) || Number(m.reorderLevel) || 10));
+  const lowStock = safeMedicines.filter(m => (Number(m.quantity) || 0) <= (Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number((m as any).minStock) || 10));
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3.5 flex flex-col justify-between">
@@ -845,7 +845,7 @@ export const RecentSalesInvoicesWidget: React.FC<PharmacyErpWidgetProps> = ({
         customer: inv.customerName || 'Walk-in Customer',
         items: inv.items?.length || 1,
         total: `Rs. ${(Number(inv.grandTotal) || Number(inv.totalAmount) || 0).toLocaleString()}`,
-        status: inv.paymentStatus === 'due' || (Number(inv.balanceDue) || 0) > 0 ? 'Due' : 'Paid'
+        status: (inv as any).paymentStatus === 'due' || (Number(inv.balanceDue) || 0) > 0 ? 'Due' : 'Paid'
       }));
   }, [invoices]);
 

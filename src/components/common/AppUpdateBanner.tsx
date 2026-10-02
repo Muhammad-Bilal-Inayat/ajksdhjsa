@@ -52,12 +52,14 @@ export const AppUpdateBanner: React.FC = () => {
 
   if (isPublicPage) return null;
 
-  // Render ONLY when the user is inside an authenticated workspace or master server admin
+  // Master Admin Route (/server) is reserved for infrastructure administration; hide user update prompt on /server
+  if (location.pathname.startsWith('/server') || location.pathname.startsWith('/master')) {
+    return null;
+  }
+
+  // Render ONLY when the user is inside an authenticated store workspace
   // User App Routes: /dashboard, /pos, /sale/*, /billing, /items, /purchase, /reports, /settings, /user/*
-  // Master Admin Route: /server
   const isAllowedWorkspaceRoute =
-    location.pathname.startsWith('/server') ||
-    location.pathname.startsWith('/master') ||
     location.pathname.startsWith('/user') ||
     location.pathname.startsWith('/dashboard') ||
     location.pathname.startsWith('/pos') ||

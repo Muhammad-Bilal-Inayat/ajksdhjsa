@@ -13341,8 +13341,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.3.7";
-var RELEASE_NOTES = "AI Daily Quotas, Page Scroll Stability & Master Limit Overrides (v4.3.7)";
+var APP_VERSION2 = "4.3.8";
+var RELEASE_NOTES = "HWID Device Lock, 1-Key Disposable Burn, Butter Scroll & Nano-Speed Navigation (v4.3.8)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

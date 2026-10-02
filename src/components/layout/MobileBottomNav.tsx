@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Plus, X, FileText, ArrowUpRight, ArrowDownLeft, RotateCcw, 
   ShoppingBag, FileSpreadsheet, FileCheck, Truck, ShoppingCart, 
-  RotateCw, PackagePlus, Wallet, ArrowLeftRight, IndianRupee, AlertTriangle
+  RotateCw, PackagePlus, Wallet, ArrowLeftRight, IndianRupee, AlertTriangle, Zap,
+  Home, Boxes, Users, Layers, Package
 } from 'lucide-react';
 
 interface MobileBottomNavProps {
@@ -17,17 +18,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenMobileMenu
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const handleOpenAddSale = () => {
-    navigate('/billing?action=add');
-    window.dispatchEvent(new CustomEvent('mbi-open-add-sale'));
-  };
-
-  const handleOpenAddPurchase = () => {
-    navigate('/purchase?action=add');
-    window.dispatchEvent(new CustomEvent('mbi-open-add-purchase'));
-  };
+  const isHomeActive = location.pathname === '/user' || location.pathname === '/' || location.pathname === '/dashboard';
+  const isInventoryActive = location.pathname.startsWith('/items') || location.pathname.startsWith('/inventory') || location.pathname.startsWith('/top-products');
+  const isPartiesActive = location.pathname.startsWith('/parties') || location.pathname.startsWith('/accounts/ledgers');
 
   const handleAction = (path: string, eventName?: string) => {
     setIsSheetOpen(false);
@@ -37,43 +33,99 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     }
   };
 
+  const handleMoreClick = () => {
+    setIsSheetOpen(false);
+    if (onOpenMobileMenu) {
+      onOpenMobileMenu();
+    } else {
+      window.dispatchEvent(new CustomEvent('mbi-toggle-sidebar'));
+    }
+  };
+
   return (
     <>
-      {/* 1. Mobile Fixed Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800/90 px-2 sm:px-3 py-2 pb-[max(0.65rem,env(safe-area-inset-bottom))] shadow-2xl select-none">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 max-w-md mx-auto">
-          {/* Left: Add Sale Button (Red) */}
+      {/* 1. Mobile Fixed 5-Tab Dashboard Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800/90 px-3 py-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl select-none">
+        <div className="flex items-center justify-around max-w-md mx-auto relative">
+          
+          {/* Tab 1: Home */}
           <button
             type="button"
-            onClick={handleOpenAddSale}
-            className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 px-2 sm:px-3 rounded-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold shadow-md shadow-red-500/20 active:scale-95 transition-all cursor-pointer min-w-0"
-            title="Add Sale"
+            onClick={() => { setIsSheetOpen(false); navigate('/user'); }}
+            className="flex-1 flex flex-col items-center justify-center py-1 cursor-pointer transition-colors group"
           >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
-            <span className="truncate">Add Sale</span>
+            <div className={`p-1 rounded-xl transition-all ${isHomeActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/60' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'}`}>
+              <Home className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <span className={`text-[10.5px] font-bold mt-0.5 leading-none transition-colors ${isHomeActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              Home
+            </span>
+            {isHomeActive && (
+              <span className="w-4 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full mt-1 animate-in fade-in" />
+            )}
           </button>
 
-          {/* Center: Plus (+) Floating FAB Button */}
+          {/* Tab 2: Inventory */}
           <button
             type="button"
-            onClick={() => setIsSheetOpen(prev => !prev)}
-            className="-mt-5 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 text-white flex items-center justify-center shadow-xl shadow-slate-900/35 border-[3.5px] border-white dark:border-[#0f172a] shrink-0 mx-1 transition-transform cursor-pointer"
-            aria-label="Open Transactions Menu"
-            title="Quick Transactions"
+            onClick={() => { setIsSheetOpen(false); navigate('/inventory'); }}
+            className="flex-1 flex flex-col items-center justify-center py-1 cursor-pointer transition-colors group"
           >
-            <Plus className={`w-5.5 h-5.5 stroke-[2.5] transition-transform duration-200 ${isSheetOpen ? 'rotate-45' : ''}`} />
+            <div className={`p-1 rounded-xl transition-all ${isInventoryActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/60' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'}`}>
+              <Boxes className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <span className={`text-[10.5px] font-bold mt-0.5 leading-none transition-colors ${isInventoryActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              Inventory
+            </span>
+            {isInventoryActive && (
+              <span className="w-4 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full mt-1 animate-in fade-in" />
+            )}
           </button>
 
-          {/* Right: Add Purchase Button (Blue) */}
+          {/* Tab 3: Center Elevated Floating Plus (+) Button */}
+          <div className="flex-1 flex justify-center -mt-6">
+            <button
+              type="button"
+              onClick={() => setIsSheetOpen(prev => !prev)}
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 active:scale-95 text-white flex items-center justify-center shadow-xl shadow-indigo-600/35 border-[3.5px] border-white dark:border-[#0f172a] shrink-0 transition-transform cursor-pointer"
+              aria-label="Open Quick Transactions Menu"
+              title="Quick Transactions"
+            >
+              <Plus className={`w-6 h-6 stroke-[3] transition-transform duration-200 ${isSheetOpen ? 'rotate-45' : ''}`} />
+            </button>
+          </div>
+
+          {/* Tab 4: Parties */}
           <button
             type="button"
-            onClick={handleOpenAddPurchase}
-            className="flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 px-2 sm:px-3 rounded-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer min-w-0"
-            title="Add Purchase"
+            onClick={() => { setIsSheetOpen(false); navigate('/parties'); }}
+            className="flex-1 flex flex-col items-center justify-center py-1 cursor-pointer transition-colors group"
           >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3] shrink-0" />
-            <span className="truncate">Add Purchase</span>
+            <div className={`p-1 rounded-xl transition-all ${isPartiesActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/60' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'}`}>
+              <Users className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <span className={`text-[10.5px] font-bold mt-0.5 leading-none transition-colors ${isPartiesActive ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              Parties
+            </span>
+            {isPartiesActive && (
+              <span className="w-4 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full mt-1 animate-in fade-in" />
+            )}
           </button>
+
+          {/* Tab 5: More */}
+          <button
+            type="button"
+            onClick={handleMoreClick}
+            className="flex-1 flex flex-col items-center justify-center py-1 cursor-pointer transition-colors group"
+          >
+            <div className="p-1 rounded-xl text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200">
+              <Layers className="w-5 h-5 stroke-[2.2]" />
+            </div>
+            <span className="text-[10.5px] font-bold mt-0.5 leading-none text-slate-500 dark:text-slate-400">
+              More
+            </span>
+          </button>
+
         </div>
       </div>
 
@@ -89,7 +141,50 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           >
             <div>
               {/* Sheet Drag Handle */}
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4 shrink-0" />
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-3.5 shrink-0" />
+
+              {/* Top 4 Primary Quick Action Cards (Direct POS & Inventory) */}
+              <div className="grid grid-cols-4 gap-2 mb-5">
+                {/* + Sale */}
+                <button
+                  type="button"
+                  onClick={() => handleAction('/billing?action=add', 'mbi-open-add-sale')}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-rose-500 to-red-600 text-white shadow-md shadow-rose-500/25 active:scale-95 transition-transform cursor-pointer"
+                >
+                  <FileText className="w-5 h-5 mb-1 stroke-[2.2]" />
+                  <span className="text-[11px] font-black tracking-tight">+ Sale</span>
+                </button>
+
+                {/* POS Fast */}
+                <button
+                  type="button"
+                  onClick={() => handleAction('/billing?mode=fast&action=add', 'mbi-open-fast-pos')}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/25 active:scale-95 transition-transform cursor-pointer"
+                >
+                  <Zap className="w-5 h-5 mb-1 stroke-[2.2]" />
+                  <span className="text-[11px] font-black tracking-tight">POS Fast</span>
+                </button>
+
+                {/* + Purchase */}
+                <button
+                  type="button"
+                  onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase')}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-transform cursor-pointer"
+                >
+                  <ShoppingCart className="w-5 h-5 mb-1 stroke-[2.2]" />
+                  <span className="text-[11px] font-black tracking-tight">+ Purchase</span>
+                </button>
+
+                {/* + Item */}
+                <button
+                  type="button"
+                  onClick={() => handleAction('/items?action=add')}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 active:scale-95 transition-transform cursor-pointer"
+                >
+                  <PackagePlus className="w-5 h-5 mb-1 stroke-[2.2]" />
+                  <span className="text-[11px] font-black tracking-tight">+ Item</span>
+                </button>
+              </div>
 
               {/* Section 1: Sale Transactions */}
               <div className="mb-5">

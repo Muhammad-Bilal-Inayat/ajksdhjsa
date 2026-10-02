@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowUpRight, ArrowDownRight, ShoppingCart, 
   ChevronDown, Flame, TrendingUp, AlertTriangle, 
-  Package, PlusCircle, CheckCircle2, Eye, EyeOff, 
+  Package, PlusCircle, Plus, CheckCircle2, Eye, EyeOff, 
   ExternalLink, Layers, DollarSign, Wallet, ShieldCheck,
   Calendar, Zap, ChevronRight, BarChart3, Maximize2, Minimize2,
   RotateCcw, SlidersHorizontal, Sparkles, Printer, Clock, FileText,
@@ -50,11 +50,19 @@ import { CustomizeLayoutModal } from '../components/dashboard/CustomizeLayoutMod
 import { 
   DASHBOARD_WIDGETS_CONFIG, 
   PRESET_LAYOUTS, 
-  isWidgetAllowedInPlan 
+  isWidgetAllowedInPlan,
+  isWidgetAllowedWithFeatures
 } from '../config/dashboardWidgetsConfig';
 import { 
   PharmacyKpiMetricsWidget, 
   WeeklySalesTrajectoryWidget, 
+  ActionRequiredWidget,
+  MbiAiRecommendationWidget,
+  BusinessHealthWidget,
+  QuickActionsGridWidget,
+  TopSellingMedicinesWidget,
+  RecentSalesInvoicesWidget,
+  ExpiryAlertsTableWidget,
   TherapeuticCategoryMixWidget, 
   HourlyRushVelocityWidget, 
   FastSkusMarginMatrixWidget, 
@@ -67,6 +75,7 @@ import { AntiTheftAuditWidget } from '../components/dashboard/widgets/AntiTheftA
 import { InvoicePrintModal } from '../components/sales/InvoicePrintModal';
 import { AddSaleModal } from '../components/sales/AddSaleModal';
 import { MobileDashboardView } from '../components/dashboard/MobileDashboardView';
+import { HeaderDateRangePicker } from '../components/layout/HeaderDateRangePicker';
 import { getDashboardSummaryMetrics } from '../lib/quickTransactionService';
 import { DashboardSummaryService } from '../lib/dashboardSummaryService';
 
@@ -235,6 +244,27 @@ export const Dashboard: React.FC = () => {
     ? String(rawTenantId).trim() 
     : 'tenant_main';
 
+  // Granular Tenant / User Features Switchboard Sync
+  const [tenantFeatures, setTenantFeatures] = useState<Record<string, boolean> | null>(() => {
+    try {
+      const stored = localStorage.getItem(`mbi_tenant_features_${effectiveTenantId}`);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn('Failed to parse cached tenant features:', e);
+    }
+    return (tenant as any)?.features || (tenant as any)?.custom_features || (activeUser as any)?.features || null;
+  });
+
+  useEffect(() => {
+    const handleFeaturesUpdate = (e: any) => {
+      if (e?.detail?.tenantId === effectiveTenantId || !e?.detail?.tenantId) {
+        setTenantFeatures(e?.detail?.features || null);
+      }
+    };
+    window.addEventListener('mbi-tenant-features-updated', handleFeaturesUpdate);
+    return () => window.removeEventListener('mbi-tenant-features-updated', handleFeaturesUpdate);
+  }, [effectiveTenantId]);
+
   // Privacy Mode
   const [privacyMode, setPrivacyMode] = useState(() => userPreferences?.privacyMode ?? (localStorage.getItem('mbi_privacy_mode') === 'true'));
 
@@ -262,7 +292,7 @@ export const Dashboard: React.FC = () => {
     const newVis: Record<string, boolean> = {};
 
     DASHBOARD_WIDGETS_CONFIG.forEach(w => {
-      const isAllowed = isWidgetAllowedInPlan(w, userPlan);
+      const isAllowed = isWidgetAllowedWithFeatures(w, userPlan, tenantFeatures);
       newVis[w.id] = isAllowed && (preset ? preset.filter(w) : true);
     });
 
@@ -709,6 +739,22 @@ export const Dashboard: React.FC = () => {
       }, 1000);
     };
 
+    const handleDateRangeChanged = (e: any) => {
+      const detail = e?.detail;
+      if (detail?.preset) {
+        if (detail.preset === 'today') {
+          setTimeFilter('Today');
+        } else if (detail.preset === 'this_week' || detail.preset === 'last_7_days') {
+          setTimeFilter('This Week');
+        } else if (detail.preset === 'this_month' || detail.preset === 'last_30_days' || detail.preset === 'last_month') {
+          setTimeFilter('This Month');
+        } else {
+          setTimeFilter('This Month');
+        }
+      }
+      handleSyncUpdate();
+    };
+
     window.addEventListener('mbi-data-synced', handleSyncUpdate);
     window.addEventListener('mbi-local-db-change', handleSyncUpdate);
     window.addEventListener('mbi-stock-updated', handleSyncUpdate);
@@ -716,6 +762,7 @@ export const Dashboard: React.FC = () => {
     window.addEventListener('mbi-dashboard-refresh', handleSyncUpdate);
     window.addEventListener('dashboard-metrics-updated', handleSyncUpdate);
     window.addEventListener('quick-transaction-saved', handleSyncUpdate);
+    window.addEventListener('mbi-date-range-changed', handleDateRangeChanged);
 
     return () => {
       isMounted = false;
@@ -728,6 +775,7 @@ export const Dashboard: React.FC = () => {
       window.removeEventListener('mbi-dashboard-refresh', handleSyncUpdate);
       window.removeEventListener('dashboard-metrics-updated', handleSyncUpdate);
       window.removeEventListener('quick-transaction-saved', handleSyncUpdate);
+      window.removeEventListener('mbi-date-range-changed', handleDateRangeChanged);
     };
   }, [timeFilter, effectiveTenantId, effectiveFirmId]);
 
@@ -2972,9 +3020,14 @@ export const Dashboard: React.FC = () => {
               <PharmacyKpiMetricsWidget
                 invoices={invoices}
                 medicines={medicines}
+                suppliers={suppliers}
                 privacyMode={privacyMode}
                 maskValue={maskValue}
                 onNavigate={navigate}
+                onOpenPOS={() => setIsAddSaleOpen(true)}
+                totalReceivables={totalReceivables}
+                totalPayables={totalPayables}
+                totalStockValue={stockValue}
               />
             );
           case 'pharmacy_erp_analytics_hub':
@@ -2997,6 +3050,19 @@ export const Dashboard: React.FC = () => {
                 onNavigate={navigate}
               />
             );
+          case 'action_required':
+          case 'action-required':
+            return <ActionRequiredWidget medicines={medicines} invoices={invoices} suppliers={suppliers} onNavigate={navigate} />;
+          case 'ai_recommendations':
+          case 'mbi_ai_recommendation':
+          case 'ai-recommendations':
+            return <MbiAiRecommendationWidget medicines={medicines} invoices={invoices} onNavigate={navigate} />;
+          case 'business_health':
+          case 'business-health':
+            return <BusinessHealthWidget medicines={medicines} invoices={invoices} onNavigate={navigate} />;
+          case 'quick_actions_grid':
+          case 'quick_actions':
+            return <QuickActionsGridWidget onNavigate={navigate} onOpenPOS={() => setIsAddSaleOpen(true)} />;
           case 'therapeutic_category_mix':
             return (
               <TherapeuticCategoryMixWidget
@@ -3055,11 +3121,11 @@ export const Dashboard: React.FC = () => {
           case 'todays_profit':
             return renderTodaysProfitWidget();
           case 'recent_sales':
-            return renderRecentSalesWidget();
+            return <RecentSalesInvoicesWidget invoices={invoices} onNavigate={navigate} />;
           case 'low_stock_alerts':
             return renderLowStockAlertsWidget();
           case 'expiry_alerts':
-            return renderExpiryAlertsWidget();
+            return <ExpiryAlertsTableWidget medicines={medicines} onNavigate={navigate} />;
           case 'reorder_suggestions':
             return renderReorderSuggestionsWidget();
           case 'sales_trend':
@@ -3070,7 +3136,7 @@ export const Dashboard: React.FC = () => {
             return renderReceivablesPayablesSection();
           case 'top_products': {
             const isTopAllowed = isRouteAllowedInPlan('/top-products', (tenant as any)?.plan || (business as any)?.plan || 'Basic', authTenantId || tenant?.id).isAllowed;
-            return isTopAllowed ? renderTopProductsSection() : null;
+            return isTopAllowed ? <TopSellingMedicinesWidget medicines={medicines} invoices={invoices} onNavigate={navigate} /> : null;
           }
           case 'stock_inventory':
             return renderStockInventoryWidget();
@@ -3115,16 +3181,17 @@ export const Dashboard: React.FC = () => {
 
   const allWidgetIds = useMemo(() => new Set(ALL_DASHBOARD_WIDGETS.map(w => w.id)), []);
   
-  // Strictly filter allowed widgets for the user's active plan (Basic: 10, Business: 18, Enterprise: 24)
+  // Strictly filter allowed widgets for the user's active plan (Basic: 10, Business: 18, Enterprise: 24) and Granular Feature Switchboard
   const allowedPlanWidgets = useMemo(() => {
-    return DASHBOARD_WIDGETS_CONFIG.filter(w => isWidgetAllowedInPlan(w, currentEffectivePlan));
-  }, [currentEffectivePlan]);
+    return DASHBOARD_WIDGETS_CONFIG.filter(w => isWidgetAllowedWithFeatures(w, currentEffectivePlan, tenantFeatures));
+  }, [currentEffectivePlan, tenantFeatures]);
   const allowedPlanWidgetIds = useMemo(() => new Set(allowedPlanWidgets.map(w => w.id)), [allowedPlanWidgets]);
 
   const activeWidgetsCount = allowedPlanWidgets.filter(w => widgetVisibility[w.id] !== false).length;
 
   const visibleMainSections = useMemo(() => {
     const list = mainOrder
+      .filter(id => id !== 'pharmacy_erp_kpi_metrics')
       .filter(id => allWidgetIds.has(id) && allowedPlanWidgetIds.has(id))
       .filter(id => widgetVisibility[id] !== false);
     return list;
@@ -3172,108 +3239,33 @@ export const Dashboard: React.FC = () => {
 
       {/* Desktop / Tablet Dashboard (hidden md:block) */}
       <div className="hidden md:block space-y-4">
-        {/* Top Header Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/80 shadow-xs">
+        {/* Top Header Greeting Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Business Dashboard</h1>
-              <span className="text-xs text-slate-400 hidden sm:inline">• Pharmacy Live Analytics</span>
-              {activeUser && (
-                <span className="text-[10px] sm:text-[11px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-semibold truncate max-w-[180px] lg:max-w-none">
-                  Pharmacist: {activeUser.name}
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
-              Real-time sales, automated low stock restock velocity, and batch expiry tracking
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <span>Welcome Back, {activeUser?.name || business?.name || 'Admin'}</span>
+              <span className="animate-bounce inline-block">👋</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              Here's your pharmacy performance overview for today.
             </p>
           </div>
 
-          {/* Dashboard Customization & Privacy Controls */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {/* Rapid F2 POS Billing Button */}
+          {/* Actions: Date Filter & Customize Widgets */}
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+            {/* Dashboard Date Range Filter */}
+            <HeaderDateRangePicker />
+
+            {/* Customize Widgets Button */}
             <button
               type="button"
-              onClick={() => setIsAddSaleOpen(true)}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all cursor-pointer whitespace-nowrap active:scale-[0.98]"
-              title="Open Rapid POS Billing (Press F2 anywhere)"
-            >
-              <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300 fill-amber-300" />
-              <span>Rapid Bill (F2)</span>
-            </button>
-
-            {/* Quick Privacy Mode Toggle in Header */}
-            <button
-              type="button"
-              onClick={() => togglePrivacy()}
-              className={cn(
-                "flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer whitespace-nowrap",
-                privacyMode
-                  ? "bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 ring-2 ring-blue-400"
-                  : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400"
-              )}
-              title={privacyMode ? "Disable Privacy Mode (Unblur Dashboard)" : "Enable Privacy Mode (Blur Dashboard)"}
-            >
-              {privacyMode ? (
-                <>
-                  <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse shrink-0" />
-                  <span>Privacy: ON (Blurred)</span>
-                </>
-              ) : (
-                <>
-                  <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 shrink-0" />
-                  <span>Privacy Mode</span>
-                </>
-              )}
-            </button>
-
-            <button
               onClick={() => setIsCustomizerOpen(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold shadow-2xs transition-all hover:border-blue-400 cursor-pointer whitespace-nowrap"
-              title="Configure Dashboard Widgets"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+              title="Customize Dashboard Layout & Widgets"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 shrink-0" />
+              <LayoutGrid className="w-3.5 h-3.5 text-slate-500" />
               <span>Customize Widgets</span>
-              <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
-                {activeWidgetsCount} / {ALL_DASHBOARD_WIDGETS.length}
-              </span>
             </button>
-          </div>
-        </div>
-
-        {/* 4 Quick Preset Layouts Bar */}
-        <div className="bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3 overflow-x-auto scrollbar-none">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1 flex items-center gap-1 shrink-0 uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-              <span>Layout Presets:</span>
-            </span>
-
-            {(Object.keys(PRESET_LAYOUTS) as (keyof typeof PRESET_LAYOUTS)[]).map((key) => {
-              const preset = PRESET_LAYOUTS[key];
-              const isSelected = activePreset === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleQuickPreset(key)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap ${
-                    isSelected
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700'
-                  }`}
-                  title={preset.description}
-                >
-                  <span>{preset.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 shrink-0 font-medium">
-            <span>Drag &amp; drop to reorder</span>
-            <span>•</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">22 Widgets Ready</span>
           </div>
         </div>
 
@@ -3293,6 +3285,13 @@ export const Dashboard: React.FC = () => {
             >
               Unblur Dashboard
             </button>
+          </div>
+        )}
+
+        {/* Full-Width Executive Pharmacy KPI Metrics Banner (Spanning End-to-End Across 100% Width) */}
+        {widgetVisibility['pharmacy_erp_kpi_metrics'] !== false && (
+          <div className="w-full">
+            {renderSectionById('pharmacy_erp_kpi_metrics')}
           </div>
         )}
 

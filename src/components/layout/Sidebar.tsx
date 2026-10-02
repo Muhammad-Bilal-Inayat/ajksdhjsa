@@ -291,6 +291,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       navigate('/parties?action=add');
     } else if (itemId === 'expenses') {
       navigate('/expenses?action=add');
+    } else if (itemId === 'shifts') {
+      navigate('/shift-management?action=start');
     } else if (defaultAddPath) {
       navigate(defaultAddPath);
     }
@@ -442,31 +444,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       .map(item => {
         if (!item.subItems) return item;
         const filteredSubs = item.subItems.filter(sub => {
-          if (sub.label.includes('Estimate') && !settings.general.estimateQuotation && !isOwner) return false;
-          if (sub.label.includes('Sale Order') && !settings.general.salePurchaseOrder && !isOwner) return false;
-          if (sub.label.includes('Purchase Order') && !settings.general.salePurchaseOrder && !isOwner) return false;
-          if (sub.label.includes('Delivery Challan') && !settings.general.deliveryChallan && !isOwner) return false;
-
           if (sub.requiredPlan && !isPlanSufficient(activePlanTier, sub.requiredPlan)) {
             return false;
           }
-
-          // Check if subitem route is allowed in active plan
-          if (sub.path && !isRouteAllowedInPlan(sub.path, effectivePlan, effectiveTenantId).isAllowed && !isOwner) {
-            return false;
-          }
-
-          // Check granular switchboard route access for each sub-menu item
-          if (sub.path) {
-            const routeCheck = checkGranularRouteAccess(sub.path, {
-              userId: effectiveUserId,
-              role: activeRole,
-              plan: effectivePlan,
-              tenantId: effectiveTenantId
-            });
-            if (!routeCheck.isAllowed) return false;
-          }
-
           return true;
         });
 
@@ -582,38 +562,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           <div 
-            onClick={() => setIsCompanyModalOpen(true)}
+            onClick={() => {
+              navigate('/user');
+              setIsOpen(false);
+            }}
             className={cn(
-              "h-[60px] px-3.5 flex items-center border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/80 cursor-pointer transition-colors group flex-shrink-0",
+              "h-[64px] px-3.5 flex items-center border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 cursor-pointer transition-colors group flex-shrink-0",
               isCollapsed ? "justify-center" : "justify-between"
             )}
-            title={isCollapsed ? (business?.name || "Company Profile") : "Click to view & edit Company Profile"}
+            title="MBI INVENTRA — Go to Dashboard"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8.5 h-8.5 rounded-xl shadow-md flex items-center justify-center flex-shrink-0 overflow-hidden group-hover:scale-105 transition-all">
-                {business?.logo ? (
-                  <img 
-                    src={business.logo} 
-                    alt="Store Logo" 
-                    className="w-full h-full object-contain p-0.5 rounded-xl" 
-                  />
-                ) : (
-                  <img 
-                    src="/mbi-favicon.png?v=4.2.0" 
-                    alt="MBI INVENTRA" 
-                    className="w-full h-full object-contain rounded-xl dark:brightness-110 dark:drop-shadow-[0_0_12px_rgba(59,130,246,0.3)]" 
-                  />
-                )}
+              {/* MBI Logo Box */}
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-all">
+                <span className="text-blue-600 dark:text-blue-400 font-black text-xs tracking-tight">MBI</span>
               </div>
               
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-[13px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
-                    {business?.name || 'Pharmacy Store'}
+                  <h1 className="text-[13.5px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
+                    {business?.name || tenant?.name || 'MNBI'}
                   </h1>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 font-medium mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-                    <span>{business?.phone || business?.mobile || business?.city || 'Active Terminal'}</span>
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 font-semibold mt-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0"></span>
+                    <span>{business?.phone || currentUser?.username || '03000'}</span>
                   </p>
                 </div>
               )}
@@ -622,13 +594,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="flex items-center gap-1">
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
-                  className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className="lg:hidden p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                   title="Close Menu"
                 >
                   <X className="w-4 h-4" />
                 </button>
-                <ChevronRight className="hidden lg:block w-4 h-4 text-slate-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-transform group-hover:translate-x-0.5 flex-shrink-0" />
               </div>
             )}
           </div>
@@ -989,7 +961,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             e.stopPropagation();
                             handleQuickAction(item.id, item.addPath, e);
                           }}
-                          className="p-1 rounded-md bg-blue-500/10 hover:bg-blue-600 hover:text-white text-blue-600 dark:text-blue-400 transition-all active:scale-90 cursor-pointer"
+                          className={cn(
+                            "p-1 rounded-md transition-all active:scale-90 cursor-pointer",
+                            isActive 
+                              ? "bg-white/20 hover:bg-white/30 text-white" 
+                              : "bg-blue-500/10 hover:bg-blue-600 hover:text-white text-blue-600 dark:text-blue-400"
+                          )}
                           title={`Quick Add ${item.label}`}
                         >
                           <Plus className="w-3.5 h-3.5" />

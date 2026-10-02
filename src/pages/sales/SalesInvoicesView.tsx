@@ -23,7 +23,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const SalesInvoicesView: React.FC = () => {
   const { canEditBills, canDeleteBills, canReprintBills } = useAuth();
-  const isControlledAllowed = useMemo(() => isPlanSufficient(getActiveTenantPlan(), 'gold'), []);
+  const isControlledAllowed = useMemo(() => {
+    const p = getActiveTenantPlan();
+    return p !== 'silver' && p !== 'trial' && isPlanSufficient(p, 'gold');
+  }, []);
   const navigate = useNavigate();
 
   // Data states

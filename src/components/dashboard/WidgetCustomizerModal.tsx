@@ -209,16 +209,49 @@ export const ALL_DASHBOARD_WIDGETS: WidgetDefinition[] = [
     description: 'Quick toggle to mask customer currency figures for public pharmacy counter screens.',
     defaultZone: 'sidebar',
   },
+  {
+    id: 'action_required',
+    title: 'Action Required Alert Hub',
+    category: 'Inventory & Alerts',
+    description: 'Instant overview of expired stock, shortage alerts, pending supplier dues, and customer collections.',
+    defaultZone: 'main',
+    isKeyMetric: true,
+  },
+  {
+    id: 'mbi_ai_recommendation',
+    title: 'MBI AI Smart Recommendations',
+    category: 'Inventory & Alerts',
+    description: 'Predictive inventory reorder suggestions, stockout warnings, and revenue optimization insights.',
+    defaultZone: 'main',
+  },
+  {
+    id: 'business_health',
+    title: 'Business Health 4-Pillar Indicators',
+    category: 'Financials & Profit',
+    description: 'Visual sparklines tracking Sales Velocity, Gross Margins, Inventory Turnover, and Cash Reserves.',
+    defaultZone: 'main',
+    isKeyMetric: true,
+  },
+  {
+    id: 'quick_actions_grid',
+    title: 'Quick Actions 1-Click Launchpad',
+    category: 'Operations',
+    description: 'Instant counter shortcuts: + New Sale, + New Purchase, + Add Item, + Add Party, and Payments.',
+    defaultZone: 'main',
+    isKeyMetric: true,
+  },
 ];
 
 export const DEFAULT_MAIN_SECTIONS = [
-  'pharmacy_erp_kpi_metrics',
+  'action_required',
+  'quick_actions_grid',
   'todays_profit',
-  'recent_sales',
-  'fefo_expiry_status',
-  'reorder_suggestions',
-  'top_products',
   'weekly_revenue_trajectory',
+  'recent_sales',
+  'top_products',
+  'business_health',
+  'reorder_suggestions',
+  'fefo_expiry_status',
   'therapeutic_category_mix',
   'hourly_rush_velocity',
   'fast_skus_margin_matrix',
@@ -226,7 +259,6 @@ export const DEFAULT_MAIN_SECTIONS = [
   'udhar_aging_whatsapp',
   'ai_expiry_loss_prevention',
   'anti_theft_audit_radar',
-  'receivables_payables',
   'sales_expenses',
   'sales_trend',
   'pharmacy_erp_analytics_hub',
@@ -236,8 +268,10 @@ export const DEFAULT_MAIN_SECTIONS = [
 export const DEFAULT_SIDEBAR_SECTIONS = [
   'low_stock_alerts',
   'expiry_alerts',
-  'stock_inventory',
+  'receivables_payables',
+  'mbi_ai_recommendation',
   'bank_accounts',
+  'stock_inventory',
   'privacy_mode',
 ];
 
@@ -266,6 +300,10 @@ export const DEFAULT_WIDGET_VISIBILITY: Record<string, boolean> = {
   ai_expiry_loss_prevention: true,
   anti_theft_audit_radar: true,
   multi_branch_telemetry: true,
+  action_required: true,
+  mbi_ai_recommendation: true,
+  business_health: true,
+  quick_actions_grid: true,
 };
 
 interface WidgetCustomizerModalProps {

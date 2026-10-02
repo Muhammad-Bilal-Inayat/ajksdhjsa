@@ -430,7 +430,7 @@ export const defaultSettings: AppSettings = {
     autoBackupFrequency: 'daily',
     lastBackupDate: '01/09/2026 | 09:09 AM',
     enableQrScanner: true,
-    showPwaInstallButton: true,
+    showPwaInstallButton: false,
   },
   featureFlags: {
     universalSearch: true,
@@ -498,7 +498,7 @@ export const defaultSettings: AppSettings = {
     showBookerInPurchases: true,
     showBookerInPrint: true,
     defaultBookerCommission: 2.5,
-    showPwaInstallButton: true,
+    showPwaInstallButton: false,
     prefixes: {
       sale: 'INV-',
       creditNote: 'CN-',
@@ -763,16 +763,22 @@ export const ALL_VALID_DASHBOARD_WIDGET_IDS = [
   'anti_theft_audit_radar',
   'multi_branch_telemetry',
   'privacy_mode',
+  'action_required',
+  'mbi_ai_recommendation',
+  'business_health',
+  'quick_actions_grid',
 ];
 
 export const DEFAULT_DASHBOARD_MAIN_SECTIONS = [
-  'pharmacy_erp_kpi_metrics',
+  'action_required',
+  'quick_actions_grid',
   'todays_profit',
-  'recent_sales',
-  'fefo_expiry_status',
-  'reorder_suggestions',
-  'top_products',
   'weekly_revenue_trajectory',
+  'recent_sales',
+  'top_products',
+  'business_health',
+  'reorder_suggestions',
+  'fefo_expiry_status',
   'therapeutic_category_mix',
   'hourly_rush_velocity',
   'fast_skus_margin_matrix',
@@ -780,7 +786,6 @@ export const DEFAULT_DASHBOARD_MAIN_SECTIONS = [
   'udhar_aging_whatsapp',
   'ai_expiry_loss_prevention',
   'anti_theft_audit_radar',
-  'receivables_payables',
   'sales_expenses',
   'sales_trend',
   'pharmacy_erp_analytics_hub',
@@ -790,8 +795,10 @@ export const DEFAULT_DASHBOARD_MAIN_SECTIONS = [
 export const DEFAULT_DASHBOARD_SIDEBAR_SECTIONS = [
   'low_stock_alerts',
   'expiry_alerts',
-  'stock_inventory',
+  'receivables_payables',
+  'mbi_ai_recommendation',
   'bank_accounts',
+  'stock_inventory',
   'privacy_mode',
 ];
 
@@ -820,6 +827,10 @@ export const DEFAULT_DASHBOARD_WIDGET_VISIBILITY: Record<string, boolean> = {
   multi_branch_telemetry: true,
   bank_accounts: true,
   privacy_mode: true,
+  action_required: true,
+  mbi_ai_recommendation: true,
+  business_health: true,
+  quick_actions_grid: true,
 };
 
 export const defaultUiPreferences: UserUiPreferences = {

@@ -3214,12 +3214,104 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                   }}
                                   className="w-full font-bold text-slate-900 bg-transparent text-xs focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 truncate cursor-pointer"
                                 />
-                                {(item.batchNumber || item.expiryDate) && (
-                                  <div className="text-[10px] text-slate-400 px-1 truncate">
-                                    {item.batchNumber && <span>B:{item.batchNumber} </span>}
-                                    {item.expiryDate && <span>Exp:{item.expiryDate}</span>}
-                                  </div>
-                                )}
+                                {/* Mobile Dynamic Configured Column Fields & Details */}
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                  {(settings.print?.tableColumns?.batchNo || currentTab.isWarrantyBill) && (
+                                    <input
+                                      type="text"
+                                      placeholder="Batch"
+                                      value={item.batchNumber || ''}
+                                      onChange={(e) => handleUpdateItemRow(item.tempId, { batchNumber: e.target.value })}
+                                      className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[80px] text-slate-700 dark:text-slate-300"
+                                    />
+                                  )}
+                                  {(settings.print?.tableColumns?.expDate || currentTab.isWarrantyBill) && (
+                                    <input
+                                      type="text"
+                                      placeholder="Exp (MM/YY)"
+                                      value={item.expiryDate || ''}
+                                      onChange={(e) => handleUpdateItemRow(item.tempId, { expiryDate: e.target.value })}
+                                      className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[80px] text-slate-700 dark:text-slate-300"
+                                    />
+                                  )}
+                                  {settings.print?.tableColumns?.mfgDate && (
+                                    <input
+                                      type="text"
+                                      placeholder="Mfg"
+                                      value={item.mfgDate || ''}
+                                      onChange={(e) => handleUpdateItemRow(item.tempId, { mfgDate: e.target.value })}
+                                      className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[70px] text-slate-700 dark:text-slate-300"
+                                    />
+                                  )}
+                                  {settings.print?.tableColumns?.hsnSac && (
+                                    <input
+                                      type="text"
+                                      placeholder="HSN"
+                                      value={(item as any).hsnCode || (item as any).hsnSac || ''}
+                                      onChange={(e) => handleUpdateItemRow(item.tempId, { hsnCode: e.target.value } as any)}
+                                      className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[65px] text-slate-700 dark:text-slate-300"
+                                    />
+                                  )}
+                                  {(settings.print?.tableColumns?.mrp || currentTab.isWarrantyBill) && (
+                                    <div className="flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 text-[10px]">
+                                      <span className="text-amber-700 dark:text-amber-400 font-bold">MRP:</span>
+                                      <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={item.mrp || ''}
+                                        onChange={(e) => handleUpdateItemRow(item.tempId, { mrp: parseFloat(e.target.value) || 0 })}
+                                        className="w-12 bg-transparent text-right font-mono font-bold text-amber-800 dark:text-amber-300 outline-none"
+                                      />
+                                    </div>
+                                  )}
+                                  {settings.print?.tableColumns?.unit !== false && (
+                                    <select
+                                      value={item.unit || 'Box'}
+                                      onChange={(e) => handleUpdateItemRow(item.tempId, { unit: e.target.value })}
+                                      className="text-[10px] px-1 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300"
+                                    >
+                                      {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
+                                    </select>
+                                  )}
+                                  {showDiscountCol && (
+                                    <div className="flex items-center gap-0.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5 text-[10px]">
+                                      <span className="text-blue-700 dark:text-blue-400 font-bold">Disc:</span>
+                                      <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={item.discountPercentage || ''}
+                                        onChange={(e) => handleUpdateItemRow(item.tempId, { discountPercentage: parseFloat(e.target.value) || 0 })}
+                                        className="w-8 bg-transparent text-center font-bold text-blue-800 dark:text-blue-300 outline-none"
+                                      />
+                                      <span className="text-blue-600">%</span>
+                                    </div>
+                                  )}
+                                  {settings.print?.tableColumns?.taxPercent && (
+                                    <div className="flex items-center gap-0.5 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded px-1.5 py-0.5 text-[10px]">
+                                      <span className="text-purple-700 dark:text-purple-400 font-bold">Tax:</span>
+                                      <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={item.taxPercentage || (item as any).gstPercentage || ''}
+                                        onChange={(e) => handleUpdateItemRow(item.tempId, { taxPercentage: parseFloat(e.target.value) || 0, gstPercentage: parseFloat(e.target.value) || 0 } as any)}
+                                        className="w-8 bg-transparent text-center font-bold text-purple-800 dark:text-purple-300 outline-none"
+                                      />
+                                      <span className="text-purple-600">%</span>
+                                    </div>
+                                  )}
+                                  {settings.transaction?.freeItemQuantity && (
+                                    <div className="flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded px-1.5 py-0.5 text-[10px]">
+                                      <span className="text-emerald-700 dark:text-emerald-400 font-bold">Free:</span>
+                                      <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={(item as any).freeQuantity || ''}
+                                        onChange={(e) => handleUpdateItemRow(item.tempId, { freeQuantity: parseFloat(e.target.value) || 0 } as any)}
+                                        className="w-8 bg-transparent text-center font-bold text-emerald-800 dark:text-emerald-300 outline-none"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
 
                                 {/* Mobile Row Medicine Selection Dropdown */}
                                 {activeMedDropdownTempId === item.tempId && (

@@ -113,7 +113,10 @@ const SALE_SUBMENUS: SubMenuConfig[] = [
 export const Billing: React.FC = () => {
   const { business, tenant, tenantId: authTenantId, canEditBills, canDeleteBills, canReprintBills, canApplyDiscount } = useAuth();
   const currentTenantId = authTenantId || tenant?.id || business?.tenantId || business?.id || 'tenant-demo-01';
-  const isControlledAllowed = useMemo(() => isPlanSufficient(getActiveTenantPlan(currentTenantId), 'gold'), [currentTenantId]);
+  const isControlledAllowed = useMemo(() => {
+    const p = getActiveTenantPlan(currentTenantId);
+    return p !== 'silver' && p !== 'trial' && isPlanSufficient(p, 'gold');
+  }, [currentTenantId]);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1385,26 +1388,6 @@ export const Billing: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {activeSubView === 'invoices' && isControlledAllowed && (
-            <button
-              onClick={() => setIsControlledSaleOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer shadow-2xs"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Controlled Form-8</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-600/20 active:scale-95 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{currentSubMenu.btnLabel}</span>
-          </button>
-        </div>
       </div>
 
       {/* UNIFIED SHARED REPORT FILTER BAR */}
@@ -1547,8 +1530,8 @@ export const Billing: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* Controlled / Narcotics Sale Quick Action */}
-            {activeSubView === 'invoices' && (
+            {/* Controlled / Narcotics Sale Quick Action (Plan Gated) */}
+            {activeSubView === 'invoices' && isControlledAllowed && (
               <button
                 onClick={() => setIsControlledSaleOpen(true)}
                 title="PIN-Authorized Form-7 / Controlled Medicine Sale"

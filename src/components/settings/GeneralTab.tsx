@@ -546,7 +546,7 @@ export const GeneralTab: React.FC = () => {
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
-                  checked={settings.general.showPwaInstallButton !== false}
+                  checked={settings.general.showPwaInstallButton === true}
                   onChange={(e) => {
                     const val = e.target.checked;
                     updateGeneral({ showPwaInstallButton: val });

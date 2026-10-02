@@ -31,7 +31,8 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Database,
-  Smartphone
+  Smartphone,
+  User
 } from 'lucide-react';
 import {
   MasterActiveUser,
@@ -45,7 +46,6 @@ import {
   logMasterAudit,
   getAllTenants
 } from '../../lib/masterServerService';
-import { handleSilentSwitchUser } from '../../services/adminService';
 
 interface UnifiedUserControlHubProps {
   onNotify: (msg: string) => void;
@@ -72,27 +72,46 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   const [syncingUserId, setSyncingUserId] = useState<string | null>(null);
   const [revealedPasscodes, setRevealedPasscodes] = useState<Record<string, boolean>>({});
 
-  // Distinct Companies & User Counts breakdown
-  const companyStats = useMemo(() => {
-    const counts = new Map<string, number>();
-    users.forEach(u => {
-      const store = u.storeName || 'MBI INVENTRA Headquarters';
-      counts.set(store, (counts.get(store) || 0) + 1);
-    });
-    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
-  }, [users]);
+  const tenants = useMemo(() => getAllTenants(), []);
 
-  // New User Form State
+  // New Sub-User Form State
   const [newUserForm, setNewUserForm] = useState({
     name: '',
     username: '',
     emailOrPhone: '',
     passcode: '1234',
     role: 'Cashier' as MasterActiveUser['role'],
-    storeName: 'MBI INVENTRA Main Pharmacy'
+    storeName: tenants[0]?.name || 'MBI INVENTRA Main Pharmacy',
+    tenantId: tenants[0]?.tenantId || tenants[0]?.id || 'tenant_main'
   });
 
-  const tenants = useMemo(() => getAllTenants(), []);
+  // Strict Helper: Exclude Primary Admins & Owners (Show ONLY Sub-Users)
+  const isPrimaryAdminOrOwner = (u: any) => {
+    const roleStr = String(u.role || '').toLowerCase().trim();
+    return roleStr.includes('primary admin') || 
+           roleStr.includes('primary owner') || 
+           roleStr === 'owner' || 
+           roleStr === 'primary_admin' || 
+           roleStr === 'primary_owner' || 
+           Boolean(u.isPrimaryOwner) || 
+           Boolean(u.is_primary_owner) || 
+           Boolean(u.isPrimaryAdmin);
+  };
+
+  // Distinct Sub-Users list (excluding root owners/primary admins)
+  const subUsersList = useMemo(() => {
+    return users.filter(u => !isPrimaryAdminOrOwner(u));
+  }, [users]);
+
+  // Distinct Companies & Sub-User Counts breakdown
+  const companyStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    subUsersList.forEach(u => {
+      const store = u.storeName || 'Pharmacy Store';
+      counts.set(store, (counts.get(store) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [subUsersList]);
 
   // Sync users with backend server API & listen to events
   const refreshUsersList = async () => {
@@ -108,29 +127,29 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               return tid && !DUMMY_TENANT_IDS.has(tid);
             })
             .map((ru: any) => ({
-            id: ru.id,
-            name: ru.name,
-            username: ru.username || ru.emailOrPhone || ru.id,
-            emailOrPhone: ru.emailOrPhone || '',
-            role: ru.role || 'Primary Admin',
-            status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
-            passcode: ru.passcode || '1234',
-            storeName: ru.storeName || 'Pharmacy Store',
-            tenantId: ru.tenant_id || ru.tenantId || ru.installationId || '',
-            installationId: ru.installationId || ru.tenant_id || '',
-            boundHwid: ru.boundHwid || null,
-            lastSyncTime: ru.lastSyncTime || new Date().toISOString(),
-            isOnline: true,
-            isSilentMonitored: Boolean(ru.isSilentMonitored),
-            isKillSwitchActive: Boolean(ru.isKillSwitchActive),
-            totalTransactions: Number(ru.totalTransactions) || 0,
-            sessionDurationMinutes: 120,
-            totalActiveHours: 24,
-            allowedModules: { ...DEFAULT_MODULES },
-            permissions: { ...DEFAULT_USER_PERMISSIONS },
-            createdAt: ru.createdAt || new Date().toISOString(),
-            updatedAt: ru.updatedAt || new Date().toISOString(),
-          }));
+              id: ru.id,
+              name: ru.name,
+              username: ru.username || ru.emailOrPhone || ru.id,
+              emailOrPhone: ru.emailOrPhone || '',
+              role: ru.role || 'Cashier',
+              status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
+              passcode: ru.passcode || '1234',
+              storeName: ru.storeName || 'Pharmacy Store',
+              tenantId: ru.tenant_id || ru.tenantId || ru.installationId || '',
+              installationId: ru.installationId || ru.tenant_id || '',
+              boundHwid: ru.boundHwid || null,
+              lastSyncTime: ru.lastSyncTime || new Date().toISOString(),
+              isOnline: true,
+              isSilentMonitored: Boolean(ru.isSilentMonitored),
+              isKillSwitchActive: Boolean(ru.isKillSwitchActive),
+              totalTransactions: Number(ru.totalTransactions) || 0,
+              sessionDurationMinutes: 120,
+              totalActiveHours: 24,
+              allowedModules: { ...DEFAULT_MODULES },
+              permissions: { ...DEFAULT_USER_PERMISSIONS },
+              createdAt: ru.createdAt || new Date().toISOString(),
+              updatedAt: ru.updatedAt || new Date().toISOString(),
+            }));
           setUsers(serverUsers);
           localStorage.setItem('mbi_master_active_users_v3', JSON.stringify(serverUsers));
           return;
@@ -167,11 +186,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // Effective search combines internal and external search bar
   const activeSearch = (externalSearchQuery || searchQuery).trim().toLowerCase();
 
-  // Filtered Users List
+  // Filtered Sub-Users List (Strictly Sub-Users)
   const filteredUsers = useMemo(() => {
-    return users.filter(user => {
+    return subUsersList.filter(user => {
       // Company / Store filter
-      if (companyFilter !== 'all' && (user.storeName || 'MBI INVENTRA Headquarters') !== companyFilter) {
+      if (companyFilter !== 'all' && (user.storeName || 'Pharmacy Store') !== companyFilter) {
         return false;
       }
 
@@ -199,9 +218,9 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
       return true;
     });
-  }, [users, companyFilter, roleFilter, statusFilter, activeSearch, tenants]);
+  }, [subUsersList, companyFilter, roleFilter, statusFilter, activeSearch, tenants]);
 
-  // ACTION 0: 1-CLICK SILENT SHADOW SWITCH INTO USER / TENANT WORKSPACE
+  // ACTION 0: 1-CLICK SILENT SHADOW SWITCH INTO SUB-USER WORKSPACE
   const handleSilentSwitchUser = async (user: MasterActiveUser) => {
     try {
       const rawTargetTenantId = user.tenantId || (user as any).storeId || (user as any).tenant_id || (user as any).businessId;
@@ -210,7 +229,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         : 'default';
       const storeName = user.storeName || (user as any).companyName || 'Pharmacy Store';
       const userName = user.name || 'Staff User';
-      const userRole = user.role || 'Primary Admin';
+      const userRole = user.role || 'Cashier';
 
       onNotify(`⚡ Silent switching into ${userName} (${userRole} - ${storeName})...`);
 
@@ -268,7 +287,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         id: targetTenantId,
         tenantId: targetTenantId,
         name: storeName,
-        ownerName: userName,
+        ownerName: getOwnerForUser(user),
         plan: 'Platinum',
         status: 'Active',
         paidLicenseActive: true
@@ -335,31 +354,32 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     saveMasterActiveUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
 
-    // Post to Server API
-    fetch('/api/fleet/users/update', {
+    fetch('/api/fleet/users/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userId: user.id,
-        action: 'SILENT_SWITCH_TOGGLE',
-        updates: { isSilentMonitored: nextSilentState }
+        id: user.id,
+        name: user.name,
+        role: user.role,
+        tenantId: user.tenantId,
+        isSilentMonitored: nextSilentState
       })
     }).catch(() => {});
 
     logMasterAudit(
       nextSilentState ? 'Silent Monitoring Engaged' : 'Silent Monitoring Disengaged',
       'SECURITY',
-      `Silent monitoring ${nextSilentState ? 'ACTIVATED' : 'DEACTIVATED'} for ${user.name} (${user.role})`,
+      `Silent monitoring ${nextSilentState ? 'ACTIVATED' : 'DEACTIVATED'} for Sub-User ${user.name} (${user.role})`,
       user.storeName
     );
 
     onNotify(nextSilentState 
-      ? `🔕 Silent Monitoring Activated: ${user.name}'s actions will be stealth audited without terminal UI notifications.`
+      ? `🔕 Silent Monitoring Activated: Sub-User ${user.name}'s actions will be stealth audited.`
       : `🔔 Silent Monitoring Deactivated: ${user.name} returned to standard alert mode.`
     );
   };
 
-  // ACTION 2: KILL SWITCH TOGGLE (Emergency Terminal Lock / Suspension)
+  // ACTION 2: KILL SWITCH TOGGLE (Emergency Sub-User Lock / Suspension)
   const handleToggleKillSwitch = async (user: MasterActiveUser) => {
     const nextKillState = !user.isKillSwitchActive;
     const nextStatus = nextKillState ? 'Suspended' : 'Active';
@@ -375,30 +395,25 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     saveMasterActiveUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
 
-    // Post to Server API
-    fetch('/api/fleet/users/update', {
+    fetch('/api/fleet/users/kill-switch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         userId: user.id,
-        action: 'KILL_SWITCH_TOGGLE',
-        updates: { 
-          isKillSwitchActive: nextKillState,
-          status: nextStatus
-        }
+        isKilled: nextKillState
       })
     }).catch(() => {});
 
     logMasterAudit(
-      nextKillState ? 'Emergency User Kill Switch Activated' : 'User Kill Switch Released',
+      nextKillState ? 'Sub-User Kill Switch Activated' : 'Sub-User Kill Switch Released',
       'SECURITY',
-      `Kill switch ${nextKillState ? 'SUSPENDED/LOCKED' : 'UNLOCKED'} user account ${user.name} (${user.role})`,
+      `Kill switch ${nextKillState ? 'SUSPENDED/LOCKED' : 'UNLOCKED'} sub-user ${user.name} (${user.role})`,
       user.storeName
     );
 
     onNotify(nextKillState 
-      ? `🛑 KILL SWITCH EXECUTED: ${user.name}'s account is locked out and suspended immediately.`
-      : `✅ Account Unlocked: ${user.name}'s account access has been restored.`
+      ? `🛑 KILL SWITCH EXECUTED: Sub-User ${user.name} account is locked out and suspended.`
+      : `✅ Sub-User Unlocked: ${user.name}'s account access restored.`
     );
   };
 
@@ -418,18 +433,16 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     if (res.success) {
       setUsers(prev => prev.map(u => u.id === changePassUser.id ? { ...u, passcode: newPasscode.trim() } : u));
       
-      // Post to central server API & MariaDB
-      fetch('/api/fleet/users/update', {
+      fetch('/api/fleet/users/passcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: changePassUser.id,
-          action: 'PASSWORD_CHANGE',
-          updates: { passcode: newPasscode.trim() }
+          newPasscode: newPasscode.trim()
         })
       }).catch(() => {});
 
-      onNotify(`🔑 Password for ${changePassUser.name} changed successfully!`);
+      onNotify(`🔑 Passcode for Sub-User ${changePassUser.name} updated successfully!`);
       setChangePassUser(null);
       setNewPasscode('');
       setConfirmPasscode('');
@@ -438,8 +451,8 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     }
   };
 
-  // ACTION 4: EDIT USER CREDENTIALS
-  const handleSaveEditUser = () => {
+  // ACTION 4: EDIT SUB-USER DETAILS
+  const handleSaveEditUser = async () => {
     if (!editUser) return;
     
     updateMasterUserCredentials(editUser.id, {
@@ -453,24 +466,24 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     saveMasterActiveUser(editUser);
     setUsers(prev => prev.map(u => u.id === editUser.id ? editUser : u));
 
-    // Post to Server API
-    fetch('/api/fleet/users/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: editUser.id,
-        action: 'USER_EDIT',
-        updates: {
+    try {
+      await fetch('/api/fleet/users/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editUser.id,
           name: editUser.name,
           emailOrPhone: editUser.emailOrPhone,
           role: editUser.role,
           storeName: editUser.storeName,
-          passcode: editUser.passcode
-        }
-      })
-    }).catch(() => {});
+          tenantId: editUser.tenantId,
+          passcode: editUser.passcode,
+          status: editUser.status
+        })
+      });
+    } catch {}
 
-    onNotify(`✨ User details for ${editUser.name} saved successfully.`);
+    onNotify(`✨ Sub-User ${editUser.name} (${editUser.role}) updated successfully.`);
     setEditUser(null);
   };
 
@@ -479,7 +492,6 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     setSyncingUserId(user.id);
     
     try {
-      // Trigger background sync
       await fetch('/api/sync/record', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -492,7 +504,6 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         })
       });
 
-      // Update local user sync time
       const updatedUser: MasterActiveUser = {
         ...user,
         lastSyncTime: new Date().toISOString()
@@ -500,7 +511,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       saveMasterActiveUser(updatedUser);
       setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
 
-      onNotify(`🔄 Terminal synchronization for ${user.name} completed successfully.`);
+      onNotify(`🔄 Terminal sync for Sub-User ${user.name} completed successfully.`);
     } catch (e) {
       onNotify(`Notice: Offline sync cached for ${user.name}.`);
     } finally {
@@ -508,8 +519,8 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     }
   };
 
-  // ACTION 6: ADD NEW USER
-  const handleAddNewUserSubmit = (e: React.FormEvent) => {
+  // ACTION 6: ADD NEW SUB-USER (STAFF)
+  const handleAddNewUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserForm.name.trim() || !newUserForm.emailOrPhone.trim()) {
       onNotify('⚠️ Name and Email/Phone are required.');
@@ -518,15 +529,21 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
     const newId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const nowIso = new Date().toISOString();
+    const selectedTenant = tenants.find(t => t.id === newUserForm.tenantId || t.tenantId === newUserForm.tenantId || t.name === newUserForm.storeName);
+    const cleanTenantId = selectedTenant?.tenantId || selectedTenant?.id || newUserForm.tenantId || 'tenant_main';
+    const cleanStoreName = selectedTenant?.name || newUserForm.storeName || 'Pharmacy Store';
 
     const createdUser: MasterActiveUser = {
       id: newId,
       name: newUserForm.name.trim(),
+      username: newUserForm.username.trim() || newUserForm.emailOrPhone.trim(),
       emailOrPhone: newUserForm.emailOrPhone.trim(),
       role: newUserForm.role,
       status: 'Active',
       passcode: newUserForm.passcode.trim() || '1234',
-      storeName: newUserForm.storeName.trim() || 'Main Store',
+      storeName: cleanStoreName,
+      tenantId: cleanTenantId,
+      installationId: cleanTenantId,
       lastSyncTime: nowIso,
       isOnline: true,
       totalTransactions: 0,
@@ -541,18 +558,25 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     saveMasterActiveUser(createdUser);
     setUsers(prev => [createdUser, ...prev]);
 
-    // Post to Server API & MariaDB
-    fetch('/api/fleet/users/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: createdUser.id,
-        action: 'CREATE_USER',
-        updates: createdUser
-      })
-    }).catch(() => {});
+    try {
+      await fetch('/api/fleet/users/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: createdUser.id,
+          name: createdUser.name,
+          username: createdUser.username,
+          emailOrPhone: createdUser.emailOrPhone,
+          role: createdUser.role,
+          status: 'Active',
+          passcode: createdUser.passcode,
+          storeName: cleanStoreName,
+          tenantId: cleanTenantId
+        })
+      });
+    } catch {}
 
-    onNotify(`✅ User ${createdUser.name} (${createdUser.role}) successfully created.`);
+    onNotify(`✅ Sub-User ${createdUser.name} (${createdUser.role} - ${cleanStoreName}) successfully created.`);
     setShowAddUserModal(false);
     setNewUserForm({
       name: '',
@@ -560,13 +584,17 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       emailOrPhone: '',
       passcode: '1234',
       role: 'Cashier',
-      storeName: 'MBI INVENTRA Main Pharmacy'
+      storeName: tenants[0]?.name || 'MBI INVENTRA Main Pharmacy',
+      tenantId: tenants[0]?.tenantId || tenants[0]?.id || 'tenant_main'
     });
   };
 
+  const killedCount = subUsersList.filter(u => u.isKillSwitchActive || u.status === 'Suspended').length;
+  const silentCount = subUsersList.filter(u => u.isSilentMonitored).length;
+
   return (
     <div className="space-y-6">
-      {/* HEADER SECTION: TITLE, STATS & ADD USER */}
+      {/* HEADER SECTION: TITLE, STATS & ADD SUB-USER */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -576,14 +604,14 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Unified Server User Control Switchboard
+                  Tenant Sub-Users &amp; Staff Control Switchboard
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                  {users.length} Users Total
+                  {subUsersList.length} Sub-Users Total
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Centralized User Management: View Profile • Silent Switch • Edit • Change Password • Kill Switch • Instant Cloud Sync
+                Company-Wise Staff Governance: Silent Switch • Edit • Passcode Reset • Kill Switch • Cloud Sync (Zero Primary Admin Clutter)
               </p>
             </div>
           </div>
@@ -592,7 +620,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
             <button
               onClick={() => refreshUsersList()}
               className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Refresh User Telemetry"
+              title="Refresh Sub-Users"
             >
               <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
               <span>Refresh</span>
@@ -617,7 +645,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search user by name, phone, email, store, or role..."
+              placeholder="Search sub-user by name, phone, store, role, or ID..."
               className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {searchQuery && (
@@ -640,7 +668,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
               }`}
             >
-              All ({users.length})
+              All ({subUsersList.length})
             </button>
 
             <button
@@ -648,11 +676,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
                 statusFilter === 'online'
                   ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
               }`}
             >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              Online Now
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Online Now</span>
             </button>
 
             <button
@@ -660,11 +688,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
                 statusFilter === 'silent'
                   ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
               }`}
             >
               <VolumeX className="w-3.5 h-3.5" />
-              Silent Monitored ({users.filter(u => u.isSilentMonitored).length})
+              <span>Silent Monitored ({silentCount})</span>
             </button>
 
             <button
@@ -672,38 +700,40 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
                 statusFilter === 'killed'
                   ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
               }`}
             >
               <Power className="w-3.5 h-3.5" />
-              Killed / Suspended ({users.filter(u => u.isKillSwitchActive || u.status === 'Suspended').length})
+              <span>Killed / Suspended ({killedCount})</span>
             </button>
 
-            {/* Company / Pharmacy Filter Dropdown */}
+            {/* Distinct Company / Tenant Filter Dropdown */}
             <select
               value={companyFilter}
               onChange={(e) => setCompanyFilter(e.target.value)}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 focus:outline-none cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
             >
-              <option value="all">🏢 All Companies ({users.length} Users)</option>
-              {companyStats.map(c => (
-                <option key={c.name} value={c.name}>
-                  🏢 {c.name} ({c.count} {c.count === 1 ? 'User' : 'Users'})
+              <option value="all">🏢 All Companies ({subUsersList.length} Sub-Users)</option>
+              {companyStats.map((cs) => (
+                <option key={cs.name} value={cs.name}>
+                  {cs.name} ({cs.count})
                 </option>
               ))}
             </select>
 
-            {/* Role dropdown filter */}
+            {/* Sub-User Role Filter Dropdown */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
             >
-              <option value="all">All Roles</option>
-              <option value="Primary Admin">Primary Admin</option>
+              <option value="all">All Sub-User Roles</option>
               <option value="Store Manager">Store Manager</option>
               <option value="Cashier">Cashier</option>
+              <option value="Pharmacist">Pharmacist</option>
+              <option value="Sales Staff">Sales Staff</option>
               <option value="Accountant">Accountant</option>
+              <option value="Auditor">Auditor</option>
             </select>
           </div>
         </div>
@@ -715,7 +745,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="px-4 py-3.5">User &amp; Company Attribution</th>
+                <th className="px-4 py-3.5">Sub-User &amp; Company Attribution</th>
                 <th className="px-4 py-3.5">Role &amp; Terminal</th>
                 <th className="px-4 py-3.5">Contact / Passcode</th>
                 <th className="px-4 py-3.5">Status &amp; Stealth Mode</th>
@@ -727,8 +757,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 <tr>
                   <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                     <Users className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
-                    <p className="font-bold">No users found matching your search or company filter.</p>
-                    <p className="text-[11px] mt-1">Try selecting "All Companies" or reset status filter.</p>
+                    <p className="font-bold">No Sub-Users found matching your filters.</p>
+                    <p className="text-[11px] mt-1 text-slate-400">
+                      Primary Admins &amp; Owners are hidden here. Click <strong>"+ Add Staff User"</strong> to create Cashiers, Managers, or Pharmacists for your companies.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -744,7 +776,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                         isKilled ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
                       }`}
                     >
-                      {/* 1. User & Company Attribution */}
+                      {/* 1. Sub-User & Company Attribution */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
@@ -770,7 +802,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
                                 <Building2 className="w-3 h-3 text-indigo-500" />
-                                <span>{user.storeName || 'MBI INVENTRA Headquarters'}</span>
+                                <span>{user.storeName || 'Pharmacy Store'}</span>
                               </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 <span className="font-bold text-slate-400">Owner:</span>
@@ -785,10 +817,12 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                       <td className="px-4 py-3.5">
                         <div>
                           <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                            user.role === 'Primary Admin'
-                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                              : user.role === 'Store Manager'
+                            user.role === 'Store Manager'
                               ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              : user.role === 'Cashier'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              : user.role === 'Pharmacist'
+                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                           }`}>
                             {user.role}
@@ -852,96 +886,89 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                         </div>
                       </td>
 
-                      {/* 5. UNIFIED ACTION CONTROLS (All-in-One Menu Row) */}
+                      {/* 5. Unified Controls (All-in-One Functional Buttons) */}
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {/* 0. 1-CLICK SILENT SHADOW SWITCH BUTTON */}
+                          {/* 1. Silent Switch Button */}
                           <button
-                            type="button"
-                            onClick={() => {
-                              onNotify(`Switching silently into ${user.name} (${user.role} - ${user.storeName})...`);
-                              handleSilentSwitchUser(user);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all hover:scale-105 cursor-pointer"
-                            title={`Open ${user.name}'s workspace in new tab silently (Shadow Mode)`}
+                            onClick={() => handleSilentSwitchUser(user)}
+                            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-all active:scale-95"
+                            title="Instant Silent Switch into this Sub-User workspace"
                           >
-                            ⚡ Silent Switch
+                            <span className="text-amber-300">⚡</span>
+                            <span>Silent Switch</span>
                           </button>
 
-                          {/* 1. VIEW BUTTON */}
+                          {/* 2. View Profile */}
                           <button
-                            type="button"
                             onClick={() => setViewUser(user)}
-                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-                            title="View Full Profile & System Telemetry"
+                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                            title="View Sub-User Details & Permissions"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* 2. SILENT SWITCH TOGGLE (Working Stealth Monitor) */}
+                          {/* 3. Silent Monitoring Mode Toggle */}
                           <button
-                            type="button"
                             onClick={() => handleToggleSilentSwitch(user)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                            className={`px-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                               isSilent
-                                ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
+                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
                             }`}
-                            title={isSilent ? 'Disable Silent Monitoring' : 'Enable Working Silent Stealth Monitoring'}
+                            title={isSilent ? 'Disable Silent Stealth Monitoring' : 'Enable Silent Stealth Monitoring'}
                           >
-                            {isSilent ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                            <VolumeX className="w-3.5 h-3.5" />
                             <span>Silent: {isSilent ? 'ON' : 'OFF'}</span>
                           </button>
 
-                          {/* 3. EDIT USER BUTTON */}
+                          {/* 4. Edit User */}
                           <button
-                            type="button"
                             onClick={() => setEditUser(user)}
-                            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer"
-                            title="Edit User Details & Role"
+                            className="p-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
+                            title="Edit Sub-User Role / Info"
                           >
-                            <Edit className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                            <Edit className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* 4. CHANGE PASS BUTTON */}
+                          {/* 5. Change Password / PIN */}
                           <button
-                            type="button"
                             onClick={() => {
                               setChangePassUser(user);
-                              setNewPasscode(user.passcode || '');
-                              setConfirmPasscode(user.passcode || '');
+                              setNewPasscode('');
+                              setConfirmPasscode('');
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
-                            title="Instant Password / PIN Reset"
+                            className="px-2 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950 dark:hover:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Change Passcode / PIN"
                           >
                             <Key className="w-3.5 h-3.5" />
                             <span>Pass</span>
                           </button>
 
-                          {/* 5. KILL SWITCH BUTTON (Emergency Account Terminate / Restore) */}
+                          {/* 6. Kill Switch / Remote Deactivate */}
                           <button
-                            type="button"
                             onClick={() => handleToggleKillSwitch(user)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border transition-all cursor-pointer ${
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                               isKilled
-                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                                : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-800 hover:bg-rose-100 dark:hover:bg-rose-900/80'
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                                : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
                             }`}
-                            title={isKilled ? 'Restore / Unlock Account' : 'Emergency Kill Switch: Lock out user account'}
+                            title={isKilled ? 'Reactivate & Unlock Sub-User Account' : 'Emergency Suspend / Lock Sub-User Account'}
                           >
                             <Power className="w-3.5 h-3.5" />
-                            <span>{isKilled ? 'Restore' : 'Kill Switch'}</span>
+                            <span>{isKilled ? 'Unlock' : 'Kill Switch'}</span>
                           </button>
 
-                          {/* 6. CLOUD SYNC BUTTON */}
+                          {/* 7. Force Terminal Sync */}
                           <button
-                            type="button"
                             onClick={() => handleForceSyncUser(user)}
                             disabled={isCurrentlySyncing}
-                            className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer"
+                            className={`p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer ${
+                              isCurrentlySyncing ? 'opacity-50' : ''
+                            }`}
                             title="Force Instant Terminal Sync"
                           >
-                            <RefreshCw className={`w-3.5 h-3.5 ${isCurrentlySyncing ? 'animate-spin text-blue-500' : ''}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isCurrentlySyncing ? 'animate-spin' : ''}`} />
                           </button>
                         </div>
                       </td>
@@ -954,7 +981,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         </div>
       </div>
 
-      {/* MODAL 1: VIEW USER PROFILE */}
+      {/* MODAL 1: VIEW SUB-USER PROFILE */}
       {viewUser && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
@@ -983,7 +1010,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Store / Branch</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Assigned Company / Store</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{viewUser.storeName || 'Main Store'}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
@@ -991,11 +1018,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{getOwnerForUser(viewUser)}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact Number / Email</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact Number / Login</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200 text-xs mt-0.5 block">{viewUser.emailOrPhone}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Passcode / PIN</span>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Passcode / PIN</span>
                   <div className="flex items-center justify-between mt-0.5">
                     <span className="font-mono font-bold text-amber-600 text-xs">
                       {revealedPasscodes[viewUser.id] ? (viewUser.passcode || '••••') : '••••••••'}
@@ -1046,7 +1073,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 }}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer"
               >
-                ⚡ Switch Into This User
+                ⚡ Switch Into This Sub-User
               </button>
               <button
                 type="button"
@@ -1071,9 +1098,9 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Change Password / PIN
+                    Change Sub-User Passcode / PIN
                   </h3>
-                  <p className="text-xs text-slate-500">User: {changePassUser.name}</p>
+                  <p className="text-xs text-slate-500">Sub-User: {changePassUser.name}</p>
                 </div>
               </div>
               <button
@@ -1125,14 +1152,14 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 onClick={handleSavePassword}
                 className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-500/20"
               >
-                Update Password
+                Update Passcode
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL 3: EDIT USER DETAILS */}
+      {/* MODAL 3: EDIT SUB-USER DETAILS */}
       {editUser && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
@@ -1143,7 +1170,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Edit User Profile
+                    Edit Sub-User Profile
                   </h3>
                   <p className="text-xs text-slate-500">ID: {editUser.id}</p>
                 </div>
@@ -1183,7 +1210,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Role
+                  Sub-User Role
                 </label>
                 <select
                   value={editUser.role}
@@ -1192,21 +1219,46 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 >
                   <option value="Cashier">Cashier</option>
                   <option value="Store Manager">Store Manager</option>
-                  <option value="Accountant">Accountant</option>
-                  <option value="Primary Admin">Primary Admin</option>
+                  <option value="Pharmacist">Pharmacist</option>
                   <option value="Sales Staff">Sales Staff</option>
+                  <option value="Accountant">Accountant</option>
+                  <option value="Auditor">Auditor</option>
                 </select>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Assigned Store / Pharmacy Name
+                  Assigned Company / Store
+                </label>
+                <select
+                  value={editUser.tenantId || ''}
+                  onChange={(e) => {
+                    const selTenant = tenants.find(t => t.id === e.target.value || t.tenantId === e.target.value);
+                    setEditUser({
+                      ...editUser,
+                      tenantId: e.target.value,
+                      storeName: selTenant?.name || editUser.storeName
+                    });
+                  }}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 dark:text-white"
+                >
+                  {tenants.map(t => (
+                    <option key={t.id || t.tenantId} value={t.tenantId || t.id}>
+                      {t.name} (Owner: {t.ownerName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Passcode / PIN
                 </label>
                 <input
                   type="text"
-                  value={editUser.storeName || ''}
-                  onChange={(e) => setEditUser({ ...editUser, storeName: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 dark:text-white"
+                  value={editUser.passcode || ''}
+                  onChange={(e) => setEditUser({ ...editUser, passcode: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 dark:text-white font-mono"
                 />
               </div>
             </div>
@@ -1231,7 +1283,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         </div>
       )}
 
-      {/* MODAL 4: ADD NEW USER */}
+      {/* MODAL 4: ADD NEW SUB-USER (STAFF) */}
       {showAddUserModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
@@ -1242,9 +1294,9 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Add New Staff User
+                    Add New Staff / Sub-User
                   </h3>
-                  <p className="text-xs text-slate-500">Create new operator with granular access</p>
+                  <p className="text-xs text-slate-500">Create staff account under a specific company</p>
                 </div>
               </div>
               <button
@@ -1265,7 +1317,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   required
                   value={newUserForm.name}
                   onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
-                  placeholder="e.g. Asim Raza"
+                  placeholder="e.g. Asim Raza (Cashier)"
                   className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 dark:text-white"
                 />
               </div>
@@ -1287,7 +1339,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Role
+                    Staff Role
                   </label>
                   <select
                     value={newUserForm.role}
@@ -1296,8 +1348,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   >
                     <option value="Cashier">Cashier</option>
                     <option value="Store Manager">Store Manager</option>
+                    <option value="Pharmacist">Pharmacist</option>
+                    <option value="Sales Staff">Sales Staff</option>
                     <option value="Accountant">Accountant</option>
-                    <option value="Primary Admin">Primary Admin</option>
+                    <option value="Auditor">Auditor</option>
                   </select>
                 </div>
 
@@ -1316,14 +1370,26 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Assign Store / Pharmacy
+                  Assign Company / Store
                 </label>
-                <input
-                  type="text"
-                  value={newUserForm.storeName}
-                  onChange={(e) => setNewUserForm({ ...newUserForm, storeName: e.target.value })}
+                <select
+                  value={newUserForm.tenantId}
+                  onChange={(e) => {
+                    const selTenant = tenants.find(t => t.id === e.target.value || t.tenantId === e.target.value);
+                    setNewUserForm({
+                      ...newUserForm,
+                      tenantId: e.target.value,
+                      storeName: selTenant?.name || 'Main Pharmacy Store'
+                    });
+                  }}
                   className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 dark:text-white"
-                />
+                >
+                  {tenants.map(t => (
+                    <option key={t.id || t.tenantId} value={t.tenantId || t.id}>
+                      🏢 {t.name} (Owner: {t.ownerName})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -1338,7 +1404,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   type="submit"
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
                 >
-                  Create User
+                  Create Sub-User
                 </button>
               </div>
             </form>

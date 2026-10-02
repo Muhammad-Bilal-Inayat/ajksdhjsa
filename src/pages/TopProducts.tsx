@@ -15,7 +15,7 @@ import { dbMedicines, dbInvoices, dbAuditLogs } from '../lib/db';
 import { Medicine, Invoice } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { isRouteAllowedInPlan } from '../lib/planFeatureManager';
+import { isRouteAllowedInPlan, isPlanAtLeast } from '../lib/planFeatureManager';
 import { forceSeedDemoProducts } from '../lib/seedData';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { AddSaleModal } from '../components/sales/AddSaleModal';
@@ -56,6 +56,7 @@ export const TopProducts: React.FC = () => {
   const { business, tenant, tenantId: authTenantId } = useAuth();
   const currentPlan = (tenant as any)?.plan || (business as any)?.plan || 'Basic';
   const effectiveTenantId = authTenantId || tenant?.id;
+  const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS');
 
   useEffect(() => {
     const check = isRouteAllowedInPlan('/top-products', currentPlan, effectiveTenantId);
@@ -586,11 +587,11 @@ export const TopProducts: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 4: Avg Profit Margin & Reorders */}
+        {/* Card 4: Avg Profit Margin & Reorders (Gold/Platinum) or Catalog SKUs (Basic) */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Avg Gross Margin
+              {isMarginAllowed ? 'Avg Gross Margin' : 'Total Catalog SKUs'}
             </span>
             <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
@@ -599,10 +600,14 @@ export const TopProducts: React.FC = () => {
           
           <div className="my-2">
             <div className="text-2xl font-black text-purple-900 font-mono tracking-tight">
-              {kpiData.avgMargin}%
+              {isMarginAllowed ? `${kpiData.avgMargin}%` : `${kpiData.totalAnalyzed} SKUs`}
             </div>
             <div className="text-xs text-slate-500 mt-0.5">
-              Total Gross Profit: <span className="font-mono font-semibold text-emerald-700">{curr} {kpiData.totalProfitSum.toLocaleString()}</span>
+              {isMarginAllowed ? (
+                <>Total Gross Profit: <span className="font-mono font-semibold text-emerald-700">{curr} {kpiData.totalProfitSum.toLocaleString()}</span></>
+              ) : (
+                <>Total Revenue: <span className="font-mono font-semibold text-emerald-700">{curr} {kpiData.totalRevenueSum.toLocaleString()}</span></>
+              )}
             </div>
           </div>
 
@@ -750,14 +755,16 @@ export const TopProducts: React.FC = () => {
             >
               <DollarSign className="w-3.5 h-3.5" /> Revenue Stars
             </button>
-            <button
-              onClick={() => setActiveTab('HIGH_MARGIN')}
-              className={`px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${
-                activeTab === 'HIGH_MARGIN' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              <TrendingUp className="w-3.5 h-3.5" /> High Margin (25%+)
-            </button>
+            {isMarginAllowed && (
+              <button
+                onClick={() => setActiveTab('HIGH_MARGIN')}
+                className={`px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${
+                  activeTab === 'HIGH_MARGIN' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" /> High Margin (25%+)
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('LOW_STOCK')}
               className={`px-3 py-2 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1 ${
@@ -867,7 +874,7 @@ export const TopProducts: React.FC = () => {
                   <th className="py-3 px-3 text-right">Price ({curr})</th>
                   <th className="py-3 px-3 text-center">Units Sold</th>
                   <th className="py-3 px-3 text-right">Total Revenue</th>
-                  <th className="py-3 px-3 text-right">Profit & Margin</th>
+                  <th className="py-3 px-3 text-right">{isMarginAllowed ? 'Profit & Margin' : 'Gross Profit'}</th>
                   <th className="py-3 px-3 text-center">Actions</th>
                 </tr>
               </thead>
@@ -1000,9 +1007,11 @@ export const TopProducts: React.FC = () => {
                           <div className="font-mono font-bold text-emerald-700 text-xs">
                             +{curr} {item.grossProfit.toLocaleString()}
                           </div>
-                          <div className="text-[10px] font-bold text-purple-700">
-                            {item.profitMarginPercent}% margin
-                          </div>
+                          {isMarginAllowed && (
+                            <div className="text-[10px] font-bold text-purple-700">
+                              {item.profitMarginPercent}% margin
+                            </div>
+                          )}
                         </td>
 
                         {/* Actions */}

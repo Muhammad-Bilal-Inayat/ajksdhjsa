@@ -241,22 +241,89 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     setMessages(prev => [...prev, systemPrompt]);
   };
 
-  const generateLocalResponse = (query: string): string => {
+  const generateLocalResponse = (query: string, currentContext: 'home' | 'user' | 'server', currentPlan: string = 'business'): string => {
     const lower = query.toLowerCase();
 
-    // 1. Human support request
-    if (lower.includes('human') || lower.includes('support') || lower.includes('admin') || lower.includes('call') || lower.includes('bilal') || lower.includes('phone') || lower.includes('help') || lower.includes('contact')) {
+    // 1. Human support & direct contact intent (Multilingual)
+    if (
+      lower.includes('human') || lower.includes('support') || lower.includes('admin') || 
+      lower.includes('call') || lower.includes('bilal') || lower.includes('phone') || 
+      lower.includes('help') || lower.includes('contact') || lower.includes('rabta') || 
+      lower.includes('baat karni') || lower.includes('number') || lower.includes('whatsapp') ||
+      query.includes('رابطہ') || query.includes('مدد') || query.includes('نمبر')
+    ) {
       setTimeout(() => setShowSupportForm(true), 600);
-      return `📞 **Human Support Handover Triggered**\n\nI have opened the priority support dispatch form for you below. You can also reach our 24/7 Helpline directly:\n- **WhatsApp Support:** +92 328 1302636\n- **Direct Hotline:** 0336-4585863\n\nPlease fill your contact details to submit an instant inquiry.`;
+      return `📞 **MBI Live Human Support Dispatch**\n\nMaine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpline par direct rabta bhi kar sakte hain:\n- **WhatsApp Support:** +92 328 1302636\n- **Direct Hotline:** 0336-4585863\n\nNeeche diye gaye form mein apna WhatsApp number darj karein taake representative turant call/message kare!`;
     }
 
-    // 2. Generic medicine formulas & alternatives in Pakistan
+    // 2. SERVER CONTEXT (Super Admin Master Fleet Governance)
+    if (currentContext === 'server') {
+      if (lower.includes('hwid') || lower.includes('reset') || lower.includes('license') || lower.includes('device') || lower.includes('laptop')) {
+        return `🛡️ **Master HWID Device Reset & Disaster Recovery Protocol**\n\n- **1-Click Reset:** Super Admin master panel se tenant ke liye \`[Reset Bound HWID]\` trigger karein (\`/api/master/license/reset-hwid\`).\n- **New Computer Binding:** Client jab naye PC par License Key activate karega, system automatically naya Hardware Fingerprint bind kar dega.\n- **Zero Data Loss Restore:** Client ka latest **12:00 AM Midnight Backup Snapshot** naye system par 1-click se restore ho jata hai!`;
+      }
+
+      if (lower.includes('backup') || lower.includes('midnight') || lower.includes('12:00') || lower.includes('disaster') || lower.includes('recovery')) {
+        return `💾 **Automated 12:00 AM Midnight Encrypted Vault Backups**\n\n- **Zero Downtime Snapshots:** Har tenant ka private SQLite Vault (\`tenant_[id].sqlite\`) rozana raat 12:00 baje encrypted atomic snapshot generate karta hai.\n- **SHA-256 Checksum Verification:** Backup integrity test hoti hai taake file corrupt na ho.\n- **Multi-Tenant Protection:** Ek tenant ka backup dosray tenant se 100% physically isolated rehta hai.`;
+      }
+
+      if (lower.includes('tenant') || lower.includes('sqlite') || lower.includes('vault') || lower.includes('isolation') || lower.includes('multi')) {
+        return `🏢 **Tenant-Isolated SQLite Vault Architecture**\n\n- **Physical Isolation:** Har pharmacy ka private database \`server/data/tenants/tenant_[id].sqlite\` mein rehta hai. Cross-tenant leakage ka koi chance nahi.\n- **Master Hub Database:** \`server/data/master/master_hub.sqlite\` global licensing, tenant provisioning, aur feature entitlement control karta hai.\n- **High-Speed WAL Mode:** 0ms latency per-transaction speed with native SQLite transactions.`;
+      }
+
+      if (lower.includes('switchboard') || lower.includes('173') || lower.includes('feature') || lower.includes('toggle')) {
+        return `⚙️ **173-Switchboard Dynamic Master Controls**\n\n- **Real-Time Module Provisioning:** Master Admin se kisi bhi tenant ke modules (Shift Management, Cloud Sync, Multi-Branch, AI Assistant) toggle kiye ja sakte hain.\n- **Instant Sync:** Tenant workstation restart kiye baghair instantly nayi permissions receive karta hai.`;
+      }
+
+      return `🛡️ **MBI Master Fleet Copilot Active**\n\nAap Master Server Admin ke hawalay se koi bhi sawal pooch sakte hain:\n- **HWID Reset & Disaster Recovery**\n- **12:00 AM Automated Midnight Backups**\n- **Tenant-Isolated SQLite Vaults**\n- **173-Switchboard Feature Toggles**\n\nTechnical assistance ke liye Master Helpline: **+92 328 1302636**.`;
+    }
+
+    // 3. HOME CONTEXT (Visitors & Landing Page)
+    if (currentContext === 'home') {
+      // Pricing & Plans
+      if (
+        lower.includes('price') || lower.includes('cost') || lower.includes('rate') || 
+        lower.includes('plan') || lower.includes('kitne') || lower.includes('package') || 
+        lower.includes('lifetime') || lower.includes('fees') || lower.includes('kharid') ||
+        lower.includes('buy') || query.includes('قیمت') || query.includes('پیکیج')
+      ) {
+        return `💳 **MBI INVENTRA — Transparent Official Pricing & Plans**\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Capacity: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Capacity: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Capacity: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n🎁 **10-Day Free Trial Available:** Start today with Rs. 0!`;
+      }
+
+      // Free Trial & Demo
+      if (lower.includes('trial') || lower.includes('free') || lower.includes('demo') || lower.includes('register') || lower.includes('start') || query.includes('ٹرائل') || query.includes('ڈیمو')) {
+        return `🎉 **10-Day 100% Free Trial (Instant Access)**\n\n- **Zero Cost:** Rs. 0 required, koi credit card nahi chahiye.\n- **Instant Setup:** Sirf apna Pharmacy Name aur WhatsApp number darj karein aur turant POS billing shuru karein.\n- **WhatsApp Video Demo:** Live video dekhne ke liye WhatsApp karein: **+92 328 1302636**.`;
+      }
+
+      // POS Speed & Offline capabilities
+      if (lower.includes('speed') || lower.includes('fast') || lower.includes('offline') || lower.includes('internet') || lower.includes('desktop') || lower.includes('0.2') || query.includes('آف لائن') || query.includes('تیز')) {
+        return `⚡ **0.2-Second POS Speed & 100% Offline PC Billing**\n\n- **0.2s Transaction Speed:** Rush hours mein customer ka bill palke jhapakte hi print ho jata hai (\`Alt+S\` / \`F2\`).\n- **100% Offline Mode:** Internet disconnect hone par bhi billing, barcode scanning aur printing 0ms speed se chalti rehti hai.\n- **Auto Cloud Synapse:** Internet aatay hi tamam invoices automatically secure cloud par sync ho jati hain.`;
+      }
+
+      // FEFO Expiry
+      if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('nuqsan') || lower.includes('expire') || query.includes('ایکسپائری')) {
+        return `⏰ **FEFO (First-Expiry First-Out) Smart Profit Radar**\n\n- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.\n- **30/60/90 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.\n- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
+      }
+
+      // Software Overview / Introduction (Multilingual Roman Urdu / Urdu / English)
+      if (
+        lower.includes('bary me batao') || lower.includes('kaisa hai') || lower.includes('kya hai') || 
+        lower.includes('feature') || lower.includes('overview') || lower.includes('intro') || 
+        lower.includes('detail') || lower.includes('software') || lower.includes('salam') || 
+        lower.includes('assalam') || lower.includes('hello') || lower.includes('hi') ||
+        query.includes('سافٹ ویئر') || query.includes('تعارف') || query.includes('معلومات')
+      ) {
+        return `✨ **Assalam-o-Alaikum! MBI INVENTRA Pharmacy ERP me Khush Amdeed!**\n\n**MBI INVENTRA** Pakistan ka sab se modern aur fastest Enterprise Pharmacy POS & ERP Software hai:\n\n1. ⚡ **0.2-Second Fast Billing:** Rush hours mein \`Alt+S\` aur \`F2\` se instant bill banayein.\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur thermal printing chalti hai.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke munafa mehfooz karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp receipt ke sath.\n5. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo (Annual discounts available).\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
+      }
+    }
+
+    // 4. USER CONTEXT (Active Pharmacy Workspace)
+    // Generic medicine formulas & alternatives in Pakistan
     if (lower.includes('augmentin') || lower.includes('amoxicillin') || lower.includes('clavulanate')) {
-      return `💊 **Augmentin Generic Formula & Alternatives (Pakistan)**\n\n- **Active Formula:** Co-Amoxiclav (Amoxicillin Trihydrate + Potassium Clavulanate)\n- **Standard Strengths:** 375mg, 625mg, 1g Tabs | 156.25mg, 312.5mg, 457mg Susp\n\n**Top Quality Market Alternatives:**\n1. **Curam** (Novartis / Sandoz)\n2. **Klavox** (Bosch Pharma)\n3. **Amoxi-Clav** (AGP Pharma)\n4. **Augmax** (Highnoon Laboratories)\n\n*💡 POS Tip: Use Fast Multi-Item Search (F2) on POS to view real-time batch stock and cost margins.*`;
+      return `💊 **Augmentin Generic Formula & Alternatives (Pakistan)**\n\n- **Active Formula:** Co-Amoxiclav (Amoxicillin Trihydrate + Potassium Clavulanate)\n- **Strengths:** 375mg, 625mg, 1g Tabs | 156.25mg, 312.5mg, 457mg Susp\n\n**Top Quality Market Alternatives:**\n1. **Curam** (Novartis / Sandoz)\n2. **Klavox** (Bosch Pharma)\n3. **Amoxi-Clav** (AGP Pharma)\n4. **Augmax** (Highnoon Laboratories)\n\n*💡 POS Tip: Press \`F2\` on POS to search by formula and view live batch margins.*`;
     }
 
     if (lower.includes('panadol') || lower.includes('paracetamol') || lower.includes('calpol') || lower.includes('febrol')) {
-      return `💊 **Panadol Generic Formula & Market Equivalents**\n\n- **Active Salt:** Paracetamol (Acetaminophen 500mg / 665mg CF / Forte)\n- **Common Uses:** Analgesic & Antipyretic (Pain & Fever relief)\n\n**Top Market Alternatives in Pakistan:**\n1. **Calpol** (GSK)\n2. **Febrol** (SAMI Pharmaceuticals)\n3. **Disprol** (Reckitt Benckiser)\n4. **Paramol** (Bosch)\n\n*All alternatives share 100% bio-equivalent API.*`;
+      return `💊 **Panadol Generic Formula & Market Equivalents**\n\n- **Active Salt:** Paracetamol (Acetaminophen 500mg / 665mg CF / Forte)\n- **Common Uses:** Analgesic & Antipyretic (Pain & Fever relief)\n\n**Top Market Alternatives in Pakistan:**\n1. **Calpol** (GSK)\n2. **Febrol** (SAMI Pharmaceuticals)\n3. **Disprol** (Reckitt Benckiser)\n4. **Paramol** (Bosch)`;
     }
 
     if (lower.includes('risek') || lower.includes('omeprazole') || lower.includes('omega') || lower.includes('oprazole')) {
@@ -267,28 +334,33 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return `💊 **Sofvasc Generic Formula & Alternatives**\n\n- **Active Formula:** Amlodipine Besylate (2.5mg, 5mg, 10mg Tabs)\n- **Therapeutic Class:** Calcium Channel Blocker (Hypertension & Angina)\n\n**Top Market Brands:**\n1. **Sofvasc / Sofvasc-V** (Searle)\n2. **Norvasc** (Pfizer)\n3. **Lodipin** (Sami Pharma)\n4. **Amlo** (Getz Pharma)`;
     }
 
-    // 3. FEFO Expiry Radar
-    if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('waste') || lower.includes('near expiry')) {
-      return `⏰ **FEFO (First-Expiry, First-Out) Smart Profit Radar**\n\n- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.\n- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.\n- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.\n\n*Test this live on the Home page FEFO Interactive Calculator!*`;
-    }
-
-    // 4. POS Shortcuts
-    if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard')) {
+    // POS Shortcuts & Billing
+    if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || lower.includes('sale') || query.includes('شارٹ کٹ') || query.includes('بل')) {
       return `⚡ **Essential MBI POS Fast Billing Shortcuts**\n\n- \`Alt + S\` : Open New Sale Invoice instantly\n- \`Alt + P\` : Open New Purchase Bill Inward\n- \`F2\` / \`Tab\` : Focus Instant Medicine & Barcode Search\n- \`F1\` : Open Keyboard Shortcuts Master Guide\n- \`Enter\` : Rapid Line-Item Addition\n- \`Esc\` : Minimize or Close Active Transaction Dock\n\n*Engineered for high-volume rush hours with 0.2s transaction speed.*`;
     }
 
-    // 5. Offline & Cloud Sync
-    if (lower.includes('offline') || lower.includes('internet') || lower.includes('sync') || lower.includes('cloud') || lower.includes('backup')) {
-      return `🌐 **Offline-First PWA + Instant Cloud Synapse**\n\n- **100% Offline Billing:** Works without active internet using browser IndexedDB storage.\n- **Zero-Latency Invoicing:** Print 80mm/58mm thermal receipts offline continuously.\n- **Auto Cloud Synapse:** As soon as internet reconnects, all pending invoices and ledgers auto-sync securely to your cloud database.`;
+    // FEFO Expiry Radar
+    if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('waste') || lower.includes('near expiry') || query.includes('ایکسپائری')) {
+      return `⏰ **FEFO (First-Expiry, First-Out) Smart Profit Radar**\n\n- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.\n- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.\n- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
     }
 
-    // 6. Pricing & Plans
-    if (lower.includes('price') || lower.includes('cost') || lower.includes('plan') || lower.includes('free trial') || lower.includes('trial') || lower.includes('package')) {
-      return `💳 **MBI Inventra Transparent Pricing & Trial**\n\n- **10-Day Free Trial:** Rs. 0 (Includes 100 sales bills, offline POS, smart stock ledger)\n- **Basic Plan (Silver):** Rs. 15,000 / Lifetime (1 PC License, Offline POS, Thermal Receipts)\n- **Business Pro (Gold):** Rs. 28,000 / Lifetime (Multi-Branch, Cloud Synapse, AI Copilot, FEFO Radar)\n- **Enterprise Ultimate:** Rs. 45,000 / Lifetime (Multi-Terminal, Custom Branding, WhatsApp Gateways, Dedicated Priority Server)`;
+    // Khatas & Ledgers
+    if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('ledger') || lower.includes('customer') || lower.includes('supplier') || query.includes('کھاتہ') || query.includes('ادھار')) {
+      return `📒 **Customer & Supplier Double-Entry Ledgers**\n\n- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.\n- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.\n- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
     }
 
-    // General fallback
-    return `✨ **MBI AI Copilot Response**\n\nI have analyzed your query regarding *"${query}"*.\n\n- **POS Operations:** You can execute retail sales (\`Alt+S\`), stock purchases (\`Alt+P\`), and customer khata ledgers directly.\n- **Data Security:** All records are stored offline locally with automated cloud backup.\n\nNeed direct assistance? Click **Request Human Support** or start your **10-Day Free Trial** today!`;
+    // Shortage Register
+    if (lower.includes('shortage') || lower.includes('short') || lower.includes('reorder') || lower.includes('stock') || query.includes('شارٹیج')) {
+      return `⚠️ **Smart Shortage Register & Auto Reordering**\n\n- **Customer Demands:** Jo medicine stock mein na ho, cashier foran Shortage Register mein add kar sakta hai.\n- **Purchase Order Auto-Fill:** Supplier purchase order banatay waqt shortage items automatically list mein shamil ho jatay hain.`;
+    }
+
+    // Staff PINs & Shift Closing
+    if (lower.includes('staff') || lower.includes('pin') || lower.includes('shift') || lower.includes('drawer') || lower.includes('cashier')) {
+      return `🔐 **Staff PINs & Cashier Shift Closing**\n\n- **4-Digit Staff PIN:** Har cashier ko private PIN dein taake unauthorized discounts ya deletions block hon.\n- **Shift Float Reconciliation:** Day-end par drawer cash count match karein aur shift summary report print karein.`;
+    }
+
+    // General user workspace fallback in Urdu / Roman Urdu / English
+    return `✨ **MBI AI Copilot Response**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.\n- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.\n- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.\n\nAgar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -343,10 +415,52 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     if (!customText) setInputText('');
     setLoading(true);
 
+    const activeContext: 'home' | 'user' | 'server' = isServerRoute 
+      ? 'server' 
+      : (isHomePage && !currentUser ? 'home' : 'user');
+
     try {
-      // Simulate fast intelligent response delay
-      await new Promise(r => setTimeout(r, 450));
-      const responseText = generateLocalResponse(userMsg.text);
+      // 1. Try Backend API with 3.5s fast timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const apiRes = await fetch('/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          prompt: userMsg.text,
+          context: activeContext,
+          userPlan: tenant?.plan || 'business',
+          businessName: pharmacyName,
+          userEmail: (currentUser as any)?.email || '',
+          phone: userPhoneAddress || '',
+          history: messages.slice(-6).map(m => ({
+            role: (m.sender === 'user' ? 'user' : 'model') as 'user' | 'model',
+            parts: [{ text: m.text }]
+          }))
+        })
+      }).catch(() => null);
+
+      clearTimeout(timeoutId);
+
+      if (apiRes && apiRes.ok) {
+        const data = await apiRes.json();
+        if (data.success && data.text) {
+          const aiMsg: ChatMessage = {
+            id: `ai-${Date.now()}`,
+            sender: 'ai',
+            text: data.text,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+          setMessages(prev => [...prev, aiMsg]);
+          return;
+        }
+      }
+
+      // 2. Seamless Fast Multilingual Fallback
+      await new Promise(r => setTimeout(r, 200));
+      const responseText = generateLocalResponse(userMsg.text, activeContext, tenant?.plan || 'business');
 
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
@@ -356,10 +470,11 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       };
       setMessages(prev => [...prev, aiMsg]);
     } catch (err) {
+      const fallbackText = generateLocalResponse(userMsg.text, activeContext, tenant?.plan || 'business');
       const errorMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
+        id: `ai-${Date.now()}`,
         sender: 'ai',
-        text: '⚠️ Unable to process query. Please check your connection or click Human Support.',
+        text: fallbackText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -392,23 +507,33 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
   if (!isOpen) return null;
 
-  // 1-Click Interactive Quick Action Chips
+  // 1-Click Interactive Quick Action Chips (Context Separated)
+  const homePromptChips = [
+    { label: '📞 WhatsApp Demo', prompt: 'Human Support', isAction: true },
+    { label: '💳 Lifetime Pricing & Trial', prompt: 'What are the lifetime pricing packages and 10-day free trial details of MBI Inventra?' },
+    { label: '⚡ 0.2s POS & 100% Offline', prompt: 'How fast is MBI Inventra POS billing and how does it work 100% offline without internet?' },
+    { label: '⏰ FEFO Expiry Radar', prompt: 'Explain how 30/60/90 days FEFO batch expiry alerts protect pharmacy profits.' },
+    { label: '💊 Generic Medicine Finder', prompt: 'What is the generic salt formula and alternative brands for Augmentin 625mg in Pakistan?' },
+  ];
+
   const userPromptChips = [
     { label: '📞 Human Support', prompt: 'Human Support', isAction: true },
+    { label: '⚡ POS Shortcuts (Alt+S, F2)', prompt: 'List the fastest keyboard shortcuts for high-speed POS retail checkout (Alt+S, Alt+P, F2, Tab).' },
+    { label: '⏰ FEFO Expiry Radar', prompt: 'How do FEFO batch expiry alerts work and how can I return near-expiry stock?' },
+    { label: '📦 Shortage & Stock Radar', prompt: 'How does the Shortage Register and low stock alert work in MBI Inventra?' },
     { label: '💊 Generic for Augmentin', prompt: 'What is the generic salt formula and alternative brands for Augmentin 625mg in Pakistan?' },
-    { label: '⏰ FEFO Expiry Radar', prompt: 'Explain how 30/60/90 days FEFO batch expiry alerts protect pharmacy profits.' },
-    { label: '⚡ POS Shortcuts (F2)', prompt: 'List the fastest keyboard shortcuts for high-speed POS retail checkout (Alt+S, Alt+P, F2, Tab).' },
-    { label: '🌐 Offline PWA & Sync', prompt: 'How does MBI Inventra work 100% offline during internet disconnection?' },
   ];
 
   const serverPromptChips = [
-    { label: '📞 Human Support', prompt: 'Human Support', isAction: true },
+    { label: '📞 Master Support', prompt: 'Human Support', isAction: true },
     { label: '🛡️ Reset Bound HWID', prompt: 'How do I reset bound HWID for a client laptop to restore data from cloud backup?' },
     { label: '💾 12:00 AM Midnight Backup', prompt: 'Explain the automated 12:00 AM midnight per-tenant encrypted backup and disaster recovery process.' },
-    { label: '⚡ Multi-Tenant Isolation', prompt: 'How does MBI INVENTRA isolate tenant databases, user permissions, and pharmacy inventory records?' },
+    { label: '🏢 Multi-Tenant SQLite Vaults', prompt: 'How does MBI INVENTRA isolate tenant databases, user permissions, and pharmacy inventory records?' },
   ];
 
-  const activeChips = isServerRoute ? serverPromptChips : userPromptChips;
+  const activeChips = isServerRoute 
+    ? serverPromptChips 
+    : (isHomePage && !currentUser ? homePromptChips : userPromptChips);
 
   return (
     <>

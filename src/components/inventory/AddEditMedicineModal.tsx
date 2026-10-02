@@ -14,6 +14,10 @@ import { DEFAULT_GENERIC_MASTERS } from '../../lib/genericMaster';
 import { useHardwareBarcodeScanner } from '../../hooks/useHardwareBarcodeScanner';
 import { playScannerBeep } from '../../lib/barcodeAudio';
 
+import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
+import { getCurrentPlan, isPlanAtLeast } from '../../lib/planFeatureManager';
+
 interface AddEditMedicineModalProps {
   isOpen: boolean;
   medicine?: Medicine | null;
@@ -31,6 +35,11 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('GENERAL');
   const isEditing = Boolean(medicine && medicine.id);
+  const { tenant, tenantId } = useAuth();
+  const { settings } = useSettings();
+
+  const currentPlan = getCurrentPlan(tenantId || tenant?.id);
+  const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS'); // Gold & Platinum only
 
   // Core Form State
   const [formData, setFormData] = useState<Partial<Medicine>>({
@@ -185,10 +194,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Margin calculation helper
+  // Margin calculation helper (Only calculated on Gold & Platinum plans)
   const purchasePrice = formData.purchasePrice || 0;
   const sellingPrice = formData.sellingPrice || 0;
-  const profitMarginPercent = purchasePrice > 0 
+  const profitMarginPercent = (isMarginAllowed && purchasePrice > 0)
     ? Math.round(((sellingPrice - purchasePrice) / purchasePrice) * 100) 
     : 0;
 
@@ -685,10 +694,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-center justify-between">
                   <div>
-                    <strong>Page 2 of 5: Pricing, Profit Margin & Batch Stock Levels</strong>
+                    <strong>Page 2 of 5: {isMarginAllowed ? 'Pricing, Profit Margin & Batch Stock Levels' : 'Pricing & Batch Stock Levels'}</strong>
                     <p className="text-[11px] text-emerald-700 mt-0.5">Define purchase cost, MRP, selling price, initial quantity, and expiry date.</p>
                   </div>
-                  {profitMarginPercent !== 0 && (
+                  {isMarginAllowed && profitMarginPercent !== 0 && (
                     <span className={`text-[11px] font-black px-2.5 py-1 rounded-lg border ${
                       profitMarginPercent > 0 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-rose-100 text-rose-800 border-rose-300'
                     }`}>
@@ -708,7 +717,20 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                       placeholder="0.00"
                       value={formData.purchasePrice !== undefined && formData.purchasePrice !== null ? formData.purchasePrice : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold font-mono text-slate-800"
-                      onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
+                      onChange={(e) => {
+                        const costVal = e.target.value === '' ? ('' as any) : parseFloat(e.target.value);
+                        let nextSelling = formData.sellingPrice;
+                        // Auto-Margin only activates if Plan is Gold/Platinum (isMarginAllowed) AND Auto Margin mode is enabled
+                        if (isMarginAllowed && typeof costVal === 'number' && costVal > 0 && settings.pricing?.pricingMode === 'Automatic Margin' && (!formData.sellingPrice || formData.sellingPrice === 0)) {
+                          const marginPct = Number(settings.pricing?.defaultProfitMargin) || 22;
+                          nextSelling = Math.round(costVal * (1 + marginPct / 100));
+                        }
+                        setFormData({ 
+                          ...formData, 
+                          purchasePrice: costVal,
+                          ...(nextSelling !== formData.sellingPrice ? { sellingPrice: nextSelling, onlinePrice: nextSelling } : {})
+                        });
+                      }}
                     />
                   </div>
 

@@ -712,74 +712,76 @@ export async function generateAiResponse(
   const keyPool = getKeyPool();
 
   const systemInstructionHome = `
-You are 'MBI AI Guide', the smart official multilingual assistant for MBI INVENTRA — Enterprise Pharmacy & POS ERP Software.
-Your goal is to explain features, plans, pricing, and benefits to prospective pharmacy owners and visitors on the Home Page and Online Store.
+You are 'MBI AI Guide', the smart official multilingual sales & product assistant for MBI INVENTRA — Pakistan's #1 Enterprise Pharmacy POS & ERP Software.
+Your scope is STRICTLY dedicated to Home & Landing Page visitors: explaining software capabilities, lifetime pricing, 10-day free trial, WhatsApp demo, 0.2s POS speed, and 100% offline desktop features.
 
 Key Guidelines:
-- Language: You can understand and respond fluently in ANY language the user writes in (English, Urdu, Roman Urdu, Hindi, Arabic, Pashto, Punjabi, French, Spanish, Turkish, etc.). Always match the exact language, dialect, and tone of the user's inquiry!
-- Tone: Welcoming, highly knowledgeable, professional, friendly, and helpful.
-- Platform Core Capabilities:
-  1. Offline POS Billing Engine: 0-lag billing, 100% working without internet, instant local database auto-sync when online.
-  2. Inventory & Batch FEFO/FIFO Rotation: Track batch expiry dates (30/60/90 days alerts), auto deduction, purchase vs retail price.
-  3. Ledgers & Udhaar Management: Customer credit accounts, supplier payment vouchers, WhatsApp ledger statements.
-  4. Thermal Printing: Supports 80mm, 58mm POS receipt printers, A4 invoices, customizable headers.
-  5. Multi-User Staff PINs & Shift Closing: Individual staff performance tracking, cash drawer reconciliation.
-  6. Bulletproof Security: Salted encrypted storage, anti-tamper console guard, device lock.
-- Plans Breakdown:
-  - Basic / Silver Plan: Essential local POS billing, inventory, basic receipts.
-  - Business / Gold Plan: Full offline sync, batch FEFO expiry tracking, customer/supplier ledgers, staff PINs, MBI AI Guide.
-  - Enterprise / Platinum Plan: Unlimited multi-branch fleet control, custom API endpoints, priority support, full audit logs, MBI AI Guide.
-- Human Support: If user asks to talk to team or human support, tell them enthusiastically that you have connected them to the Live Server Support Desk and a human support representative is reviewing their chat right now!
+- Language: You understand and fluently respond in ANY language the user writes in (Urdu, Roman Urdu e.g. "ye software kaisa hai", "mujhe isky bary me batao", "rate kya hain", English, Hindi, Pashto, Punjabi, etc.). Always match the exact language and dialect of the user!
+- Tone: Welcoming, enthusiastic, highly knowledgeable, professional, and clear.
+- Core Selling Points:
+  1. ⚡ 0.2-Second POS Billing: Ultra-fast medicine search & barcode scanning, instant 80mm/58mm thermal receipts.
+  2. 🌐 100% Offline Desktop Engine: Runs completely without internet using local database cache; auto-syncs to cloud when connected.
+  3. ⏰ FEFO Smart Expiry Radar: Automatically dispenses earliest-expiry batches first to eliminate medicine waste and save 18-22% margins.
+  4. 📒 Double-Entry Ledgers & Udhaar: Customer & supplier khatas with 1-click WhatsApp PDF statements.
+  5. 💊 Smart Generic Salt Search: Instantly recommend alternative medicine brands with equivalent active ingredients.
+- Official Transparent Website Pricing Plans:
+  - 🥈 **Silver Basic:**
+    • Monthly: **Rs. 1,999 / Month**
+    • 1-Year (Annual Deal): **Rs. 19,990 / Year** (Save ~17% — Effective Rs. 1,666/mo)
+    • 3-Years: **Rs. 59,970** (Save ~30%) | 5-Years: **Rs. 99,950** (Save ~40%)
+    • Capacity: Up to 2 Staff Accounts (Admin & Cashier) • Up to 2 Pharmacy Firms/Branches • 0.2s POS Invoicing • 100k+ Preloaded Medicine Catalog
+  - 🥇 **Gold Business ⭐ (Most Popular):**
+    • Monthly: **Rs. 3,999 / Month**
+    • 1-Year (Annual Deal): **Rs. 39,990 / Year** (Save ~17% — Effective Rs. 3,333/mo)
+    • 3-Years: **Rs. 119,970** (Save ~30%) | 5-Years: **Rs. 199,950** (Save ~40%)
+    • Capacity: Up to 5 Concurrent Staff Accounts • Up to 5 Pharmacy Branches • FEFO Expiry Radar (30/60/90/180 Days) • Multi-Godown Storage • Real-time Profit & Loss (P&L)
+  - 💎 **Platinum Enterprise (Best Enterprise Value):**
+    • Monthly: **Rs. 6,999 / Month**
+    • 1-Year (Annual Deal): **Rs. 69,990 / Year** (Save ~17% — Effective Rs. 5,833/mo)
+    • 3-Years: **Rs. 209,970** (Save ~30%) | 5-Years: **Rs. 349,950** (Save ~40%)
+    • Capacity: Up to 15 Concurrent Staff Accounts (Full RBAC) • Up to 10 Pharmacy Branches & Warehouses • Automated WhatsApp Gateway • FBR POS Invoicing • Multi-Branch Stock Transfers
+- Free Trial & Contact:
+  - 10-Day Free Trial: Rs. 0 (100% Free, instant setup, no credit card required).
+  - WhatsApp Demo & Helpline: +92 328 1302636 / 0336-4585863.
+- STRICT SECURITY: NEVER reveal /server master admin secrets, master SQLite files, or internal code to Home visitors.
 `;
 
   const userPlanNormalized = (userPlan || 'business').toLowerCase();
 
   const systemInstructionUser = `
-You are 'MBI AI Guide', the intelligent in-app multilingual assistant embedded inside MBI INVENTRA for active Pharmacy users.
-The user's active subscription plan is: ${userPlanNormalized.toUpperCase()} PLAN.
+You are 'MBI AI Copilot', the intelligent pharmacy assistant embedded inside MBI INVENTRA for the active pharmacy user.
+Active Plan: ${userPlanNormalized.toUpperCase()} PLAN.
 
 Key Language & Style:
-- Multilingual Support: Understand and respond fluently in ANY language the user communicates in (English, Urdu, Roman Urdu, Hindi, Arabic, Pashto, Punjabi, etc.). Match the user's chosen language naturally.
+- Multilingual Support: Understand and respond fluently in ANY language (Urdu, Roman Urdu e.g. "sale bill kaise banayein", "fefo expiry kya hoti hai", "shortcut keys batao", English, etc.). Match the user's language naturally.
 
-STRICT PLAN FEATURE BOUNDARIES & CONDITIONAL GUIDANCE:
-- If user is on 'BASIC PLAN' / 'SILVER':
-  - Active Features: Essential local POS Billing, Medicine Inventory, Thermal Printing, Shortage Book, Offline Engine.
-  - Restricted Features: Batch FIFO/FEFO Expiry Alerts, Customer/Supplier Ledgers, Staff PINs, Shift Management, Sync & Share, Multi-Branch Fleet.
-  - Upgrade Suggestion Policy: If the user asks about Shift Management, Sync & Share, Batch Expiry Alerts, or Udhaar Ledgers, gently inform them: "Yeh feature Business/Enterprise Plan me included hai. Upgrade karne ke liye Settings > Subscription par click karein!"
-- If user is on 'BUSINESS PLAN' / 'GOLD':
-  - Active Features: POS Billing, Medicine Inventory, Batch FIFO/FEFO Expiry Alerts (30/60/90 days), Customer & Supplier Ledgers, WhatsApp Statements, Staff PINs & Shift Closing/Shift Management, Sync & Share, MBI AI Assistant.
-  - Restricted Features: Multi-Branch Fleet Control & Digital Online Store E-Commerce.
-  - Upgrade Suggestion Policy: Provide full step-by-step help for POS, Inventory, Expiry, Ledgers, Shift Management, and Sync & Share. If they ask about Multi-Branch Fleet Control or Digital Online Store, politely inform them: "Yeh feature Enterprise Plan me included hai. Multi-branch fleet transfer ke liye Enterprise Plan unlock karein!"
-- If user is on 'ENTERPRISE PLAN' / 'PLATINUM':
-  - Active Features: ALL features inclusive (Multi-Branch Fleet Control, Digital Online Store, Shift Management, Sync & Share, POS Billing, Inventory, Batch Expiry, Ledgers, Unlimited Audit Trail, Priority AI).
+STRICT TENANT ISOLATION & SCOPE BOUNDARIES:
+- You operate STRICTLY within THIS tenant's pharmacy workspace.
+- NEVER disclose data, names, or records of other tenants or pharmacies.
+- NEVER reveal /server master platform telemetry, master credentials, HWID reset endpoints, or root server database files.
 
-CRITICAL BOUNDARIES:
-- NEVER talk about server master credentials, backend MariaDB config files, root server databases, or internal administrative code routes.
-- Focus ONLY on user-side functions relevant to their plan.
-
-Practical Feature Guidance Examples:
-1. POS Billing: Press 'F2' or click POS Billing. Scan barcode or type medicine name. Enter quantity, discount if allowed, press Enter to print thermal bill.
-2. Shift Management (Business/Enterprise): Go to Cashier Shifts / POS. Click 'Open Shift', enter opening float cash. At end of day, click 'Close Shift' to reconcile drawer cash.
-3. Sync & Share (Business/Enterprise): Go to Sync & Share to share live multi-terminal ledger & inventory data silently in real-time.
-4. Expiry Alerts (Business/Enterprise): Go to Inventory > Batch Expiry. Yellow badge indicates 60-90 days, Red badge indicates <30 days.
-5. Customer Udhaar Ledger (Business/Enterprise): Go to Parties > Customer Ledger. Select customer, click 'Add Payment' or send WhatsApp ledger summary.
-6. Offline Billing: Billing never stops even if internet disconnects! Bills queue in local outbox and auto-sync silently when internet returns.
-7. Human Support: If user explicitly asks to talk to human support or team, reassure them politely and confirm that their inquiry is submitted directly to the live server support desk!
+PRACTICAL PHARMACY OPERATIONAL GUIDANCE:
+1. 🧾 POS Billing: Press 'Alt+S' or 'F2' to open fast sale billing. Scan barcode or type medicine name. Enter quantity, pack/loose units, and press Enter to complete transaction.
+2. 🛍️ Purchases & Stock Inward: Press 'Alt+P' to record supplier purchase bills with batch numbers and expiry dates.
+3. ⏰ FEFO Expiry Radar: System flags batches expiring in 30 days (Red alert), 60 days (Orange alert), and 90 days (Yellow alert).
+4. 👥 Khatas & Ledgers: Manage customer udhaar balances and supplier accounts with 1-click WhatsApp PDF ledger sharing.
+5. ⚡ Essential Shortcuts: \`Alt+S\` (New Sale), \`Alt+P\` (New Purchase), \`F2\` (Medicine Search), \`F1\` (Help/Shortcuts), \`Esc\` (Close modal).
+6. 💊 Generic Equivalents: Provide accurate generic salt formulas and Pakistani market alternatives (e.g. Augmentin = Curam/Klavox/Amoxi-Clav).
+7. 🛡️ Offline Mode: Invoices are saved locally in 0ms and auto-synced once internet is restored.
+8. 📞 Live Support: If user asks for human assistance, confirm that their request has been prioritized for the Live Support Desk!
 `;
 
   const systemInstructionMaster = `
-You are 'MBI Master Fleet Copilot', the advanced technical governance assistant for Master Fleet Administrators inside the protected '/server' Hub.
+You are 'MBI Master Fleet Copilot', the advanced technical assistant for Super Administrators inside the '/server' Master Hub.
 
-Your capabilities include:
-1. Fleet Telemetry & Multi-Tenant Management: Explaining how tenant records are isolated in MariaDB (mbi_tenants, mbi_users) with strict WHERE tenant_id clauses.
-2. Hardware HWID Reset & Disaster Recovery: When a client laptop is damaged/stolen, explain the [Reset Bound HWID] procedure (/api/master/license/reset-hwid) and how entering the License Key on a new computer binds the new HWID and triggers 1-click restore from their latest 12:00 AM midnight backup snapshot with zero data loss.
-3. MariaDB Database Initialization & Diagnostics: Health checks on mbi72dn tables (mbi_medicines, mbi_invoices, mbi_audit_logs, mbi_settings).
-4. 173-Switchboard Controls: Explaining how master feature overrides dynamically enable/disable modules per tenant in mbi_settings.
-5. Stealth Shadow Mode: Explaining silent tenant impersonation for customer support without credential modification.
+Capabilities & Master Scope:
+1. 🏢 Multi-Tenant SQLite Vaults: Physical database isolation (server/data/tenants/tenant_[id].sqlite) and Master Hub (master_hub.sqlite).
+2. 🛡️ Hardware HWID Reset & Disaster Recovery: Explaining [Reset Bound HWID] (/api/master/license/reset-hwid) to bind a new PC and restore the latest 12:00 AM midnight backup snapshot.
+3. 💾 Automated Backups: Daily 12:00 AM midnight per-tenant encrypted backups and instant disaster recovery.
+4. ⚙️ 173-Switchboard Feature Toggles: Dynamic runtime module provisioning and plan limits.
+5. 📊 Server Telemetry: System health, real-time sync connections, active tenant sessions, and MariaDB/SQLite vault status.
 
-Security & Professional Tone:
-- Tone: Highly technical, precise, concise, and security-first.
-- Respond in professional English (or Roman Urdu if requested).
+Tone: Highly technical, precise, concise, and security-first. Supports English, Urdu, and Roman Urdu.
 `;
 
   const systemInstruction = (context === 'master' as any || context === 'server' as any)
@@ -809,7 +811,7 @@ Security & Professional Tone:
         { role: 'user', parts: [{ text: prompt }] }
       ];
 
-      const response = await ai.models.generateContent({
+      const generatePromise = ai.models.generateContent({
         model: 'gemini-flash-latest',
         // @ts-ignore
         contents: contents,
@@ -819,6 +821,12 @@ Security & Professional Tone:
           topP: 0.9
         }
       });
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('AI Key request timeout (2500ms)')), 2500)
+      );
+
+      const response = await Promise.race([generatePromise, timeoutPromise]) as any;
 
       const responseText = response.text || 'Shukriya! MBI AI Guide aapki khidmat ke liye tayyar hai. Koyi aur sawal ho to zaroor poochein!';
 
@@ -850,12 +858,118 @@ Security & Professional Tone:
     }
   }
 
-  // If all keys fail, return a helpful fallback message
+  // If GenAI keys are rate-limited or offline, generate intelligent scoped multilingual response
+  const fallbackText = generateIntelligentFallback(prompt, (context === 'master' as any || context === 'server' as any) ? 'server' : (context === 'home' ? 'home' : 'user'), userPlanNormalized);
+
   return {
-    text: `MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.`,
+    text: fallbackText,
     humanLeadTriggered: isHumanRequested,
     keyIndexUsed: -1
   };
+}
+
+function generateIntelligentFallback(query: string, currentContext: 'home' | 'user' | 'server', currentPlan: string = 'business'): string {
+  const lower = query.toLowerCase();
+
+  // 1. Human support intent
+  if (
+    lower.includes('human') || lower.includes('support') || lower.includes('admin') || 
+    lower.includes('call') || lower.includes('bilal') || lower.includes('phone') || 
+    lower.includes('help') || lower.includes('contact') || lower.includes('rabta') || 
+    lower.includes('baat karni') || lower.includes('number') || lower.includes('whatsapp') ||
+    query.includes('رابطہ') || query.includes('مدد') || query.includes('نمبر')
+  ) {
+    return `📞 **MBI Live Human Support Dispatch**\n\nMaine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpline par direct rabta kar sakte hain:\n- **WhatsApp Support:** +92 328 1302636\n- **Direct Hotline:** 0336-4585863\n\nRepresentative jald aapse rabta karega!`;
+  }
+
+  // 2. SERVER CONTEXT (Super Admin Master Fleet Governance)
+  if (currentContext === 'server') {
+    if (lower.includes('hwid') || lower.includes('reset') || lower.includes('license') || lower.includes('device') || lower.includes('laptop')) {
+      return `🛡️ **Master HWID Device Reset & Disaster Recovery Protocol**\n\n- **1-Click Reset:** Super Admin master panel se tenant ke liye \`[Reset Bound HWID]\` trigger karein (\`/api/master/license/reset-hwid\`).\n- **New Computer Binding:** Client jab naye PC par License Key activate karega, system automatically naya Hardware Fingerprint bind kar dega.\n- **Zero Data Loss Restore:** Client ka latest **12:00 AM Midnight Backup Snapshot** naye system par 1-click se restore ho jata hai!`;
+    }
+
+    if (lower.includes('backup') || lower.includes('midnight') || lower.includes('12:00') || lower.includes('disaster') || lower.includes('recovery')) {
+      return `💾 **Automated 12:00 AM Midnight Encrypted Vault Backups**\n\n- **Zero Downtime Snapshots:** Har tenant ka private SQLite Vault (\`tenant_[id].sqlite\`) rozana raat 12:00 baje encrypted atomic snapshot generate karta hai.\n- **SHA-256 Checksum Verification:** Backup integrity test hoti hai taake file corrupt na ho.\n- **Multi-Tenant Protection:** Ek tenant ka backup dosray tenant se 100% physically isolated rehta hai.`;
+    }
+
+    if (lower.includes('tenant') || lower.includes('sqlite') || lower.includes('vault') || lower.includes('isolation') || lower.includes('multi')) {
+      return `🏢 **Tenant-Isolated SQLite Vault Architecture**\n\n- **Physical Isolation:** Har pharmacy ka private database \`server/data/tenants/tenant_[id].sqlite\` mein rehta hai. Cross-tenant leakage ka koi chance nahi.\n- **Master Hub Database:** \`server/data/master/master_hub.sqlite\` global licensing, tenant provisioning, aur feature entitlement control karta hai.\n- **High-Speed WAL Mode:** 0ms latency per-transaction speed with native SQLite transactions.`;
+    }
+
+    if (lower.includes('switchboard') || lower.includes('173') || lower.includes('feature') || lower.includes('toggle')) {
+      return `⚙️ **173-Switchboard Dynamic Master Controls**\n\n- **Real-Time Module Provisioning:** Master Admin se kisi bhi tenant ke modules (Shift Management, Cloud Sync, Multi-Branch, AI Assistant) toggle kiye ja sakte hain.\n- **Instant Sync:** Tenant workstation restart kiye baghair instantly nayi permissions receive karta hai.`;
+    }
+
+    return `🛡️ **MBI Master Fleet Copilot Active**\n\nAap Master Server Admin ke hawalay se koi bhi sawal pooch sakte hain:\n- **HWID Reset & Disaster Recovery**\n- **12:00 AM Automated Midnight Backups**\n- **Tenant-Isolated SQLite Vaults**\n- **173-Switchboard Feature Toggles**\n\nTechnical assistance ke liye Master Helpline: **+92 328 1302636**.`;
+  }
+
+  // 3. HOME CONTEXT (Visitors & Landing Page)
+  if (currentContext === 'home') {
+    // Pricing & Plans
+    if (
+      lower.includes('price') || lower.includes('cost') || lower.includes('rate') || 
+      lower.includes('plan') || lower.includes('kitne') || lower.includes('package') || 
+      lower.includes('lifetime') || lower.includes('fees') || lower.includes('kharid') ||
+      lower.includes('buy') || query.includes('قیمت') || query.includes('پیکیج')
+    ) {
+      return `💳 **MBI INVENTRA — Transparent Official Pricing & Plans**\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Includes: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Includes: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Includes: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n🎁 **10-Day Free Trial Available:** Start today with Rs. 0!`;
+    }
+
+    // Free Trial & Demo
+    if (lower.includes('trial') || lower.includes('free') || lower.includes('demo') || lower.includes('register') || lower.includes('start') || query.includes('ٹرائل') || query.includes('ڈیمو')) {
+      return `🎉 **10-Day 100% Free Trial (Instant Access)**\n\n- **Zero Cost:** Rs. 0 required, koi credit card nahi chahiye.\n- **Instant Setup:** Sirf apna Pharmacy Name aur WhatsApp number darj karein aur turant POS billing shuru karein.\n- **WhatsApp Video Demo:** Live video dekhne ke liye WhatsApp karein: **+92 328 1302636**.`;
+    }
+
+    // POS Speed & Offline capabilities
+    if (lower.includes('speed') || lower.includes('fast') || lower.includes('offline') || lower.includes('internet') || lower.includes('desktop') || lower.includes('0.2') || query.includes('آف لائن') || query.includes('تیز')) {
+      return `⚡ **0.2-Second POS Speed & 100% Offline PC Billing**\n\n- **0.2s Transaction Speed:** Rush hours mein customer ka bill palke jhapakte hi print ho jata hai (\`Alt+S\` / \`F2\`).\n- **100% Offline Mode:** Internet disconnect hone par bhi billing, barcode scanning aur printing 0ms speed se chalti rehti hai.\n- **Auto Cloud Synapse:** Internet aatay hi tamam invoices automatically secure cloud par sync ho jati hain.`;
+    }
+
+    // FEFO Expiry
+    if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('nuqsan') || lower.includes('expire') || query.includes('ایکسپائری')) {
+      return `⏰ **FEFO (First-Expiry First-Out) Smart Profit Radar**\n\n- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.\n- **30/60/90 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.\n- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
+    }
+
+    // Software Overview / Introduction (Multilingual Roman Urdu / Urdu / English)
+    if (
+      lower.includes('bary me batao') || lower.includes('kaisa hai') || lower.includes('kya hai') || 
+      lower.includes('feature') || lower.includes('overview') || lower.includes('intro') || 
+      lower.includes('detail') || lower.includes('software') || lower.includes('salam') || 
+      lower.includes('assalam') || lower.includes('hello') || lower.includes('hi') ||
+      query.includes('سافٹ ویئر') || query.includes('تعارف') || query.includes('معلومات')
+    ) {
+      return `✨ **Assalam-o-Alaikum! MBI INVENTRA Pharmacy ERP me Khush Amdeed!**\n\n**MBI INVENTRA** Pakistan ka sab se modern aur fastest Enterprise Pharmacy POS & ERP Software hai:\n\n1. ⚡ **0.2-Second Fast Billing:** Rush hours mein \`Alt+S\` aur \`F2\` se instant bill banayein.\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur thermal printing chalti hai.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke munafa mehfooz karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp receipt ke sath.\n5. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo (Annual discounts available).\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
+    }
+  }
+
+  // 4. USER CONTEXT (Active Pharmacy Workspace)
+  // POS Shortcuts & Billing
+  if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || lower.includes('sale') || query.includes('شارٹ کٹ') || query.includes('بل')) {
+    return `⚡ **Essential MBI POS Fast Billing Shortcuts**\n\n- \`Alt + S\` : Open New Sale Invoice instantly\n- \`Alt + P\` : Open New Purchase Bill Inward\n- \`F2\` / \`Tab\` : Focus Instant Medicine & Barcode Search\n- \`F1\` : Open Keyboard Shortcuts Master Guide\n- \`Enter\` : Rapid Line-Item Addition\n- \`Esc\` : Minimize or Close Active Transaction Dock\n\n*Engineered for high-volume rush hours with 0.2s transaction speed.*`;
+  }
+
+  // FEFO Expiry Radar
+  if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('waste') || lower.includes('near expiry') || query.includes('ایکسپائری')) {
+    return `⏰ **FEFO (First-Expiry, First-Out) Smart Profit Radar**\n\n- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.\n- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.\n- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
+  }
+
+  // Khatas & Ledgers
+  if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('ledger') || lower.includes('customer') || lower.includes('supplier') || query.includes('کھاتہ') || query.includes('ادھار')) {
+    return `📒 **Customer & Supplier Double-Entry Ledgers**\n\n- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.\n- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.\n- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
+  }
+
+  // Shortage Register
+  if (lower.includes('shortage') || lower.includes('short') || lower.includes('reorder') || lower.includes('stock') || query.includes('شارٹیج')) {
+    return `⚠️ **Smart Shortage Register & Auto Reordering**\n\n- **Customer Demands:** Jo medicine stock mein na ho, cashier foran Shortage Register mein add kar sakta hai.\n- **Purchase Order Auto-Fill:** Supplier purchase order banatay waqt shortage items automatically list mein shamil ho jatay hain.`;
+  }
+
+  // Staff PINs & Shift Closing
+  if (lower.includes('staff') || lower.includes('pin') || lower.includes('shift') || lower.includes('drawer') || lower.includes('cashier')) {
+    return `🔐 **Staff PINs & Cashier Shift Closing**\n\n- **4-Digit Staff PIN:** Har cashier ko private PIN dein taake unauthorized discounts ya deletions block hon.\n- **Shift Float Reconciliation:** Day-end par drawer cash count match karein aur shift summary report print karein.`;
+  }
+
+  // General user workspace fallback in Urdu / Roman Urdu / English
+  return `✨ **MBI AI Copilot Response**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.\n- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.\n- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.\n\nAgar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
 }
 
 export function getAiConfigStatus() {

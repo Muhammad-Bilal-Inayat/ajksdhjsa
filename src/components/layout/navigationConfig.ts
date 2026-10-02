@@ -117,16 +117,16 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     subItems: [
       { label: 'Sale Invoices', path: '/sale/invoices', hasAdd: false },
       { label: 'Payment In', path: '/sale/payment-in', hasAdd: false },
-      { label: 'Credit Notes / Returns', path: '/sale/return', hasAdd: false },
-      { label: 'Estimate / Quotation', path: '/sale/quotation', hasAdd: false, requiredPlan: 'gold' },
-      { label: 'Sale Order', path: '/sale/order', hasAdd: false, requiredPlan: 'gold' },
-      { label: 'Delivery Challan', path: '/sale/challan', hasAdd: false, requiredPlan: 'gold' },
+      { label: 'Credit Notes', path: '/sale/return', hasAdd: false },
+      { label: 'Estimate / Quotation', path: '/sale/quotation', hasAdd: false },
+      { label: 'Sale Order', path: '/sale/order', hasAdd: false },
+      { label: 'Delivery Challan', path: '/sale/challan', hasAdd: false },
     ]
   },
   { 
     id: 'items',
     icon: Package, 
-    label: 'Items ', 
+    label: 'Items', 
     path: '/items', 
     moduleKey: 'items',
     addPath: '/items?action=add',
@@ -134,16 +134,16 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasDropdown: true, 
     hasAdd: true,
     subItems: [
-      { label: 'Stock Inventory', path: '/inventory', addPath: '/items?action=add', hasAdd: true },
+      { label: 'Stock Inventory', path: '/inventory', addPath: '/items?action=add', hasAdd: false },
       { label: 'Top Selling Medicines', path: '/top-products', hasAdd: false },
-      { label: 'QR & Barcode Generator', path: '/settings?tab=QR%20CODE%20GENERATOR', hasAdd: false },
-      { label: 'Shortage Register', path: '/shortage-registry', addPath: '/shortage-registry?action=add', hasAdd: false, requiredPlan: 'gold' },
+      { label: 'QR Code Generator', path: '/settings?tab=QR%20CODE%20GENERATOR', hasAdd: false },
+      { label: 'Shortage Register', path: '/shortage-registry', addPath: '/shortage-registry?action=add', hasAdd: false },
     ]
   },
   { 
     id: 'purchase',
     icon: ShoppingCart, 
-    label: 'Purchases ', 
+    label: 'Purchases', 
     path: '/purchase', 
     moduleKey: 'purchase',
     addPath: '/purchase?action=add',
@@ -152,15 +152,15 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasAdd: true,
     subItems: [
       { label: 'Purchase Bills', path: '/purchase', hasAdd: false },
-      { label: 'Supplier Returns / Dr. Note', path: '/purchase/return', hasAdd: false },
+      { label: 'Supplier Returns', path: '/purchase/return', hasAdd: false },
       { label: 'Payment Out', path: '/purchase/payment-out', hasAdd: false },
-      { label: 'Purchase Orders (PO)', path: '/purchase/order', hasAdd: false, requiredPlan: 'gold' },
+      { label: 'Purchase Orders', path: '/purchase/order', hasAdd: false },
     ]
   },
   { 
     id: 'parties',
     icon: Users, 
-    label: 'Parties ', 
+    label: 'Parties', 
     path: '/parties', 
     moduleKey: 'parties',
     addPath: '/parties?action=add',
@@ -168,8 +168,8 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasDropdown: true, 
     hasAdd: true,
     subItems: [
-      { label: 'Customer Khatas', path: '/parties/customers', addPath: '/parties/customers?action=add', hasAdd: true },
-      { label: 'Supplier Khatas', path: '/parties/suppliers', addPath: '/parties/suppliers?action=add', hasAdd: true },
+      { label: 'Customer Khatas', path: '/parties/customers', addPath: '/parties/customers?action=add', hasAdd: false },
+      { label: 'Supplier Khatas', path: '/parties/suppliers', addPath: '/parties/suppliers?action=add', hasAdd: false },
       { label: 'All Ledgers & Statements', path: '/accounts/ledgers', hasAdd: false },
     ]
   },
@@ -179,9 +179,10 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     label: 'Shifts', 
     path: '/shift-management', 
     moduleKey: 'shifts',
+    addPath: '/shift-management?action=start',
     isCore: true,
     hasDropdown: false, 
-    hasAdd: false 
+    hasAdd: true 
   },
   { 
     id: 'expenses',
@@ -189,9 +190,10 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     label: 'Expenses', 
     path: '/expenses', 
     moduleKey: 'expenses',
+    addPath: '/expenses?action=add',
     isCore: true,
     hasDropdown: false, 
-    hasAdd: false 
+    hasAdd: true 
   },
   { 
     id: 'bank',
@@ -203,17 +205,17 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasDropdown: true, 
     hasAdd: false,
     subItems: [
-      { label: 'Bank Accounts', path: '/bank', addPath: '/bank?action=add-bank', hasAdd: true },
-      { label: 'Cash In Hand', path: '/cash-in-hand', addPath: '/cash-in-hand?action=adjust', hasAdd: true },
+      { label: 'Bank Accounts', path: '/bank', addPath: '/bank?action=add-bank', hasAdd: false },
+      { label: 'Cash In Hand', path: '/cash-in-hand', addPath: '/cash-in-hand?action=adjust', hasAdd: false },
       { label: 'Shift Reconciliation', path: '/shift-management', hasAdd: false },
       { label: 'Cheques', path: '/bank/cheques', hasAdd: false },
-      { label: 'Loan Accounts', path: '/bank/loan-accounts', addPath: '/bank/loan-accounts?action=add', hasAdd: true },
+      { label: 'Loan Accounts', path: '/bank/loan-accounts', addPath: '/bank/loan-accounts?action=add', hasAdd: false },
     ]
   },
   { 
     id: 'reports',
     icon: BarChart2, 
-    label: 'Reports ', 
+    label: 'Reports', 
     path: '/reports', 
     moduleKey: 'reports',
     isCore: true,

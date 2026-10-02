@@ -10,7 +10,9 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 
 export interface TopicCategory {
@@ -27,6 +29,38 @@ interface PopularTopicsCardProps {
 }
 
 export const POPULAR_TOPICS: TopicCategory[] = [
+  {
+    title: 'Live Sales & Profit Analytics',
+    icon: BarChart3,
+    badge: 'Live Vault',
+    description: 'Real-time revenue, net profit margin %, daily ticket size, and top sold items.',
+    questions: [
+      "Generate Today's Complete Sales Summary",
+      'Show Top 10 fast-selling medicines report',
+      'Calculate today profit and net margin breakdown'
+    ]
+  },
+  {
+    title: 'Stock Valuation & Expiry Audit',
+    icon: Layers,
+    badge: 'Live Inventory',
+    description: 'Real-time stock valuation in Rs, low stock alerts, and 90-day expiry radar.',
+    questions: [
+      'Calculate pharmacy total stock valuation in Rs',
+      'Show all low stock medicines below minimum alert',
+      'List all batches nearing expiry within 90 days'
+    ]
+  },
+  {
+    title: 'Customer Udhar & Supplier Khatas',
+    icon: FileText,
+    badge: 'Live Ledgers',
+    description: 'Customer udhar receivables, supplier payables, and ledger balances.',
+    questions: [
+      'Show total outstanding customer udhar ledger report',
+      'Supplier purchases and pending payables breakdown'
+    ]
+  },
   {
     title: 'POS Billing & Thermal Prints',
     icon: ShoppingBag,

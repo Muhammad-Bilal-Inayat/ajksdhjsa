@@ -17,6 +17,7 @@ import { CallRequestCard } from '../components/support/CallRequestCard';
 import { PopularTopicsCard } from '../components/support/PopularTopicsCard';
 import { useAuth } from '../contexts/AuthContext';
 import { useTenantPlan } from '../context/TenantPlanContext';
+import { getAssistantPlanLimits } from '../lib/assistantKnowledgeService';
 
 export const AiAssistantPage: React.FC = () => {
   const { business, currentUser, tenant } = useAuth();
@@ -24,6 +25,7 @@ export const AiAssistantPage: React.FC = () => {
   const [activeQuestion, setActiveQuestion] = useState<string>('');
 
   const displayPlan = rawPlan || plan || (tenant as any)?.plan || 'Free Trial';
+  const limits = getAssistantPlanLimits(displayPlan, currentUser?.uid, tenant?.tenantId);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -40,10 +42,10 @@ export const AiAssistantPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 truncate">
             <h1 className="text-xs sm:text-sm font-black tracking-tight text-white truncate">
-              MBI AI Assistant &amp; Knowledge Guide
+              MBI ERP AI Intelligence &amp; Analytics
             </h1>
             <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-400/20 text-cyan-200 border border-cyan-400/30 shrink-0">
-              Active: {displayPlan} (20 msgs/day)
+              Active: {displayPlan} ({limits.dailyMessageLimit} msgs/day)
             </span>
           </div>
         </div>
@@ -51,7 +53,7 @@ export const AiAssistantPage: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0">
           <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 text-[10px] text-slate-300">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Encrypted Isolated Data</span>
+            <span>Strict Tenant Isolation</span>
           </div>
           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
             ● Live 24/7

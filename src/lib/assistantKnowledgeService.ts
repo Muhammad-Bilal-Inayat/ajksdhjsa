@@ -374,19 +374,58 @@ export async function forwardHumanRequestToServer(params: {
 /**
  * Fallback Knowledge Base Engine - Strictly scoped to MBI Inventra software & Home/User portal features
  */
-export function generateMbiAssistantResponse(prompt: string, plan: string): {
+export function generateMbiAssistantResponse(
+  prompt: string, 
+  plan: string, 
+  context: 'home' | 'user' | 'server' = 'user'
+): {
   text: string;
   isHumanEscalation: boolean;
   requiresUpgrade: boolean;
 } {
   const p = prompt.toLowerCase();
-  const limits = getAssistantPlanLimits(plan);
 
   // Check Human Support Request
-  if (isHumanSupportRequested(p)) {
+  if (isHumanSupportRequested(p) || p.includes('call') || p.includes('phone') || p.includes('whatsapp') || p.includes('rabta')) {
     return {
-      text: `Shukriya! Maine aapki chat MBI Inventra Central Server Support Desk ko transfer kar di hai. Hamare live agent yahan direct chat mein connect ho rahe hain. Aap urgent call ke liye WhatsApp bhi kar sakte hain: +92 300 1234567.`,
+      text: `📞 **MBI Live Support Desk Connected**\n\nShukriya! Maine aapki request Central Support Desk (+92 328 1302636) ko forward kar di hai. Hamare representative live chat mein ya WhatsApp par aapse rabta karenge. Direct helpline: **0336-4585863**.`,
       isHumanEscalation: true,
+      requiresUpgrade: false
+    };
+  }
+
+  // SERVER CONTEXT
+  if (context === 'server') {
+    if (p.includes('hwid') || p.includes('reset') || p.includes('license')) {
+      return {
+        text: `🛡️ **Master HWID Reset & Disaster Recovery**:\n- **1-Click Reset**: Master panel se tenant ke liye HWID reset trigger karein.\n- **New PC Binding**: Naye system par License key enter hotay hi naya HWID bind ho jayega.\n- **Restore**: Raat 12:00 AM ka latest encrypted backup 1 click mein restore ho jata hai!`,
+        isHumanEscalation: false,
+        requiresUpgrade: false
+      };
+    }
+    if (p.includes('backup') || p.includes('midnight') || p.includes('12:00') || p.includes('sqlite') || p.includes('vault')) {
+      return {
+        text: `🏢 **SQLite Tenant Vaults & 12:00 AM Backups**:\n- Har tenant ka private SQLite Vault (\`tenant_[id].sqlite\`) 100% physically isolated hai.\n- Rozana raat 12:00 AM par automated encrypted snapshot generate hota hai.`,
+        isHumanEscalation: false,
+        requiresUpgrade: false
+      };
+    }
+  }
+
+  // HOME CONTEXT & PRICING
+  if (p.includes('price') || p.includes('plan') || p.includes('cost') || p.includes('subscription') || p.includes('kitne') || p.includes('package') || p.includes('rate') || p.includes('lifetime')) {
+    return {
+      text: `💳 **MBI Inventra Transparent Official Pricing Plans**:\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Includes: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Includes: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Includes: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n🎁 **10-Day Free Trial Available:** Rs. 0 (Instant setup, no credit card required)!`,
+      isHumanEscalation: false,
+      requiresUpgrade: false
+    };
+  }
+
+  // Overview in Roman Urdu
+  if (p.includes('bary me batao') || p.includes('kaisa hai') || p.includes('kya hai') || p.includes('software') || p.includes('overview') || p.includes('features')) {
+    return {
+      text: `✨ **MBI INVENTRA — Enterprise Pharmacy POS & ERP Software**:\n\n1. ⚡ **0.2s Fast POS Billing:** \`Alt+S\` aur \`F2\` se instant bill banayein aur 80mm/58mm thermal receipts print karein.\n2. 🌐 **100% Offline PC Ready:** Internet band hone par bhi billing 0ms lag ke sath chalti hai.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke 18-22% margin protect karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp receipt ke sath.\n5. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.\n\nFree Trial lene ya WhatsApp demo ke liye helpline par rabta karein: **+92 328 1302636**!`,
+      isHumanEscalation: false,
       requiresUpgrade: false
     };
   }
@@ -403,16 +442,16 @@ export function generateMbiAssistantResponse(prompt: string, plan: string): {
   // Cloud Sync & Multi-branch guidance
   if (p.includes('cloud sync') || p.includes('multi branch') || p.includes('inter store') || p.includes('inventory sync')) {
     return {
-      text: `✅ **Inventory Cloud Sync & Multi-Branch Guide**:\n\n1. MBI Inventra **0-latency high-speed cloud sync** har 4 second baad background mein chalta hai.\n2. Ek branch se stock transfer hone par doosri branch par auto-update ho jata hai.\n3. Sync status dekhne ke liye top navigation bar par **Sync Indicator** check karein.`,
+      text: `✅ **Inventory Cloud Sync & Multi-Branch Guide**:\n\n1. MBI Inventra **0-latency high-speed cloud sync** background mein chalta hai.\n2. Ek branch se stock transfer hone par doosri branch par auto-update ho jata hai.\n3. Sync status dekhne ke liye top navigation bar par **Sync Indicator** check karein.`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };
   }
 
   // General MBI Inventra Knowledge Base (Strictly scoped)
-  if (p.includes('bill') || p.includes('pos') || p.includes('f2') || p.includes('sale') || p.includes('thermal') || p.includes('print')) {
+  if (p.includes('bill') || p.includes('pos') || p.includes('f2') || p.includes('sale') || p.includes('thermal') || p.includes('print') || p.includes('shortcut')) {
     return {
-      text: `🧾 **POS Billing & Thermal Prints (MBI Inventra)**:\n- **F2 Shortcut**: Instant medicine search window open karta hai. Barcode scan karein ya naam type karein.\n- **Thermal Prints**: 58mm aur 80mm ESC/POS printers auto-detect hotay hain.\n- **WhatsApp Invoice**: Bill save hotay hi customer ke WhatsApp number par 1-click PDF receipt chali jati hai.`,
+      text: `🧾 **POS Billing & Thermal Prints (MBI Inventra)**:\n- **Alt+S**: New Sale Bill open karta hai.\n- **F2 Shortcut**: Instant medicine search window open karta hai. Barcode scan karein ya naam type karein.\n- **Thermal Prints**: 58mm aur 80mm ESC/POS printers auto-detect hotay hain.\n- **WhatsApp Invoice**: Bill save hotay hi customer ke WhatsApp number par 1-click PDF receipt chali jati hai.`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };
@@ -450,16 +489,8 @@ export function generateMbiAssistantResponse(prompt: string, plan: string): {
     };
   }
 
-  if (p.includes('price') || p.includes('plan') || p.includes('cost') || p.includes('subscription')) {
-    return {
-      text: `💎 **MBI Inventra Subscription Plans**:\n- **Starter / Basic**: Rs 1,999/mo (Single counter, POS, Expiry, WhatsApp bill, 50 AI Msgs/day)\n- **Business / Pro**: Rs 3,999/mo (Multi-user, Shift Management, Inventory Sync, 100 AI Msgs/day)\n- **Enterprise Chain**: Rs 6,999/mo (Unlimited branches, central warehouse, 500 AI Msgs/day)\n\nDashboard par **Pricing** button se instant activate karein!`,
-      isHumanEscalation: false,
-      requiresUpgrade: false
-    };
-  }
-
   return {
-    text: `Main MBI INVENTRA AI Guide hoon aur main sirf MBI Inventra Pharmacy ERP Software, User Dashboard, POS Billing, Inventory, Ledgers, aur Home Page features ke baare mein madad kar sakta hoon.\n\nAap pooch sakte hain:\n- POS Billing aur F2 shortcut kaise use karein?\n- Batch expiry aur FEFO deduction kaise kaam karta hai?\n- Shift Management aur Cashier closing kaise karein?\n- Human support team se rabta kaise karein?`,
+    text: `Main MBI INVENTRA AI Guide hoon aur main sirf MBI Inventra Pharmacy ERP Software, User Dashboard, POS Billing, Inventory, Ledgers, aur Home Page features ke baare mein madad kar sakta hoon.\n\nAap pooch sakte hain:\n- POS Billing aur F2 shortcut kaise use karein?\n- Batch expiry aur FEFO deduction kaise kaam karta hai?\n- Shift Management aur Cashier closing kaise karein?\n- Lifetime Pricing aur 10-Day Free Trial ke baare mein janiye!`,
     isHumanEscalation: false,
     requiresUpgrade: false
   };

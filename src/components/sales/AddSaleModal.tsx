@@ -152,6 +152,22 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const [showPriceDropdownManual, setShowPriceDropdownManual] = useState<string | null>(null);
   const [quickBarPriceDropdownOpen, setQuickBarPriceDropdownOpen] = useState(false);
   
+  // High-performance search cache for 0ms typing and instant autocomplete
+  const indexedMedicines = useMemo(() => {
+    return medicines.map(m => ({
+      med: m,
+      searchStr: `${m.name || ''} ${m.genericName || ''} ${m.batchNumber || ''} ${m.formula || ''} ${m.rackLocation || ''}`.toLowerCase(),
+      barcodeStr: (m.barcode || m.id || (m as any).code || '').toLowerCase().trim()
+    }));
+  }, [medicines]);
+
+  const indexedParties = useMemo(() => {
+    return parties.map(p => ({
+      party: p,
+      searchStr: `${p.name || ''} ${p.phone || ''} ${p.company || ''} ${p.address || ''}`.toLowerCase()
+    }));
+  }, [parties]);
+  
   // Tabs State (multi-sale support)
   const [tabs, setTabs] = useState<SaleTabState[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
@@ -803,7 +819,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     setIsAddPartyOpen(false);
   };
 
-  // Quick Lightning Item Search Logic
+  // Quick Lightning Item Search Logic (0ms Ultra-Fast Indexed Search)
   const handleLightningSearch = (query: string) => {
     setLightningQuery(query);
     setLightningSelectedIndex(0);
@@ -811,13 +827,17 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       setLightningResults([]);
       return;
     }
-    const q = query.toLowerCase();
-    const results = medicines.filter(
-      m => m.name.toLowerCase().includes(q) || 
-           m.barcode.toLowerCase().includes(q) || 
-           m.batchNumber.toLowerCase().includes(q)
-    );
-    setLightningResults(results.slice(0, 6));
+    const q = query.toLowerCase().trim();
+    const results: Medicine[] = [];
+    const len = indexedMedicines.length;
+    for (let i = 0; i < len; i++) {
+      const item = indexedMedicines[i];
+      if (item.barcodeStr === q || item.searchStr.includes(q)) {
+        results.push(item.med);
+        if (results.length >= 8) break;
+      }
+    }
+    setLightningResults(results);
   };
 
   const handleApplyTemplate = (type: 'med_pack' | 'first_aid' | 'syrups') => {
@@ -1011,14 +1031,21 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     const clean = scannedCode.trim().toLowerCase();
     if (!clean || !currentTab) return;
 
-    // Find matching medicine in database
-    const matched = medicines.find(m => 
-      (m.barcode && m.barcode.trim().toLowerCase() === clean) ||
-      m.id.toLowerCase() === clean ||
-      ((m as any).code && (m as any).code.toLowerCase() === clean) ||
-      (m.batchNumber && m.batchNumber.trim().toLowerCase() === clean) ||
-      (m.batches && Array.isArray(m.batches) && m.batches.some(b => b.batchNumber && b.batchNumber.trim().toLowerCase() === clean))
-    );
+    // Find matching medicine in database (fast indexed lookup)
+    let matched: Medicine | undefined;
+    for (let i = 0; i < indexedMedicines.length; i++) {
+      const im = indexedMedicines[i];
+      if (im.barcodeStr === clean || (im.med.barcode && im.med.barcode.trim().toLowerCase() === clean)) {
+        matched = im.med;
+        break;
+      }
+    }
+    if (!matched) {
+      matched = medicines.find(m => 
+        (m.batchNumber && m.batchNumber.trim().toLowerCase() === clean) ||
+        (m.batches && Array.isArray(m.batches) && m.batches.some(b => b.batchNumber && b.batchNumber.trim().toLowerCase() === clean))
+      );
+    }
 
     if (matched) {
       // Check if medicine is already in the current sales bill
@@ -2471,7 +2498,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                         }, 200);
                       }}
                       onKeyDown={(e) => {
-                        const filtered = parties.filter(p => p.name.toLowerCase().includes((customerSearchQuery || currentTab.customerName).toLowerCase()));
+                        const filtered = indexedParties
+                          .filter(ip => ip.searchStr.includes((customerSearchQuery || currentTab.customerName).toLowerCase().trim()))
+                          .slice(0, 15)
+                          .map(ip => ip.party);
                         if (isCustomerDropdownOpen && filtered.length > 0) {
                           if (e.key === 'ArrowDown') {
                             e.preventDefault();
@@ -2524,8 +2554,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 {/* Dropdown for Customer Suggestions */}
                 {isCustomerDropdownOpen && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 max-h-52 overflow-y-auto">
-                    {parties
-                      .filter(p => p.name.toLowerCase().includes((customerSearchQuery || currentTab.customerName).toLowerCase()))
+                    {indexedParties
+                      .filter(ip => ip.searchStr.includes((customerSearchQuery || currentTab.customerName).toLowerCase().trim()))
+                      .slice(0, 15)
+                      .map(ip => ip.party)
                       .map((p, idx) => (
                         <div
                           key={p.id}

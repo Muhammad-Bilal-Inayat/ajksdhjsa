@@ -998,31 +998,100 @@ export const ExpiryAlertsTableWidget: React.FC<PharmacyErpWidgetProps> = ({ medi
 // ─────────────────────────────────────────────────────────────────────────────
 // 10. THERAPEUTIC CATEGORY MIX & FAST SKUS (Legacy & Advanced Tabs)
 // ─────────────────────────────────────────────────────────────────────────────
-export const TherapeuticCategoryMixWidget: React.FC<PharmacyErpWidgetProps> = () => {
+export const TherapeuticCategoryMixWidget: React.FC<PharmacyErpWidgetProps> = ({
+  invoices = [],
+  medicines = [],
+  onNavigate
+}) => {
+  const categoryStats = useMemo(() => {
+    // 1. Map medicine category lookup
+    const medCategoryMap = new Map<string, string>();
+    (medicines || []).forEach(m => {
+      const name = (m.name || '').toLowerCase().trim();
+      const cat = m.category || (m as any).therapeuticClass || 'General';
+      if (name) medCategoryMap.set(name, cat);
+    });
+
+    // 2. Accumulate sales revenue and item counts per category from real invoices
+    let totalRevenue = 0;
+    const totals: Record<string, number> = {
+      antibiotics: 0,
+      cardiovascular: 0,
+      gastro: 0,
+      painkillers: 0,
+      other: 0
+    };
+
+    (invoices || []).forEach(inv => {
+      const items = inv.items || [];
+      items.forEach((it: any) => {
+        const itName = (it.name || it.medicineName || '').toLowerCase().trim();
+        const lineRev = Number(it.total) || (Number(it.unitPrice || it.price || 0) * Number(it.quantity || 1)) || 0;
+        totalRevenue += lineRev;
+
+        const cat = (it.category || medCategoryMap.get(itName) || '').toLowerCase();
+        if (cat.includes('anti') || cat.includes('infective') || cat.includes('penicillin') || cat.includes('cephalo') || cat.includes('quinol') || itName.includes('amox') || itName.includes('augmentin') || itName.includes('cefix')) {
+          totals.antibiotics += lineRev;
+        } else if (cat.includes('cardio') || cat.includes('diabet') || cat.includes('hyper') || itName.includes('metformin') || itName.includes('amlo') || itName.includes('getryl') || itName.includes('lipiget')) {
+          totals.cardiovascular += lineRev;
+        } else if (cat.includes('gastro') || cat.includes('antacid') || cat.includes('ppi') || itName.includes('risek') || itName.includes('omeprazole') || itName.includes('gaviscon') || itName.includes('pan')) {
+          totals.gastro += lineRev;
+        } else if (cat.includes('pain') || cat.includes('nsaid') || cat.includes('analgesic') || itName.includes('panadol') || itName.includes('brufen') || itName.includes('paracetamol') || itName.includes('diclofenac')) {
+          totals.painkillers += lineRev;
+        } else {
+          totals.other += lineRev;
+        }
+      });
+    });
+
+    const hasSales = totalRevenue > 0;
+
+    return {
+      hasSales,
+      totalRevenue,
+      antibioticsPct: hasSales ? ((totals.antibiotics / totalRevenue) * 100).toFixed(1) : '0.0',
+      cardioPct: hasSales ? ((totals.cardiovascular / totalRevenue) * 100).toFixed(1) : '0.0',
+      gastroPct: hasSales ? ((totals.gastro / totalRevenue) * 100).toFixed(1) : '0.0',
+      painPct: hasSales ? ((totals.painkillers / totalRevenue) * 100).toFixed(1) : '0.0',
+    };
+  }, [invoices, medicines]);
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-      <div className="flex items-center gap-2">
-        <PieChart className="w-4 h-4 text-purple-600" />
-        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Therapeutic Category Mix</h4>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <PieChart className="w-4 h-4 text-purple-600" />
+          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Therapeutic Category Mix</h4>
+        </div>
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${categoryStats.hasSales ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+          {categoryStats.hasSales ? 'Live Calculated' : '0% Initial State'}
+        </span>
       </div>
+
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50">
-          <span className="text-slate-500 block text-[10px]">Antibiotics & Anti-Infective</span>
-          <span className="text-base font-black text-blue-700 dark:text-blue-300">38.4%</span>
+          <span className="text-slate-500 block text-[10px] font-medium">Antibiotics & Anti-Infective</span>
+          <span className="text-base font-black text-blue-700 dark:text-blue-300 font-mono">{categoryStats.antibioticsPct}%</span>
         </div>
         <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50">
-          <span className="text-slate-500 block text-[10px]">Cardiovascular & Antidiabetic</span>
-          <span className="text-base font-black text-emerald-700 dark:text-emerald-300">26.1%</span>
+          <span className="text-slate-500 block text-[10px] font-medium">Cardiovascular & Antidiabetic</span>
+          <span className="text-base font-black text-emerald-700 dark:text-emerald-300 font-mono">{categoryStats.cardioPct}%</span>
         </div>
         <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/50">
-          <span className="text-slate-500 block text-[10px]">Gastrointestinal & Antacid</span>
-          <span className="text-base font-black text-purple-700 dark:text-purple-300">20.5%</span>
+          <span className="text-slate-500 block text-[10px] font-medium">Gastrointestinal & Antacid</span>
+          <span className="text-base font-black text-purple-700 dark:text-purple-300 font-mono">{categoryStats.gastroPct}%</span>
         </div>
         <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50">
-          <span className="text-slate-500 block text-[10px]">Painkillers & NSAIDs</span>
-          <span className="text-base font-black text-amber-700 dark:text-amber-300">15.0%</span>
+          <span className="text-slate-500 block text-[10px] font-medium">Painkillers & NSAIDs</span>
+          <span className="text-base font-black text-amber-700 dark:text-amber-300 font-mono">{categoryStats.painPct}%</span>
         </div>
       </div>
+
+      {!categoryStats.hasSales && (
+        <div className="text-[11px] text-slate-400 text-center pt-1 border-t border-slate-100 dark:border-slate-800/80">
+          All category metrics start at 0.0% for new tenants and automatically calculate live from POS invoices.
+        </div>
+      )}
     </div>
   );
 };

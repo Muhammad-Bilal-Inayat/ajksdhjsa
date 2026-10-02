@@ -398,7 +398,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         // 1. Check if item's menu is explicitly blocked in Master Control / 173-Feature Switchboard
         const targetMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
-        if (targetMenuId) {
+        if (targetMenuId && !isOwner) {
           const isMenuAllowed = evaluatePermission({
             userId: effectiveUserId,
             role: activeRole,

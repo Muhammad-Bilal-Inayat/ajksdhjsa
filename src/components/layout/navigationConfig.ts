@@ -221,8 +221,21 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     isCore: true,
     hasDropdown: true, 
     hasAdd: false,
-    // Sub-items generated dynamically from categorized reports based on active plan
-    subItems: []
+    subItems: [
+      { label: 'Daily Sales Summary', path: '/reports?report=sale', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Cashier Shift Daybook', path: '/reports?report=day_book', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Stock Valuation & FEFO Expiry', path: '/reports?report=fefo_expiry_report', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Low Stock & Reorder Alert', path: '/reports?report=low_stock_summary', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Item Sales & Profit Margin', path: '/reports?report=item_profit_loss', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Customer Udhar Ledger & Aging', path: '/reports?report=party_statement', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Cash & Bank Register', path: '/reports?report=cash_flow', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Expense Category Analysis', path: '/reports?report=expense_category', requiredPlan: 'silver', hasAdd: false },
+      { label: 'Daily Profit & Loss Summary', path: '/reports?report=profit_loss', requiredPlan: 'gold', hasAdd: false },
+      { label: 'Comprehensive Balance Sheet', path: '/reports?report=balance_sheet', requiredPlan: 'gold', hasAdd: false },
+      { label: 'Supplier Payable & Claims Khata', path: '/reports?report=sale_purchase_party', requiredPlan: 'gold', hasAdd: false },
+      { label: 'FBR Fiscal Tax Audit', path: '/reports?report=fbr_tax_audit', requiredPlan: 'platinum', hasAdd: false },
+      { label: 'Multi-Branch Consolidated Report', path: '/reports?report=multi_branch_consolidated_report', requiredPlan: 'platinum', hasAdd: false },
+    ]
   },
   { 
     id: 'aiGuide',

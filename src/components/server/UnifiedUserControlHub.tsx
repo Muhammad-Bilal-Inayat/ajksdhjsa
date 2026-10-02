@@ -3,6 +3,7 @@ import {
   Users,
   Search,
   Eye,
+  EyeOff,
   Edit,
   Key,
   Power,
@@ -69,6 +70,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   const [confirmPasscode, setConfirmPasscode] = useState('');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [syncingUserId, setSyncingUserId] = useState<string | null>(null);
+  const [revealedPasscodes, setRevealedPasscodes] = useState<Record<string, boolean>>({});
 
   // Distinct Companies & User Counts breakdown
   const companyStats = useMemo(() => {
@@ -805,9 +807,19 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                             <Phone className="w-3 h-3 text-slate-400" />
                             <span>{user.emailOrPhone}</span>
                           </div>
-                          <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                          <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
                             <Key className="w-3 h-3 text-amber-500" />
-                            <span>Passcode: <strong className="text-slate-700 dark:text-slate-200 font-bold">{user.passcode || '****'}</strong></span>
+                            <span>Passcode: <strong className="text-slate-700 dark:text-slate-200 font-bold">
+                              {revealedPasscodes[user.id] ? (user.passcode || '••••') : '••••••••'}
+                            </strong></span>
+                            <button
+                              type="button"
+                              onClick={() => setRevealedPasscodes(prev => ({ ...prev, [user.id]: !prev[user.id] }))}
+                              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer transition-colors"
+                              title={revealedPasscodes[user.id] ? "Hide Passcode" : "Show Passcode"}
+                            >
+                              {revealedPasscodes[user.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            </button>
                           </div>
                         </div>
                       </td>
@@ -984,7 +996,19 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Current Passcode / PIN</span>
-                  <span className="font-mono font-bold text-amber-600 text-xs mt-0.5 block">{viewUser.passcode || '1234'}</span>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="font-mono font-bold text-amber-600 text-xs">
+                      {revealedPasscodes[viewUser.id] ? (viewUser.passcode || '••••') : '••••••••'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRevealedPasscodes(prev => ({ ...prev, [viewUser.id]: !prev[viewUser.id] }))}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                      title={revealedPasscodes[viewUser.id] ? "Hide Passcode" : "Show Passcode"}
+                    >
+                      {revealedPasscodes[viewUser.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 col-span-2">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Account Status</span>

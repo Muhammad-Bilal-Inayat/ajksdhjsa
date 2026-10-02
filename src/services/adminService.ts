@@ -221,58 +221,7 @@ class AdminService {
       console.warn('Failed to fetch telemetry from server, using local fallback:', e);
     }
 
-    return [
-      {
-        id: 'tenant_main_pharmacy',
-        name: 'Inventra Central Pharmacy',
-        ownerName: 'Dr. Kashif Ahmed',
-        phone: '0328-1302636',
-        email: 'admin@inventra.local',
-        city: 'Lahore',
-        plan: 'Platinum',
-        status: 'Active',
-        appVersion: APP_VERSION,
-        salesRevenue: 485000,
-        outstandingBalance: 0,
-        activeHwid: 'HWID-PK99-WIN11-SEC01',
-        totalStaffCount: 2,
-        onlineStaffCount: 2,
-        totalDeviceCount: 2,
-        onlineDeviceCount: 2,
-        isHardLocked: false,
-        trialExpiryDate: '2028-12-31',
-        paidLicenseActive: true,
-        licenseKey: 'MBI-PK99-PRO-2028',
-        isTrialActive: false,
-        features: getDefaultFeatureMap(),
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'tenant_hassan_medicos',
-        name: 'Hassan Medicos',
-        ownerName: 'Hassan Ali',
-        phone: '0336-4585863',
-        email: 'hassan@medicos.pk',
-        city: 'Sargodha',
-        plan: 'Gold',
-        status: 'Active',
-        appVersion: APP_VERSION,
-        salesRevenue: 620000,
-        outstandingBalance: 12500,
-        activeHwid: 'HWID-SD88-HP-LAPTOP',
-        totalStaffCount: 1,
-        onlineStaffCount: 1,
-        totalDeviceCount: 1,
-        onlineDeviceCount: 1,
-        isHardLocked: false,
-        trialExpiryDate: '2027-06-30',
-        paidLicenseActive: true,
-        licenseKey: 'MBI-SD88-BIZ-2027',
-        isTrialActive: false,
-        features: getDefaultFeatureMap(),
-        createdAt: new Date().toISOString()
-      }
-    ];
+    return [];
   }
 
   /**

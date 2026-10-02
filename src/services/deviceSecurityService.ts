@@ -363,50 +363,7 @@ class DeviceSecurityService {
       console.warn('Devices fetch fallback:', e);
     }
 
-    return [
-      {
-        id: 'dev_01',
-        tenantId: 'tenant_main_pharmacy',
-        storeName: 'Inventra Central Pharmacy',
-        userName: 'Dr. Kashif Ahmed',
-        userRole: 'Primary Owner',
-        hwid: 'HWID-PK99-WIN11-SEC01',
-        deviceModel: 'Dell OptiPlex 7090 Counter #1',
-        os: 'Windows 11 Pro 64-bit',
-        ipAddress: '182.185.24.11',
-        status: 'ONLINE',
-        lastActive: 'Just now',
-        locationCity: 'Lahore'
-      },
-      {
-        id: 'dev_02',
-        tenantId: 'tenant_main_pharmacy',
-        storeName: 'Inventra Central Pharmacy',
-        userName: 'Bilal Cashier',
-        userRole: 'Cashier Terminal',
-        hwid: 'HWID-PK99-POS02-TOUCH',
-        deviceModel: 'Posiflex Touch Terminal #2',
-        os: 'Windows 10 IoT',
-        ipAddress: '182.185.24.12',
-        status: 'ONLINE',
-        lastActive: '2m ago',
-        locationCity: 'Lahore'
-      },
-      {
-        id: 'dev_03',
-        tenantId: 'tenant_hassan_medicos',
-        storeName: 'Hassan Medicos',
-        userName: 'Hassan Ali',
-        userRole: 'Store Manager',
-        hwid: 'HWID-SD88-HP-LAPTOP',
-        deviceModel: 'HP ProBook 450 G8',
-        os: 'Windows 11 Home',
-        ipAddress: '39.40.112.95',
-        status: 'OFFLINE',
-        lastActive: '15m ago',
-        locationCity: 'Sargodha'
-      }
-    ];
+    return [];
   }
 
   public async revokeDevice(deviceId: string): Promise<boolean> {

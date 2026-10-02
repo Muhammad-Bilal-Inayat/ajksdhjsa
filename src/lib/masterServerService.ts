@@ -1597,32 +1597,6 @@ export function getMasterActiveUsers(): MasterActiveUser[] {
     }
   } catch (e) {}
 
-  // If still empty, seed initial operator
-  if (userList.length === 0) {
-    userList = [
-      {
-        id: 'usr_mbi_admin',
-        name: 'M Bilal Inayat',
-        emailOrPhone: '03364585863',
-        role: 'Primary Admin',
-        status: 'Active',
-        passcode: '0000',
-        storeName: 'MBI INVENTRA Headquarters',
-        installationId: 'MBI-INST-HQ-PRIMARY',
-        boundHwid: 'HWID-E3B0-C442-98FC',
-        lastSyncTime: new Date().toISOString(),
-        isOnline: true,
-        totalTransactions: 0,
-        sessionDurationMinutes: 0,
-        totalActiveHours: 0,
-        allowedModules: { ...DEFAULT_MODULES },
-        permissions: { ...DEFAULT_USER_PERMISSIONS, canManageUsers: true, canVoidInvoice: true, canDeleteTransaction: true },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    ];
-  }
-
   return userList;
 }
 
@@ -1631,18 +1605,14 @@ export async function syncFleetUsersFromServer(): Promise<MasterActiveUser[]> {
     const res = await fetch('/api/fleet/users');
     if (res.ok) {
       const json = await res.json();
-      if (Array.isArray(json?.users) && json.users.length > 0) {
-        const local = getMasterActiveUsers();
+      if (Array.isArray(json?.users)) {
         const map = new Map<string, MasterActiveUser>();
-        for (const u of local) map.set(u.id, u);
         for (const u of json.users) {
           if (u && u.id) {
-            const existing = map.get(u.id);
             map.set(u.id, {
-              ...existing,
               ...u,
-              allowedModules: u.allowedModules || existing?.allowedModules || { ...DEFAULT_MODULES },
-              permissions: u.permissions || existing?.permissions || { ...DEFAULT_USER_PERMISSIONS }
+              allowedModules: u.allowedModules || { ...DEFAULT_MODULES },
+              permissions: u.permissions || { ...DEFAULT_USER_PERMISSIONS }
             });
           }
         }
@@ -2183,10 +2153,10 @@ export async function syncTenantsFromServer(): Promise<Tenant[]> {
           });
         }
 
-        if (sanitized.length > 0) {
-          localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(sanitized));
-          return sanitized;
-        }
+        localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(sanitized));
+        localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(sanitized));
+        window.dispatchEvent(new CustomEvent('mbi-tenants-updated'));
+        return sanitized;
       }
     }
   } catch {}

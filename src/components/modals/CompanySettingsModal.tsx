@@ -3,7 +3,7 @@ import {
   Building2, Phone, Mail, MapPin, FileText, Upload, 
   Trash2, Save, X, CheckCircle2, ShieldCheck, Globe, 
   Sparkles, CreditCard, Award, Coins, Printer, 
-  Lock, Percent, Shield, Clock, AlertTriangle, UserCheck
+  Lock, Percent, Shield, Clock, AlertTriangle, UserCheck, LogOut
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Business } from '../../types';
@@ -20,7 +20,7 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
   onClose,
   defaultTab = 'general'
 }) => {
-  const { business, updateBusiness, currentUser, activeRole, tenant } = useAuth();
+  const { business, updateBusiness, currentUser, activeRole, tenant, logout } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'general' | 'contact' | 'tax' | 'invoice' | 'currency'>(defaultTab);
   const [isSaved, setIsSaved] = useState(false);
@@ -625,10 +625,27 @@ export const CompanySettingsModal: React.FC<CompanySettingsModalProps> = ({
           {/* Modal Footer Controls */}
           <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
+              {/* Mobile-Only Quick Logout Button */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to log out from this device?')) {
+                    onClose();
+                    await logout();
+                  }
+                }}
+                className="flex sm:hidden items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-2xs"
+                title="Logout / Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+
               {isSaved && (
                 <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs animate-in fade-in">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Company Profile Saved Successfully!</span>
+                  <span className="hidden sm:inline">Company Profile Saved Successfully!</span>
+                  <span className="sm:hidden">Saved!</span>
                 </span>
               )}
             </div>

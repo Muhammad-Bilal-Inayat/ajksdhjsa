@@ -3145,17 +3145,28 @@ export const Dashboard: React.FC = () => {
         <MobileDashboardView
           todayMetrics={todayMetrics}
           invoices={invoices}
+          recentSales={recentSales}
           medicines={medicines}
+          lowStockAlerts={lowStockAlerts}
+          topProducts={topProducts}
           suppliers={suppliers}
           expenses={expenses}
           activeCashierShift={activeCashierShift}
           privacyMode={privacyMode}
           onTogglePrivacy={togglePrivacy}
           onPrintInvoice={(inv) => {
-            setPrintInvoice(inv);
-            setIsPrintModalOpen(true);
+            if (inv?.customerName || inv?.invoiceNumber) {
+              setPrintInvoice(inv);
+              setIsPrintModalOpen(true);
+            } else {
+              handlePrintInvoice(inv);
+            }
           }}
           activeUserName={activeUser?.name || 'Pharmacist'}
+          totalReceivables={totalReceivables}
+          totalPayables={totalPayables}
+          totalStockValue={stockValue}
+          onOpenPOS={() => setIsAddSaleOpen(true)}
         />
       </div>
 

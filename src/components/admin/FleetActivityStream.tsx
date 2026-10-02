@@ -20,78 +20,7 @@ export interface FleetActivityItem {
   relativeTime: string;
 }
 
-const SEED_ACTIVITIES: FleetActivityItem[] = [
-  {
-    id: 'act_01',
-    tenantId: 'tenant_main_pharmacy',
-    storeName: 'Inventra Central Pharmacy',
-    city: 'Lahore',
-    userName: 'Bilal Cashier',
-    userRole: 'Cashier Terminal #1',
-    actionType: 'SALE',
-    actionDetails: 'Generated POS Invoice #INV-4921 (Rs. 4,350.00) - 3 Items',
-    ipAddress: '182.185.24.11',
-    deviceInfo: 'Dell OptiPlex / Win 11 Pro',
-    timestamp: new Date().toISOString(),
-    relativeTime: 'Just now'
-  },
-  {
-    id: 'act_02',
-    tenantId: 'tenant_hassan_medicos',
-    storeName: 'Hassan Medicos',
-    city: 'Sargodha',
-    userName: 'Hassan Ali',
-    userRole: 'Primary Admin',
-    actionType: 'PURCHASE',
-    actionDetails: 'Saved Inward Purchase Bill #PB-104 from GlaxoSmithKline (Rs. 82,500.00)',
-    ipAddress: '39.40.112.95',
-    deviceInfo: 'HP ProBook 450 / Chrome 128',
-    timestamp: new Date(Date.now() - 30000).toISOString(),
-    relativeTime: '30s ago'
-  },
-  {
-    id: 'act_03',
-    tenantId: 'tenant_main_pharmacy',
-    storeName: 'Inventra Central Pharmacy',
-    city: 'Lahore',
-    userName: 'Dr. Kashif Ahmed',
-    userRole: 'Primary Owner',
-    actionType: 'LOGIN',
-    actionDetails: 'User Authenticated via Dual-Factor HWID Lock',
-    ipAddress: '182.185.24.11',
-    deviceInfo: 'Dell OptiPlex / Win 11 Pro',
-    timestamp: new Date(Date.now() - 120000).toISOString(),
-    relativeTime: '2m ago'
-  },
-  {
-    id: 'act_04',
-    tenantId: 'tenant_alshifa_med',
-    storeName: 'Al-Shifa Medicine Hub',
-    city: 'Rawalpindi',
-    userName: 'Usman Farooq',
-    userRole: 'Inventory Manager',
-    actionType: 'STOCK_TRANSFER',
-    actionDetails: 'Inter-Godown Gate Pass Dispatch #GP-88 (40 Packs Panadol Extra)',
-    ipAddress: '119.160.67.42',
-    deviceInfo: 'Lenovo ThinkCentre / Win 10',
-    timestamp: new Date(Date.now() - 300000).toISOString(),
-    relativeTime: '5m ago'
-  },
-  {
-    id: 'act_05',
-    tenantId: 'tenant_hassan_medicos',
-    storeName: 'Hassan Medicos',
-    city: 'Sargodha',
-    userName: 'Hassan Ali',
-    userRole: 'Primary Admin',
-    actionType: 'PRICE_EDIT',
-    actionDetails: 'Updated MRP for Augmentin 625mg Tab (Rs. 450.00 -> Rs. 475.00)',
-    ipAddress: '39.40.112.95',
-    deviceInfo: 'HP ProBook 450 / Chrome 128',
-    timestamp: new Date(Date.now() - 600000).toISOString(),
-    relativeTime: '10m ago'
-  }
-];
+const SEED_ACTIVITIES: FleetActivityItem[] = [];
 
 export const FleetActivityStream: React.FC = () => {
   const [activities, setActivities] = useState<FleetActivityItem[]>(SEED_ACTIVITIES);
@@ -111,7 +40,9 @@ export const FleetActivityStream: React.FC = () => {
       eventSource.onmessage = (event) => {
         try {
           const newEvent: FleetActivityItem = JSON.parse(event.data);
-          setActivities(prev => [newEvent, ...prev.slice(0, 99)]);
+          if (newEvent && newEvent.actionType) {
+            setActivities(prev => [newEvent, ...prev.slice(0, 99)]);
+          }
         } catch (e) {
           console.warn('Failed to parse SSE activity item:', e);
         }
@@ -124,37 +55,8 @@ export const FleetActivityStream: React.FC = () => {
       console.warn('SSE EventSource not supported in this environment');
     }
 
-    // Dynamic ticker to simulate occasional active events if offline
-    const interval = setInterval(() => {
-      const demoActions: Array<{ type: FleetActivityItem['actionType']; text: string }> = [
-        { type: 'SALE', text: `Generated POS Invoice #INV-${Math.floor(1000 + Math.random() * 9000)} (Rs. ${(Math.random() * 2500 + 350).toFixed(2)})` },
-        { type: 'PURCHASE', text: `Inward Stock Received from Abbott Laboratories (Rs. ${(Math.random() * 45000 + 5000).toFixed(2)})` },
-        { type: 'STOCK_TRANSFER', text: `Godown FEFO Batch Transfer (Batch #${Math.floor(100 + Math.random() * 900)})` },
-        { type: 'PRICE_EDIT', text: `Batch Price & MRP Margin Recalculated` }
-      ];
-
-      const sample = demoActions[Math.floor(Math.random() * demoActions.length)];
-      const newAct: FleetActivityItem = {
-        id: `act_${Date.now()}`,
-        tenantId: 'tenant_main_pharmacy',
-        storeName: 'Inventra Central Pharmacy',
-        city: 'Lahore',
-        userName: Math.random() > 0.5 ? 'Bilal Cashier' : 'Dr. Kashif Ahmed',
-        userRole: Math.random() > 0.5 ? 'Cashier Terminal' : 'Primary Owner',
-        actionType: sample.type,
-        actionDetails: sample.text,
-        ipAddress: '182.185.24.11',
-        deviceInfo: 'Dell OptiPlex / Win 11 Pro',
-        timestamp: new Date().toISOString(),
-        relativeTime: 'Just now'
-      };
-
-      setActivities(prev => [newAct, ...prev.slice(0, 99)]);
-    }, 12000);
-
     return () => {
       if (eventSource) eventSource.close();
-      clearInterval(interval);
     };
   }, [isStreaming]);
 

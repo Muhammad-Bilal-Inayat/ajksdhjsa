@@ -7,7 +7,7 @@ import {
   HardDrive, Radio, Layers, Wifi, DollarSign, Search,
   Printer, Code2, BookOpen, TrendingUp, Archive, LockKeyhole,
   Download, Zap, HelpCircle, UserCheck, AlertTriangle, RotateCcw,
-  Sun, Moon, Menu, X, Sliders, ToggleLeft, ToggleRight, Check, Network
+  Sun, Moon, Menu, X, Sliders, ToggleLeft, ToggleRight, Check, Network, Cpu
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -39,6 +39,8 @@ import { StealthShadowModule } from '../components/server/StealthShadowModule';
 import { ServerGlobalSearch } from '../components/server/ServerGlobalSearch';
 import { LanMultiTerminalHub } from '../components/server/LanMultiTerminalHub';
 import { Master2faSettingsModal } from '../components/admin/Master2faSettingsModal';
+import { ManualTenantBackupRestoreHub } from '../components/server/ManualTenantBackupRestoreHub';
+import { AiControlTowerHealingHub } from '../components/server/AiControlTowerHealingHub';
 import { verifyTotpToken } from '../services/totpService';
 
 export type ServerTabKey = 
@@ -64,6 +66,7 @@ export type ServerTabKey =
   | 'developer_vault'
   | 'docs'
   | 'ai_forecasting'
+  | 'ai_control_tower'
   | 'backup_vault'
   | 'custom_domains';
 
@@ -94,7 +97,7 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'sync_health', label: 'Sync Health & 30-Day SLA', category: 'System & Sync', icon: Wifi, description: '30-day sync uptime percentage & ping diagnostics' },
   { id: 'cloud_health', label: 'Cloud Probes & Queue', category: 'System & Sync', icon: Server, description: 'MariaDB connection latency & queue health' },
   { id: 'storage', label: 'Disk Space & Partitions', category: 'System & Sync', icon: HardDrive, description: 'MariaDB mbi72dn storage usage & vacuuming' },
-  { id: 'backup_vault', label: 'Backup Vault & Disaster Recovery', category: 'System & Sync', icon: Archive, description: 'Midnight automated snapshots & 1-click disaster recovery' },
+  { id: 'backup_vault', label: 'Tenant Backups & Restore Hub', category: 'System & Sync', icon: Archive, description: 'Upload, manage & 1-click restore encrypted SQLite/IndexedDB backups for each company' },
 
   // 4. Commerce & CMS
   { id: 'database', label: 'Database & Catalog Seeder', category: 'Commerce & CMS', icon: Database, description: '15,000+ Pakistani pharma catalog & DDL migrations' },
@@ -103,6 +106,7 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'custom_domains', label: 'White-Label Domains', category: 'Commerce & CMS', icon: Layers, description: 'Map pharmacy subdomains & custom DNS' },
 
   // 5. Dev & Tools
+  { id: 'ai_control_tower', label: 'AI Self-Healing & Control Tower', category: 'Dev & Tools', icon: Cpu, description: 'Software monitoring engine, incident detection, AI log analysis & master-controlled 1-click repairs' },
   { id: 'ai_support', label: 'AI Support & Human Takeover', category: 'Dev & Tools', icon: Bot, description: 'Live client inquiries & AI bot assistance' },
   { id: 'developer_vault', label: 'Developer Vault & Patches', category: 'Dev & Tools', icon: Code2, description: 'System environment flags & hotpatch releases' },
   { id: 'ai_forecasting', label: 'AI Stock Forecasting', category: 'Dev & Tools', icon: TrendingUp, description: 'Predictive depletion speed & auto-reorder recommendations' },
@@ -555,6 +559,8 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
             </p>
           </div>
         );
+      case 'ai_control_tower':
+        return <AiControlTowerHealingHub onNotify={handleNotify} />;
       case 'backup_vault':
         return (
           <div className="space-y-6">
@@ -579,6 +585,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
                 <span>Run Midnight Backup Now</span>
               </button>
             </div>
+            <ManualTenantBackupRestoreHub onNotify={handleNotify} />
             <DatabaseDiagnosticsModule />
           </div>
         );

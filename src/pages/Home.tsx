@@ -55,7 +55,7 @@ export const Home: React.FC = () => {
   };
 
   return (
-    <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100">
+    <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 w-full max-w-full overflow-x-hidden">
       <PWAInstallBanner />
 
       {/* Floating WhatsApp Chat Button */}

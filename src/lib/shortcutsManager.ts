@@ -1,3 +1,5 @@
+import { PlanTier, normalizePlan, isPlanSufficient, getActiveTenantPlan } from '../utils/planPermissions';
+
 export interface ShortcutItem {
   id: string;
   name: string;
@@ -10,10 +12,11 @@ export interface ShortcutItem {
   eventName?: string;
   iconName?: string;
   editable?: boolean;
+  requiredPlan?: 'silver' | 'gold' | 'platinum';
 }
 
 export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
-  // --- SALE ---
+  // --- SALE (Silver Basic & All Plans) ---
   {
     id: 'sale-invoice',
     name: 'Add Sale Invoice',
@@ -24,7 +27,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/invoices?action=add',
     actionType: 'navigate',
     iconName: 'Receipt',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'payment-in',
@@ -36,7 +40,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/payment-in?action=add',
     actionType: 'navigate',
     iconName: 'ArrowDownLeft',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'sale-return',
@@ -48,7 +53,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/return?action=add',
     actionType: 'navigate',
     iconName: 'RotateCcw',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'sale-order',
@@ -60,7 +66,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/order?action=add',
     actionType: 'navigate',
     iconName: 'ShoppingCart',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'sale-estimate',
@@ -72,7 +79,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/estimate?action=add',
     actionType: 'navigate',
     iconName: 'FileText',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'delivery-challan',
@@ -84,7 +92,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/sale/challan?action=add',
     actionType: 'navigate',
     iconName: 'Truck',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'pos-quick-billing',
@@ -96,10 +105,11 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/billing',
     actionType: 'navigate',
     iconName: 'Zap',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
 
-  // --- QUICK PRIVATE TRANSACTION & SPECIAL ---
+  // --- QUICK PRIVATE TRANSACTION & SPECIAL (Gold Business & Enterprise) ---
   {
     id: 'quick-private-transaction',
     name: 'Quick Private Transaction Panel',
@@ -110,10 +120,11 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'open-quick-transaction-panel',
     iconName: 'Zap',
-    editable: true
+    editable: true,
+    requiredPlan: 'gold'
   },
 
-  // --- PURCHASE ---
+  // --- PURCHASE (Silver Basic & All Plans) ---
   {
     id: 'purchase-bill',
     name: 'Add Purchase Bill',
@@ -124,7 +135,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/purchase?action=add',
     actionType: 'navigate',
     iconName: 'PackagePlus',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'payment-out',
@@ -136,7 +148,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/purchase/payment-out?action=add',
     actionType: 'navigate',
     iconName: 'ArrowUpRight',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'purchase-return',
@@ -148,7 +161,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/purchase/return?action=add',
     actionType: 'navigate',
     iconName: 'RotateCcw',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'purchase-order',
@@ -160,10 +174,11 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/purchase/order?action=add',
     actionType: 'navigate',
     iconName: 'ClipboardList',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
 
-  // --- INVENTORY ---
+  // --- INVENTORY (Silver Basic & All Plans) ---
   {
     id: 'inventory-items',
     name: 'Inventory & Items Catalog',
@@ -174,19 +189,21 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/inventory',
     actionType: 'navigate',
     iconName: 'Package',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'barcode-generator',
     name: 'Barcode & QR Generator',
     description: 'Generate and print thermal barcode labels',
     category: 'inventory',
-    defaultKey: 'Alt + B',
-    currentKey: 'Alt + B',
+    defaultKey: 'Alt + C',
+    currentKey: 'Alt + C',
     path: '/utilities',
     actionType: 'navigate',
     iconName: 'Barcode',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'low-stock-alert',
@@ -198,10 +215,11 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/inventory',
     actionType: 'navigate',
     iconName: 'AlertTriangle',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
 
-  // --- ACCOUNTS & BANK ---
+  // --- ACCOUNTS & BANK (Silver Basic & All Plans) ---
   {
     id: 'expenses',
     name: 'Add Expense',
@@ -212,7 +230,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/expenses?action=add',
     actionType: 'navigate',
     iconName: 'Wallet',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'party-transfer',
@@ -224,7 +243,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/bank?action=transfer',
     actionType: 'navigate',
     iconName: 'Building2',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'cash-in-hand',
@@ -236,7 +256,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/cash-in-hand',
     actionType: 'navigate',
     iconName: 'Coins',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'cashier-shift',
@@ -248,7 +269,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'open-cashier-shift',
     iconName: 'Clock',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
 
   // --- PHARMACY SPECIALTY ---
@@ -262,31 +284,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/items',
     actionType: 'navigate',
     iconName: 'FileWarning',
-    editable: true
-  },
-  {
-    id: 'pharmacy-narcotics',
-    name: 'Narcotics Register (DRAP Form 8)',
-    description: 'Controlled medicines dispensation log & PMDC record',
-    category: 'pharmacy',
-    defaultKey: 'Alt + 2',
-    currentKey: 'Alt + 2',
-    path: '/items',
-    actionType: 'navigate',
-    iconName: 'ShieldAlert',
-    editable: true
-  },
-  {
-    id: 'pharmacy-chronic',
-    name: 'Chronic Patient Refills',
-    description: 'Diabetes & BP regular refill patient alerts',
-    category: 'pharmacy',
-    defaultKey: 'Alt + 3',
-    currentKey: 'Alt + 3',
-    path: '/items',
-    actionType: 'navigate',
-    iconName: 'HeartHandshake',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'pharmacy-returns',
@@ -298,7 +297,34 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/items',
     actionType: 'navigate',
     iconName: 'RotateCcw',
-    editable: true
+    editable: true,
+    requiredPlan: 'gold'
+  },
+  {
+    id: 'pharmacy-narcotics',
+    name: 'Narcotics Register (DRAP Form 8)',
+    description: 'Controlled medicines dispensation log & PMDC record',
+    category: 'pharmacy',
+    defaultKey: 'Alt + 2',
+    currentKey: 'Alt + 2',
+    path: '/items',
+    actionType: 'navigate',
+    iconName: 'ShieldAlert',
+    editable: true,
+    requiredPlan: 'platinum'
+  },
+  {
+    id: 'pharmacy-chronic',
+    name: 'Chronic Patient Refills',
+    description: 'Diabetes & BP regular refill patient alerts',
+    category: 'pharmacy',
+    defaultKey: 'Alt + 3',
+    currentKey: 'Alt + 3',
+    path: '/items',
+    actionType: 'navigate',
+    iconName: 'HeartHandshake',
+    editable: true,
+    requiredPlan: 'platinum'
   },
 
   // --- REPORTS ---
@@ -312,19 +338,21 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/reports?report=daybook',
     actionType: 'navigate',
     iconName: 'BookOpen',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'reports-profit-loss',
     name: 'Profit & Loss Statement',
     description: 'Real-time gross margin and net profit analysis',
     category: 'reports',
-    defaultKey: 'Alt + Q',
-    currentKey: 'Alt + Q',
+    defaultKey: 'Alt + M',
+    currentKey: 'Alt + M',
     path: '/reports?report=pnl',
     actionType: 'navigate',
     iconName: 'TrendingUp',
-    editable: true
+    editable: true,
+    requiredPlan: 'gold'
   },
   {
     id: 'reports-tax',
@@ -336,10 +364,11 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/reports?report=tax',
     actionType: 'navigate',
     iconName: 'FileSpreadsheet',
-    editable: true
+    editable: true,
+    requiredPlan: 'platinum'
   },
 
-  // --- SYSTEM & NAVIGATION ---
+  // --- SYSTEM & NAVIGATION (All Plans) ---
   {
     id: 'shortcuts-modal',
     name: 'Open Shortcuts & Action Hub',
@@ -350,7 +379,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'open-shortcuts-modal',
     iconName: 'Keyboard',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'universal-search',
@@ -362,7 +392,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'focus-global-search',
     iconName: 'Search',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'toggle-sidebar',
@@ -374,7 +405,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'toggle-sidebar-collapse',
     iconName: 'Menu',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'refresh-sync',
@@ -386,19 +418,21 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     actionType: 'event',
     eventName: 'trigger-cloud-sync',
     iconName: 'RefreshCw',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   },
   {
     id: 'server-live-monitor',
     name: 'Central Server Live Monitor',
     description: 'Real-time multi-user live feed and terminal monitor (/server)',
     category: 'system',
-    defaultKey: 'Alt + S',
-    currentKey: 'Alt + S',
+    defaultKey: 'Alt + V',
+    currentKey: 'Alt + V',
     path: '/server',
     actionType: 'navigate',
     iconName: 'Server',
-    editable: true
+    editable: true,
+    requiredPlan: 'platinum'
   },
   {
     id: 'user-normal-portal',
@@ -410,7 +444,8 @@ export const DEFAULT_SHORTCUTS: ShortcutItem[] = [
     path: '/user',
     actionType: 'navigate',
     iconName: 'User',
-    editable: true
+    editable: true,
+    requiredPlan: 'silver'
   }
 ];
 
@@ -430,6 +465,18 @@ export function getStoredShortcuts(): ShortcutItem[] {
     console.warn('Failed to parse custom shortcuts, using defaults', e);
     return DEFAULT_SHORTCUTS;
   }
+}
+
+/**
+ * Filter shortcuts according to the active tenant subscription plan
+ * Silver (Basic): Only basic standard daily pharmacy shortcuts
+ * Gold (Business): Basic + Gold features (Profit & Loss, Expiry Returns, Quick Private Tx)
+ * Platinum (Enterprise): Full system shortcuts including DRAP Narcotics, Chronic Refills, FBR Tax
+ */
+export function getPlanFilteredShortcuts(planTier?: string, tenantId?: string): ShortcutItem[] {
+  const allShortcuts = getStoredShortcuts();
+  const effectivePlan = planTier ? normalizePlan(planTier) : getActiveTenantPlan(tenantId);
+  return allShortcuts.filter(item => isPlanSufficient(effectivePlan, item.requiredPlan || 'silver'));
 }
 
 export function saveShortcutKey(id: string, newKey: string): ShortcutItem[] {

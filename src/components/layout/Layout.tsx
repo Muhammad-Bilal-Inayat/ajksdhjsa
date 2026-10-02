@@ -54,6 +54,7 @@ import {
   matchesKeyboardEvent, 
   executeShortcutAction 
 } from '../../lib/shortcutsManager';
+import { isPlanSufficient, getActiveTenantPlan } from '../../utils/planPermissions';
 import { useTransactionDock } from '../../contexts/TransactionDockContext';
 import { TransactionHostModalLayer } from './TransactionHostModalLayer';
 import { BroadcastAnnouncementModal } from '../common/BroadcastAnnouncementModal';
@@ -317,6 +318,11 @@ export const Layout: React.FC = () => {
       const matched = currentShortcuts.find(item => matchesKeyboardEvent(e, item.currentKey));
 
       if (matched) {
+        // Enforce plan permission before executing shortcut action
+        const activePlanTier = getActiveTenantPlan(tenantId);
+        if (matched.requiredPlan && !isPlanSufficient(activePlanTier, matched.requiredPlan)) {
+          return; // Block execution if plan does not permit this feature
+        }
         e.preventDefault();
         executeShortcutAction(matched, navigate);
         return;

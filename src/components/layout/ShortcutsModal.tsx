@@ -9,6 +9,8 @@ import {
   HeartHandshake, BookOpen, TrendingUp, FileSpreadsheet,
   Menu, RefreshCw, Layers
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { PlanTier, normalizePlan, isPlanSufficient, getActiveTenantPlan } from '../../utils/planPermissions';
 import { 
   ShortcutItem, 
   getStoredShortcuts, 
@@ -25,6 +27,9 @@ interface ShortcutsModalProps {
 
 export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
+  const { tenant, business, tenantId } = useAuth();
+  const currentPlan: PlanTier = tenant?.plan ? normalizePlan(tenant?.plan) : getActiveTenantPlan(tenantId);
+
   const [shortcuts, setShortcuts] = useState<ShortcutItem[]>(() => getStoredShortcuts());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -83,18 +88,21 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
   if (!isOpen) return null;
 
+  // Plan-wise filtered shortcuts (Zero mixing of unauthorized plan shortcuts)
+  const planAllowedShortcuts = shortcuts.filter(s => isPlanSufficient(currentPlan, s.requiredPlan || 'silver'));
+
   const categories = [
-    { id: 'all', label: 'All Shortcuts', count: shortcuts.length },
-    { id: 'sale', label: 'Sales & Billing', count: shortcuts.filter(s => s.category === 'sale').length },
-    { id: 'purchase', label: 'Purchases', count: shortcuts.filter(s => s.category === 'purchase').length },
-    { id: 'inventory', label: 'Stock & Items', count: shortcuts.filter(s => s.category === 'inventory').length },
-    { id: 'accounts', label: 'Cash & Accounts', count: shortcuts.filter(s => s.category === 'accounts').length },
-    { id: 'pharmacy', label: 'Pharmacy Registers', count: shortcuts.filter(s => s.category === 'pharmacy').length },
-    { id: 'reports', label: 'Reports', count: shortcuts.filter(s => s.category === 'reports').length },
-    { id: 'system', label: 'System & Tools', count: shortcuts.filter(s => s.category === 'system').length }
+    { id: 'all', label: 'All Shortcuts', count: planAllowedShortcuts.length },
+    { id: 'sale', label: 'Sales & Billing', count: planAllowedShortcuts.filter(s => s.category === 'sale').length },
+    { id: 'purchase', label: 'Purchases', count: planAllowedShortcuts.filter(s => s.category === 'purchase').length },
+    { id: 'inventory', label: 'Stock & Items', count: planAllowedShortcuts.filter(s => s.category === 'inventory').length },
+    { id: 'accounts', label: 'Cash & Accounts', count: planAllowedShortcuts.filter(s => s.category === 'accounts').length },
+    { id: 'pharmacy', label: 'Pharmacy Specialty', count: planAllowedShortcuts.filter(s => s.category === 'pharmacy').length },
+    { id: 'reports', label: 'Reports', count: planAllowedShortcuts.filter(s => s.category === 'reports').length },
+    { id: 'system', label: 'System & Tools', count: planAllowedShortcuts.filter(s => s.category === 'system').length }
   ];
 
-  const filteredShortcuts = shortcuts.filter(s => {
+  const filteredShortcuts = planAllowedShortcuts.filter(s => {
     const matchesCat = selectedCategory === 'all' || s.category === selectedCategory;
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch = !q || 
@@ -184,7 +192,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full my-auto shadow-2xl border border-slate-200 flex flex-col max-h-[92vh] text-slate-800 animate-in zoom-in-95 duration-150 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full my-auto shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] text-slate-800 dark:text-slate-100 animate-in zoom-in-95 duration-150 overflow-hidden">
         
         {/* Top Header */}
         <div className="px-5 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between shrink-0">
@@ -193,14 +201,17 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
               <Keyboard className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-black text-white text-base tracking-tight">Keyboard Shortcuts Hub</h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/30 text-blue-300 border border-blue-400/30">
                   Fully Editable & Live
                 </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  {currentPlan === 'platinum' ? '💎 Enterprise (All Keys Active)' : currentPlan === 'gold' ? '🥇 Business (Pro Keys Active)' : '🥈 Basic (Essential Keys Active)'}
+                </span>
               </div>
               <p className="text-xs text-slate-400">
-                Press any combination to open views instantly or customize keybindings to match your workflow
+                Press any combination to open views instantly or customize keybindings to match your pharmacy workflow
               </p>
             </div>
           </div>
@@ -226,14 +237,14 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
 
         {/* Live Notification Bar if any shortcut updated */}
         {saveSuccessMsg && (
-          <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="px-5 py-2.5 bg-emerald-50 dark:bg-emerald-950/60 border-b border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{saveSuccessMsg}</span>
           </div>
         )}
 
         {/* Search and Category Filters */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3 shrink-0">
+        <div className="p-4 bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 space-y-3 shrink-0">
           <div className="flex flex-col sm:flex-row items-center gap-3">
             {/* Search Input */}
             <div className="relative flex-1 w-full">
@@ -243,13 +254,13 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search shortcuts (e.g. Sale, Invoice, F2, Barcode, Daybook, Alt+S)..."
-                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-2xs"
                 autoFocus
               />
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -257,9 +268,9 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
             </div>
 
             {/* Quick Action Badge */}
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 shadow-2xs shrink-0">
-              <span className="font-semibold text-slate-500">Open this modal anytime:</span>
-              <kbd className="px-2 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-800 text-[11px]">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-600 dark:text-slate-300 shadow-2xs shrink-0">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Open this modal anytime:</span>
+              <kbd className="px-2 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded font-mono font-bold text-slate-800 dark:text-slate-200 text-[11px]">
                 Ctrl + Enter
               </kbd>
             </div>
@@ -274,12 +285,12 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                 className={`px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   selectedCategory === cat.id
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-200/80 border border-slate-200'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
                 }`}
               >
                 <span>{cat.label}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  selectedCategory === cat.id ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-500'
+                  selectedCategory === cat.id ? 'bg-blue-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
                 }`}>
                   {cat.count}
                 </span>
@@ -289,29 +300,29 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Modal Body / Shortcut List */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 bg-[#f8fafc]">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 bg-[#f8fafc] dark:bg-slate-950/60">
           {/* Active Editing / Key Recorder Banner */}
           {editingItem && (
             <div 
               ref={keyRecorderRef}
-              className="p-4 bg-blue-50 border-2 border-blue-500 rounded-2xl shadow-md space-y-3 animate-in slide-in-from-top-3"
+              className="p-4 bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-500 rounded-2xl shadow-md space-y-3 animate-in slide-in-from-top-3"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-950 font-black text-sm">
-                  <Edit3 className="w-4 h-4 text-blue-600" />
+                <div className="flex items-center gap-2 text-blue-950 dark:text-blue-100 font-black text-sm">
+                  <Edit3 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>Customize Key Combination for: <span className="underline decoration-blue-400">{editingItem.name}</span></span>
                 </div>
                 <button
                   onClick={() => { setEditingItem(null); setIsRecording(false); }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-blue-100"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-blue-100 dark:hover:bg-blue-900"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-blue-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left space-y-0.5">
-                  <p className="text-xs text-slate-500 font-semibold">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                     {isRecording ? '🎧 Listening to your keyboard... Press your new key combination now!' : 'Key captured:'}
                   </p>
                   <div className="flex items-center gap-2">
@@ -319,7 +330,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                       {recordedKey || 'Press any Key (e.g. F3, Alt+W, Ctrl+J)...'}
                     </kbd>
                     {recordedKey !== editingItem.defaultKey && (
-                      <span className="text-[11px] text-slate-500 font-medium">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                         (Default: {editingItem.defaultKey})
                       </span>
                     )}
@@ -329,7 +340,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => setRecordedKey(editingItem.defaultKey)}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                     title="Restore default key"
                   >
                     Reset to Default
@@ -348,14 +359,14 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
           )}
 
           {filteredShortcuts.length === 0 ? (
-            <div className="py-12 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-8">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <div className="py-12 text-center space-y-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+              <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
                 <AlertCircle className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-slate-700">No shortcuts found matching "{searchQuery}"</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">No shortcuts found matching "{searchQuery}"</p>
               <button
                 onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
-                className="px-4 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors"
+                className="px-4 py-1.5 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors cursor-pointer"
               >
                 Clear Search Filter
               </button>
@@ -364,30 +375,47 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {filteredShortcuts.map((item) => {
                 const isCustom = item.currentKey !== item.defaultKey;
+                const itemPlan = item.requiredPlan || 'silver';
+
                 return (
                   <div
                     key={item.id}
-                    className={`bg-white rounded-xl border transition-all p-3 flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs hover:border-blue-300 group ${
-                      editingItem?.id === item.id ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50/30' : 'border-slate-200'
+                    className={`bg-white dark:bg-slate-900 rounded-xl border transition-all p-3 flex items-center justify-between gap-3 shadow-2xs hover:shadow-xs hover:border-blue-300 dark:hover:border-blue-500 group ${
+                      editingItem?.id === item.id 
+                        ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-900 bg-blue-50/30 dark:bg-blue-950/20' 
+                        : 'border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 shrink-0 group-hover:bg-blue-50 transition-colors">
+                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/50 transition-colors">
                         {renderIcon(item.iconName)}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-slate-900 text-xs truncate">
+                          <h4 className="font-bold text-slate-900 dark:text-white text-xs truncate">
                             {item.name}
                           </h4>
+                          {itemPlan === 'platinum' ? (
+                            <span className="px-1.5 py-0.2 bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 text-[9px] font-bold rounded border border-purple-200 dark:border-purple-800">
+                              Enterprise
+                            </span>
+                          ) : itemPlan === 'gold' ? (
+                            <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 text-[9px] font-bold rounded border border-amber-200 dark:border-amber-800">
+                              Business
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-bold rounded border border-slate-200 dark:border-slate-700">
+                              Basic
+                            </span>
+                          )}
                           {isCustom && (
                             <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-black rounded border border-amber-300">
                               Custom
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 line-clamp-1">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
                           {item.description}
                         </p>
                       </div>
@@ -400,8 +428,8 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                         onClick={() => handleStartEdit(item)}
                         className={`px-2.5 py-1 rounded-lg font-mono font-black text-xs border shadow-2xs cursor-pointer select-none transition-all flex items-center gap-1 ${
                           isCustom 
-                            ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100' 
-                            : 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200 hover:border-blue-400'
+                            ? 'bg-amber-50 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 hover:bg-amber-100' 
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:border-blue-400'
                         }`}
                         title="Click to edit shortcut key combination"
                       >
@@ -412,7 +440,7 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
                       {/* Quick Execute Button */}
                       <button
                         onClick={() => handleExecute(item)}
-                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-blue-600 text-slate-600 hover:text-white border border-slate-200 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 dark:hover:bg-blue-600 text-slate-600 dark:text-slate-300 hover:text-white dark:hover:text-white border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
                         title={`Open ${item.name} now`}
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
@@ -426,9 +454,9 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Footer Bar */}
-        <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-2 text-slate-500">
-            <Info className="w-4 h-4 text-blue-600 shrink-0" />
+        <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <span>
               Click any key combination to edit. All shortcuts are saved locally and persist across browser sessions.
             </span>
@@ -437,13 +465,13 @@ export const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               onClick={handleResetAll}
-              className="sm:hidden px-3 py-1.5 text-slate-600 hover:text-slate-900 font-semibold"
+              className="sm:hidden px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 font-semibold"
             >
               Reset All
             </button>
             <button
               onClick={onClose}
-              className="w-full sm:w-auto px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-bold shadow-xs transition-colors cursor-pointer"
             >
               Close Hub (Esc)
             </button>

@@ -202,9 +202,50 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Action Controls & Quick Buttons */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
+          {/* Quick Action Buttons: Sale & Purchase (Visible ONLY on Tablet, Laptop, PC - Strictly Hidden on Mobile) */}
+          {!isServerRoute && (
+            <div className="hidden md:flex items-center gap-1.5 sm:gap-2 mr-1">
+              {canSale && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (openTransaction) {
+                      openTransaction('Sale');
+                    } else {
+                      navigate('/sale/invoices?action=add');
+                    }
+                  }}
+                  className="px-3 sm:px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-black rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none"
+                  title="Create New Sale Invoice (Alt + S)"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>Sale</span>
+                  <kbd className="hidden lg:inline-block px-1 py-0.2 bg-white/20 text-white text-[9px] font-mono font-bold rounded">Alt+S</kbd>
+                </button>
+              )}
 
+              {canPurchase && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (openTransaction) {
+                      openTransaction('Purchase');
+                    } else {
+                      navigate('/purchase?action=add');
+                    }
+                  }}
+                  className="px-3 sm:px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white dark:text-slate-100 border border-slate-700/60 dark:border-slate-600 text-xs font-black rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none"
+                  title="Create New Purchase Bill (Alt + B)"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3] text-blue-400" />
+                  <span>Purchase</span>
+                  <kbd className="hidden lg:inline-block px-1 py-0.2 bg-white/10 dark:bg-slate-900 text-slate-300 text-[9px] font-mono font-bold rounded border border-white/10">Alt+B</kbd>
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-1 sm:gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
             {/* Cashier Shift Live Reconcile (Controlled live by Settings -> Application -> Show Shift Timer Button) */}

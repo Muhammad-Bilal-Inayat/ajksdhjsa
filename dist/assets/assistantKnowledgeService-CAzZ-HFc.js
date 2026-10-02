@@ -1,0 +1,70 @@
+var y=Object.defineProperty,k=Object.defineProperties;var S=Object.getOwnPropertyDescriptors;var h=Object.getOwnPropertySymbols;var b=Object.prototype.hasOwnProperty,w=Object.prototype.propertyIsEnumerable;var p=(i,a,t)=>a in i?y(i,a,{enumerable:!0,configurable:!0,writable:!0,value:t}):i[a]=t,m=(i,a)=>{for(var t in a||(a={}))b.call(a,t)&&p(i,t,a[t]);if(h)for(var t of h(a))w.call(a,t)&&p(i,t,a[t]);return i},f=(i,a)=>k(i,S(a));var l=(i,a,t)=>new Promise((e,n)=>{var s=r=>{try{o(t.next(r))}catch(c){n(c)}},g=r=>{try{o(t.throw(r))}catch(c){n(c)}},o=r=>r.done?e(r.value):Promise.resolve(r.value).then(s,g);o((t=t.apply(i,a)).next())});import"./app.js";function P(i,a,t){const e=(i||"Trial").toLowerCase();if(typeof window!="undefined")try{if(a){const n=localStorage.getItem(`mbi_ai_override_limit_${a}`);if(n){const s=parseInt(n,10);if(!isNaN(s)&&s>0)return{planName:"Custom Overridden Limit",dailyMessageLimit:s,hasAdvancedModules:!0}}}if(t){const n=localStorage.getItem(`mbi_ai_override_limit_${t}`);if(n){const s=parseInt(n,10);if(!isNaN(s)&&s>0)return{planName:"Tenant Custom Limit",dailyMessageLimit:s,hasAdvancedModules:!0}}}}catch(n){}return e.includes("enterprise")||e.includes("platinum")||e.includes("vip")?{planName:"Enterprise (Platinum)",dailyMessageLimit:200,hasAdvancedModules:!0}:e.includes("business")||e.includes("gold")?{planName:"Business (Gold)",dailyMessageLimit:50,hasAdvancedModules:!0}:{planName:e.includes("basic")||e.includes("silver")?"Basic (Silver)":"Free Trial",dailyMessageLimit:20,hasAdvancedModules:!0}}function u(i){const a=new Date().toISOString().slice(0,10);return`mbi_ai_usage_${i||d()}_${a}`}function d(){if(typeof window=="undefined")return"guest_default";let i=localStorage.getItem("mbi_ai_guest_id");return i||(i=`guest_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,localStorage.setItem("mbi_ai_guest_id",i)),i}function v(i){if(typeof window=="undefined")return 0;try{const a=u(i||d()),t=parseInt(localStorage.getItem(a)||"0",10);return isNaN(t)?0:t}catch(a){return 0}}function C(i){if(typeof window=="undefined")return 1;try{const a=u(i||d()),t=v(i)+1;return localStorage.setItem(a,t.toString()),t}catch(a){return 1}}function R(i){if(typeof window!="undefined")try{const a=u(i);localStorage.removeItem(a),window.dispatchEvent(new CustomEvent("mbi-ai-quota-updated",{detail:{userId:i,count:0}}))}catch(a){}}function B(i,a){if(typeof window!="undefined")try{localStorage.setItem(`mbi_ai_override_limit_${i}`,a.toString()),window.dispatchEvent(new CustomEvent("mbi-ai-quota-updated",{detail:{userId:i,customLimit:a}}))}catch(t){}}function E(i){const a=i.toLowerCase();return["human","team","rabta","agent","support","call me","talk to person","customer care","representative","owner","admin se baat","contact team","helpline","whatsapp support","bilal","help me live","call back","phone number","support person","helpdesk"].some(e=>a.includes(e))}function N(i){return l(this,null,function*(){try{const a="mbi_ai_local_clicks_v1",t=JSON.parse(localStorage.getItem(a)||"[]");t.unshift(f(m({},i),{id:`clk_${Date.now()}`,timestamp:new Date().toISOString()})),localStorage.setItem(a,JSON.stringify(t.slice(0,100))),window.dispatchEvent(new CustomEvent("mbi-ai-click-recorded",{detail:i}))}catch(a){}try{yield fetch("/api/ai/telemetry/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(i)}).catch(()=>{})}catch(a){}})}function O(i,a){return l(this,null,function*(){try{const t=new URLSearchParams({userId:(a==null?void 0:a.userId)||"usr_client",userName:(a==null?void 0:a.userName)||"Pharmacist",storeName:(a==null?void 0:a.storeName)||"Pharmacy Store",tenantId:(a==null?void 0:a.tenantId)||"tenant-01",plan:(a==null?void 0:a.plan)||"business",pageContext:(a==null?void 0:a.pageContext)||"user"}).toString(),e=yield fetch(`/api/ai/chat/sessions/${i}?${t}`);if(e.ok)return(yield e.json()).session||null}catch(t){console.warn("Could not fetch live chat session from server:",t)}return null})}function _(i){return l(this,null,function*(){var a;try{const t=yield fetch(`/api/ai/chat/sessions/${i.sessionId}/message`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sender:i.sender||"user",senderName:i.senderName||"User",text:i.text,isEscalation:i.isEscalation||!1,userMeta:i.userMeta,autoAiReply:(a=i.autoAiReply)!=null?a:!0})});if(t.ok){const e=yield t.json();return{session:e.session||null,userMessage:e.userMessage||e.message,aiMessage:e.aiMessage}}}catch(t){console.warn("Error sending live chat message:",t)}return{session:null}})}function x(i,a,t="user"){const e=i.toLowerCase();if(E(e)||e.includes("call")||e.includes("phone")||e.includes("whatsapp")||e.includes("rabta"))return{text:`📞 **MBI Live Support Desk Connected**
+
+Shukriya! Maine aapki request Central Support Desk (+92 328 1302636) ko forward kar di hai. Hamare representative live chat mein ya WhatsApp par aapse rabta karenge. Direct helpline: **0336-4585863**.`,isHumanEscalation:!0,requiresUpgrade:!1};if(t==="server"){if(e.includes("hwid")||e.includes("reset")||e.includes("license"))return{text:`🛡️ **Master HWID Reset & Disaster Recovery**:
+- **1-Click Reset**: Master panel se tenant ke liye HWID reset trigger karein.
+- **New PC Binding**: Naye system par License key enter hotay hi naya HWID bind ho jayega.
+- **Restore**: Raat 12:00 AM ka latest encrypted backup 1 click mein restore ho jata hai!`,isHumanEscalation:!1,requiresUpgrade:!1};if(e.includes("backup")||e.includes("midnight")||e.includes("12:00")||e.includes("sqlite")||e.includes("vault"))return{text:"🏢 **SQLite Tenant Vaults & 12:00 AM Backups**:\n- Har tenant ka private SQLite Vault (`tenant_[id].sqlite`) 100% physically isolated hai.\n- Rozana raat 12:00 AM par automated encrypted snapshot generate hota hai.",isHumanEscalation:!1,requiresUpgrade:!1}}return e.includes("price")||e.includes("plan")||e.includes("cost")||e.includes("subscription")||e.includes("kitne")||e.includes("package")||e.includes("rate")||e.includes("lifetime")?{text:`💳 **MBI INVENTRA — Transparent Official Pricing & Plans**:
+
+- 🥈 **Silver Basic:**
+  • **Monthly:** Rs. 1,999 /mo
+  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*
+  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950
+  • *Includes: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*
+
+- 🥇 **Gold Business ⭐ (Most Popular):**
+  • **Monthly:** Rs. 3,999 /mo
+  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*
+  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950
+  • *Includes: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*
+
+- 💎 **Platinum Enterprise (Best Enterprise Value):**
+  • **Monthly:** Rs. 6,999 /mo
+  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*
+  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950
+  • *Includes: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*
+
+📞 *Note: Custom multi-branch or dedicated lifetime/on-premise licenses ke liye Master Support (+92 328 1302636) par rabta karein.*
+
+🎁 **10-Day Free Trial Available:** Rs. 0 (Instant setup, no credit card required)!`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("bary me batao")||e.includes("kaisa hai")||e.includes("kya hai")||e.includes("software")||e.includes("overview")||e.includes("features")||e.includes("kia kia")||e.includes("kya kya")||e.includes("kar sakty ho")?{text:`✨ **Assalam-o-Alaikum! MBI INVENTRA Pharmacy ERP me Khush Amdeed!**
+
+**MBI INVENTRA** Pakistan ka sab se modern aur fastest Enterprise Pharmacy POS & ERP Software hai:
+
+1. ⚡ **0.2-Second Fast POS Billing:** Rush hours mein \`Alt+S\` aur \`F2\` se instant bill banayein aur 80mm/58mm thermal receipts print karein.
+2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.
+3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke 18-22% margin protect karein.
+4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.
+5. 💊 **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.
+6. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.
+
+Abhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("shift")||e.includes("cashier closing")||e.includes("drawer")||e.includes("reconciliation")?{text:`✅ **Shift Management & Cashier Closing Guide**:
+
+1. Left sidebar se **Shift Management** par jayein ya Alt+M press karein.
+2. **Open Shift**: Shift shuru karne ke waqt drawer mein mojood initial cash darj karein.
+3. **Active Billing**: Cashier ki har transaction auto-record hoti rahegi.
+4. **Close Shift**: Day-end par physical cash count likhein. System auto-calculate karega agar koi cash short ya surplus ho!`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("cloud sync")||e.includes("multi branch")||e.includes("inter store")||e.includes("inventory sync")?{text:`✅ **Inventory Cloud Sync & Multi-Branch Guide**:
+
+1. MBI Inventra **0-latency high-speed cloud sync** background mein chalta hai.
+2. Ek branch se stock transfer hone par doosri branch par auto-update ho jata hai.
+3. Sync status dekhne ke liye top navigation bar par **Sync Indicator** check karein.`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("bill")||e.includes("pos")||e.includes("f2")||e.includes("sale")||e.includes("thermal")||e.includes("print")||e.includes("shortcut")?{text:`🧾 **POS Billing & Thermal Prints (MBI Inventra)**:
+- **Alt+S**: New Sale Bill open karta hai.
+- **F2 Shortcut**: Instant medicine search window open karta hai. Barcode scan karein ya naam type karein.
+- **Thermal Prints**: 58mm aur 80mm ESC/POS printers auto-detect hotay hain.
+- **WhatsApp Invoice**: Bill save hotay hi customer ke WhatsApp number par 1-click PDF receipt chali jati hai.`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("expiry")||e.includes("fefo")||e.includes("batch")||e.includes("stock")||e.includes("item")||e.includes("medicine")?{text:`📦 **Smart Inventory & Batch Expiry (FEFO Engine)**:
+- **FEFO Logic**: System billing ke waqt automatically pehle expire hone wala batch deduct karta hai.
+- **Expiry Badges**: 30 din mein expire hone wali medicines Red, aur 90 din wali Yellow alert show karti hain.
+- **Shortage Registry**: Jo item customer maange aur stock mein na ho, system auto-record karke Purchase Order generate kar deta hai.`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("udhaar")||e.includes("ledger")||e.includes("party")||e.includes("customer")||e.includes("supplier")||e.includes("khata")?{text:`📒 **Customer & Supplier Ledgers (Double-Entry Accounting)**:
+- **Customer Khata**: Sale bill banatay waqt customer select karein. Balance Due ledger mein auto-add ho jayega.
+- **Payment In / Out**: Cash received ya supplier payment record karne ke liye **Bank & Cash in Hand** module use karein.
+- **WhatsApp Statement**: Customer ledger statement 1 click mein WhatsApp par share karein.`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("backup")||e.includes("offline")||e.includes("internet")||e.includes("data")?{text:`🛡️ **Offline Engine & Encrypted Backups**:
+- **100% Offline Mode**: Internet band hone par bhi billing aur scanning 0-second speed se chalti rehti hai.
+- **Auto Cloud Backup**: Har 15 minute baad background encrypted snapshot server par save hota hai.
+- **Manual Export**: Settings > Utilities se full JSON/Excel backup download kar sakte hain.`,isHumanEscalation:!1,requiresUpgrade:!1}:e.includes("user")||e.includes("dashboard")||e.includes("portal")||e.includes("role")||e.includes("pin")||e.includes("staff")?{text:`👤 **User Portal & Dashboard Controls**:
+- **Quick Metrics**: Top dashboard par Today Sales, Gross Profit, Total Stock Value aur Low Stock Items live show hotay hain.
+- **Staff PINs**: Cashiers aur managers ke liye 4-digit PIN set karein taake unauthorized discount ya bill deletion block ho sake.
+- **Master Control**: Admin /server se kisi bhi staff member ko live control aur permissions assign kar sakta hai.`,isHumanEscalation:!1,requiresUpgrade:!1}:{text:`Main MBI INVENTRA AI Guide hoon aur main sirf MBI Inventra Pharmacy ERP Software, User Dashboard, POS Billing, Inventory, Ledgers, aur Home Page features ke baare mein madad kar sakta hoon.
+
+Aap pooch sakte hain:
+- POS Billing aur F2 shortcut kaise use karein?
+- Batch expiry aur FEFO deduction kaise kaam karta hai?
+- Shift Management aur Cashier closing kaise karein?
+- Transparent Pricing Plans aur 10-Day Free Trial ke baare mein janiye!`,isHumanEscalation:!1,requiresUpgrade:!1}}export{P as a,_ as b,x as c,O as f,v as g,C as i,R as r,B as s,N as t};

@@ -47,7 +47,14 @@ export const MbiAiAssistant: React.FC = () => {
 
           {/* Badge Container */}
           <div className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-xl border border-white/20 backdrop-blur-md transition-all">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow" />
+            <div className="w-4 h-4 rounded-full bg-white/20 p-0.5 flex items-center justify-center shrink-0 overflow-hidden">
+              <img 
+                src="/mbi-favicon.png" 
+                alt="MBI" 
+                className="w-full h-full object-contain" 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} 
+              />
+            </div>
             <span className="tracking-wide font-black">MBI AI</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
           </div>

@@ -117,13 +117,15 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
   const isServerRoute = location.pathname.startsWith('/server') || location.pathname.startsWith('/master');
+  const isHomeScope = !isServerRoute && (isHomePage || !currentUser || location.pathname === '/' || location.pathname.startsWith('/home') || location.pathname.startsWith('/pricing') || location.pathname.startsWith('/features') || location.pathname.startsWith('/reviews') || location.pathname.startsWith('/faq') || location.pathname.startsWith('/blog') || location.pathname.startsWith('/store'));
+  const isHomeContext = isHomeScope;
   const pharmacyName = business?.name || tenant?.name || 'My Pharmacy';
   const userFullName = currentUser?.name || (currentUser as any)?.displayName || 'Pharmacy Owner';
   const userPhoneAddress = (currentUser as any)?.phone || business?.mobile || business?.phone || '';
 
   // 15 Free Questions session tracker for Home Page / Public Visitor
   const [questionsUsed, setQuestionsUsed] = useState<number>(() => {
-    if (!isHomePage || currentUser) return 0;
+    if (!isHomeScope || currentUser) return 0;
     try {
       const stored = localStorage.getItem('mbi_home_ai_questions_count');
       return stored ? parseInt(stored, 10) : 0;
@@ -133,7 +135,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   });
 
   const remainingQuestions = Math.max(0, MAX_HOME_QUESTIONS - questionsUsed);
-  const isLimitReached = isHomePage && !currentUser && remainingQuestions <= 0;
+  const isLimitReached = isHomeScope && !currentUser && remainingQuestions <= 0;
 
   // Initial welcome message based on context
   const getInitialMessage = (): ChatMessage => {
@@ -146,11 +148,11 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       };
     }
 
-    if (isHomePage && !currentUser) {
+    if (isHomeScope) {
       return {
         id: 'welcome-msg-home',
         sender: 'ai',
-        text: `✨ **Assalam-o-Alaikum! Welcome to MBI Inventra AI Copilot.**\n\nI am your intelligent Pharmacy POS & ERP assistant. You can ask up to **15 free questions** about generic medicine formulas, FEFO expiry calculations, POS billing shortcuts, or cloud sync.\n\nHow can I help you today?`,
+        text: `✨ **Assalam-o-Alaikum! Welcome to MBI Inventra AI Copilot.**\n\nI am your intelligent Pharmacy POS & ERP assistant. You can ask up to **15 free questions** about official pricing plans, 10-day free trial, generic medicine formulas, FEFO expiry calculations, POS billing shortcuts, or 100% offline desktop sync.\n\nHow can I help you today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
     }
@@ -164,7 +166,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const storageKey = isHomePage && !currentUser 
+    const storageKey = isHomeScope 
       ? 'mbi_ai_chat_home' 
       : `mbi_ai_chat_${isServerRoute ? 'server' : 'user'}`;
     
@@ -199,12 +201,12 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   // Persist messages in localStorage
   useEffect(() => {
     try {
-      const storageKey = isHomePage && !currentUser 
+      const storageKey = isHomeScope 
         ? 'mbi_ai_chat_home' 
         : `mbi_ai_chat_${isServerRoute ? 'server' : 'user'}`;
       localStorage.setItem(storageKey, JSON.stringify(messages.slice(-30)));
     } catch (e) {}
-  }, [messages, isServerRoute, isHomePage, currentUser]);
+  }, [messages, isServerRoute, isHomeScope, currentUser]);
 
   const handleCopy = (text: string, id: string) => {
     if (navigator?.clipboard) {
@@ -286,7 +288,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
         lower.includes('lifetime') || lower.includes('fees') || lower.includes('kharid') ||
         lower.includes('buy') || query.includes('قیمت') || query.includes('پیکیج')
       ) {
-        return `💳 **MBI INVENTRA — Transparent Official Pricing & Plans**\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Capacity: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Capacity: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Capacity: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n🎁 **10-Day Free Trial Available:** Start today with Rs. 0!`;
+        return `💳 **MBI INVENTRA — Transparent Official Pricing & Plans**\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Capacity: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Capacity: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Capacity: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n*📞 Note: Custom multi-branch or dedicated on-premise solutions ke liye Master Helpline (+92 328 1302636) par rabta karein.*\n\n🎁 **10-Day Free Trial Available:** Start today with Rs. 0!`;
       }
 
       // Free Trial & Demo
@@ -301,19 +303,11 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
       // FEFO Expiry
       if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('nuqsan') || lower.includes('expire') || query.includes('ایکسپائری')) {
-        return `⏰ **FEFO (First-Expiry First-Out) Smart Profit Radar**\n\n- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.\n- **30/60/90 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.\n- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
+        return `⏰ **FEFO (First-Expiry First-Out) Smart Profit Radar**\n\n- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.\n- **30/60/90/180 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.\n- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
       }
 
-      // Software Overview / Introduction (Multilingual Roman Urdu / Urdu / English)
-      if (
-        lower.includes('bary me batao') || lower.includes('kaisa hai') || lower.includes('kya hai') || 
-        lower.includes('feature') || lower.includes('overview') || lower.includes('intro') || 
-        lower.includes('detail') || lower.includes('software') || lower.includes('salam') || 
-        lower.includes('assalam') || lower.includes('hello') || lower.includes('hi') ||
-        query.includes('سافٹ ویئر') || query.includes('تعارف') || query.includes('معلومات')
-      ) {
-        return `✨ **Assalam-o-Alaikum! MBI INVENTRA Pharmacy ERP me Khush Amdeed!**\n\n**MBI INVENTRA** Pakistan ka sab se modern aur fastest Enterprise Pharmacy POS & ERP Software hai:\n\n1. ⚡ **0.2-Second Fast Billing:** Rush hours mein \`Alt+S\` aur \`F2\` se instant bill banayein.\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur thermal printing chalti hai.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke munafa mehfooz karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp receipt ke sath.\n5. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo (Annual discounts available).\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
-      }
+      // Software Overview / What Can You Do / Capabilities (Multilingual Roman Urdu / Urdu / English)
+      return `✨ **Assalam-o-Alaikum! Main MBI INVENTRA AI Copilot hoon.**\n\nMain MBI INVENTRA Enterprise Pharmacy POS & ERP Software ke baare mein aapki mukammal rehnumai kar sakta hoon:\n\n1. ⚡ **0.2s Ultra-Fast POS Billing:** Barcode scanning aur 80mm/58mm thermal receipts (\`Alt+S\` / \`F2\`).\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.\n3. ⏰ **FEFO Smart Expiry Radar:** 30/60/90/180 days batch expiry alerts taake expiry loss khatam ho.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.\n5. 💊 **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.\n6. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Gold Business Rs 3,999/mo | Platinum Enterprise Rs 6,999/mo.\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
     }
 
     // 4. USER CONTEXT (Active Pharmacy Workspace)
@@ -370,7 +364,9 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     if (isLimitReached) return;
 
     // Check Home page 15-question limit
-    if (isHomePage && !currentUser) {
+    const isHomeContext = !isServerRoute && (isHomePage || !currentUser || location.pathname === '/' || location.pathname.startsWith('/home') || location.pathname.startsWith('/pricing') || location.pathname.startsWith('/features') || location.pathname.startsWith('/reviews') || location.pathname.startsWith('/faq') || location.pathname.startsWith('/blog') || location.pathname.startsWith('/store'));
+
+    if (isHomeContext) {
       const nextCount = questionsUsed + 1;
       setQuestionsUsed(nextCount);
       try {
@@ -417,7 +413,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
     const activeContext: 'home' | 'user' | 'server' = isServerRoute 
       ? 'server' 
-      : (isHomePage && !currentUser ? 'home' : 'user');
+      : (isHomeContext ? 'home' : 'user');
 
     try {
       // 1. Try Backend API with 3.5s fast timeout
@@ -510,7 +506,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   // 1-Click Interactive Quick Action Chips (Context Separated)
   const homePromptChips = [
     { label: '📞 WhatsApp Demo', prompt: 'Human Support', isAction: true },
-    { label: '💳 Lifetime Pricing & Trial', prompt: 'What are the lifetime pricing packages and 10-day free trial details of MBI Inventra?' },
+    { label: '💳 Pricing Plans & 10-Day Trial', prompt: 'What are the official pricing packages and 10-day free trial details of MBI Inventra?' },
     { label: '⚡ 0.2s POS & 100% Offline', prompt: 'How fast is MBI Inventra POS billing and how does it work 100% offline without internet?' },
     { label: '⏰ FEFO Expiry Radar', prompt: 'Explain how 30/60/90 days FEFO batch expiry alerts protect pharmacy profits.' },
     { label: '💊 Generic Medicine Finder', prompt: 'What is the generic salt formula and alternative brands for Augmentin 625mg in Pakistan?' },
@@ -533,7 +529,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
   const activeChips = isServerRoute 
     ? serverPromptChips 
-    : (isHomePage && !currentUser ? homePromptChips : userPromptChips);
+    : (isHomeContext ? homePromptChips : userPromptChips);
 
   return (
     <>
@@ -550,8 +546,13 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
         {/* Sleek Floating Header */}
         <div className="h-16 flex items-center justify-between px-4 sm:px-5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-900/90 shrink-0 select-none">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs">
-              <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs overflow-hidden p-1">
+              <img 
+                src="/mbi-favicon.png" 
+                alt="MBI" 
+                className="w-full h-full object-contain" 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} 
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -628,8 +629,13 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
                 className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'} animate-in fade-in`}
               >
                 {!isUser && (
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
-                    <Bot className="w-3.5 h-3.5" />
+                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 overflow-hidden p-1">
+                    <img 
+                      src="/mbi-favicon.png" 
+                      alt="MBI AI" 
+                      className="w-full h-full object-contain" 
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} 
+                    />
                   </div>
                 )}
 

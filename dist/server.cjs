@@ -9292,10 +9292,22 @@ Key Guidelines:
   3. \u23F0 FEFO Smart Expiry Radar: Automatically dispenses earliest-expiry batches first to eliminate medicine waste and save 18-22% margins.
   4. \u{1F4D2} Double-Entry Ledgers & Udhaar: Customer & supplier khatas with 1-click WhatsApp PDF statements.
   5. \u{1F48A} Smart Generic Salt Search: Instantly recommend alternative medicine brands with equivalent active ingredients.
-- Official Transparent Lifetime Pricing (One-Time Cost, Lifetime Validity):
-  - \u{1F948} Basic (Silver / Free Trial): Rs. 15,000 / Lifetime (1 PC Offline POS, Thermal Receipts, Invoices, Purchases, Ledgers, Shortage Book)
-  - \u{1F947} Business Pro (Gold): Rs. 28,000 / Lifetime (Multi-Terminal, Real-time Cloud Synapse, AI Copilot, FEFO Expiry Radar, Staff PINs, Shift Management)
-  - \u{1F451} Enterprise Ultimate (Platinum): Rs. 45,000 / Lifetime (Multi-Branch Fleet, Central Warehouse, Custom Branding, Dedicated Priority Server)
+- Official Transparent Website Pricing Plans:
+  - \u{1F948} **Silver Basic:**
+    \u2022 Monthly: **Rs. 1,999 / Month**
+    \u2022 1-Year (Annual Deal): **Rs. 19,990 / Year** (Save ~17% \u2014 Effective Rs. 1,666/mo)
+    \u2022 3-Years: **Rs. 59,970** (Save ~30%) | 5-Years: **Rs. 99,950** (Save ~40%)
+    \u2022 Capacity: Up to 2 Staff Accounts (Admin & Cashier) \u2022 Up to 2 Pharmacy Firms/Branches \u2022 0.2s POS Invoicing \u2022 100k+ Preloaded Medicine Catalog
+  - \u{1F947} **Gold Business \u2B50 (Most Popular):**
+    \u2022 Monthly: **Rs. 3,999 / Month**
+    \u2022 1-Year (Annual Deal): **Rs. 39,990 / Year** (Save ~17% \u2014 Effective Rs. 3,333/mo)
+    \u2022 3-Years: **Rs. 119,970** (Save ~30%) | 5-Years: **Rs. 199,950** (Save ~40%)
+    \u2022 Capacity: Up to 5 Concurrent Staff Accounts \u2022 Up to 5 Pharmacy Branches \u2022 FEFO Expiry Radar (30/60/90/180 Days) \u2022 Multi-Godown Storage \u2022 Real-time Profit & Loss (P&L)
+  - \u{1F48E} **Platinum Enterprise (Best Enterprise Value):**
+    \u2022 Monthly: **Rs. 6,999 / Month**
+    \u2022 1-Year (Annual Deal): **Rs. 69,990 / Year** (Save ~17% \u2014 Effective Rs. 5,833/mo)
+    \u2022 3-Years: **Rs. 209,970** (Save ~30%) | 5-Years: **Rs. 349,950** (Save ~40%)
+    \u2022 Capacity: Up to 15 Concurrent Staff Accounts (Full RBAC) \u2022 Up to 10 Pharmacy Branches & Warehouses \u2022 Automated WhatsApp Gateway \u2022 FBR POS Invoicing \u2022 Multi-Branch Stock Transfers
 - Free Trial & Contact:
   - 10-Day Free Trial: Rs. 0 (100% Free, instant setup, no credit card required).
   - WhatsApp Demo & Helpline: +92 328 1302636 / 0336-4585863.
@@ -9356,7 +9368,7 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
         })),
         { role: "user", parts: [{ text: prompt }] }
       ];
-      const response = await ai.models.generateContent({
+      const generatePromise = ai.models.generateContent({
         model: "gemini-flash-latest",
         // @ts-ignore
         contents,
@@ -9366,6 +9378,10 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
           topP: 0.9
         }
       });
+      const timeoutPromise = new Promise(
+        (_, reject) => setTimeout(() => reject(new Error("AI Key request timeout (2500ms)")), 2500)
+      );
+      const response = await Promise.race([generatePromise, timeoutPromise]);
       const responseText = response.text || "Shukriya! MBI AI Guide aapki khidmat ke liye tayyar hai. Koyi aur sawal ho to zaroor poochein!";
       stat.status = "Healthy";
       stat.requestsCount++;
@@ -9388,11 +9404,169 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
       currentKeyIndex = (currentKeyIndex + 1) % keyPool.length;
     }
   }
+  const fallbackText = generateIntelligentFallback(prompt, context === "master" || context === "server" ? "server" : context === "home" ? "home" : "user", userPlanNormalized);
   return {
-    text: `MBI AI Guide Filhal high traffic ki waja se update ho raha hai. Aap MBI INVENTRA ke sabhi features (POS Billing, Inventory, Ledgers) ko Normal User Workspace se aaram se istemal kar sakte hain! Support team se baat karne ke liye 'Connect with Team' button par click karein.`,
+    text: fallbackText,
     humanLeadTriggered: isHumanRequested,
     keyIndexUsed: -1
   };
+}
+function generateIntelligentFallback(query, currentContext, currentPlan = "business") {
+  const lower = query.toLowerCase();
+  if (lower.includes("human") || lower.includes("support") || lower.includes("admin") || lower.includes("call") || lower.includes("bilal") || lower.includes("phone") || lower.includes("help") || lower.includes("contact") || lower.includes("rabta") || lower.includes("baat karni") || lower.includes("number") || lower.includes("whatsapp") || query.includes("\u0631\u0627\u0628\u0637\u06C1") || query.includes("\u0645\u062F\u062F") || query.includes("\u0646\u0645\u0628\u0631")) {
+    return `\u{1F4DE} **MBI Live Human Support Dispatch**
+
+Maine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpline par direct rabta kar sakte hain:
+- **WhatsApp Support:** +92 328 1302636
+- **Direct Hotline:** 0336-4585863
+
+Representative jald aapse rabta karega!`;
+  }
+  if (currentContext === "server") {
+    if (lower.includes("hwid") || lower.includes("reset") || lower.includes("license") || lower.includes("device") || lower.includes("laptop")) {
+      return `\u{1F6E1}\uFE0F **Master HWID Device Reset & Disaster Recovery Protocol**
+
+- **1-Click Reset:** Super Admin master panel se tenant ke liye \`[Reset Bound HWID]\` trigger karein (\`/api/master/license/reset-hwid\`).
+- **New Computer Binding:** Client jab naye PC par License Key activate karega, system automatically naya Hardware Fingerprint bind kar dega.
+- **Zero Data Loss Restore:** Client ka latest **12:00 AM Midnight Backup Snapshot** naye system par 1-click se restore ho jata hai!`;
+    }
+    if (lower.includes("backup") || lower.includes("midnight") || lower.includes("12:00") || lower.includes("disaster") || lower.includes("recovery")) {
+      return `\u{1F4BE} **Automated 12:00 AM Midnight Encrypted Vault Backups**
+
+- **Zero Downtime Snapshots:** Har tenant ka private SQLite Vault (\`tenant_[id].sqlite\`) rozana raat 12:00 baje encrypted atomic snapshot generate karta hai.
+- **SHA-256 Checksum Verification:** Backup integrity test hoti hai taake file corrupt na ho.
+- **Multi-Tenant Protection:** Ek tenant ka backup dosray tenant se 100% physically isolated rehta hai.`;
+    }
+    if (lower.includes("tenant") || lower.includes("sqlite") || lower.includes("vault") || lower.includes("isolation") || lower.includes("multi")) {
+      return `\u{1F3E2} **Tenant-Isolated SQLite Vault Architecture**
+
+- **Physical Isolation:** Har pharmacy ka private database \`server/data/tenants/tenant_[id].sqlite\` mein rehta hai. Cross-tenant leakage ka koi chance nahi.
+- **Master Hub Database:** \`server/data/master/master_hub.sqlite\` global licensing, tenant provisioning, aur feature entitlement control karta hai.
+- **High-Speed WAL Mode:** 0ms latency per-transaction speed with native SQLite transactions.`;
+    }
+    if (lower.includes("switchboard") || lower.includes("173") || lower.includes("feature") || lower.includes("toggle")) {
+      return `\u2699\uFE0F **173-Switchboard Dynamic Master Controls**
+
+- **Real-Time Module Provisioning:** Master Admin se kisi bhi tenant ke modules (Shift Management, Cloud Sync, Multi-Branch, AI Assistant) toggle kiye ja sakte hain.
+- **Instant Sync:** Tenant workstation restart kiye baghair instantly nayi permissions receive karta hai.`;
+    }
+    return `\u{1F6E1}\uFE0F **MBI Master Fleet Copilot Active**
+
+Aap Master Server Admin ke hawalay se koi bhi sawal pooch sakte hain:
+- **HWID Reset & Disaster Recovery**
+- **12:00 AM Automated Midnight Backups**
+- **Tenant-Isolated SQLite Vaults**
+- **173-Switchboard Feature Toggles**
+
+Technical assistance ke liye Master Helpline: **+92 328 1302636**.`;
+  }
+  if (currentContext === "home") {
+    if (lower.includes("price") || lower.includes("cost") || lower.includes("rate") || lower.includes("plan") || lower.includes("kitne") || lower.includes("package") || lower.includes("lifetime") || lower.includes("fees") || lower.includes("kharid") || lower.includes("buy") || query.includes("\u0642\u06CC\u0645\u062A") || query.includes("\u067E\u06CC\u06A9\u06CC\u062C")) {
+      return `\u{1F4B3} **MBI INVENTRA \u2014 Transparent Official Pricing & Plans**
+
+- \u{1F948} **Silver Basic:**
+  \u2022 **Monthly:** Rs. 1,999 /mo
+  \u2022 **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% \u2014 Eff: Rs. 1,666/mo)*
+  \u2022 **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950
+  \u2022 *Includes: 2 Staff Accounts \u2022 2 Branches \u2022 0.2s POS \u2022 100k+ Preloaded Catalog*
+
+- \u{1F947} **Gold Business \u2B50 (Most Popular):**
+  \u2022 **Monthly:** Rs. 3,999 /mo
+  \u2022 **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% \u2014 Eff: Rs. 3,333/mo)*
+  \u2022 **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950
+  \u2022 *Includes: 5 Staff Accounts \u2022 5 Branches \u2022 FEFO Expiry Radar \u2022 Multi-Godown \u2022 P&L Analytics*
+
+- \u{1F48E} **Platinum Enterprise (Best Enterprise Value):**
+  \u2022 **Monthly:** Rs. 6,999 /mo
+  \u2022 **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% \u2014 Eff: Rs. 5,833/mo)*
+  \u2022 **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950
+  \u2022 *Includes: 15 Staff Accounts \u2022 10 Branches \u2022 Auto WhatsApp Gateway \u2022 FBR POS \u2022 Multi-Branch*
+
+\u{1F4DE} *Note: Custom multi-branch or dedicated lifetime/on-premise licenses ke liye Master Support (+92 328 1302636) par rabta karein.*
+
+\u{1F381} **10-Day Free Trial Available:** Start today with Rs. 0!`;
+    }
+    if (lower.includes("trial") || lower.includes("free") || lower.includes("demo") || lower.includes("register") || lower.includes("start") || query.includes("\u0679\u0631\u0627\u0626\u0644") || query.includes("\u0688\u06CC\u0645\u0648")) {
+      return `\u{1F389} **10-Day 100% Free Trial (Instant Access)**
+
+- **Zero Cost:** Rs. 0 required, koi credit card nahi chahiye.
+- **Instant Setup:** Sirf apna Pharmacy Name aur WhatsApp number darj karein aur turant POS billing shuru karein.
+- **WhatsApp Video Demo:** Live video dekhne ke liye WhatsApp karein: **+92 328 1302636**.`;
+    }
+    if (lower.includes("speed") || lower.includes("fast") || lower.includes("offline") || lower.includes("internet") || lower.includes("desktop") || lower.includes("0.2") || query.includes("\u0622\u0641 \u0644\u0627\u0626\u0646") || query.includes("\u062A\u06CC\u0632")) {
+      return `\u26A1 **0.2-Second POS Speed & 100% Offline PC Billing**
+
+- **0.2s Transaction Speed:** Rush hours mein customer ka bill palke jhapakte hi print ho jata hai (\`Alt+S\` / \`F2\`).
+- **100% Offline Mode:** Internet disconnect hone par bhi billing, barcode scanning aur printing 0ms speed se chalti rehti hai.
+- **Auto Cloud Synapse:** Internet aatay hi tamam invoices automatically secure cloud par sync ho jati hain.`;
+    }
+    if (lower.includes("fefo") || lower.includes("expiry") || lower.includes("radar") || lower.includes("nuqsan") || lower.includes("expire") || query.includes("\u0627\u06CC\u06A9\u0633\u067E\u0627\u0626\u0631\u06CC")) {
+      return `\u23F0 **FEFO (First-Expiry First-Out) Smart Profit Radar**
+
+- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.
+- **30/60/90 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.
+- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
+    }
+    return `\u2728 **Assalam-o-Alaikum! Main MBI INVENTRA AI Copilot hoon.**
+
+Main MBI INVENTRA Enterprise Pharmacy POS & ERP Software ke baare mein aapki mukammal rehnumai kar sakta hoon:
+
+1. \u26A1 **0.2s Ultra-Fast POS Billing:** Barcode scanning aur 80mm/58mm thermal receipts (\`Alt+S\` / \`F2\`).
+2. \u{1F310} **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.
+3. \u23F0 **FEFO Smart Expiry Radar:** 30/60/90/180 days batch expiry alerts taake expiry loss khatam ho.
+4. \u{1F4D2} **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.
+5. \u{1F48A} **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.
+6. \u{1F4B3} **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.
+
+Abhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
+  }
+  if (lower.includes("shortcut") || lower.includes("f1") || lower.includes("f2") || lower.includes("pos") || lower.includes("keyboard") || lower.includes("bill") || lower.includes("sale") || query.includes("\u0634\u0627\u0631\u0679 \u06A9\u0679") || query.includes("\u0628\u0644")) {
+    return `\u26A1 **Essential MBI POS Fast Billing Shortcuts**
+
+- \`Alt + S\` : Open New Sale Invoice instantly
+- \`Alt + P\` : Open New Purchase Bill Inward
+- \`F2\` / \`Tab\` : Focus Instant Medicine & Barcode Search
+- \`F1\` : Open Keyboard Shortcuts Master Guide
+- \`Enter\` : Rapid Line-Item Addition
+- \`Esc\` : Minimize or Close Active Transaction Dock
+
+*Engineered for high-volume rush hours with 0.2s transaction speed.*`;
+  }
+  if (lower.includes("fefo") || lower.includes("expiry") || lower.includes("radar") || lower.includes("waste") || lower.includes("near expiry") || query.includes("\u0627\u06CC\u06A9\u0633\u067E\u0627\u0626\u0631\u06CC")) {
+    return `\u23F0 **FEFO (First-Expiry, First-Out) Smart Profit Radar**
+
+- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.
+- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.
+- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
+  }
+  if (lower.includes("khata") || lower.includes("udhaar") || lower.includes("ledger") || lower.includes("customer") || lower.includes("supplier") || query.includes("\u06A9\u06BE\u0627\u062A\u06C1") || query.includes("\u0627\u062F\u06BE\u0627\u0631")) {
+    return `\u{1F4D2} **Customer & Supplier Double-Entry Ledgers**
+
+- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.
+- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.
+- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
+  }
+  if (lower.includes("shortage") || lower.includes("short") || lower.includes("reorder") || lower.includes("stock") || query.includes("\u0634\u0627\u0631\u0679\u06CC\u062C")) {
+    return `\u26A0\uFE0F **Smart Shortage Register & Auto Reordering**
+
+- **Customer Demands:** Jo medicine stock mein na ho, cashier foran Shortage Register mein add kar sakta hai.
+- **Purchase Order Auto-Fill:** Supplier purchase order banatay waqt shortage items automatically list mein shamil ho jatay hain.`;
+  }
+  if (lower.includes("staff") || lower.includes("pin") || lower.includes("shift") || lower.includes("drawer") || lower.includes("cashier")) {
+    return `\u{1F510} **Staff PINs & Cashier Shift Closing**
+
+- **4-Digit Staff PIN:** Har cashier ko private PIN dein taake unauthorized discounts ya deletions block hon.
+- **Shift Float Reconciliation:** Day-end par drawer cash count match karein aur shift summary report print karein.`;
+  }
+  return `\u2728 **MBI AI Copilot Response**
+
+Main aapke Pharmacy Workspace ka intelligent AI guide hoon:
+
+- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.
+- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.
+- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.
+
+Agar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
 }
 function getAiConfigStatus() {
   const settings = loadSettings();

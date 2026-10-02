@@ -415,16 +415,16 @@ export function generateMbiAssistantResponse(
   // HOME CONTEXT & PRICING
   if (p.includes('price') || p.includes('plan') || p.includes('cost') || p.includes('subscription') || p.includes('kitne') || p.includes('package') || p.includes('rate') || p.includes('lifetime')) {
     return {
-      text: `💳 **MBI Inventra Transparent Official Pricing Plans**:\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Includes: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Includes: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Includes: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n🎁 **10-Day Free Trial Available:** Rs. 0 (Instant setup, no credit card required)!`,
+      text: `💳 **MBI INVENTRA — Transparent Official Pricing & Plans**:\n\n- 🥈 **Silver Basic:**\n  • **Monthly:** Rs. 1,999 /mo\n  • **1-Year (Annual):** Rs. 19,990 /yr *(Save ~17% — Eff: Rs. 1,666/mo)*\n  • **3-Years:** Rs. 59,970 | **5-Years:** Rs. 99,950\n  • *Includes: 2 Staff Accounts • 2 Branches • 0.2s POS • 100k+ Preloaded Catalog*\n\n- 🥇 **Gold Business ⭐ (Most Popular):**\n  • **Monthly:** Rs. 3,999 /mo\n  • **1-Year (Annual):** Rs. 39,990 /yr *(Save ~17% — Eff: Rs. 3,333/mo)*\n  • **3-Years:** Rs. 119,970 | **5-Years:** Rs. 199,950\n  • *Includes: 5 Staff Accounts • 5 Branches • FEFO Expiry Radar • Multi-Godown • P&L Analytics*\n\n- 💎 **Platinum Enterprise (Best Enterprise Value):**\n  • **Monthly:** Rs. 6,999 /mo\n  • **1-Year (Annual):** Rs. 69,990 /yr *(Save ~17% — Eff: Rs. 5,833/mo)*\n  • **3-Years:** Rs. 209,970 | **5-Years:** Rs. 349,950\n  • *Includes: 15 Staff Accounts • 10 Branches • Auto WhatsApp Gateway • FBR POS • Multi-Branch*\n\n📞 *Note: Custom multi-branch or dedicated lifetime/on-premise licenses ke liye Master Support (+92 328 1302636) par rabta karein.*\n\n🎁 **10-Day Free Trial Available:** Rs. 0 (Instant setup, no credit card required)!`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };
   }
 
-  // Overview in Roman Urdu
-  if (p.includes('bary me batao') || p.includes('kaisa hai') || p.includes('kya hai') || p.includes('software') || p.includes('overview') || p.includes('features')) {
+  // Overview in Roman Urdu / Urdu
+  if (p.includes('bary me batao') || p.includes('kaisa hai') || p.includes('kya hai') || p.includes('software') || p.includes('overview') || p.includes('features') || p.includes('kia kia') || p.includes('kya kya') || p.includes('kar sakty ho')) {
     return {
-      text: `✨ **MBI INVENTRA — Enterprise Pharmacy POS & ERP Software**:\n\n1. ⚡ **0.2s Fast POS Billing:** \`Alt+S\` aur \`F2\` se instant bill banayein aur 80mm/58mm thermal receipts print karein.\n2. 🌐 **100% Offline PC Ready:** Internet band hone par bhi billing 0ms lag ke sath chalti hai.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke 18-22% margin protect karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp receipt ke sath.\n5. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.\n\nFree Trial lene ya WhatsApp demo ke liye helpline par rabta karein: **+92 328 1302636**!`,
+      text: `✨ **Assalam-o-Alaikum! MBI INVENTRA Pharmacy ERP me Khush Amdeed!**\n\n**MBI INVENTRA** Pakistan ka sab se modern aur fastest Enterprise Pharmacy POS & ERP Software hai:\n\n1. ⚡ **0.2-Second Fast POS Billing:** Rush hours mein \`Alt+S\` aur \`F2\` se instant bill banayein aur 80mm/58mm thermal receipts print karein.\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.\n3. ⏰ **FEFO Expiry Radar:** Expiry se pehle medicines detect karke 18-22% margin protect karein.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.\n5. 💊 **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.\n6. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`,
       isHumanEscalation: false,
       requiresUpgrade: false
     };
@@ -490,7 +490,7 @@ export function generateMbiAssistantResponse(
   }
 
   return {
-    text: `Main MBI INVENTRA AI Guide hoon aur main sirf MBI Inventra Pharmacy ERP Software, User Dashboard, POS Billing, Inventory, Ledgers, aur Home Page features ke baare mein madad kar sakta hoon.\n\nAap pooch sakte hain:\n- POS Billing aur F2 shortcut kaise use karein?\n- Batch expiry aur FEFO deduction kaise kaam karta hai?\n- Shift Management aur Cashier closing kaise karein?\n- Lifetime Pricing aur 10-Day Free Trial ke baare mein janiye!`,
+    text: `Main MBI INVENTRA AI Guide hoon aur main sirf MBI Inventra Pharmacy ERP Software, User Dashboard, POS Billing, Inventory, Ledgers, aur Home Page features ke baare mein madad kar sakta hoon.\n\nAap pooch sakte hain:\n- POS Billing aur F2 shortcut kaise use karein?\n- Batch expiry aur FEFO deduction kaise kaam karta hai?\n- Shift Management aur Cashier closing kaise karein?\n- Transparent Pricing Plans aur 10-Day Free Trial ke baare mein janiye!`,
     isHumanEscalation: false,
     requiresUpgrade: false
   };

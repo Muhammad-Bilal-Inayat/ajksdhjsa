@@ -190,12 +190,13 @@ export const ServerOverviewPage: React.FC = () => {
 
   useEffect(() => {
     const handleSecurityUpdate = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setThreatMetrics(getSecurityThreatMetrics());
     };
     window.addEventListener('mbi-security-alerts-updated', handleSecurityUpdate);
     window.addEventListener('mbi-security-alert-triggered', handleSecurityUpdate);
     window.addEventListener('mbi-server-activity-update', handleSecurityUpdate);
-    const interval = setInterval(handleSecurityUpdate, 5000);
+    const interval = setInterval(handleSecurityUpdate, 15000);
     return () => {
       window.removeEventListener('mbi-security-alerts-updated', handleSecurityUpdate);
       window.removeEventListener('mbi-security-alert-triggered', handleSecurityUpdate);
@@ -423,7 +424,10 @@ export const ServerOverviewPage: React.FC = () => {
     };
 
     loadData();
-    const interval = setInterval(loadData, 5000); // 5s live polling
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadData();
+    }, 15000); // 15s lightweight live polling
     return () => clearInterval(interval);
   }, [isAuthenticated, tenant?.id, business?.id]);
 

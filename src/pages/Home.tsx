@@ -28,16 +28,33 @@ import { PricingSection } from '../components/landing/PricingSection';
 import { ClientTestimonialsSection } from '../components/landing/ClientTestimonialsSection';
 import { PWAInstallBanner } from '../components/pwa/PWAInstallBanner';
 import { useAuth } from '../contexts/AuthContext';
+import { getSiteCmsConfig, SiteCmsConfig, fetchSiteCmsFromServer } from '../lib/siteCmsService';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   
+  const [cmsConfig, setCmsConfig] = useState<SiteCmsConfig>(() => getSiteCmsConfig());
+
   // Pricing Interval Toggle: 'monthly' | 'annual'
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
   // FAQ open item
   const [openFaqId, setOpenFaqId] = useState<string | null>('faq-1');
+
+  useEffect(() => {
+    fetchSiteCmsFromServer().then(cfg => {
+      if (cfg) setCmsConfig(cfg);
+    }).catch(() => {});
+
+    const handleCmsUpdate = (e: any) => {
+      if (e.detail) setCmsConfig(e.detail);
+      else setCmsConfig(getSiteCmsConfig());
+    };
+
+    window.addEventListener('mbi-site-cms-updated', handleCmsUpdate);
+    return () => window.removeEventListener('mbi-site-cms-updated', handleCmsUpdate);
+  }, []);
 
   const scrollToSection = (sectionId: string) => {
     requestAnimationFrame(() => {
@@ -135,28 +152,28 @@ export const Home: React.FC = () => {
         </div>
 
         <div className="space-y-3">
-          {[
+          {(cmsConfig.faqs && cmsConfig.faqs.length > 0 ? cmsConfig.faqs : [
             {
               id: 'faq-1',
-              q: 'Will MBI Inventra work if our pharmacy internet is completely disconnected?',
-              a: 'Yes, 100%! MBI Inventra is a standalone offline-first PWA system. It installs directly onto your Windows PC or tablet, caching all medicines, customers, batches, and invoices in local IndexedDB. You can bill customers, print thermal receipts, and inward purchases offline with zero interruption.'
+              question: 'Will MBI Inventra work if our pharmacy internet is completely disconnected?',
+              answer: 'Yes, 100%! MBI Inventra is a standalone offline-first PWA system. It installs directly onto your Windows PC or tablet, caching all medicines, customers, batches, and invoices in local IndexedDB. You can bill customers, print thermal receipts, and inward purchases offline with zero interruption.'
             },
             {
               id: 'faq-2',
-              q: 'How does FEFO (First-Expiry-First-Out) save money on medicine wastage?',
-              a: 'When billing any medicine, the system automatically checks batch expiry dates and prompts the cashier to dispense the closest-expiring batch first. Furthermore, automated 30, 60, and 90-day alert radars warn you to return expiring stock to the distributor for full credit.'
+              question: 'How does FEFO (First-Expiry-First-Out) save money on medicine wastage?',
+              answer: 'When billing any medicine, the system automatically checks batch expiry dates and prompts the cashier to dispense the closest-expiring batch first. Furthermore, automated 30, 60, and 90-day alert radars warn you to return expiring stock to the distributor for full credit.'
             },
             {
               id: 'faq-3',
-              q: 'What happens after the 10-day free trial expires?',
-              a: 'All your added medicines, invoices, and customer khata records remain 100% safe and intact on your computer. You can activate a Basic, Business, or Enterprise license key to continue without losing a single record.'
+              question: 'What happens after the 10-day free trial expires?',
+              answer: 'All your added medicines, invoices, and customer khata records remain 100% safe and intact on your computer. You can activate a Basic, Business, or Enterprise license key to continue without losing a single record.'
             },
             {
               id: 'faq-4',
-              q: 'Can I print receipts on 80mm / 58mm thermal printers or regular A4 printers?',
-              a: 'Yes, MBI Inventra supports all standard USB/Network ESC-POS thermal printers (80mm & 58mm) as well as LaserJet A4 bills with customizable pharmacy headers, logos, and Urdu invoice footers.'
+              question: 'Can I print receipts on 80mm / 58mm thermal printers or regular A4 printers?',
+              answer: 'Yes, MBI Inventra supports all standard USB/Network ESC-POS thermal printers (80mm & 58mm) as well as LaserJet A4 bills with customizable pharmacy headers, logos, and Urdu invoice footers.'
             }
-          ].map((faq) => {
+          ]).map((faq) => {
             const isOpen = openFaqId === faq.id;
             return (
               <div
@@ -168,12 +185,12 @@ export const Home: React.FC = () => {
                   onClick={() => setOpenFaqId(isOpen ? null : faq.id)}
                   className="w-full flex items-center justify-between text-left font-bold text-xs sm:text-sm text-slate-900 dark:text-white cursor-pointer"
                 >
-                  <span>{faq.q}</span>
+                  <span>{faq.question || (faq as any).q}</span>
                   {isOpen ? <ChevronUp className="w-4 h-4 text-blue-600 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
                 </button>
                 {isOpen && (
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-2.5 leading-relaxed pt-2 border-t border-slate-100 dark:border-slate-800">
-                    {faq.a}
+                    {faq.answer || (faq as any).a}
                   </p>
                 )}
               </div>

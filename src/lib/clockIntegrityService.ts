@@ -247,7 +247,7 @@ export async function reVerifyAndUnlockClock(): Promise<ClockTamperStatus> {
  */
 let clockMonitorInterval: any = null;
 
-export function startClockIntegrityDaemon(intervalSeconds: number = 3) {
+export function startClockIntegrityDaemon(intervalSeconds: number = 20) {
   if (clockMonitorInterval) return;
 
   // Initial check
@@ -263,6 +263,7 @@ export function startClockIntegrityDaemon(intervalSeconds: number = 3) {
 
   let counter = 0;
   clockMonitorInterval = setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
     counter++;
     const status = checkClockIntegrity();
     if (status.isTampered) {
@@ -271,11 +272,11 @@ export function startClockIntegrityDaemon(intervalSeconds: number = 3) {
       }
     }
 
-    // Every 30 seconds, re-verify network time if online
-    if (counter % 10 === 0 && typeof navigator !== 'undefined' && navigator.onLine) {
+    // Periodically re-verify network time if online
+    if (counter % 5 === 0 && typeof navigator !== 'undefined' && navigator.onLine) {
       verifyNetworkTime().catch(() => {});
     }
-  }, intervalSeconds * 1000);
+  }, Math.max(15, intervalSeconds) * 1000);
 }
 
 export function stopClockIntegrityDaemon() {

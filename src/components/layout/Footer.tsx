@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Phone, MessageSquare, Mail, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Phone, MessageSquare, Mail, Sparkles, CheckCircle2, MapPin } from 'lucide-react';
+import { getSiteCmsConfig, SiteCmsConfig } from '../../lib/siteCmsService';
 
 interface FooterProps {
   onScrollToSection?: (sectionId: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
+  const [config, setConfig] = useState<SiteCmsConfig>(() => getSiteCmsConfig());
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail) setConfig(e.detail);
+      else setConfig(getSiteCmsConfig());
+    };
+    window.addEventListener('mbi-site-cms-updated', handleUpdate);
+    return () => window.removeEventListener('mbi-site-cms-updated', handleUpdate);
+  }, []);
+
   const handleNav = (sectionId: string) => {
     if (onScrollToSection) {
       onScrollToSection(sectionId);
@@ -18,22 +30,33 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
     }
   };
 
+  const cleanPhone1 = (config.brand.supportPhone || '+92 328 1302636').replace(/[^0-9]/g, '');
+  const cleanWhatsApp = (config.brand.whatsappNumber || '+92 336 4585863').replace(/[^0-9]/g, '');
+
   return (
     <footer id="contact" className="bg-slate-100 dark:bg-slate-950 text-slate-700 dark:text-slate-300 pt-16 pb-12 border-t border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
           
-          {/* Col 1: Brand & Professional Tagline (Official Image Only, No Plain Text) */}
+          {/* Col 1: Brand & Professional Tagline */}
           <div className="space-y-4">
             <Link to="/" className="inline-block">
-              <img 
-                src="/mbi-logo.png" 
-                alt="MBI INVENTRA" 
-                className="h-9 w-auto object-contain dark:brightness-200" 
-              />
+              {config.brand.logoUrl ? (
+                <img 
+                  src={config.brand.logoUrl} 
+                  alt={config.brand.name || 'MBI INVENTRA'} 
+                  className="h-9 w-auto object-contain dark:brightness-200" 
+                />
+              ) : (
+                <img 
+                  src="/mbi-logo.png" 
+                  alt="MBI INVENTRA" 
+                  className="h-9 w-auto object-contain dark:brightness-200" 
+                />
+              )}
             </Link>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Enterprise Pharmacy POS &amp; ERP Software engineered for medical stores and pharmacy chains across Pakistan.
+              {config.brand.tagline || 'Enterprise Pharmacy POS & ERP Software engineered for medical stores and pharmacy chains across Pakistan.'}
             </p>
             <div className="pt-2">
               <Link
@@ -179,52 +202,58 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
             </ul>
           </div>
 
-          {/* Col 4: Contact & Helpline */}
-          <div className="space-y-3 text-xs">
-            <p className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
-              HELPLINE &amp; WHATSAPP
-            </p>
-            <ul className="space-y-2.5 text-slate-600 dark:text-slate-400 font-medium">
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                <a href="tel:+923281302636" className="text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition-colors">
-                  +92 328 1302636
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-600 dark:text-blue-300 shrink-0" />
-                <a href="tel:+923364585863" className="text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition-colors">
-                  +92 336 4585863
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <a
-                  href="https://wa.me/923281302636?text=Salam!%20I%20would%20like%20information%20about%20MBI%20INVENTRA."
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold"
-                >
-                  WhatsApp: 0328-1302636
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                <a 
-                  href="mailto:mbiinventra@gmail.com"
-                  className="text-slate-800 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-300 font-semibold transition-colors"
-                >
-                  mbiinventra@gmail.com
-                </a>
-              </li>
-              <li className="pt-1">
-                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                  Available 24/7 for Onboarding &amp; Training
-                </span>
-              </li>
-            </ul>
-          </div>
+            {/* Col 4: Contact & Helpline */}
+            <div className="space-y-3 text-xs">
+              <p className="font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider text-[11px]">
+                HELPLINE &amp; WHATSAPP
+              </p>
+              <ul className="space-y-2.5 text-slate-600 dark:text-slate-400 font-medium">
+                <li className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <a href={`tel:${cleanPhone1}`} className="text-slate-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 font-semibold transition-colors">
+                    {config.brand.supportPhone || '+92 328 1302636'}
+                  </a>
+                </li>
+                {config.brand.whatsappNumber && (
+                  <li className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <a
+                      href={`https://wa.me/${cleanWhatsApp}?text=Salam!%20I%20would%20like%20information%20about%20${encodeURIComponent(config.brand.name || 'MBI INVENTRA')}.`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold"
+                    >
+                      WhatsApp: {config.brand.whatsappNumber}
+                    </a>
+                  </li>
+                )}
+                {config.brand.supportEmail && (
+                  <li className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <a 
+                      href={`mailto:${config.brand.supportEmail}`}
+                      className="text-slate-800 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-300 font-semibold transition-colors"
+                    >
+                      {config.brand.supportEmail}
+                    </a>
+                  </li>
+                )}
+                {config.brand.officialAddress && (
+                  <li className="flex items-start gap-2 pt-0.5">
+                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <span className="text-slate-600 dark:text-slate-400 text-[11px] leading-tight">
+                      {config.brand.officialAddress}
+                    </span>
+                  </li>
+                )}
+                <li className="pt-1">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                    {config.brand.officeHours || 'Available 24/7 for Onboarding & Training'}
+                  </span>
+                </li>
+              </ul>
+            </div>
 
         </div>
 

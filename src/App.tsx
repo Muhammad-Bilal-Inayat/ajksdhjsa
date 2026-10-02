@@ -66,30 +66,30 @@ const Register = lazyWithRetry(() => import('./pages/Register').then(m => ({ def
 const SetupBusiness = lazyWithRetry(() => import('./pages/SetupBusiness'));
 const MasterServerHub = lazyWithRetry<React.FC<{ initialTab?: string }>>(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
 
-// Core POS/ERP pages imported directly for instant zero-latency navigation between side menus
-import { Dashboard } from './pages/Dashboard';
-import { UserPortalPage } from './pages/user/UserPortalPage';
-import { Inventory } from './pages/Inventory';
-import { Billing } from './pages/Billing';
-import { Suppliers } from './pages/Suppliers';
-import { Purchases } from './pages/Purchases';
-import { Expenses } from './pages/Expenses';
-import { Bank } from './pages/Bank';
-import { Reports } from './pages/Reports';
-import { Settings } from './pages/Settings';
-import { ShortageRegistry } from './pages/ShortageRegistry';
-import { TopProducts } from './pages/TopProducts';
-import { CashInHand } from './pages/CashInHand';
-import { ShiftManagement } from './pages/ShiftManagement';
-import { DailyNotes } from './pages/DailyNotes';
-import { Utilities } from './pages/Utilities';
-import { SyncAndShare } from './pages/SyncAndShare';
-import { CustomerKhataPage } from './pages/CustomerKhataPage';
-import { SupplierKhataPage } from './pages/SupplierKhataPage';
-import { LedgersStatementsPage } from './pages/LedgersStatementsPage';
-import { PurchaseInvoicePage } from './pages/PurchaseInvoicePage';
-import { SaleInvoicePage } from './pages/SaleInvoicePage';
-import { PartiesManagementPage } from './pages/PartiesManagementPage';
+// Core POS/ERP pages code-split for lightning-fast initial page load and 0ms navigation
+const Dashboard = lazyWithRetry(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const UserPortalPage = lazyWithRetry(() => import('./pages/user/UserPortalPage').then(m => ({ default: m.UserPortalPage })));
+const Inventory = lazyWithRetry(() => import('./pages/Inventory').then(m => ({ default: m.Inventory })));
+const Billing = lazyWithRetry(() => import('./pages/Billing').then(m => ({ default: m.Billing })));
+const Suppliers = lazyWithRetry(() => import('./pages/Suppliers').then(m => ({ default: m.Suppliers })));
+const Purchases = lazyWithRetry(() => import('./pages/Purchases').then(m => ({ default: m.Purchases })));
+const Expenses = lazyWithRetry(() => import('./pages/Expenses').then(m => ({ default: m.Expenses })));
+const Bank = lazyWithRetry(() => import('./pages/Bank').then(m => ({ default: m.Bank })));
+const Reports = lazyWithRetry(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const Settings = lazyWithRetry(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const ShortageRegistry = lazyWithRetry(() => import('./pages/ShortageRegistry').then(m => ({ default: m.ShortageRegistry })));
+const TopProducts = lazyWithRetry(() => import('./pages/TopProducts').then(m => ({ default: m.TopProducts })));
+const CashInHand = lazyWithRetry(() => import('./pages/CashInHand').then(m => ({ default: m.CashInHand })));
+const ShiftManagement = lazyWithRetry(() => import('./pages/ShiftManagement').then(m => ({ default: m.ShiftManagement })));
+const DailyNotes = lazyWithRetry(() => import('./pages/DailyNotes').then(m => ({ default: m.DailyNotes })));
+const Utilities = lazyWithRetry(() => import('./pages/Utilities').then(m => ({ default: m.Utilities })));
+const SyncAndShare = lazyWithRetry(() => import('./pages/SyncAndShare').then(m => ({ default: m.SyncAndShare })));
+const CustomerKhataPage = lazyWithRetry(() => import('./pages/CustomerKhataPage').then(m => ({ default: m.CustomerKhataPage })));
+const SupplierKhataPage = lazyWithRetry(() => import('./pages/SupplierKhataPage').then(m => ({ default: m.SupplierKhataPage })));
+const LedgersStatementsPage = lazyWithRetry(() => import('./pages/LedgersStatementsPage').then(m => ({ default: m.LedgersStatementsPage })));
+const PurchaseInvoicePage = lazyWithRetry(() => import('./pages/PurchaseInvoicePage').then(m => ({ default: m.PurchaseInvoicePage })));
+const SaleInvoicePage = lazyWithRetry(() => import('./pages/SaleInvoicePage').then(m => ({ default: m.SaleInvoicePage })));
+const PartiesManagementPage = lazyWithRetry(() => import('./pages/PartiesManagementPage').then(m => ({ default: m.PartiesManagementPage })));
 const OnlineStoreManagement = lazyWithRetry(() => import('./pages/OnlineStoreManagement').then(m => ({ default: m.OnlineStoreManagement })));
 const BookersManagement = lazyWithRetry(() => import('./pages/BookersManagement').then(m => ({ default: m.BookersManagement })));
 

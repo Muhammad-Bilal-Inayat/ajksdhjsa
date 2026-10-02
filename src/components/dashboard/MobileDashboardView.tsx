@@ -152,6 +152,7 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
     ).slice(0, 6);
   }, [quickSearch, safeMedicines]);
 
+  const displayStoreName = business?.name || (currentUser as any)?.businessName || 'MBI INVENTRA';
   const displayUserPhone = currentUser?.phone || (currentUser as any)?.mobile || business?.phone || business?.mobile || '03434161001';
   const displayRole = activeRole || userProfile?.role || 'Primary Admin';
 
@@ -333,7 +334,7 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
           <div className="relative z-10 flex items-center justify-between">
             <div className="space-y-1 max-w-[62%]">
               <h2 className="text-sm sm:text-base font-black tracking-tight text-white leading-tight">
-                Welcome, <span className="underline decoration-blue-300 underline-offset-2">{displayUserPhone}</span>
+                Welcome, <span className="underline decoration-blue-300 underline-offset-2">{displayStoreName}</span>
               </h2>
               <p className="text-xs font-semibold text-blue-200">
                 {displayRole}

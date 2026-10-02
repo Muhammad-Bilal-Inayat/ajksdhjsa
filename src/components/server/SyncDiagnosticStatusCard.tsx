@@ -64,7 +64,10 @@ export const SyncDiagnosticStatusCard: React.FC<SyncDiagnosticStatusCardProps> =
       setStatus(newStatus);
     });
 
-    const interval = setInterval(checkDiagnostics, 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      checkDiagnostics();
+    }, 15000);
 
     return () => {
       unsub();

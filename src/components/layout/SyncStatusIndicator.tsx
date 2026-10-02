@@ -29,6 +29,7 @@ export const SyncStatusIndicator: React.FC = () => {
     });
 
     const updatePending = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const diag = await syncEngine.getSyncDiagnostics();
         setPendingCount(diag.pendingTransactionsCount);
@@ -36,7 +37,7 @@ export const SyncStatusIndicator: React.FC = () => {
     };
 
     updatePending();
-    const interval = setInterval(updatePending, 3000);
+    const interval = setInterval(updatePending, 15000);
 
     const handleProgress = (e: any) => {
       if (e?.detail) {

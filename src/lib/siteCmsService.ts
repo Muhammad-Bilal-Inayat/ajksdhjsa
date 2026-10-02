@@ -796,6 +796,16 @@ export function saveSiteCmsConfig(config: Partial<SiteCmsConfig>): SiteCmsConfig
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     window.dispatchEvent(new CustomEvent('mbi-site-cms-updated', { detail: merged }));
+
+    // Seamlessly sync to backend server API
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/site-cms/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: merged })
+      }).catch(err => console.warn('[SiteCMS Sync Notice]', err));
+    }
+
     return merged;
   } catch (err) {
     console.error('[SiteCMS] Failed to save config to localStorage:', err);
@@ -804,11 +814,51 @@ export function saveSiteCmsConfig(config: Partial<SiteCmsConfig>): SiteCmsConfig
 }
 
 /**
+ * Fetch latest Site CMS configuration from server API
+ */
+export async function fetchSiteCmsFromServer(): Promise<SiteCmsConfig> {
+  try {
+    const res = await fetch('/api/site-cms/config', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.config) {
+        const current = getSiteCmsConfig();
+        const merged: SiteCmsConfig = {
+          ...current,
+          ...data.config,
+          brand: { ...current.brand, ...(data.config.brand || {}) },
+          socialLinks: { ...current.socialLinks, ...(data.config.socialLinks || {}) },
+          sectionStyles: { ...current.sectionStyles, ...(data.config.sectionStyles || {}) }
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent('mbi-site-cms-updated', { detail: merged }));
+        return merged;
+      }
+    }
+  } catch (e) {}
+  return getSiteCmsConfig();
+}
+
+// Auto sync on client initialization
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    fetchSiteCmsFromServer().catch(() => {});
+  }, 1000);
+}
+
+/**
  * Reset Site CMS configuration to original defaults
  */
 export function resetSiteCmsConfig(): SiteCmsConfig {
   localStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new CustomEvent('mbi-site-cms-updated', { detail: DEFAULT_SITE_CMS_CONFIG }));
+  if (typeof fetch !== 'undefined') {
+    fetch('/api/site-cms/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: DEFAULT_SITE_CMS_CONFIG })
+    }).catch(() => {});
+  }
   return DEFAULT_SITE_CMS_CONFIG;
 }
 

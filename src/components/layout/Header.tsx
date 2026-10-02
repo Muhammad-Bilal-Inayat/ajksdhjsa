@@ -186,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({
       <header className="flex items-center justify-between h-[54px] sm:h-[58px] px-2 sm:px-3 lg:px-4 border-b border-slate-200/90 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-900 shadow-md shadow-slate-200/60 dark:shadow-none z-30 gap-2 sm:gap-3 overflow-visible relative w-full transition-all duration-150">
 
         {/* Search Bar Container starting cleanly next to sidebar with mobile/tablet hamburger */}
-        <div className="flex items-center flex-1 min-w-0 max-w-3xl mr-2 sm:mr-3">
+        <div className="flex items-center flex-1 min-w-0 max-w-xl xl:max-w-2xl mr-2 sm:mr-3">
           <button
             type="button"
             onClick={onToggleSidebar}
@@ -310,23 +310,24 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </div>
 
-            {/* User Profile Pill Avatar */}
+            {/* Company / Tenant Profile Pill */}
             <div 
               onClick={() => openCompanySettings('general')}
-              className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 cursor-pointer transition-colors"
+              className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 cursor-pointer transition-colors shrink-0"
+              title={`${business?.name || tenant?.name || 'Company Account'} (${activeRole || 'Admin'}) — Click for Company Settings`}
             >
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
-                {(activeUser?.name || currentUser?.name || 'Admin').charAt(0).toUpperCase()}
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs uppercase">
+                {(business?.name || tenant?.name || activeUser?.name || currentUser?.name || 'C').charAt(0).toUpperCase()}
               </div>
-              <div className="hidden sm:block text-left text-xs leading-tight">
-                <div className="font-extrabold text-slate-900 dark:text-white truncate max-w-[90px]">
-                  {activeUser?.name || currentUser?.name || 'bbb'}
+              <div className="hidden sm:block text-left text-xs leading-tight min-w-0">
+                <div className="font-extrabold text-slate-900 dark:text-white truncate max-w-[130px] md:max-w-[180px] uppercase">
+                  {business?.name || tenant?.name || 'MBI INVENTRA'}
                 </div>
                 <div className="text-[10px] text-slate-400 font-semibold truncate">
-                  {activeRole || 'Primary Admin'}
+                  {activeRole || 'Company Tenant'}
                 </div>
               </div>
-              <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:block" />
+              <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:block shrink-0" />
             </div>
 
             {/* Global Theme Toggle (Day / Night Shift) */}

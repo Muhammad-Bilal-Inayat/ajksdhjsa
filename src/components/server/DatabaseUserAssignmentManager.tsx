@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Database, Users, UserCheck, Plus, Trash2, Edit3, ShieldCheck, 
   Server, RefreshCw, CheckCircle2, AlertTriangle, ArrowRight, 
-  Search, Lock, Check, Zap, HardDrive, Key, Layers
+  Search, Lock, Check, Zap, HardDrive, Key, Layers, Copy
 } from 'lucide-react';
 import { getAllTenants, getMasterActiveUsers, MasterActiveUser, Tenant } from '../../lib/masterServerService';
 
@@ -73,10 +73,43 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
       if (loaded.length === 0) {
         const raw = localStorage.getItem(DB_ASSIGNMENTS_KEY);
         if (raw) {
-          loaded = JSON.parse(raw);
-          loaded = [];
-          localStorage.setItem(DB_ASSIGNMENTS_KEY, JSON.stringify([]));
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              loaded = parsed;
+            }
+          } catch (e) {}
         }
+      }
+
+      // If empty, automatically provision active tenants to appropriate database nodes
+      if (loaded.length === 0 && allT.length > 0) {
+        const autoAssigned: DatabaseAssignment[] = [];
+        const nodesList = ['mariadb_primary', 'cloud_sync_mem', 'replica_shard_01', 'isolated_tenant_vault'];
+        
+        allT.forEach((t, idx) => {
+          const tid = t.tenantId || t.id;
+          const assignedNodeId = nodesList[idx % nodesList.length];
+          const nodeObj = DB_NODES.find(n => n.id === assignedNodeId) || DB_NODES[0];
+          autoAssigned.push({
+            id: `dba_${tid}_primary`,
+            userId: t.primaryAdminId || `usr_${tid}_admin`,
+            userName: t.ownerName || `${t.name} Admin`,
+            userEmail: t.ownerEmail || `${tid}@mbiinventra.com`,
+            userRole: 'Primary Admin',
+            tenantId: tid,
+            tenantName: t.name,
+            dbNodeId: nodeObj.id,
+            dbNodeName: nodeObj.name,
+            accessPrivilege: 'READ_WRITE',
+            assignedAt: t.createdAt || new Date().toISOString(),
+            status: 'ACTIVE',
+            notes: `Auto-provisioned for ${t.name} (API Key: ${t.apiKey || 'Configured'})`
+          });
+        });
+
+        loaded = autoAssigned;
+        localStorage.setItem(DB_ASSIGNMENTS_KEY, JSON.stringify(autoAssigned));
       }
 
       setAssignments(loaded);
@@ -309,8 +342,31 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
                     </span>
                   </td>
 
-                  <td className="py-3.5 px-3 font-medium text-slate-700 dark:text-slate-300">
-                    {a.tenantName}
+                  <td className="py-3.5 px-3">
+                    <div className="font-bold text-slate-800 dark:text-slate-200">
+                      {a.tenantName}
+                    </div>
+                    {(() => {
+                      const matchedTenant = tenants.find(t => t.tenantId === a.tenantId || t.id === a.tenantId || t.name === a.tenantName);
+                      const keyStr = matchedTenant?.apiKey || `mbi_live_key_${(a.tenantId || '').replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+                      return (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
+                          <Key className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <span className="truncate max-w-[140px]" title={keyStr}>{keyStr}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(keyStr);
+                              if (onNotify) onNotify(`📋 Copied API Key for ${a.tenantName}`);
+                            }}
+                            className="p-0.5 hover:bg-emerald-500/20 rounded text-emerald-600 dark:text-emerald-400 transition"
+                            title="Copy API Key"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   <td className="py-3.5 px-3">

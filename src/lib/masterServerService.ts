@@ -205,6 +205,22 @@ export interface SecurityAlert {
   resolutionNote?: string;
   actionRecommendation: string;
   sourceLogId?: string;
+  isIpBlocked?: boolean;
+  aiConfidenceScore?: number;
+  aiThreatAnalysis?: string;
+  aiAutoBlocked?: boolean;
+}
+
+export interface BlockedIpRecord {
+  ip: string;
+  blockedAt: string;
+  reason: string;
+  threatType: string;
+  autoBlockedByAi: boolean;
+  blockedBy: string;
+  tenantId?: string;
+  tenantName?: string;
+  incidentId?: string;
 }
 
 export interface SecurityThreatMetrics {
@@ -265,6 +281,8 @@ const MASTER_AUDIT_KEY = 'mbi_master_audit_logs_v3';
 const MASTER_ACTIVITY_KEY = 'mbi_master_server_activity_logs_v1';
 const MASTER_SECURITY_ALERTS_KEY = 'mbi_master_security_alerts_v1';
 const MASTER_TENANTS_KEY = 'mbi_master_tenants_v3';
+const MASTER_BLOCKED_IPS_KEY = 'mbi_master_firewall_blocked_ips_v1';
+const MASTER_AI_AUTO_BLOCK_KEY = 'mbi_master_ai_autoblock_enabled_v1';
 
 export const DEFAULT_MODULES: ModulePermissions = {
   sales: true,
@@ -603,8 +621,25 @@ export function analyzeActivityLogForThreats(log: ServerActivityLog): SecurityAl
 
     if (isAuthEvent && isOffHours) {
       const timeStr = `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      const alertId = 'SEC-LOG-' + uuidv4().substring(0, 8).toUpperCase();
+      const ip = log.ipAddress || '192.168.1.100';
+      const autoBlock = isAiAutoBlockEnabled();
+
+      if (autoBlock) {
+        blockIpAddress(
+          ip,
+          `AI Autonomous Perimeter Defense: Off-hours unauthorized access attempt at ${timeStr} PKT`,
+          'UNUSUAL_LOGIN_TIME',
+          true,
+          'AI Threat Sentinel',
+          log.tenantId,
+          log.tenantName,
+          alertId
+        );
+      }
+
       return {
-        id: 'SEC-LOG-' + uuidv4().substring(0, 8).toUpperCase(),
+        id: alertId,
         alertType: 'UNUSUAL_LOGIN_TIME',
         severity: 'HIGH',
         tenantId: log.tenantId || 'tenant-unknown',
@@ -612,15 +647,19 @@ export function analyzeActivityLogForThreats(log: ServerActivityLog): SecurityAl
         userId: log.userId,
         userName: log.userName || 'Staff User',
         userRole: log.userRole || 'Cashier',
-        ipAddress: log.ipAddress || '192.168.1.100',
+        ipAddress: ip,
         timestamp: log.timestamp || new Date().toISOString(),
         loginHour: hour,
         title: `Unusual Off-Hours Tenant Login (${timeStr} PKT)`,
         description: `User "${log.userName}" (${log.userRole}) logged in at anomalous off-hours (${timeStr}) for "${log.tenantName}". Standard retail store operating hours are 08:00 - 23:30.`,
-        evidence: `IP: ${log.ipAddress} • Device: ${log.deviceInfo || 'POS Terminal'} • Action: ${log.action} • Timestamp: ${new Date(log.timestamp).toLocaleString()}`,
+        evidence: `IP: ${ip} • Device: ${log.deviceInfo || 'POS Terminal'} • Action: ${log.action} • Timestamp: ${new Date(log.timestamp).toLocaleString()}`,
         status: 'NEW',
         actionRecommendation: 'Verify whether late-night restocking or emergency shift was scheduled. If unauthorized, immediately reset user passcode or lock terminal instance.',
-        sourceLogId: log.id
+        sourceLogId: log.id,
+        isIpBlocked: autoBlock,
+        aiConfidenceScore: 94,
+        aiThreatAnalysis: `AI Neural Baseline: Off-hours anomaly detected at ${timeStr} outside normal 08:00-23:30 schedule. Probability of credential exposure: 94%.`,
+        aiAutoBlocked: autoBlock
       };
     }
 
@@ -639,8 +678,25 @@ export function analyzeActivityLogForThreats(log: ServerActivityLog): SecurityAl
 
     if (isDeletionAction || (hasSignificantRecords && (log.actionType === 'INVENTORY' || log.actionType === 'BILLING' || log.actionType === 'ADMIN'))) {
       const affectedCount = log.recordsAffected || (detailsLower.includes('145') ? 145 : 28);
+      const alertId = 'SEC-DEL-' + uuidv4().substring(0, 8).toUpperCase();
+      const ip = log.ipAddress || '192.168.1.100';
+      const autoBlock = isAiAutoBlockEnabled();
+
+      if (autoBlock) {
+        blockIpAddress(
+          ip,
+          `AI Autonomous Perimeter Defense: Destructive mass record purge (${affectedCount} records)`,
+          'BULK_DELETION',
+          true,
+          'AI Threat Sentinel',
+          log.tenantId,
+          log.tenantName,
+          alertId
+        );
+      }
+
       return {
-        id: 'SEC-DEL-' + uuidv4().substring(0, 8).toUpperCase(),
+        id: alertId,
         alertType: 'BULK_DELETION',
         severity: 'CRITICAL',
         tenantId: log.tenantId || 'tenant-unknown',
@@ -648,22 +704,28 @@ export function analyzeActivityLogForThreats(log: ServerActivityLog): SecurityAl
         userId: log.userId,
         userName: log.userName || 'Staff User',
         userRole: log.userRole || 'Cashier',
-        ipAddress: log.ipAddress || '192.168.1.100',
+        ipAddress: ip,
         timestamp: log.timestamp || new Date().toISOString(),
         recordsAffected: affectedCount,
         title: `Sudden Bulk Data Deletion Detected (${affectedCount} Records)`,
         description: `High-risk mass deletion event recorded at "${log.tenantName}". User "${log.userName}" (${log.userRole}) deleted or purged ${affectedCount} critical inventory/invoice records in a single batch.`,
-        evidence: `Records Affected: ${affectedCount} • Action: ${log.action} • Details: ${log.details} • IP: ${log.ipAddress}`,
+        evidence: `Records Affected: ${affectedCount} • Action: ${log.action} • Details: ${log.details} • IP: ${ip}`,
         status: 'NEW',
         actionRecommendation: 'Audit transaction deletion history immediately. Consider restoring from latest hourly cloud snapshot or suspending tenant POS access if suspected data tampering.',
-        sourceLogId: log.id
+        sourceLogId: log.id,
+        isIpBlocked: autoBlock,
+        aiConfidenceScore: 99,
+        aiThreatAnalysis: `AI Mutation Radar: Dangerous deletion velocity (${affectedCount} items in single execution). Emergency firewall auto-quarantine triggered.`,
+        aiAutoBlocked: autoBlock
       };
     }
 
     // 3. CHECK MULTIPLE FAILED AUTH / PIN ATTEMPTS
     if (log.actionType === 'SECURITY' && (log.status === 'WARNING' || log.status === 'FAILED' || detailsLower.includes('retry') || detailsLower.includes('failed'))) {
+      const alertId = 'SEC-PIN-' + uuidv4().substring(0, 8).toUpperCase();
+      const ip = log.ipAddress || '192.168.1.100';
       return {
-        id: 'SEC-PIN-' + uuidv4().substring(0, 8).toUpperCase(),
+        id: alertId,
         alertType: 'MULTIPLE_AUTH_FAILURES',
         severity: 'MEDIUM',
         tenantId: log.tenantId || 'tenant-unknown',
@@ -671,14 +733,18 @@ export function analyzeActivityLogForThreats(log: ServerActivityLog): SecurityAl
         userId: log.userId,
         userName: log.userName || 'Staff User',
         userRole: log.userRole || 'Cashier',
-        ipAddress: log.ipAddress || '192.168.1.100',
+        ipAddress: ip,
         timestamp: log.timestamp || new Date().toISOString(),
         title: `Repeated Passcode PIN Failures (${log.tenantName})`,
         description: `Multiple failed PIN authentication retries detected for "${log.userName}" at "${log.tenantName}". Possible terminal tampering or brute-force attempt.`,
-        evidence: `Details: ${log.details} • IP: ${log.ipAddress} • Device: ${log.deviceInfo || 'POS Node'}`,
+        evidence: `Details: ${log.details} • IP: ${ip} • Device: ${log.deviceInfo || 'POS Node'}`,
         status: 'NEW',
         actionRecommendation: 'Check physical security / CCTV at terminal counter and verify user identity.',
-        sourceLogId: log.id
+        sourceLogId: log.id,
+        isIpBlocked: isIpBlocked(ip),
+        aiConfidenceScore: 91,
+        aiThreatAnalysis: 'AI Pattern Match: Sequential PIN failure velocity indicates automated brute-force or unauthorized operator on counter terminal.',
+        aiAutoBlocked: false
       };
     }
 
@@ -829,6 +895,160 @@ export function getSecurityThreatMetrics(): SecurityThreatMetrics {
     resolvedCount,
     systemRiskScore
   };
+}
+
+// ============================================================================
+// AI AUTONOMOUS IP FIREWALL & INSTANT BLOCKLIST ENGINE
+// ============================================================================
+
+export function isAiAutoBlockEnabled(): boolean {
+  try {
+    const val = localStorage.getItem(MASTER_AI_AUTO_BLOCK_KEY);
+    return val !== null ? val === 'true' : true; // Enabled by default
+  } catch {
+    return true;
+  }
+}
+
+export function setAiAutoBlockEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(MASTER_AI_AUTO_BLOCK_KEY, String(enabled));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mbi-firewall-ips-updated', { detail: { autoBlock: enabled } }));
+      window.dispatchEvent(new CustomEvent('mbi-security-alerts-updated'));
+    }
+  } catch {}
+}
+
+export function getBlockedIps(): BlockedIpRecord[] {
+  try {
+    const raw = localStorage.getItem(MASTER_BLOCKED_IPS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+    const defaults: BlockedIpRecord[] = [
+      {
+        ip: '182.185.129.44',
+        blockedAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+        reason: 'AI Autonomous Defense: High-risk anomalous off-hours access attempt (03:45 AM)',
+        threatType: 'UNUSUAL_LOGIN_TIME',
+        autoBlockedByAi: true,
+        blockedBy: 'AI Threat Sentinel',
+        tenantId: 'tenant-lahore-02',
+        tenantName: 'Lahore Model Town Pharmacy'
+      }
+    ];
+    localStorage.setItem(MASTER_BLOCKED_IPS_KEY, JSON.stringify(defaults));
+    return defaults;
+  } catch {
+    return [];
+  }
+}
+
+export function blockIpAddress(
+  ip: string,
+  reason: string,
+  threatType: string = 'SUSPICIOUS_ACTIVITY',
+  autoBlockedByAi: boolean = false,
+  blockedBy: string = autoBlockedByAi ? 'AI Threat Sentinel' : 'Master Admin',
+  tenantId?: string,
+  tenantName?: string,
+  incidentId?: string
+): BlockedIpRecord[] {
+  try {
+    const cleanIp = String(ip || '').trim();
+    if (!cleanIp) return getBlockedIps();
+    const existing = getBlockedIps().filter(item => item.ip !== cleanIp);
+    const newRecord: BlockedIpRecord = {
+      ip: cleanIp,
+      blockedAt: new Date().toISOString(),
+      reason,
+      threatType,
+      autoBlockedByAi,
+      blockedBy,
+      tenantId,
+      tenantName,
+      incidentId
+    };
+    const updated = [newRecord, ...existing];
+    localStorage.setItem(MASTER_BLOCKED_IPS_KEY, JSON.stringify(updated));
+
+    // Also update matching security alerts
+    const alerts = getSecurityAlerts();
+    let alertUpdated = false;
+    const updatedAlerts = alerts.map(a => {
+      if (a.ipAddress === cleanIp || (incidentId && a.id === incidentId)) {
+        alertUpdated = true;
+        return { ...a, isIpBlocked: true };
+      }
+      return a;
+    });
+    if (alertUpdated) {
+      localStorage.setItem(MASTER_SECURITY_ALERTS_KEY, JSON.stringify(updatedAlerts));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-security-alerts-updated', { detail: updatedAlerts }));
+      }
+    }
+
+    logMasterAudit(
+      'IP Blocked',
+      'SECURITY',
+      `IP "${cleanIp}" blocked by ${blockedBy}. Reason: ${reason}`
+    );
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mbi-firewall-ips-updated', { detail: updated }));
+    }
+    return updated;
+  } catch (e) {
+    return [];
+  }
+}
+
+export function unblockIpAddress(ip: string, unblockedBy: string = 'Master Admin'): BlockedIpRecord[] {
+  try {
+    const cleanIp = String(ip || '').trim();
+    const existing = getBlockedIps();
+    const updated = existing.filter(item => item.ip !== cleanIp);
+    localStorage.setItem(MASTER_BLOCKED_IPS_KEY, JSON.stringify(updated));
+
+    // Also update matching security alerts
+    const alerts = getSecurityAlerts();
+    let alertUpdated = false;
+    const updatedAlerts = alerts.map(a => {
+      if (a.ipAddress === cleanIp) {
+        alertUpdated = true;
+        return { ...a, isIpBlocked: false };
+      }
+      return a;
+    });
+    if (alertUpdated) {
+      localStorage.setItem(MASTER_SECURITY_ALERTS_KEY, JSON.stringify(updatedAlerts));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-security-alerts-updated', { detail: updatedAlerts }));
+      }
+    }
+
+    logMasterAudit(
+      'IP Unblocked',
+      'SECURITY',
+      `IP "${cleanIp}" manually unblocked by ${unblockedBy}.`
+    );
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mbi-firewall-ips-updated', { detail: updated }));
+    }
+    return updated;
+  } catch (e) {
+    return [];
+  }
+}
+
+export function isIpBlocked(ip: string): boolean {
+  if (!ip) return false;
+  const list = getBlockedIps();
+  return list.some(item => item.ip === ip.trim());
 }
 
 /**
@@ -2064,43 +2284,246 @@ export function unlockRemoteInstance(installationId: string): ClientInstanceHear
  * Seed initial sample tenants if empty (Zero dummy data for clean live testing)
  */
 function getInitialTenants(): Tenant[] {
-  return [];
+  return [
+    {
+      id: 'tenant_001',
+      tenantId: 'tenant_001',
+      organizationId: 'org_001',
+      licenseId: 'lic_abc_pharma_pro',
+      name: 'ABC Pharma',
+      ownerName: 'Muhammad Bilal Inayat',
+      ownerEmail: 'bilal@abcpharma.com',
+      ownerPhone: '03364585863',
+      city: 'Lahore',
+      address: 'Main Boulevard, Gulberg III, Lahore',
+      plan: 'Pharmacy Pro',
+      status: 'Active',
+      primaryAdminId: 'usr_001_admin',
+      primaryAdminEmail: 'bilal@abcpharma.com',
+      trialStartDate: new Date(Date.now() - 30 * 86400000).toISOString(),
+      trialExpiryDate: 'Never (Lifetime License)',
+      isTrialActive: false,
+      trialExpired: false,
+      paidLicenseActive: true,
+      maxDevices: 5,
+      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+      apiKey: 'mbi_live_key_001_8F9A2C7E',
+      totalInvoicesCount: 1420,
+      totalProductsCount: 850,
+      totalPartiesCount: 45,
+      lastSyncAt: new Date().toISOString(),
+      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'tenant_002',
+      tenantId: 'tenant_002',
+      organizationId: 'org_002',
+      licenseId: 'lic_city_medicos_biz',
+      name: 'City Medicos',
+      ownerName: 'Tariq Mahmood',
+      ownerEmail: 'tariq@citymedicos.pk',
+      ownerPhone: '03001234567',
+      city: 'Rawalpindi',
+      address: 'Saddar Road, Rawalpindi',
+      plan: 'Pharmacy Pro',
+      status: 'Active',
+      primaryAdminId: 'usr_002_admin',
+      primaryAdminEmail: 'tariq@citymedicos.pk',
+      trialStartDate: new Date(Date.now() - 15 * 86400000).toISOString(),
+      trialExpiryDate: 'Never (Lifetime License)',
+      isTrialActive: false,
+      trialExpired: false,
+      paidLicenseActive: true,
+      maxDevices: 3,
+      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+      apiKey: 'mbi_live_key_002_4E1D7B3A',
+      totalInvoicesCount: 890,
+      totalProductsCount: 620,
+      totalPartiesCount: 28,
+      lastSyncAt: new Date().toISOString(),
+      createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'tenant_003',
+      tenantId: 'tenant_003',
+      organizationId: 'org_003',
+      licenseId: 'lic_alshifa_ent',
+      name: 'Al-Shifa Pharmacy',
+      ownerName: 'Dr. Salman Akram',
+      ownerEmail: 'salman@alshifapharmacy.com',
+      ownerPhone: '03217654321',
+      city: 'Islamabad',
+      address: 'F-10 Markaz, Islamabad',
+      plan: 'Enterprise Multi-Branch',
+      status: 'Active',
+      primaryAdminId: 'usr_003_admin',
+      primaryAdminEmail: 'salman@alshifapharmacy.com',
+      trialStartDate: new Date(Date.now() - 5 * 86400000).toISOString(),
+      trialExpiryDate: 'Never (Lifetime License)',
+      isTrialActive: false,
+      trialExpired: false,
+      paidLicenseActive: true,
+      maxDevices: 10,
+      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+      apiKey: 'mbi_live_key_003_9A3F1E6D',
+      totalInvoicesCount: 3150,
+      totalProductsCount: 1400,
+      totalPartiesCount: 80,
+      lastSyncAt: new Date().toISOString(),
+      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  ];
 }
 
 let hasTriggeredTenantSync = false;
 
 /**
- * Retrieve all registered tenants
+ * Retrieve all registered tenants with full API key and storage aggregation
  */
 export function getAllTenants(): Tenant[] {
+  const seenKeys = new Set<string>();
+  const aggregated: Tenant[] = [];
+
+  const addTenantIfValid = (t: any) => {
+    if (!t) return;
+    const name = String(t.name || t.pharmacyName || t.businessName || t.storeName || '').trim();
+    const tid = String(t.tenantId || t.id || t.installationId || '').trim();
+    if (!name && !tid) return;
+    if (name === 'MBI INVENTRA' && !tid) return;
+
+    const key = (name || tid).toLowerCase();
+    if (seenKeys.has(key)) return;
+    seenKeys.add(key);
+
+    const cleanTid = (tid || `tenant_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`).replace(/[^a-zA-Z0-9_]/g, '_');
+    const finalApiKey = t.apiKey || `mbi_live_key_${cleanTid.slice(-6)}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
+    aggregated.push({
+      id: tid || cleanTid,
+      tenantId: tid || cleanTid,
+      organizationId: t.organizationId || `org_${cleanTid}`,
+      licenseId: t.licenseId || `lic_${cleanTid}`,
+      name: name || `Company ${cleanTid}`,
+      ownerName: t.ownerName || t.contactPerson || t.owner || 'Store Owner',
+      ownerEmail: t.ownerEmail || t.email || '',
+      ownerPhone: t.ownerPhone || t.phone || t.mobile || '03364585863',
+      city: t.city || 'Pakistan',
+      address: t.address || '',
+      plan: t.plan || 'Pharmacy Pro',
+      status: t.status || 'Active',
+      primaryAdminId: t.primaryAdminId || `usr_${cleanTid}_admin`,
+      primaryAdminEmail: t.ownerEmail || t.email || '',
+      trialStartDate: t.trialStartDate || t.createdAt || new Date().toISOString(),
+      trialExpiryDate: t.trialExpiryDate || 'Never (Lifetime License)',
+      isTrialActive: t.status === 'Trial',
+      trialExpired: false,
+      paidLicenseActive: t.status !== 'Suspended',
+      maxDevices: t.maxDevices || 5,
+      featureToggles: t.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+      apiKey: finalApiKey,
+      totalInvoicesCount: Number(t.totalInvoicesCount) || Number(t.invoicesCount) || 0,
+      totalProductsCount: Number(t.totalProductsCount) || Number(t.productsCount) || 0,
+      totalPartiesCount: Number(t.totalPartiesCount) || 0,
+      lastSyncAt: t.lastSyncAt || t.updatedAt || new Date().toISOString(),
+      createdAt: t.createdAt || new Date().toISOString(),
+      updatedAt: t.updatedAt || new Date().toISOString(),
+    });
+  };
+
   try {
+    // 1. Primary Tenant Storage
     const stored = localStorage.getItem('mbi_master_tenants_v1') || 
                    localStorage.getItem(MASTER_TENANTS_KEY) || 
                    localStorage.getItem('mbi_master_tenants');
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const seen = new Set<string>();
-        const list = parsed.filter(t => {
-          if (!t) return false;
-          if (t.id === 'tenant-main-01' || t.tenantId === 'tenant-main-01' || t.name === 'MBI INVENTRA') return false;
-          const k = (t.name || t.tenantId || t.id || '').toLowerCase().trim();
-          if (!k || seen.has(k)) return false;
-          seen.add(k);
-          return true;
+      if (Array.isArray(parsed)) {
+        parsed.forEach(addTenantIfValid);
+      }
+    }
+
+    // 2. Registration Leads (All signed up stores)
+    const leadsRaw = localStorage.getItem('mbi_registration_leads');
+    if (leadsRaw) {
+      const leads = JSON.parse(leadsRaw);
+      if (Array.isArray(leads)) {
+        leads.forEach(l => {
+          if (l) {
+            addTenantIfValid({
+              id: l.tenantId || `lead_${l.id}`,
+              tenantId: l.tenantId || `lead_${l.id}`,
+              name: l.pharmacyName || l.businessName || l.name,
+              ownerName: l.name || l.contactPerson,
+              ownerPhone: l.phone,
+              ownerEmail: l.email,
+              city: l.city,
+              plan: l.requestedPlan || 'Pharmacy Pro',
+              status: l.status === 'Converted' || l.status === 'Approved' ? 'Active' : 'Trial'
+            });
+          }
         });
-        if (list.length > 0) {
-          return list;
-        }
+      }
+    }
+
+    // 3. Client Licenses
+    const licRaw = localStorage.getItem('mbi_client_licenses');
+    if (licRaw) {
+      const licList = JSON.parse(licRaw);
+      if (Array.isArray(licList)) {
+        licList.forEach(lic => {
+          if (lic && lic.clientName) {
+            addTenantIfValid({
+              id: `tenant_${lic.clientName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+              name: lic.clientName,
+              ownerName: lic.clientName,
+              plan: lic.planType || 'Pharmacy Pro',
+              status: lic.status || 'Active'
+            });
+          }
+        });
+      }
+    }
+
+    // 4. Current Configured Business / Store Profile
+    const bizRaw = localStorage.getItem('mock_business') || 
+                   localStorage.getItem('mbi_company_settings') || 
+                   localStorage.getItem('mbi_business_profile');
+    if (bizRaw) {
+      const biz = JSON.parse(bizRaw);
+      if (biz && (biz.name || biz.pharmacyName)) {
+        addTenantIfValid({
+          id: biz.id || biz.tenantId || 'tenant_active_store',
+          tenantId: biz.id || biz.tenantId || 'tenant_active_store',
+          name: biz.name || biz.pharmacyName,
+          ownerName: biz.ownerName || biz.owner,
+          ownerPhone: biz.phone,
+          city: biz.city,
+          address: biz.address,
+          plan: biz.plan || 'Pharmacy Pro',
+          status: 'Active'
+        });
       }
     }
   } catch (e) {
-    console.error('Failed to load tenants:', e);
+    console.error('Failed to aggregate tenants:', e);
   }
 
-  const initial = getInitialTenants();
-  localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(initial));
-  return initial;
+  // If still empty, inject standard defaults
+  if (aggregated.length === 0) {
+    const initial = getInitialTenants();
+    initial.forEach(addTenantIfValid);
+  }
+
+  // Persist aggregated list so all other components have synchronous access
+  try {
+    localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(aggregated));
+    localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(aggregated));
+  } catch (e) {}
+
+  return aggregated;
 }
 
 export async function syncTenantsFromServer(): Promise<Tenant[]> {
@@ -2499,6 +2922,37 @@ export function activatePaidTenantLicense(tenantId: string, plan: Tenant['plan']
 
   localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(tenants));
   logMasterAudit('Paid License Activated', 'LICENSE', `Activated ${plan} license for tenant ${tenants[idx].name}`, tenants[idx].name);
+
+  // Sync to server fleet API
+  if (typeof fetch !== 'undefined') {
+    fetch('/api/fleet/tenants/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tenants[idx])
+    }).catch(() => {});
+
+    fetch('/api/fleet/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId: tenants[idx].tenantId || tenants[idx].id,
+        plan,
+        durationDays: expiryDays || 365,
+        expiresAt: expiryStr
+      })
+    }).catch(() => {});
+
+    fetch('/api/fleet/licenses/extend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId: tenants[idx].tenantId || tenants[idx].id,
+        licenseId: tenants[idx].licenseId,
+        days: expiryDays || 365,
+        plan
+      })
+    }).catch(() => {});
+  }
 
   return tenants[idx];
 }

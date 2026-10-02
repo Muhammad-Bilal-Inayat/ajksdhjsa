@@ -4,9 +4,9 @@ import {
   AlertTriangle, ShieldCheck, Database, HardDrive, FileText, 
   Search, Lock, Sparkles, ArrowRight, Eye, Check, ExternalLink,
   Package, ShoppingCart, Users, Truck, DollarSign, Wallet,
-  Calendar, Clock, ShieldAlert, Archive, Laptop, Play
+  Calendar, Clock, ShieldAlert, Archive, Laptop, Play, Key, Copy
 } from 'lucide-react';
-import { getAllTenants, Tenant } from '../../lib/masterServerService';
+import { getAllTenants, syncTenantsFromServer, Tenant } from '../../lib/masterServerService';
 import { 
   BackupSnapshot, 
   decryptBackupContainer, 
@@ -67,18 +67,35 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
   // Export State
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Load all tenants on mount
+  // Load all tenants on mount & listen for real-time fleet events
   useEffect(() => {
-    try {
-      const list = getAllTenants();
-      setTenants(list);
-      if (list.length > 0 && !selectedTenantId) {
-        setSelectedTenantId(list[0].tenantId || list[0].id);
+    const refreshTenants = () => {
+      try {
+        const list = getAllTenants();
+        setTenants(list);
+        if (list.length > 0 && !selectedTenantId) {
+          setSelectedTenantId(list[0].tenantId || list[0].id);
+        }
+      } catch (e) {
+        console.error('Failed to load tenants:', e);
       }
-    } catch (e) {
-      console.error('Failed to load tenants:', e);
-    }
-  }, []);
+    };
+
+    refreshTenants();
+    syncTenantsFromServer().then(remoteList => {
+      if (remoteList && remoteList.length > 0) {
+        setTenants(remoteList);
+      }
+    }).catch(() => {});
+
+    window.addEventListener('mbi-tenants-updated', refreshTenants);
+    window.addEventListener('storage', refreshTenants);
+
+    return () => {
+      window.removeEventListener('mbi-tenants-updated', refreshTenants);
+      window.removeEventListener('storage', refreshTenants);
+    };
+  }, [selectedTenantId]);
 
   const selectedTenant = useMemo(() => {
     return tenants.find(t => (t.tenantId || t.id) === selectedTenantId) || tenants[0] || null;
@@ -484,6 +501,7 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
                 filteredTenants.map((t) => {
                   const tid = t.tenantId || t.id;
                   const isSelected = tid === (selectedTenant?.tenantId || selectedTenant?.id);
+                  const keyDisplay = t.apiKey || `mbi_live_key_${tid.replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
 
                   return (
                     <div
@@ -496,9 +514,9 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="space-y-0.5">
+                        <div className="space-y-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                               {t.name}
                             </span>
                             {isSelected && (
@@ -508,7 +526,27 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 font-mono">
                             <span>ID: {tid}</span>
                             <span>•</span>
-                            <span>{t.ownerName}</span>
+                            <span className="truncate">{t.ownerName}</span>
+                          </div>
+
+                          {/* Live API Key Display */}
+                          <div className="pt-0.5 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                            <Key className="w-3 h-3 text-emerald-500 shrink-0" />
+                            <span className="truncate max-w-[170px]" title={keyDisplay}>
+                              {keyDisplay}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(keyDisplay);
+                                emitToast(`📋 Copied API Key for ${t.name}`, 'info');
+                              }}
+                              className="p-1 hover:bg-emerald-500/20 rounded transition-colors text-emerald-600 dark:text-emerald-400"
+                              title="Copy API Key"
+                            >
+                              <Copy className="w-2.5 h-2.5" />
+                            </button>
                           </div>
                         </div>
 
@@ -537,7 +575,7 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
             {/* Active Target Banner */}
             {selectedTenant && (
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-0.5">
+                <div className="space-y-1">
                   <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400">
                     Active Target for Restoration:
                   </div>
@@ -546,6 +584,25 @@ export const ManualTenantBackupRestoreHub: React.FC<{ onNotify?: (msg: string, t
                     <span className="font-mono text-xs text-emerald-500 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-md">
                       {selectedTenant.tenantId || selectedTenant.id}
                     </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 font-mono">
+                    <Key className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">API Key:</span>
+                    <span className="text-[11px] bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      {selectedTenant.apiKey || `mbi_live_key_${(selectedTenant.tenantId || selectedTenant.id || '').replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const keyToCopy = selectedTenant.apiKey || `mbi_live_key_${(selectedTenant.tenantId || selectedTenant.id || '').replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+                        navigator.clipboard.writeText(keyToCopy);
+                        emitToast(`📋 Copied API Key for ${selectedTenant.name}`, 'info');
+                      }}
+                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
+                      title="Copy API Key"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 

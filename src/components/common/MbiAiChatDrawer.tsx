@@ -184,6 +184,17 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Persistent live session ID for home/user/server sync with Master Live Desk
+  const [sessionId] = useState<string>(() => {
+    const key = `mbi_ai_session_id_${isServerRoute ? 'server' : (isHomeScope ? 'home' : 'user')}`;
+    let sid = localStorage.getItem(key);
+    if (!sid) {
+      sid = `sess_${isServerRoute ? 'srv' : (isHomeScope ? 'pub' : 'usr')}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      localStorage.setItem(key, sid);
+    }
+    return sid;
+  });
+
   // Human Support Form States
   const [showSupportForm, setShowSupportForm] = useState(false);
   const [supportName, setSupportName] = useState(userFullName);
@@ -197,6 +208,46 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, loading, showSupportForm, isOpen]);
+
+  // Live 2-way sync polling with Server Live Desk when drawer is open
+  useEffect(() => {
+    if (!isOpen || !sessionId) return;
+    let isMounted = true;
+
+    const syncWithServer = async () => {
+      try {
+        const res = await fetch(`/api/ai/chat/sessions/${sessionId}`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.success && data.session && Array.isArray(data.session.messages)) {
+            const serverMsgs: ChatMessage[] = data.session.messages.map((m: any) => ({
+              id: m.id,
+              sender: m.sender === 'human_agent' ? 'ai' : m.sender,
+              text: m.sender === 'human_agent' ? `🎧 **[Operator ${m.senderName || 'Support Desk'}]:**\n${m.text}` : m.text,
+              timestamp: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }));
+
+            if (serverMsgs.length > 0) {
+              setMessages(prev => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const newFromLiveServer = serverMsgs.filter(sm => !existingIds.has(sm.id));
+                if (newFromLiveServer.length > 0) {
+                  return [...prev, ...newFromLiveServer];
+                }
+                return prev;
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    };
+
+    const timer = setInterval(syncWithServer, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [isOpen, sessionId]);
 
   // Persist messages in localStorage
   useEffect(() => {
@@ -427,6 +478,10 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
         body: JSON.stringify({
           prompt: userMsg.text,
           context: activeContext,
+          sessionId: sessionId,
+          tenantId: tenant?.id || 'default',
+          userId: (currentUser as any)?.id || 'usr_visitor',
+          userName: userFullName,
           userPlan: tenant?.plan || 'business',
           businessName: pharmacyName,
           userEmail: (currentUser as any)?.email || '',

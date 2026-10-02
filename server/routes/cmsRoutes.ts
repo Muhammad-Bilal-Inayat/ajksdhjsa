@@ -116,6 +116,63 @@ function saveTestimonialsToDisk(items: ServerTestimonial[]): boolean {
   }
 }
 
+const CMS_CONFIG_FILE = path.resolve(process.cwd(), '.site_cms_store.json');
+
+function loadCmsConfigFromDisk(): any {
+  try {
+    if (!fs.existsSync(CMS_CONFIG_FILE)) {
+      return null;
+    }
+    const raw = fs.readFileSync(CMS_CONFIG_FILE, 'utf-8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('[CMS Server] Failed to read CMS config file:', err);
+    return null;
+  }
+}
+
+function saveCmsConfigToDisk(config: any): boolean {
+  try {
+    fs.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[CMS Server] Failed to write CMS config file:', err);
+    return false;
+  }
+}
+
+// GET /api/site-cms/config - Retrieve live CMS configuration
+cmsRouter.get('/config', (req: Request, res: Response) => {
+  try {
+    const config = loadCmsConfigFromDisk();
+    res.json({
+      success: true,
+      config: config || null
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Failed to load CMS config' });
+  }
+});
+
+// POST /api/site-cms/config - Publish & save live CMS configuration
+cmsRouter.post('/config', (req: Request, res: Response) => {
+  try {
+    const { config } = req.body;
+    const toSave = config || req.body;
+    if (!toSave) {
+      return res.status(400).json({ success: false, message: 'Configuration payload required' });
+    }
+    saveCmsConfigToDisk(toSave);
+    res.json({
+      success: true,
+      message: 'Website CMS configuration published successfully!',
+      config: toSave
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err?.message || 'Failed to save CMS config' });
+  }
+});
+
 // GET /api/site-cms/testimonials
 cmsRouter.get('/testimonials', (req: Request, res: Response) => {
   try {

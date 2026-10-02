@@ -573,20 +573,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title="MBI INVENTRA — Go to Dashboard"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              {/* MBI Logo Box */}
-              <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-all">
-                <span className="text-blue-600 dark:text-blue-400 font-black text-xs tracking-tight">MBI</span>
+              {/* MBI Favicon / Logo Box */}
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-all overflow-hidden">
+                <img
+                  src="/mbi-favicon.svg"
+                  alt="MBI INVENTRA"
+                  className="w-7 h-7 object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    if (target.nextElementSibling) {
+                      (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+                <span className="hidden text-blue-600 dark:text-blue-400 font-black text-xs tracking-tight">MBI</span>
               </div>
               
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-[13.5px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
-                    {business?.name || tenant?.name || 'MNBI'}
+                  <h1 className="text-[14px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
+                    MBI INVENTRA
                   </h1>
-                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 font-semibold mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0"></span>
-                    <span>{business?.phone || currentUser?.username || '03000'}</span>
-                  </p>
                 </div>
               )}
             </div>

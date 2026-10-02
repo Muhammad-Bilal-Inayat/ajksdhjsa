@@ -72,7 +72,9 @@ class NetworkStateManager {
     });
 
     // Start background queue processing ticker
-    this.retryTimer = setInterval(() => this.processRetryQueue(), 2000);
+    this.retryTimer = setInterval(() => {
+      if (this.retryQueue.size > 0) this.processRetryQueue();
+    }, 5000);
 
     // Periodic lightweight connectivity heartbeat (every 45s)
     this.pingTimer = setInterval(() => {

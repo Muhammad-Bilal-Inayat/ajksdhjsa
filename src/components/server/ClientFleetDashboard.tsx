@@ -228,11 +228,24 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
       refreshAllFleetData();
     };
 
+    const poller = setInterval(() => {
+      if (!document.hidden) {
+        refreshAllFleetData();
+      }
+    }, 15000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshAllFleetData();
+      }
+    };
+
     window.addEventListener('mbi-registration-leads-updated', handleUpdate);
-    const poller = setInterval(refreshAllFleetData, 15000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('mbi-registration-leads-updated', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(poller);
     };
   }, []);
@@ -674,13 +687,31 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
   };
 
   // Handle Send Direct Message to POS Screen
-  const handleSendDirectMessage = (e: React.FormEvent) => {
+  const handleSendDirectMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageModalTenant || !directMessageText.trim()) return;
 
+    const tid = messageModalTenant.tenantId || messageModalTenant.id;
+    const alertMsg = directMessageText.trim();
+
+    try {
+      await fetch('/api/fleet/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId: tid,
+          tenantName: messageModalTenant.name,
+          title: 'Message from Head Office',
+          message: alertMsg,
+          alertType: 'urgent',
+          playChime: true
+        })
+      });
+    } catch (e) {}
+
     dispatchRemoteCommand(messageModalTenant.id, 'screen_alert', {
       title: 'Server Message from Head Office',
-      message: directMessageText.trim(),
+      message: alertMsg,
       timestamp: new Date().toISOString()
     });
 

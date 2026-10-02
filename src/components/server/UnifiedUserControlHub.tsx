@@ -167,7 +167,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     window.addEventListener('mbi-master-users-wiped', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
-    const interval = setInterval(refreshUsersList, 6000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      refreshUsersList();
+    }, 15000);
     return () => {
       window.removeEventListener('mbi-users-updated', handleUpdate);
       window.removeEventListener('mbi-master-users-wiped', handleUpdate);

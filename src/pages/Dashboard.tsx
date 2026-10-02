@@ -3243,7 +3243,7 @@ export const Dashboard: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <span>Welcome Back, {activeUser?.name || business?.name || 'Admin'}</span>
+              <span>Welcome Back, {business?.name || tenant?.name || activeUser?.name || 'Admin'}</span>
               <span className="animate-bounce inline-block">👋</span>
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">

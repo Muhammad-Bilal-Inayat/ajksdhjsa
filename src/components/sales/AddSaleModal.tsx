@@ -156,7 +156,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const indexedMedicines = useMemo(() => {
     return medicines.map(m => ({
       med: m,
-      searchStr: `${m.name || ''} ${m.genericName || ''} ${m.batchNumber || ''} ${m.formula || ''} ${m.rackLocation || ''}`.toLowerCase(),
+      searchStr: `${m.name || ''} ${m.genericName || ''} ${m.batchNumber || ''} ${(m as any).formula || ''} ${m.rackLocation || ''}`.toLowerCase(),
       barcodeStr: (m.barcode || m.id || (m as any).code || '').toLowerCase().trim()
     }));
   }, [medicines]);

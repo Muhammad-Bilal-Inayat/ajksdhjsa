@@ -1220,6 +1220,16 @@ function getMasterVault() {
       details_json TEXT,
       timestamp TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_user_access_profiles (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      profile_json TEXT NOT NULL,
+      effective_json TEXT,
+      updated_by TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   return masterDbInstance;
 }
@@ -8807,6 +8817,7 @@ var CONFIG_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_co
 var LEADS_FILE = import_path10.default.resolve(process.cwd(), ".ai_support_leads.json");
 var CLICKS_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
 var SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions.json");
+var ARCHIVED_SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions_archived.json");
 var keyHealthStats = {};
 function getOrInitKeyStat(key) {
   if (!keyHealthStats[key]) {
@@ -8820,6 +8831,9 @@ function getOrInitKeyStat(key) {
     };
   }
   return keyHealthStats[key];
+}
+function deleteKeyStat(key) {
+  delete keyHealthStats[key];
 }
 function loadSettings() {
   try {
@@ -9005,7 +9019,58 @@ function getClickTelemetryAnalytics() {
     recentEvents: events.slice(0, 40)
   };
 }
-function loadChatSessions() {
+var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
+var MAX_ACTIVE_SESSIONS = 20;
+function loadArchivedChatSessions() {
+  try {
+    if (import_fs10.default.existsSync(ARCHIVED_SESSIONS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(ARCHIVED_SESSIONS_FILE, "utf-8"));
+    }
+  } catch (err) {
+    console.error("Error reading archived AI chat sessions:", err);
+  }
+  return [];
+}
+function saveArchivedChatSessions(archived) {
+  try {
+    import_fs10.default.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error saving archived AI chat sessions:", err);
+  }
+}
+function autoArchiveSessions() {
+  let activeSessions = loadChatSessionsRaw();
+  let archivedSessions = loadArchivedChatSessions();
+  const now = Date.now();
+  const toKeep = [];
+  const toArchive = [];
+  for (const sess of activeSessions) {
+    const sessionTime = new Date(sess.lastMessageAt || sess.updatedAt || sess.createdAt).getTime();
+    if (now - sessionTime > SEVEN_DAYS_MS) {
+      toArchive.push(sess);
+    } else {
+      toKeep.push(sess);
+    }
+  }
+  toKeep.sort((a, b) => new Date(b.lastMessageAt || b.updatedAt).getTime() - new Date(a.lastMessageAt || a.updatedAt).getTime());
+  if (toKeep.length > MAX_ACTIVE_SESSIONS) {
+    const excess = toKeep.splice(MAX_ACTIVE_SESSIONS);
+    toArchive.push(...excess);
+  }
+  if (toArchive.length > 0) {
+    const existingArchivedIds = new Set(archivedSessions.map((s) => s.id));
+    for (const item of toArchive) {
+      if (!existingArchivedIds.has(item.id)) {
+        archivedSessions.unshift(item);
+        existingArchivedIds.add(item.id);
+      }
+    }
+    saveChatSessionsRaw(toKeep);
+    saveArchivedChatSessions(archivedSessions);
+  }
+  return { active: toKeep, archived: archivedSessions };
+}
+function loadChatSessionsRaw() {
   try {
     if (import_fs10.default.existsSync(SESSIONS_FILE)) {
       return JSON.parse(import_fs10.default.readFileSync(SESSIONS_FILE, "utf-8"));
@@ -9015,12 +9080,48 @@ function loadChatSessions() {
   }
   return [];
 }
-function saveChatSessions(sessions) {
+function saveChatSessionsRaw(sessions) {
   try {
     import_fs10.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI chat sessions:", err);
   }
+}
+function loadChatSessions() {
+  const { active } = autoArchiveSessions();
+  return active;
+}
+function saveChatSessions(sessions) {
+  saveChatSessionsRaw(sessions);
+}
+function getArchivedChatSessions() {
+  return loadArchivedChatSessions();
+}
+function archiveSession(sessionId) {
+  const active = loadChatSessionsRaw();
+  const target = active.find((s) => s.id === sessionId);
+  if (!target) return false;
+  const remaining = active.filter((s) => s.id !== sessionId);
+  const archived = loadArchivedChatSessions();
+  if (!archived.some((s) => s.id === sessionId)) {
+    archived.unshift(target);
+    saveArchivedChatSessions(archived);
+  }
+  saveChatSessionsRaw(remaining);
+  return true;
+}
+function unarchiveSession(sessionId) {
+  const archived = loadArchivedChatSessions();
+  const target = archived.find((s) => s.id === sessionId);
+  if (!target) return false;
+  const remainingArchived = archived.filter((s) => s.id !== sessionId);
+  const active = loadChatSessionsRaw();
+  if (!active.some((s) => s.id === sessionId)) {
+    active.unshift(target);
+    saveChatSessionsRaw(active);
+  }
+  saveArchivedChatSessions(remainingArchived);
+  return true;
 }
 function getOrCreateChatSession(params) {
   const sessions = loadChatSessions();
@@ -9090,7 +9191,10 @@ function getAllChatSessions(filter) {
 }
 function getChatSessionById(sessionId) {
   const sessions = loadChatSessions();
-  return sessions.find((s) => s.id === sessionId) || null;
+  const found = sessions.find((s) => s.id === sessionId);
+  if (found) return found;
+  const archived = loadArchivedChatSessions();
+  return archived.find((s) => s.id === sessionId) || null;
 }
 function addMessageToSession(params) {
   let session = getOrCreateChatSession({
@@ -9222,6 +9326,45 @@ async function testSingleKey(key) {
       message: isRateLimit ? "Key Rate-Limited (Quota exceeded / 429)." : `Key error: ${errMsg}`
     };
   }
+}
+async function addCustomApiKey(newKey) {
+  const trimmed = newKey.trim();
+  if (!trimmed || trimmed.length < 10) {
+    throw new Error("Invalid API Key provided. Must be at least 10 characters.");
+  }
+  const settings = loadSettings();
+  if (settings.customKeys.includes(trimmed)) {
+    throw new Error("This API key is already registered in the rotation pool.");
+  }
+  const testRes = await testSingleKey(trimmed);
+  const updatedKeys = [...settings.customKeys, trimmed];
+  saveSettings({ customKeys: updatedKeys });
+  const status2 = getAiConfigStatus();
+  return {
+    success: true,
+    message: testRes.success ? "New API key verified & added to rotation pool!" : `API key added (Warning: ${testRes.message})`,
+    keyHealth: status2.keyHealthMetrics
+  };
+}
+function removeCustomApiKey(keyToRemove) {
+  const trimmed = keyToRemove.trim();
+  const settings = loadSettings();
+  if (!settings.customKeys.includes(trimmed)) {
+    const found = settings.customKeys.find((k) => k === trimmed || `${k.substring(0, 10)}...${k.substring(k.length - 6)}` === trimmed);
+    if (!found) {
+      throw new Error("Key not found in custom keys list.");
+    }
+    keyToRemove = found;
+  }
+  const updatedKeys = settings.customKeys.filter((k) => k !== keyToRemove);
+  deleteKeyStat(keyToRemove);
+  saveSettings({ customKeys: updatedKeys });
+  const status2 = getAiConfigStatus();
+  return {
+    success: true,
+    message: "API key successfully removed from rotation pool.",
+    keyHealth: status2.keyHealthMetrics
+  };
 }
 async function generateAiResponse(prompt, context = "user", userPlan = "business", history = []) {
   const settings = loadSettings();
@@ -9778,6 +9921,34 @@ aiRouter.delete("/chat/sessions/:sessionId", (req, res) => {
     res.status(500).json({ success: false, error: err?.message });
   }
 });
+aiRouter.get("/chat/archived-sessions", (req, res) => {
+  try {
+    const archived = getArchivedChatSessions();
+    res.json({ success: true, sessions: archived, total: archived.length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+aiRouter.post("/chat/sessions/:sessionId/archive", (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const ok = archiveSession(sessionId);
+    if (!ok) return res.status(404).json({ error: "Session not found in active list." });
+    res.json({ success: true, message: "Session archived successfully." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+aiRouter.post("/chat/sessions/:sessionId/unarchive", (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const ok = unarchiveSession(sessionId);
+    if (!ok) return res.status(404).json({ error: "Session not found in archived vault." });
+    res.json({ success: true, message: "Session restored to active live desk." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
 aiRouter.post("/ask", async (req, res) => {
   try {
     const { prompt, context = "user", userPlan = "business", history = [], businessName = "Pharmacy", userEmail = "", phone = "", sessionId } = req.body;
@@ -9917,6 +10088,30 @@ aiRouter.post("/settings", (req, res) => {
     res.json({ success: true, status: getAiConfigStatus(), message: "AI Assistant configuration updated successfully!" });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message });
+  }
+});
+aiRouter.post("/keys/add", async (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key || typeof key !== "string") {
+      return res.status(400).json({ success: false, error: "API key string is required." });
+    }
+    const result = await addCustomApiKey(key);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err?.message || "Failed to add API key." });
+  }
+});
+aiRouter.post("/keys/remove", (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key || typeof key !== "string") {
+      return res.status(400).json({ success: false, error: "API key string is required." });
+    }
+    const result = removeCustomApiKey(key);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ success: false, error: err?.message || "Failed to remove API key." });
   }
 });
 
@@ -10817,89 +11012,6 @@ fleetRouter.post("/users/delete", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error deleting user" });
   }
 });
-fleetRouter.post("/permissions/save", async (req, res) => {
-  try {
-    const { tenantId, userId, profile, effective, updatedBy } = req.body;
-    if (!userId) {
-      res.status(400).json({ success: false, error: "userId is required" });
-      return;
-    }
-    const cleanTenantId = tenantId || "tenant_main_pharmacy";
-    const permissionsJsonPath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
-    let permissionsStore = {};
-    try {
-      if (import_fs11.default.existsSync(permissionsJsonPath)) {
-        permissionsStore = JSON.parse(import_fs11.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
-      }
-    } catch (e) {
-    }
-    const permKey = `${cleanTenantId}_${userId}`;
-    permissionsStore[permKey] = {
-      tenantId: cleanTenantId,
-      userId,
-      profile,
-      effective,
-      updatedBy: updatedBy || "Master Admin",
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    try {
-      import_fs11.default.writeFileSync(permissionsJsonPath, JSON.stringify(permissionsStore, null, 2), "utf-8");
-    } catch (e) {
-    }
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
-          `INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, entity_type, details, created_at)
-           VALUES (?, ?, ?, 'PERMISSIONS_CONFIGURED', 'USER_ACCESS', ?, NOW())
-           ON DUPLICATE KEY UPDATE details = VALUES(details), created_at = NOW();`,
-          [
-            `perm_${cleanTenantId}_${userId}_${Date.now()}`,
-            cleanTenantId,
-            userId,
-            JSON.stringify({ profile, effective, updatedBy: updatedBy || "Master Admin" })
-          ]
-        );
-      } catch (dbErr) {
-      }
-    }
-    broadcastGlobalEvent({
-      type: "PERMISSIONS_UPDATED",
-      payload: { tenantId: cleanTenantId, userId, profile, effective }
-    });
-    res.json({
-      success: true,
-      message: `Permissions for ${userId} saved successfully and broadcast to all terminals.`,
-      tenantId: cleanTenantId,
-      userId
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error saving permissions" });
-  }
-});
-fleetRouter.get("/permissions/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const tenantId = req.query.tenantId || "tenant_main_pharmacy";
-    const permissionsJsonPath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
-    let permissionsStore = {};
-    try {
-      if (import_fs11.default.existsSync(permissionsJsonPath)) {
-        permissionsStore = JSON.parse(import_fs11.default.readFileSync(permissionsJsonPath, "utf-8") || "{}");
-      }
-    } catch (e) {
-    }
-    const permKey = `${tenantId}_${userId}`;
-    const record = permissionsStore[permKey] || permissionsStore[`${userId}`] || null;
-    if (record) {
-      res.json({ success: true, profile: record.profile, effective: record.effective });
-      return;
-    }
-    res.json({ success: false, message: "No custom override profile found" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error fetching permissions" });
-  }
-});
 var handlePlanUpdate = async (req, res) => {
   try {
     const targetTenantId = req.params.id || req.body.tenantId || req.body.tenant_id;
@@ -10970,119 +11082,21 @@ var handlePlanUpdate = async (req, res) => {
 };
 fleetRouter.post("/plan", handlePlanUpdate);
 fleetRouter.post("/tenants/:id/plan", handlePlanUpdate);
-fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
-  try {
-    const { tenantId, lockStatus } = req.body;
-    if (!tenantId) {
-      res.status(400).json({ success: false, error: "tenantId is required" });
-      return;
-    }
-    const isSuspended = lockStatus === "Suspended";
-    const statusVal = isSuspended ? "Suspended" : "Active";
-    const killFlag = isSuspended ? 1 : 0;
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
-          `UPDATE mbi_tenants SET status = ?, is_active = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
-          [statusVal, isSuspended ? 0 : 1, tenantId, tenantId]
-        );
-        await pool2.query(
-          `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = NOW() WHERE tenant_id = ? OR installation_id = ?;`,
-          [statusVal, killFlag, tenantId, tenantId]
-        );
-      } catch (dbErr) {
-      }
-    }
-    try {
-      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(tenantsJsonPath)) {
-        const tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
-        const t = tenants.find((x) => x.id === tenantId || x.tenant_id === tenantId);
-        if (t) {
-          t.status = statusVal;
-          t.isSuspended = isSuspended;
-          t.isTrialActive = !isSuspended && t.isTrialActive;
-          t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
-        }
-      }
-    } catch (e) {
-    }
-    try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
-        users.forEach((u) => {
-          if (u.installationId === tenantId || u.tenantId === tenantId || u.id === tenantId) {
-            u.status = statusVal;
-            u.isKillSwitchActive = isSuspended;
-            u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          }
-        });
-        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
-      }
-    } catch (e) {
-    }
-    broadcastGlobalEvent({
-      type: "TENANT_LOCK_STATUS_CHANGED",
-      payload: { tenantId, status: statusVal, isSuspended }
-    });
-    res.json({ success: true, message: `Tenant ${tenantId} status set to ${statusVal}`, status: statusVal, isSuspended });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error toggling lock" });
-  }
-});
-fleetRouter.post("/tenants/delete", async (req, res) => {
-  try {
-    const targetTenantId = req.body.tenant_id || req.body.tenantId || req.body.id;
-    if (!targetTenantId) {
-      res.status(400).json({ success: false, error: "tenantId is required" });
-      return;
-    }
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(`DELETE FROM mbi_users WHERE tenant_id = ? OR installation_id = ?;`, [targetTenantId, targetTenantId]);
-        await pool2.query(`DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;`, [targetTenantId, targetTenantId]);
-      } catch (dbErr) {
-      }
-    }
-    try {
-      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(tenantsJsonPath)) {
-        let tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
-        tenants = tenants.filter((x) => x.id !== targetTenantId && x.tenant_id !== targetTenantId);
-        import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
-      }
-    } catch (e) {
-    }
-    try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        let users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
-        users = users.filter((u) => u.installationId !== targetTenantId && u.tenantId !== targetTenantId && u.id !== targetTenantId);
-        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
-      }
-    } catch (e) {
-    }
-    broadcastGlobalEvent({
-      type: "TENANT_DELETED",
-      payload: { tenantId: targetTenantId }
-    });
-    res.json({ success: true, message: `Tenant ${targetTenantId} deleted successfully` });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
-  }
-});
 fleetRouter.post("/sync", async (req, res) => {
   try {
     const { tenantId } = req.body;
+    const tid = tenantId || "all";
+    if (tid !== "all") {
+      broadcastTenantEvent(tid, {
+        type: "FORCE_CLIENT_SYNC",
+        payload: { tenantId: tid, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      });
+    }
     broadcastGlobalEvent({
       type: "TENANT_SYNC_REQUESTED",
-      payload: { tenantId: tenantId || "all", timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      payload: { tenantId: tid, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
     });
-    res.json({ success: true, message: `Sync triggered for ${tenantId || "all"}` });
+    res.json({ success: true, message: `Sync triggered for ${tid}` });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error triggering sync" });
   }
@@ -11517,6 +11531,31 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       res.status(400).json({ success: false, error: "userId is required" });
       return;
     }
+    try {
+      const masterDb = getMasterVault();
+      const row = masterDb.prepare(`
+        SELECT profile_json, effective_json, updated_at, updated_by 
+        FROM mbi_user_access_profiles 
+        WHERE user_id = ? OR tenant_id = ? OR id = ? OR id = ?
+        ORDER BY (CASE WHEN user_id = ? THEN 1 WHEN tenant_id = ? THEN 2 ELSE 3 END), updated_at DESC LIMIT 1
+      `).get(userId, tenantId, `prof_${tenantId}_${userId}`, `prof_${tenantId}_${tenantId}`, userId, tenantId);
+      if (row && row.profile_json) {
+        const profile = typeof row.profile_json === "string" ? JSON.parse(row.profile_json) : row.profile_json;
+        const effective = row.effective_json ? typeof row.effective_json === "string" ? JSON.parse(row.effective_json) : row.effective_json : null;
+        res.json({
+          success: true,
+          source: "sqlite_vault",
+          userId,
+          tenantId,
+          profile,
+          effective,
+          updatedAt: row.updated_at,
+          updatedBy: row.updated_by
+        });
+        return;
+      }
+    } catch (sqliteErr) {
+    }
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -11632,6 +11671,20 @@ fleetRouter.post("/permissions/save", async (req, res) => {
     const profileJson = typeof profile === "string" ? profile : JSON.stringify(profile);
     const effectiveJson = effective ? typeof effective === "string" ? effective : JSON.stringify(effective) : null;
     const docId = `prof_${cleanTenantId}_${cleanUserId}`;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_user_access_profiles (id, tenant_id, user_id, profile_json, effective_json, updated_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          profile_json = excluded.profile_json,
+          effective_json = excluded.effective_json,
+          updated_by = excluded.updated_by,
+          updated_at = datetime('now');
+      `).run(docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser);
+    } catch (sqliteErr) {
+      console.warn("[SQLite Vault permissions save warning]:", sqliteErr);
+    }
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -11695,6 +11748,16 @@ fleetRouter.post("/permissions/save", async (req, res) => {
         profile: parsedProf,
         effective: parsedEff,
         notice: changeMessage,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      }
+    });
+    broadcastGlobalEvent({
+      type: "PERMISSIONS_UPDATED",
+      payload: {
+        tenantId: cleanTenantId,
+        userId: cleanUserId,
+        profile: parsedProf,
+        effective: parsedEff,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       }
     });
@@ -11779,135 +11842,6 @@ fleetRouter.post("/alert", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error dispatching alert" });
-  }
-});
-fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
-  try {
-    const { tenantId, lockStatus, status: status2 } = req.body;
-    const tid = tenantId;
-    const nextStatus = lockStatus || status2 || "Suspended";
-    const isSuspended = nextStatus === "Suspended";
-    if (!tid) {
-      res.status(400).json({ success: false, error: "tenantId is required" });
-      return;
-    }
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
-          `UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
-          [nextStatus, tid, tid]
-        );
-        await pool2.query(
-          `UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = NOW() WHERE tenant_id = ?;`,
-          [isSuspended ? 1 : 0, nextStatus, tid]
-        );
-      } catch (dbErr) {
-        console.warn("[MariaDB toggle-lock error]:", dbErr);
-      }
-    }
-    try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
-        if (Array.isArray(syncData.mbi_tenants)) {
-          syncData.mbi_tenants = syncData.mbi_tenants.map((t) => {
-            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
-              return { ...t, status: nextStatus, isSuspended };
-            }
-            return t;
-          });
-          syncData.tenants = syncData.mbi_tenants;
-          import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
-        }
-      }
-      const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsFile)) {
-        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
-        if (Array.isArray(fileTenants)) {
-          const updated = fileTenants.map((t) => {
-            if (t.id === tid || t.tenant_id === tid || t.tenantId === tid) {
-              return { ...t, status: nextStatus, isSuspended };
-            }
-            return t;
-          });
-          import_fs11.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
-        }
-      }
-    } catch (e) {
-    }
-    broadcastTenantEvent(tid, {
-      type: "TENANT_LOCK_STATUS_CHANGED",
-      payload: {
-        tenantId: tid,
-        status: nextStatus,
-        isSuspended,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      }
-    });
-    broadcastGlobalEvent({
-      type: "FLEET_TENANT_UPDATED",
-      payload: {
-        tenantId: tid,
-        status: nextStatus,
-        isSuspended
-      }
-    });
-    res.json({
-      success: true,
-      status: nextStatus,
-      isSuspended,
-      message: `Tenant ${tid} status updated to ${nextStatus}.`
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error updating tenant lock status" });
-  }
-});
-fleetRouter.post("/tenants/delete", async (req, res) => {
-  try {
-    const tid = req.body.tenant_id || req.body.tenantId || req.body.id;
-    if (!tid) {
-      res.status(400).json({ success: false, error: "tenantId is required" });
-      return;
-    }
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("DELETE FROM mbi_tenants WHERE id = ? OR tenant_id = ?;", [tid, tid]);
-        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tid]);
-        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tid]);
-      } catch (dbErr) {
-        console.warn("[MariaDB delete tenant error]:", dbErr);
-      }
-    }
-    try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
-        if (Array.isArray(syncData.mbi_tenants)) {
-          syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
-          syncData.tenants = syncData.mbi_tenants;
-          import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
-        }
-      }
-      const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsFile)) {
-        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
-        if (Array.isArray(fileTenants)) {
-          const updated = fileTenants.filter((t) => t.id !== tid && t.tenant_id !== tid && t.tenantId !== tid);
-          import_fs11.default.writeFileSync(masterTenantsFile, JSON.stringify(updated, null, 2), "utf-8");
-        }
-      }
-    } catch (e) {
-    }
-    broadcastGlobalEvent({
-      type: "FLEET_TENANT_DELETED",
-      payload: { tenantId: tid }
-    });
-    res.json({
-      success: true,
-      message: `Tenant ${tid} permanently deleted.`
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
   }
 });
 
@@ -15571,6 +15505,56 @@ function saveTestimonialsToDisk(items) {
     return false;
   }
 }
+var CMS_CONFIG_FILE = import_path19.default.resolve(process.cwd(), ".site_cms_store.json");
+function loadCmsConfigFromDisk() {
+  try {
+    if (!import_fs19.default.existsSync(CMS_CONFIG_FILE)) {
+      return null;
+    }
+    const raw = import_fs19.default.readFileSync(CMS_CONFIG_FILE, "utf-8");
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error("[CMS Server] Failed to read CMS config file:", err);
+    return null;
+  }
+}
+function saveCmsConfigToDisk(config) {
+  try {
+    import_fs19.default.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+    return true;
+  } catch (err) {
+    console.error("[CMS Server] Failed to write CMS config file:", err);
+    return false;
+  }
+}
+cmsRouter.get("/config", (req, res) => {
+  try {
+    const config = loadCmsConfigFromDisk();
+    res.json({
+      success: true,
+      config: config || null
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to load CMS config" });
+  }
+});
+cmsRouter.post("/config", (req, res) => {
+  try {
+    const { config } = req.body;
+    const toSave = config || req.body;
+    if (!toSave) {
+      return res.status(400).json({ success: false, message: "Configuration payload required" });
+    }
+    saveCmsConfigToDisk(toSave);
+    res.json({
+      success: true,
+      message: "Website CMS configuration published successfully!",
+      config: toSave
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err?.message || "Failed to save CMS config" });
+  }
+});
 cmsRouter.get("/testimonials", (req, res) => {
   try {
     const list = loadTestimonialsFromDisk();

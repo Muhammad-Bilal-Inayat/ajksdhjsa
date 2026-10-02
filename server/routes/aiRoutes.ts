@@ -15,7 +15,12 @@ import {
   updateSessionStatus,
   clearSession,
   getOrCreateChatSession,
-  getAiChatHistoryFromMariaDb
+  getAiChatHistoryFromMariaDb,
+  getArchivedChatSessions,
+  archiveSession,
+  unarchiveSession,
+  addCustomApiKey,
+  removeCustomApiKey
 } from '../services/aiAssistantService';
 import { saveAiChatLogToMariaDb } from '../db/mariaClient';
 
@@ -261,6 +266,40 @@ aiRouter.delete('/chat/sessions/:sessionId', (req, res) => {
   }
 });
 
+// Get all archived sessions (7-day or 20+ cap auto-archived)
+aiRouter.get('/chat/archived-sessions', (req, res) => {
+  try {
+    const archived = getArchivedChatSessions();
+    res.json({ success: true, sessions: archived, total: archived.length });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Explicitly archive a session
+aiRouter.post('/chat/sessions/:sessionId/archive', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const ok = archiveSession(sessionId);
+    if (!ok) return res.status(404).json({ error: 'Session not found in active list.' });
+    res.json({ success: true, message: 'Session archived successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Unarchive/restore session to live desk
+aiRouter.post('/chat/sessions/:sessionId/unarchive', (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const ok = unarchiveSession(sessionId);
+    if (!ok) return res.status(404).json({ error: 'Session not found in archived vault.' });
+    res.json({ success: true, message: 'Session restored to active live desk.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 // ----------------------------------------------------
 // ASK AI DIRECT (Fallback legacy endpoint)
 // ----------------------------------------------------
@@ -426,5 +465,33 @@ aiRouter.post('/settings', (req, res) => {
     res.json({ success: true, status: getAiConfigStatus(), message: 'AI Assistant configuration updated successfully!' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Add a new Gemini API Key
+aiRouter.post('/keys/add', async (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ success: false, error: 'API key string is required.' });
+    }
+    const result = await addCustomApiKey(key);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err?.message || 'Failed to add API key.' });
+  }
+});
+
+// Remove an existing Gemini API Key
+aiRouter.post('/keys/remove', (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key || typeof key !== 'string') {
+      return res.status(400).json({ success: false, error: 'API key string is required.' });
+    }
+    const result = removeCustomApiKey(key);
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err?.message || 'Failed to remove API key.' });
   }
 });

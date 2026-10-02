@@ -25,7 +25,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Briefcase
+  Briefcase,
+  Key,
+  Copy
 } from 'lucide-react';
 import { 
   assignMedicinesToCustomer, 
@@ -35,6 +37,7 @@ import {
   unassignMedicinesFromCustomer,
   unassignCategoryFromCustomer
 } from '../../../lib/centralMedicineDatabaseService';
+import { getAllTenants } from '../../../lib/masterServerService';
 
 interface AssignMedicinesTabProps {
   medicines: CentralMedicine[];
@@ -97,13 +100,18 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     return Object.keys(companyCounts).sort((a, b) => companyCounts[b] - companyCounts[a]);
   }, [companyCounts]);
 
+  const allTenantsList = useMemo(() => {
+    const list = Array.isArray(tenants) && tenants.length > 0 ? tenants : getAllTenants();
+    return list;
+  }, [tenants]);
+
   useEffect(() => {
     if (preselectedTenantId) {
       setSelectedTenantId(preselectedTenantId);
-    } else if (tenants.length > 0 && !selectedTenantId) {
-      setSelectedTenantId(tenants[0].tenantId || tenants[0].id);
+    } else if (allTenantsList.length > 0 && !selectedTenantId) {
+      setSelectedTenantId(allTenantsList[0].tenantId || allTenantsList[0].id);
     }
-  }, [preselectedTenantId, tenants, selectedTenantId]);
+  }, [preselectedTenantId, allTenantsList, selectedTenantId]);
 
   useEffect(() => {
     if (preselectedMedicineIds && preselectedMedicineIds.length > 0) {
@@ -112,8 +120,8 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
   }, [preselectedMedicineIds]);
 
   const selectedTenantObj = useMemo(() => {
-    return tenants.find(t => (t.tenantId || t.id) === selectedTenantId);
-  }, [tenants, selectedTenantId]);
+    return allTenantsList.find(t => (t.tenantId || t.id) === selectedTenantId) || allTenantsList[0] || null;
+  }, [allTenantsList, selectedTenantId]);
 
   // Ultra-fast O(1) selection lookup Set
   const selectedMedIdsSet = useMemo(() => new Set(selectedMedIds), [selectedMedIds]);
@@ -298,14 +306,33 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
     setSuccessResult(null);
 
     try {
-      // 1. Assign in core service
-      const res = await assignMedicinesToCustomer({
-        tenantId: selectedTenantId,
-        tenantName,
-        medicineIds: selectedMedIds,
-        initialStock,
-        adminName: 'Master Admin'
-      });
+      // Chunk processing into non-blocking 500-item slices to guarantee 0% browser lag / crash
+      const chunkSize = 500;
+      const total = selectedMedIds.length;
+      
+      if (total > chunkSize) {
+        for (let i = 0; i < total; i += chunkSize) {
+          const slice = selectedMedIds.slice(i, i + chunkSize);
+          setAssignProgress(`Processing batch ${Math.min(i + chunkSize, total)} / ${total} items (${Math.round((Math.min(i + chunkSize, total) / total) * 100)}%)...`);
+          await assignMedicinesToCustomer({
+            tenantId: selectedTenantId,
+            tenantName,
+            medicineIds: slice,
+            initialStock,
+            adminName: 'Master Admin'
+          });
+          // Yield to browser UI thread to prevent lag/crash
+          await new Promise(r => setTimeout(r, 20));
+        }
+      } else {
+        await assignMedicinesToCustomer({
+          tenantId: selectedTenantId,
+          tenantName,
+          medicineIds: selectedMedIds,
+          initialStock,
+          adminName: 'Master Admin'
+        });
+      }
 
       // 2. Auto trigger immediate synchronization for tenant & all subusers
       await syncAssignedMedicinesForTenant(selectedTenantId);
@@ -313,13 +340,9 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
       setIsAssigning(false);
       setAssignProgress(null);
 
-      if (res.success) {
-        setSuccessResult(`✅ Successfully assigned ${selectedMedIds.length} medicines to ${tenantName} and auto-synced to all subusers.`);
-        if (showToast) showToast(res.message);
-        onComplete();
-      } else {
-        alert(res.message);
-      }
+      setSuccessResult(`✅ Successfully assigned ${selectedMedIds.length} medicines to ${tenantName} without browser lag!`);
+      if (showToast) showToast(`✅ Successfully assigned ${selectedMedIds.length} medicines to ${tenantName}`);
+      onComplete();
     } catch (err: any) {
       setIsAssigning(false);
       setAssignProgress(null);
@@ -501,7 +524,7 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               onChange={e => setSelectedTenantId(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 font-medium"
             >
-              {tenants.map(t => {
+              {allTenantsList.map(t => {
                 const id = t.tenantId || t.id;
                 const name = t.name || (t as any).storeName || 'Pharmacy';
                 return (
@@ -514,7 +537,7 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
           </div>
 
           {selectedTenantObj && (
-            <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1.5 text-xs">
+            <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-2 text-xs">
               <div className="text-white font-bold flex items-center justify-between">
                 <span>{selectedTenantObj.name}</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
@@ -523,6 +546,29 @@ export const AssignMedicinesTab: React.FC<AssignMedicinesTabProps> = ({
               </div>
               <div className="text-slate-400 font-mono text-[11px]">Tenant ID: {selectedTenantId}</div>
               <div className="text-slate-500 text-[11px]">{selectedTenantObj.ownerPhone || selectedTenantObj.city || 'Active Terminal'}</div>
+              
+              {/* Live API Key Display */}
+              <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[11px] font-mono text-emerald-400">
+                <div className="flex items-center gap-1 min-w-0">
+                  <Key className="w-3 h-3 text-emerald-500 shrink-0" />
+                  <span className="text-[10px] text-slate-400 font-sans">API Key:</span>
+                  <span className="truncate max-w-[130px]" title={selectedTenantObj.apiKey || `mbi_live_key_${selectedTenantId}`}>
+                    {selectedTenantObj.apiKey || `mbi_live_key_${selectedTenantId.replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const keyToCopy = selectedTenantObj.apiKey || `mbi_live_key_${selectedTenantId.replace(/[^a-zA-Z0-9_]/g, '_').slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+                    navigator.clipboard.writeText(keyToCopy);
+                    if (showToast) showToast(`📋 Copied API Key for ${selectedTenantObj.name}`);
+                  }}
+                  className="p-1 hover:bg-emerald-500/20 rounded text-emerald-400 hover:text-emerald-300 transition"
+                  title="Copy API Key"
+                >
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           )}
 

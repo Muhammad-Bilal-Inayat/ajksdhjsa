@@ -92,11 +92,21 @@ export const AiSupportModule: React.FC = () => {
 
   // Live Chat Desk states
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [archivedSessions, setArchivedSessions] = useState<ChatSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [sessionFilter, setSessionFilter] = useState<'all' | 'pending_human' | 'human_active' | 'active_ai' | 'resolved'>('all');
+  const [deskViewMode, setDeskViewMode] = useState<'live' | 'archived'>('live');
   const [operatorReply, setOperatorReply] = useState('');
   const [operatorName, setOperatorName] = useState(() => localStorage.getItem('mbi_server_operator_name') || 'MBI Sargodha Desk');
   const [sendingReply, setSendingReply] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+
+  // New API Key Management states
+  const [newKeyInput, setNewKeyInput] = useState('');
+  const [addingKey, setAddingKey] = useState(false);
+  const [keyActionMsg, setKeyActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testingKeyIndex, setTestingKeyIndex] = useState<number | null>(null);
+  const [testingKeyResult, setTestingKeyResult] = useState<Record<number, { success: boolean; message: string }>>({});
 
   // Chat History & Immutable MariaDB Logs states
   const [immutableLogs, setImmutableLogs] = useState<ImmutableLogEntry[]>([]);
@@ -158,6 +168,7 @@ export const AiSupportModule: React.FC = () => {
     try {
       await Promise.all([
         fetchSessions(),
+        fetchArchivedSessions(),
         fetchImmutableAuditLogs(),
         fetchAnalytics(),
         fetchAiSettings()
@@ -176,6 +187,135 @@ export const AiSupportModule: React.FC = () => {
         fetchAnalytics(true)
       ]);
     } catch (e) {}
+  };
+
+  const fetchArchivedSessions = async () => {
+    try {
+      const res = await fetch('/api/ai/chat/archived-sessions');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.sessions)) {
+          setArchivedSessions(data.sessions);
+        }
+      }
+    } catch (e) {}
+  };
+
+  const handleArchiveSession = async (sessionId: string) => {
+    setArchivingId(sessionId);
+    try {
+      const res = await fetch(`/api/ai/chat/sessions/${sessionId}/archive`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        await Promise.all([fetchSessions(), fetchArchivedSessions()]);
+      }
+    } catch (e) {
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const handleUnarchiveSession = async (sessionId: string) => {
+    setArchivingId(sessionId);
+    try {
+      const res = await fetch(`/api/ai/chat/sessions/${sessionId}/unarchive`, {
+        method: 'POST'
+      });
+      if (res.ok) {
+        await Promise.all([fetchSessions(), fetchArchivedSessions()]);
+        setDeskViewMode('live');
+        setSelectedSessionId(sessionId);
+      }
+    } catch (e) {
+    } finally {
+      setArchivingId(null);
+    }
+  };
+
+  const handleAddApiKey = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newKeyInput.trim() || addingKey) return;
+
+    setAddingKey(true);
+    setKeyActionMsg(null);
+    try {
+      const res = await fetch('/api/ai/keys/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: newKeyInput.trim() })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setKeyActionMsg({ type: 'success', text: data.message || 'Key registered successfully!' });
+        setNewKeyInput('');
+        if (data.keyHealth) {
+          setKeyStats(data.keyHealth);
+        } else {
+          fetchAiSettings();
+        }
+      } else {
+        setKeyActionMsg({ type: 'error', text: data.error || 'Failed to add key' });
+      }
+    } catch (err: any) {
+      setKeyActionMsg({ type: 'error', text: err?.message || 'Network error adding key' });
+    } finally {
+      setAddingKey(false);
+    }
+  };
+
+  const handleRemoveApiKey = async (keyToRemove: string) => {
+    if (!window.confirm('Are you sure you want to remove this API key from the rotation pool?')) return;
+    setKeyActionMsg(null);
+    try {
+      const res = await fetch('/api/ai/keys/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: keyToRemove })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setKeyActionMsg({ type: 'success', text: 'API key successfully removed.' });
+        if (data.keyHealth) {
+          setKeyStats(data.keyHealth);
+        } else {
+          fetchAiSettings();
+        }
+      } else {
+        setKeyActionMsg({ type: 'error', text: data.error || 'Failed to remove key' });
+      }
+    } catch (err: any) {
+      setKeyActionMsg({ type: 'error', text: err?.message || 'Network error removing key' });
+    }
+  };
+
+  const handleTestKeySlot = async (keyToTest: string, idx: number) => {
+    setTestingKeyIndex(idx);
+    try {
+      const res = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: keyToTest })
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.result) {
+        setTestingKeyResult(prev => ({
+          ...prev,
+          [idx]: {
+            success: data.result.success,
+            message: data.result.message || (data.result.success ? 'Healthy' : 'Error')
+          }
+        }));
+        fetchAiSettings();
+      }
+    } catch (e: any) {
+      setTestingKeyResult(prev => ({
+        ...prev,
+        [idx]: { success: false, message: e?.message || 'Failed test ping' }
+      }));
+    } finally {
+      setTestingKeyIndex(null);
+    }
   };
 
   const fetchAiSettings = async () => {
@@ -1120,229 +1260,431 @@ export const AiSupportModule: React.FC = () => {
           SUB-TAB 3: LIVE TWO-WAY SUPPORT & TAKEOVER DESK
           ======================================================== */}
       {activeSubTab === 'live_desk' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[620px]">
-          {/* SESSIONS LIST */}
-          <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
-            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-slate-50/50 dark:bg-slate-950/40">
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
-                <button
-                  onClick={() => setSessionFilter('all')}
-                  className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition ${
-                    sessionFilter === 'all'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                  }`}
-                >
-                  All ({sessions.length})
-                </button>
-                <button
-                  onClick={() => setSessionFilter('pending_human')}
-                  className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition flex items-center gap-1 ${
-                    sessionFilter === 'pending_human'
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50'
-                  }`}
-                >
-                  Need Support ({pendingEscalationsCount})
-                </button>
-                <button
-                  onClick={() => setSessionFilter('human_active')}
-                  className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition ${
-                    sessionFilter === 'human_active'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
-                  }`}
-                >
-                  Active Desk ({activeHumanCount})
-                </button>
-              </div>
+        <div className="space-y-4">
+          {/* DESK MODE SELECTOR BANNER */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setDeskViewMode('live');
+                  if (sessions.length > 0 && !sessions.some(s => s.id === selectedSessionId)) {
+                    setSelectedSessionId(sessions[0].id);
+                  }
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
+                  deskViewMode === 'live'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Headphones className="w-3.5 h-3.5" />
+                <span>Active Live Desk</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                  {sessions.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setDeskViewMode('archived');
+                  fetchArchivedSessions();
+                  if (archivedSessions.length > 0 && !archivedSessions.some(s => s.id === selectedSessionId)) {
+                    setSelectedSessionId(archivedSessions[0].id);
+                  }
+                }}
+                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer ${
+                  deskViewMode === 'archived'
+                    ? 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-md'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Archive className="w-3.5 h-3.5 text-amber-400" />
+                <span>Archived Vault (7d+ / 20+ Cap)</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 font-mono font-bold">
+                  {archivedSessions.length}
+                </span>
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[520px]">
-              {sessions.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 text-xs">
-                  <Bot className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold text-slate-500">No active chat sessions</p>
-                </div>
-              ) : (
-                sessions.map((s) => {
-                  const isSelected = activeSession?.id === s.id;
-                  const isPending = s.status === 'human_escalation_requested';
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => setSelectedSessionId(s.id)}
-                      className={`p-3.5 cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-l-4 border-indigo-600'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                            {s.userName || 'Pharmacy Client'}
-                          </h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            {s.storeName || 'Pharmacy Store'}
-                          </p>
-                        </div>
-                        <span className="text-[10px] text-slate-400 shrink-0">
-                          {new Date(s.lastMessageAt || s.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-1 font-sans">
-                        {s.lastMessage || 'Conversation active'}
-                      </p>
-                      {isPending && (
-                        <span className="mt-1.5 inline-block px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white animate-pulse">
-                          Requires Human Assistance
-                        </span>
-                      )}
-                    </div>
-                  );
-                })
-              )}
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Auto-Archived after 7 Days or 20+ Active Sessions to guarantee 0ms server speed</span>
             </div>
           </div>
 
-          {/* ACTIVE CHAT TRANSCRIPT & OPERATOR TAKEOVER */}
-          <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
-            {activeSession ? (
-              <>
-                <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>{activeSession.userName}</span>
-                      <span className="text-slate-400 font-normal">•</span>
-                      <span>{activeSession.storeName}</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                      <span className="font-mono text-indigo-600 dark:text-indigo-400">Tenant: {activeSession.tenantId}</span>
-                      {activeSession.userPhone && <span className="font-mono">{activeSession.userPhone}</span>}
-                      <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-[10px] uppercase font-bold">{activeSession.plan}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[620px]">
+            {/* SESSIONS LIST */}
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
+              <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-slate-50/50 dark:bg-slate-950/40">
+                {deskViewMode === 'live' ? (
+                  <div className="flex items-center gap-1 overflow-x-auto pb-1 text-[11px]">
+                    <button
+                      onClick={() => setSessionFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition ${
+                        sessionFilter === 'all'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      All ({sessions.length})
+                    </button>
+                    <button
+                      onClick={() => setSessionFilter('pending_human')}
+                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition flex items-center gap-1 ${
+                        sessionFilter === 'pending_human'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50'
+                      }`}
+                    >
+                      Need Support ({pendingEscalationsCount})
+                    </button>
+                    <button
+                      onClick={() => setSessionFilter('human_active')}
+                      className={`px-2.5 py-1 rounded-lg font-bold whitespace-nowrap cursor-pointer transition ${
+                        sessionFilter === 'human_active'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
+                      }`}
+                    >
+                      Active Desk ({activeHumanCount})
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 px-1">
+                    <span className="flex items-center gap-1.5">
+                      <Archive className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Archived Chat Sessions</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Total: {archivedSessions.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[520px]">
+                {(deskViewMode === 'live' ? sessions : archivedSessions).length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    <Bot className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
+                    <p className="font-semibold text-slate-500">
+                      {deskViewMode === 'live' ? 'No active chat sessions' : 'No archived chat sessions'}
                     </p>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {activeSession.userPhone && (
-                      <a
-                        href={`https://wa.me/${activeSession.userPhone.replace(/[^0-9]/g, '')}?text=Assalam-o-Alaikum!%20Main%20MBI%20Inventra%20Sargodha%20Master%20Support%20se%20rabta%20kar%20raha%20hoon.`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                ) : (
+                  (deskViewMode === 'live' ? sessions : archivedSessions).map((s) => {
+                    const isSelected = (deskViewMode === 'live' ? activeSession?.id : (selectedSessionId || archivedSessions[0]?.id)) === s.id;
+                    const isPending = s.status === 'human_escalation_requested';
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => setSelectedSessionId(s.id)}
+                        className={`p-3.5 cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-l-4 border-indigo-600'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                        }`}
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>WhatsApp Direct</span>
-                      </a>
-                    )}
-                    {activeSession.status !== 'human_active' ? (
-                      <button
-                        onClick={() => handleUpdateStatus(activeSession.id, 'human_active')}
-                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
-                      >
-                        Take Over Conversation
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleUpdateStatus(activeSession.id, 'active_ai')}
-                        className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 text-xs font-bold transition cursor-pointer"
-                      >
-                        Return to AI Bot
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* INTERNAL SCROLLABLE CHAT CONTAINER (NEVER SCROLLS PARENT PAGE) */}
-                <div 
-                  ref={chatMessagesContainerRef}
-                  className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/30 dark:bg-slate-950/20 max-h-[380px]"
-                >
-                  {activeSession.messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex flex-col ${m.sender === 'user' ? 'items-start' : 'items-end'}`}
-                    >
-                      <div className="text-[10px] text-slate-400 mb-1 px-1 flex items-center gap-1">
-                        <span>{m.sender === 'user' ? activeSession.userName : m.senderName}</span>
-                        <span>•</span>
-                        <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                              {s.userName || 'Pharmacy Client'}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              {s.storeName || 'Pharmacy Store'}
+                            </p>
+                          </div>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {new Date(s.lastMessageAt || s.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1 mt-1 font-sans">
+                          {s.lastMessage || 'Conversation active'}
+                        </p>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {s.tenantId} • {s.messages?.length || 0} msgs
+                          </span>
+                          {isPending && deskViewMode === 'live' && (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white animate-pulse">
+                              Requires Support
+                            </span>
+                          )}
+                          {deskViewMode === 'archived' && (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              Archived
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-sans leading-relaxed shadow-xs ${
-                        m.sender === 'user'
-                          ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100'
-                          : m.sender === 'human_agent'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-indigo-600 text-white'
-                      }`}>
-                        {m.text}
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* ACTIVE CHAT TRANSCRIPT & OPERATOR TAKEOVER */}
+            <div className="lg:col-span-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden">
+              {(() => {
+                const currentDisplayedSession = deskViewMode === 'live' 
+                  ? activeSession 
+                  : (archivedSessions.find(s => s.id === selectedSessionId) || archivedSessions[0] || null);
+
+                if (!currentDisplayedSession) {
+                  return (
+                    <div className="p-16 text-center text-slate-400">
+                      <Bot className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-2 opacity-50" />
+                      <p className="font-semibold text-slate-600 dark:text-slate-300">
+                        {deskViewMode === 'live' ? 'Select an active session to view live transcript' : 'Select an archived conversation to view history'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                            {currentDisplayedSession.userName}
+                          </h3>
+                          <span className="text-slate-400 font-normal">•</span>
+                          <span className="text-sm text-slate-600 dark:text-slate-300 font-semibold">{currentDisplayedSession.storeName}</span>
+                          {deskViewMode === 'archived' && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold">
+                              📦 Archived
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-indigo-600 dark:text-indigo-400">Tenant: {currentDisplayedSession.tenantId}</span>
+                          {currentDisplayedSession.userPhone && <span className="font-mono">{currentDisplayedSession.userPhone}</span>}
+                          <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-[10px] uppercase font-bold">{currentDisplayedSession.plan}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {currentDisplayedSession.userPhone && (
+                          <a
+                            href={`https://wa.me/${currentDisplayedSession.userPhone.replace(/[^0-9]/g, '')}?text=Assalam-o-Alaikum!%20Main%20MBI%20Inventra%20Sargodha%20Master%20Support%20se%20rabta%20kar%20raha%20hoon.`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>WhatsApp Direct</span>
+                          </a>
+                        )}
+
+                        {deskViewMode === 'live' ? (
+                          <>
+                            {currentDisplayedSession.status !== 'human_active' ? (
+                              <button
+                                onClick={() => handleUpdateStatus(currentDisplayedSession.id, 'human_active')}
+                                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
+                              >
+                                Take Over Conversation
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUpdateStatus(currentDisplayedSession.id, 'active_ai')}
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 text-xs font-bold transition cursor-pointer"
+                              >
+                                Return to AI Bot
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleArchiveSession(currentDisplayedSession.id)}
+                              disabled={archivingId === currentDisplayedSession.id}
+                              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                              title="Move to Archived Vault"
+                            >
+                              <Archive className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Archive</span>
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleUnarchiveSession(currentDisplayedSession.id)}
+                            disabled={archivingId === currentDisplayedSession.id}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                          >
+                            <Headphones className="w-3.5 h-3.5" />
+                            <span>Restore to Live Desk</span>
+                          </button>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* CANNED REPLIES STRIP */}
-                <div className="px-3 py-2 bg-slate-100/70 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-                  <span className="text-slate-400 font-bold shrink-0">Quick:</span>
-                  {CANNED_REPLIES.map((reply, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSendOperatorReply(reply)}
-                      className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap transition cursor-pointer text-[10px]"
+                    {/* INTERNAL SCROLLABLE CHAT CONTAINER (NEVER SCROLLS PARENT PAGE) */}
+                    <div 
+                      ref={chatMessagesContainerRef}
+                      className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/30 dark:bg-slate-950/20 max-h-[380px]"
                     >
-                      {reply.substring(0, 30)}...
-                    </button>
-                  ))}
-                </div>
+                      {currentDisplayedSession.messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`flex flex-col ${m.sender === 'user' ? 'items-start' : 'items-end'}`}
+                        >
+                          <div className="text-[10px] text-slate-400 mb-1 px-1 flex items-center gap-1">
+                            <span>{m.sender === 'user' ? currentDisplayedSession.userName : m.senderName}</span>
+                            <span>•</span>
+                            <span>{new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-sans leading-relaxed shadow-xs ${
+                            m.sender === 'user'
+                              ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100'
+                              : m.sender === 'human_agent'
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-indigo-600 text-white'
+                          }`}>
+                            {m.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-                {/* REPLY INPUT */}
-                <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder={`Reply as ${operatorName}...`}
-                    value={operatorReply}
-                    onChange={(e) => setOperatorReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSendOperatorReply();
-                    }}
-                    className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <button
-                    onClick={() => handleSendOperatorReply()}
-                    disabled={!operatorReply.trim() || sendingReply}
-                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="p-16 text-center text-slate-400">
-                <Bot className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-2 opacity-50" />
-                <p className="font-semibold text-slate-600 dark:text-slate-300">Select a chat session to view live transcript</p>
-              </div>
-            )}
+                    {/* CANNED REPLIES STRIP (ONLY IN LIVE DESK) */}
+                    {deskViewMode === 'live' && (
+                      <div className="px-3 py-2 bg-slate-100/70 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                        <span className="text-slate-400 font-bold shrink-0">Quick:</span>
+                        {CANNED_REPLIES.map((reply, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleSendOperatorReply(reply)}
+                            className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 whitespace-nowrap transition cursor-pointer text-[10px]"
+                          >
+                            {reply.substring(0, 30)}...
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* REPLY INPUT (ONLY IN LIVE DESK) */}
+                    {deskViewMode === 'live' ? (
+                      <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder={`Reply as ${operatorName}...`}
+                          value={operatorReply}
+                          onChange={(e) => setOperatorReply(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSendOperatorReply();
+                          }}
+                          className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          onClick={() => handleSendOperatorReply()}
+                          disabled={!operatorReply.trim() || sendingReply}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between text-xs text-slate-500 px-4">
+                        <span>This chat is safely archived in the server vault to reduce active DOM memory load.</span>
+                        <button
+                          onClick={() => handleUnarchiveSession(currentDisplayedSession.id)}
+                          className="text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer"
+                        >
+                          Reopen in Live Desk →
+                        </button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
 
       {/* ========================================================
-          SUB-TAB 4: API KEYS & MODEL SWITCHBOARD
+          SUB-TAB 4: API KEYS & MODEL SWITCHBOARD (ADD / REMOVE / TEST)
           ======================================================== */}
       {activeSubTab === 'key_health' && (
         <div className="space-y-6">
+          {/* ADD NEW API KEY CARD */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-3xl p-6 border border-amber-500/30 dark:border-amber-500/20 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                    Register New Gemini AI API Key
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Add new Google Gemini API keys into active auto-rotation pool or remove previous exhausted keys seamlessly.
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                {keyStats.length} Total Keys in Rotation
+              </span>
+            </div>
+
+            <form onSubmit={handleAddApiKey} className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="relative flex-1">
+                <Key className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={newKeyInput}
+                  onChange={(e) => setNewKeyInput(e.target.value)}
+                  placeholder="Paste new Gemini API key (e.g. AQ.Ab8RN... or AIzaSy...)"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={addingKey || !newKeyInput.trim()}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50 cursor-pointer shrink-0"
+              >
+                {addingKey ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Verifying &amp; Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>+ Add Key to Pool</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {keyActionMsg && (
+              <div className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 ${
+                keyActionMsg.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800'
+              }`}>
+                {keyActionMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                )}
+                <span>{keyActionMsg.text}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ACTIVE KEYS LIST CARD */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Key className="w-5 h-5 text-amber-500" />
                 <div>
                   <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    Google Gemini Multi-Key Rotation Health
+                    Active Multi-Key Rotation Pool
                   </h3>
                   <p className="text-xs text-slate-500">
-                    High-availability fallback architecture: If Key 1 reaches rate limit or quota, Key 2 and Key 3 take over automatically without downtime.
+                    High-availability fallback architecture: If Key 1 reaches rate limit or quota, subsequent keys take over automatically without downtime.
                   </p>
                 </div>
               </div>
@@ -1351,28 +1693,68 @@ export const AiSupportModule: React.FC = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {keyStats.map((k, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <Key className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Key Slot #{idx + 1}</span>
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      k.status === 'Healthy'
-                        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
-                    }`}>
-                      {k.status}
-                    </span>
+                <div key={idx} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Key Slot #{idx + 1}</span>
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        k.status === 'Healthy'
+                          ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                          : k.status === 'Rate-Limited'
+                          ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                          : 'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300'
+                      }`}>
+                        {k.status}
+                      </span>
+                    </div>
+
+                    <div className="font-mono text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 truncate mt-2">
+                      {k.maskedKey}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2.5 mt-2 border-t border-slate-200/60 dark:border-slate-800">
+                      <span>Requests: <strong className="text-slate-800 dark:text-slate-200">{k.requestsCount}</strong></span>
+                      <span>Last Used: {k.lastUsed}</span>
+                    </div>
+
+                    {testingKeyResult[idx] && (
+                      <div className={`mt-2 p-2 rounded-lg text-[10px] font-mono leading-tight ${
+                        testingKeyResult[idx].success
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                      }`}>
+                        {testingKeyResult[idx].message}
+                      </div>
+                    )}
                   </div>
-                  <div className="font-mono text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 truncate">
-                    {k.maskedKey}
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 dark:border-slate-800">
-                    <span>Requests: <strong className="text-slate-800 dark:text-slate-200">{k.requestsCount}</strong></span>
-                    <span>Last Used: {k.lastUsed}</span>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                    <button
+                      onClick={() => handleTestKeySlot(k.key, idx)}
+                      disabled={testingKeyIndex === idx}
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {testingKeyIndex === idx ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Play className="w-3 h-3" />
+                      )}
+                      <span>Test Ping</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleRemoveApiKey(k.key)}
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                      title="Remove key from rotation"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove</span>
+                    </button>
                   </div>
                 </div>
               ))}

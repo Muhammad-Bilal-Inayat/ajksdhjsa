@@ -103,6 +103,7 @@ const CONFIG_FILE = path.resolve(process.cwd(), '.ai_assistant_config.json');
 const LEADS_FILE = path.resolve(process.cwd(), '.ai_support_leads.json');
 const CLICKS_FILE = path.resolve(process.cwd(), '.ai_assistant_telemetry.json');
 const SESSIONS_FILE = path.resolve(process.cwd(), '.ai_chat_sessions.json');
+const ARCHIVED_SESSIONS_FILE = path.resolve(process.cwd(), '.ai_chat_sessions_archived.json');
 
 // In-memory key stats tracking
 const keyHealthStats: Record<string, KeyHealthMetric> = {};
@@ -119,6 +120,10 @@ function getOrInitKeyStat(key: string): KeyHealthMetric {
     };
   }
   return keyHealthStats[key];
+}
+
+export function deleteKeyStat(key: string) {
+  delete keyHealthStats[key];
 }
 
 // ----------------------------------------------------
@@ -347,9 +352,73 @@ export function getClickTelemetryAnalytics() {
 }
 
 // ----------------------------------------------------
-// LIVE TWO-WAY CHAT SESSIONS (AI & HUMAN OPERATOR TAKEOVER)
+// LIVE TWO-WAY CHAT SESSIONS & AUTO-ARCHIVE ENGINE (7-Day / 20-Session Threshold)
 // ----------------------------------------------------
-function loadChatSessions(): ChatSession[] {
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_ACTIVE_SESSIONS = 20;
+
+function loadArchivedChatSessions(): ChatSession[] {
+  try {
+    if (fs.existsSync(ARCHIVED_SESSIONS_FILE)) {
+      return JSON.parse(fs.readFileSync(ARCHIVED_SESSIONS_FILE, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Error reading archived AI chat sessions:', err);
+  }
+  return [];
+}
+
+function saveArchivedChatSessions(archived: ChatSession[]) {
+  try {
+    fs.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving archived AI chat sessions:', err);
+  }
+}
+
+export function autoArchiveSessions(): { active: ChatSession[]; archived: ChatSession[] } {
+  let activeSessions = loadChatSessionsRaw();
+  let archivedSessions = loadArchivedChatSessions();
+
+  const now = Date.now();
+  const toKeep: ChatSession[] = [];
+  const toArchive: ChatSession[] = [];
+
+  // 1. Separate sessions older than 7 days
+  for (const sess of activeSessions) {
+    const sessionTime = new Date(sess.lastMessageAt || sess.updatedAt || sess.createdAt).getTime();
+    if (now - sessionTime > SEVEN_DAYS_MS) {
+      toArchive.push(sess);
+    } else {
+      toKeep.push(sess);
+    }
+  }
+
+  // 2. Enforce 20-session active cap (keep most recent 20, archive older ones to eliminate server DOM/memory load)
+  toKeep.sort((a, b) => new Date(b.lastMessageAt || b.updatedAt).getTime() - new Date(a.lastMessageAt || a.updatedAt).getTime());
+  
+  if (toKeep.length > MAX_ACTIVE_SESSIONS) {
+    const excess = toKeep.splice(MAX_ACTIVE_SESSIONS);
+    toArchive.push(...excess);
+  }
+
+  if (toArchive.length > 0) {
+    // Merge into archived sessions avoiding duplicate IDs
+    const existingArchivedIds = new Set(archivedSessions.map(s => s.id));
+    for (const item of toArchive) {
+      if (!existingArchivedIds.has(item.id)) {
+        archivedSessions.unshift(item);
+        existingArchivedIds.add(item.id);
+      }
+    }
+    saveChatSessionsRaw(toKeep);
+    saveArchivedChatSessions(archivedSessions);
+  }
+
+  return { active: toKeep, archived: archivedSessions };
+}
+
+function loadChatSessionsRaw(): ChatSession[] {
   try {
     if (fs.existsSync(SESSIONS_FILE)) {
       return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
@@ -360,12 +429,55 @@ function loadChatSessions(): ChatSession[] {
   return [];
 }
 
-function saveChatSessions(sessions: ChatSession[]) {
+function saveChatSessionsRaw(sessions: ChatSession[]) {
   try {
     fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
   } catch (err) {
     console.error('Error saving AI chat sessions:', err);
   }
+}
+
+function loadChatSessions(): ChatSession[] {
+  const { active } = autoArchiveSessions();
+  return active;
+}
+
+function saveChatSessions(sessions: ChatSession[]) {
+  saveChatSessionsRaw(sessions);
+}
+
+export function getArchivedChatSessions(): ChatSession[] {
+  return loadArchivedChatSessions();
+}
+
+export function archiveSession(sessionId: string): boolean {
+  const active = loadChatSessionsRaw();
+  const target = active.find(s => s.id === sessionId);
+  if (!target) return false;
+
+  const remaining = active.filter(s => s.id !== sessionId);
+  const archived = loadArchivedChatSessions();
+  if (!archived.some(s => s.id === sessionId)) {
+    archived.unshift(target);
+    saveArchivedChatSessions(archived);
+  }
+  saveChatSessionsRaw(remaining);
+  return true;
+}
+
+export function unarchiveSession(sessionId: string): boolean {
+  const archived = loadArchivedChatSessions();
+  const target = archived.find(s => s.id === sessionId);
+  if (!target) return false;
+
+  const remainingArchived = archived.filter(s => s.id !== sessionId);
+  const active = loadChatSessionsRaw();
+  if (!active.some(s => s.id === sessionId)) {
+    active.unshift(target);
+    saveChatSessionsRaw(active);
+  }
+  saveArchivedChatSessions(remainingArchived);
+  return true;
 }
 
 export function getOrCreateChatSession(params: {
@@ -453,7 +565,10 @@ export function getAllChatSessions(filter?: 'all' | 'pending_human' | 'human_act
 
 export function getChatSessionById(sessionId: string): ChatSession | null {
   const sessions = loadChatSessions();
-  return sessions.find(s => s.id === sessionId) || null;
+  const found = sessions.find(s => s.id === sessionId);
+  if (found) return found;
+  const archived = loadArchivedChatSessions();
+  return archived.find(s => s.id === sessionId) || null;
 }
 
 /**
@@ -641,6 +756,56 @@ export async function testSingleKey(key: string): Promise<{ success: boolean; pi
       message: isRateLimit ? 'Key Rate-Limited (Quota exceeded / 429).' : `Key error: ${errMsg}`
     };
   }
+}
+
+export async function addCustomApiKey(newKey: string): Promise<{ success: boolean; message: string; keyHealth: KeyHealthMetric[] }> {
+  const trimmed = newKey.trim();
+  if (!trimmed || trimmed.length < 10) {
+    throw new Error('Invalid API Key provided. Must be at least 10 characters.');
+  }
+
+  const settings = loadSettings();
+  if (settings.customKeys.includes(trimmed)) {
+    throw new Error('This API key is already registered in the rotation pool.');
+  }
+
+  // Pre-flight test key
+  const testRes = await testSingleKey(trimmed);
+
+  const updatedKeys = [...settings.customKeys, trimmed];
+  saveSettings({ customKeys: updatedKeys });
+
+  const status = getAiConfigStatus();
+  return {
+    success: true,
+    message: testRes.success ? 'New API key verified & added to rotation pool!' : `API key added (Warning: ${testRes.message})`,
+    keyHealth: status.keyHealthMetrics
+  };
+}
+
+export function removeCustomApiKey(keyToRemove: string): { success: boolean; message: string; keyHealth: KeyHealthMetric[] } {
+  const trimmed = keyToRemove.trim();
+  const settings = loadSettings();
+  
+  if (!settings.customKeys.includes(trimmed)) {
+    // Check if it matches masked key or slot
+    const found = settings.customKeys.find(k => k === trimmed || `${k.substring(0, 10)}...${k.substring(k.length - 6)}` === trimmed);
+    if (!found) {
+      throw new Error('Key not found in custom keys list.');
+    }
+    keyToRemove = found;
+  }
+
+  const updatedKeys = settings.customKeys.filter(k => k !== keyToRemove);
+  deleteKeyStat(keyToRemove);
+  saveSettings({ customKeys: updatedKeys });
+
+  const status = getAiConfigStatus();
+  return {
+    success: true,
+    message: 'API key successfully removed from rotation pool.',
+    keyHealth: status.keyHealthMetrics
+  };
 }
 
 /**

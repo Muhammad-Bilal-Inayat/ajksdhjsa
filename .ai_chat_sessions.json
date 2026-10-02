@@ -1,5 +1,36 @@
 [
   {
+    "id": "sess_tenant_1790873341655_v3oyb_1790882061846",
+    "userId": "tenant_1790873341655_v3oyb",
+    "userName": "Muhammad",
+    "userEmail": "",
+    "userPhone": "",
+    "storeName": "Muhammad",
+    "tenantId": "tenant_1790873341655_v3oyb",
+    "plan": "Basic",
+    "pageContext": "user",
+    "status": "active_ai",
+    "isHumanAssigned": false,
+    "totalClicks": 1,
+    "unreadCountForServer": 0,
+    "unreadCountForUser": 0,
+    "lastMessage": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+    "lastMessageSender": "ai",
+    "lastMessageAt": "2026-10-01T19:14:21.879Z",
+    "createdAt": "2026-10-01T19:14:21.879Z",
+    "updatedAt": "2026-10-01T19:14:21.879Z",
+    "messages": [
+      {
+        "id": "msg_init_1790882061879",
+        "sender": "ai",
+        "senderName": "MBI AI Guide",
+        "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
+        "timestamp": "2026-10-01T19:14:21.879Z",
+        "status": "delivered"
+      }
+    ]
+  },
+  {
     "id": "sess_usr_1790700085589_1790783561639",
     "userId": "usr_1790700085589",
     "userName": "jahskjahdkj",

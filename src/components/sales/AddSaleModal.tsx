@@ -12,6 +12,7 @@ import { bookerService } from '../../lib/bookerService';
 import { v4 as uuidv4 } from 'uuid';
 import { CalculatorModal } from './CalculatorModal';
 import { AddPartyModal } from '../parties/AddPartyModal';
+import { AddEditMedicineModal } from '../inventory/AddEditMedicineModal';
 import { InvoiceSettingsModal } from './InvoiceSettingsModal';
 import { BarcodeScannerModal } from '../common/BarcodeScannerModal';
 import { InvoicePrintModal } from './InvoicePrintModal';
@@ -256,6 +257,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const [lossPromptItems, setLossPromptItems] = useState<LossItemDetail[]>([]);
   const [pendingLossMode, setPendingLossMode] = useState<'save' | 'save_and_new' | 'save_and_print'>('save');
   const [lossAuthorized, setLossAuthorized] = useState(false);
+
+  // On-The-Spot Add New Item modal states
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [newItemInitialName, setNewItemInitialName] = useState('');
 
   // Helper to focus table cell by scell attribute
   const focusSaleTableCell = (rowIndex: number, field: string) => {
@@ -3234,6 +3239,23 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                         ✕
                                       </button>
                                     </div>
+                                    {/* On-the-spot Add Item row */}
+                                    <div
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const queryName = (item.name || '').trim();
+                                        setActiveMedDropdownTempId(null);
+                                        setNewItemInitialName(queryName);
+                                        setIsAddItemModalOpen(true);
+                                      }}
+                                      className="px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 font-bold border-b border-blue-200 flex items-center justify-between cursor-pointer text-xs transition-all"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-xs">+</span>
+                                        <span>+ Add Item "<strong>{(item.name || '').trim() || 'New Item'}</strong>" (All Details)</span>
+                                      </div>
+                                    </div>
                                     {(() => {
                                       const query = (item.name || '').toLowerCase().trim();
                                       const matches = query
@@ -3483,8 +3505,29 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                           <Search className="w-3.5 h-3.5 text-blue-500 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                         {/* Auto-suggest dropdown */}
-                        {lightningResults.length > 0 && (
-                          <div className="absolute left-0 top-full mt-1 w-[480px] sm:w-[620px] max-w-[90vw] bg-white border-2 border-blue-400 rounded-xl shadow-2xl z-[9999] max-h-80 overflow-y-auto ring-4 ring-blue-500/10">
+                        {lightningResults.length > 0 && !isAddItemModalOpen && (
+                          <div className="absolute left-0 top-full mt-1 w-[480px] sm:w-[620px] max-w-[90vw] bg-white border-2 border-blue-400 rounded-xl shadow-2xl z-[999] max-h-80 overflow-y-auto ring-4 ring-blue-500/10">
+                            {/* On-the-spot Add Item top banner row */}
+                            <div
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const queryName = lightningQuery.trim();
+                                setLightningResults([]);
+                                setLightningQuery('');
+                                setNewItemInitialName(queryName);
+                                setIsAddItemModalOpen(true);
+                              }}
+                              className="px-3 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 font-bold border-b border-blue-200 flex items-center justify-between cursor-pointer text-xs transition-all group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-xs group-hover:scale-110 transition-transform">+</span>
+                                <span>+ Add Item <strong className="underline underline-offset-2">"{lightningQuery.trim() || 'New Item'}"</strong> (All Details & Stock)</span>
+                              </div>
+                              <span className="text-[10px] font-black bg-blue-200/80 text-blue-900 px-2 py-0.5 rounded-md">
+                                Open Form (F2)
+                              </span>
+                            </div>
                             {lightningResults.map((med, idx) => {
                               const showBatch = settings.transaction?.showBatchInAutocomplete !== false;
                               const showStock = settings.transaction?.showStockInAutocomplete !== false;
@@ -3893,6 +3936,26 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                   ✕
                                 </button>
                               </div>
+                            </div>
+                            {/* On-the-spot Add Item top banner row */}
+                            <div
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const queryName = (item.name || '').trim();
+                                setActiveMedDropdownTempId(null);
+                                setNewItemInitialName(queryName);
+                                setIsAddItemModalOpen(true);
+                              }}
+                              className="px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 font-bold border-b border-blue-200 flex items-center justify-between cursor-pointer text-xs transition-all group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-xs group-hover:scale-110 transition-transform">+</span>
+                                <span>+ Add Item <strong className="underline underline-offset-2">"{(item.name || '').trim() || 'New Item'}"</strong> (All Details & Stock)</span>
+                              </div>
+                              <span className="text-[10px] font-black bg-blue-200/80 text-blue-900 px-2 py-0.5 rounded-md">
+                                Open Form
+                              </span>
                             </div>
                             {medicines
                               .filter(m => !item.name || m.name.toLowerCase().includes(item.name.toLowerCase()) || (m.barcode && m.barcode.toLowerCase().includes(item.name.toLowerCase())) || (m.genericName && m.genericName.toLowerCase().includes(item.name.toLowerCase())))
@@ -4960,6 +5023,36 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* On-The-Spot Add New Item Master Modal with Full Details */}
+      {isAddItemModalOpen && (
+        <AddEditMedicineModal
+          isOpen={isAddItemModalOpen}
+          medicine={newItemInitialName ? ({ name: newItemInitialName, quantity: 0 } as any) : null}
+          onClose={() => setIsAddItemModalOpen(false)}
+          onSaved={(savedMed) => {
+            setMedicines((prev) => [savedMed, ...prev.filter((m) => m.id !== savedMed.id)]);
+            if (activeMedDropdownTempId) {
+              handleUpdateItemRow(activeMedDropdownTempId, {
+                medicineId: savedMed.id,
+                name: savedMed.name,
+                batchNumber: savedMed.batchNumber || '',
+                expiryDate: savedMed.expiryDate || '',
+                mrp: savedMed.mrp || 0,
+                pricePerUnit: savedMed.sellingPrice || savedMed.mrp || 0,
+                unit: savedMed.unit || 'PCS'
+              });
+              setActiveMedDropdownTempId(null);
+            } else {
+              handleSelectLightningMed(savedMed, false);
+              setLightningQuery('');
+              setLightningResults([]);
+            }
+            setIsAddItemModalOpen(false);
+            emitToast(`Item "${savedMed.name}" created and selected into sale!`, 'success');
+          }}
+        />
       )}
 
     </div>

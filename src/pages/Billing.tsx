@@ -27,6 +27,7 @@ import { ColumnHeader } from '../components/common/ColumnHeader';
 import { SalePurchaseKpiCards } from '../components/reports/SalePurchaseKpiCards';
 import { useAuth } from '../contexts/AuthContext';
 import { useTransactionDock } from '../contexts/TransactionDockContext';
+import { getActiveTenantPlan, isPlanSufficient } from '../utils/planPermissions';
 import * as XLSX from 'xlsx';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
@@ -112,6 +113,7 @@ const SALE_SUBMENUS: SubMenuConfig[] = [
 export const Billing: React.FC = () => {
   const { business, tenant, tenantId: authTenantId, canEditBills, canDeleteBills, canReprintBills, canApplyDiscount } = useAuth();
   const currentTenantId = authTenantId || tenant?.id || business?.tenantId || business?.id || 'tenant-demo-01';
+  const isControlledAllowed = useMemo(() => isPlanSufficient(getActiveTenantPlan(currentTenantId), 'gold'), [currentTenantId]);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -141,8 +143,17 @@ export const Billing: React.FC = () => {
 
   // Period / Date Filters
   const [periodPreset, setPeriodPreset] = useState<string>('This Month');
-  const [startDate, setStartDate] = useState<string>('2026-09-01');
-  const [endDate, setEndDate] = useState<string>('2026-09-30');
+  const [startDate, setStartDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`;
+  });
 
   // Dropdown Filters
   const [selectedFirm, setSelectedFirm] = useState<string>('ALL FIRMS');
@@ -367,32 +378,38 @@ export const Billing: React.FC = () => {
     const today = new Date();
     const y = today.getFullYear();
     const m = today.getMonth();
+    const pad = (n: number) => String(n).padStart(2, '0');
 
     if (preset === 'Today') {
-      const d = today.toISOString().slice(0, 10);
+      const d = `${y}-${pad(m + 1)}-${pad(today.getDate())}`;
       setStartDate(d);
       setEndDate(d);
     } else if (preset === 'This Week') {
-      const first = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-      const last = new Date(today.setDate(today.getDate() - today.getDay() + 7));
-      setStartDate(first.toISOString().slice(0, 10));
-      setEndDate(last.toISOString().slice(0, 10));
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const mon = new Date(today);
+      mon.setDate(diff);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      setStartDate(`${mon.getFullYear()}-${pad(mon.getMonth() + 1)}-${pad(mon.getDate())}`);
+      setEndDate(`${sun.getFullYear()}-${pad(sun.getMonth() + 1)}-${pad(sun.getDate())}`);
     } else if (preset === 'This Month') {
-      const first = new Date(y, m, 1);
-      const last = new Date(y, m + 1, 0);
-      setStartDate(first.toISOString().slice(0, 10));
-      setEndDate(last.toISOString().slice(0, 10));
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      setStartDate(`${y}-${pad(m + 1)}-01`);
+      setEndDate(`${y}-${pad(m + 1)}-${pad(lastDay)}`);
     } else if (preset === 'Last Month') {
-      const first = new Date(y, m - 1, 1);
-      const last = new Date(y, m, 0);
-      setStartDate(first.toISOString().slice(0, 10));
-      setEndDate(last.toISOString().slice(0, 10));
+      const prevMonthLast = new Date(y, m, 0);
+      const prevY = prevMonthLast.getFullYear();
+      const prevM = prevMonthLast.getMonth();
+      const prevLastDay = prevMonthLast.getDate();
+      setStartDate(`${prevY}-${pad(prevM + 1)}-01`);
+      setEndDate(`${prevY}-${pad(prevM + 1)}-${pad(prevLastDay)}`);
     } else if (preset === 'This Year') {
       setStartDate(`${y}-01-01`);
       setEndDate(`${y}-12-31`);
     } else if (preset === 'All Time') {
       setStartDate('2020-01-01');
-      setEndDate('2030-12-31');
+      setEndDate('2035-12-31');
     }
   };
 
@@ -1369,7 +1386,7 @@ export const Billing: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {activeSubView === 'invoices' && (
+          {activeSubView === 'invoices' && isControlledAllowed && (
             <button
               onClick={() => setIsControlledSaleOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer shadow-2xs"

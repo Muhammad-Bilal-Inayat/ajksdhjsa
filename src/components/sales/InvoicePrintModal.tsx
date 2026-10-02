@@ -62,7 +62,7 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
   autoPrint = false,
   onUpdateInvoice
 }) => {
-  const { business } = useAuth();
+  const { business, tenant } = useAuth();
   const { settings, updatePrint } = useSettings();
 
   const [printFormat, setPrintFormat] = useState<'A4' | 'Thermal'>(
@@ -148,18 +148,18 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
 
   const businessName = (printConf.showCompanyName && printConf.companyName) 
     ? printConf.companyName 
-    : (business?.name || 'MBI INVENTRA');
+    : (business?.name || tenant?.name || 'MBI INVENTRA');
   const businessAddress = (printConf.showAddress && printConf.address)
     ? printConf.address
-    : (business?.address || 'MBI Corporate Plaza, Commercial Center, Lahore');
+    : (business?.address || (tenant as any)?.address || '');
   const businessPhone = (printConf.showPhone && printConf.phone)
     ? printConf.phone
-    : (business?.phone || '03364585863');
+    : (business?.phone || business?.mobile || (tenant as any)?.phone || (tenant as any)?.ownerPhone || '');
   const businessEmail = (printConf.showEmail && printConf.email)
     ? printConf.email
-    : (business?.email || '');
-  const businessTaxNo = business?.taxNumber || '4928172-9';
-  const drugLicenseNo = business?.drugLicenseNo || 'DL-09-2024-MBI';
+    : (business?.email || tenant?.ownerEmail || '');
+  const businessTaxNo = business?.taxNumber || (tenant as any)?.taxNumber || '';
+  const drugLicenseNo = business?.drugLicenseNo || (tenant as any)?.drugLicenseNo || '';
 
   const cols = printConf.tableColumns || {
     serialNo: true,
@@ -1044,11 +1044,15 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                     </div>
                   )}
 
-                  {/* Locked Official Clean Permanent Footer (A4 / A5 1-Line Format - Master Enforced) */}
+                  {/* Clean Non-Overflowing A4 Footer */}
                   <div className="mt-3 pt-2 border-t border-slate-300 text-center select-text">
-                    <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                      {masterConfig.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
-                    </p>
+                    <div className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight flex items-center justify-center gap-2 flex-wrap">
+                      <span>Developed by <strong className="text-slate-900">MBI INVENTRA</strong></span>
+                      <span>•</span>
+                      <span>0328-1302636</span>
+                      <span>•</span>
+                      <span className="font-mono text-slate-800">www.mbiinventra.com</span>
+                    </div>
                   </div>
 
                 </div>

@@ -99,7 +99,13 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.users)) {
-          const serverUsers: MasterActiveUser[] = json.users.map((ru: any) => ({
+          const DUMMY_TENANT_IDS = new Set(['tenant_main', 'NODE-CLIENT', 'default', 'undefined', 'null', '']);
+          const serverUsers: MasterActiveUser[] = json.users
+            .filter((ru: any) => {
+              const tid = String(ru.tenant_id || ru.tenantId || ru.installationId || '').trim();
+              return tid && !DUMMY_TENANT_IDS.has(tid);
+            })
+            .map((ru: any) => ({
             id: ru.id,
             name: ru.name,
             username: ru.username || ru.emailOrPhone || ru.id,
@@ -108,8 +114,8 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
             status: ru.isKillSwitchActive ? 'Suspended' : (ru.status || 'Active'),
             passcode: ru.passcode || '1234',
             storeName: ru.storeName || 'Pharmacy Store',
-            tenantId: ru.tenant_id || ru.tenantId || ru.installationId || 'tenant_main',
-            installationId: ru.installationId || ru.tenant_id || 'NODE-CLIENT',
+            tenantId: ru.tenant_id || ru.tenantId || ru.installationId || '',
+            installationId: ru.installationId || ru.tenant_id || '',
             boundHwid: ru.boundHwid || null,
             lastSyncTime: ru.lastSyncTime || new Date().toISOString(),
             isOnline: true,

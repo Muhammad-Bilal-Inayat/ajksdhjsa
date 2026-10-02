@@ -155,8 +155,17 @@ export const Purchases: React.FC = () => {
 
   // Filters State
   const [datePreset, setDatePreset] = useState<DatePreset>('This Month');
-  const [startDate, setStartDate] = useState<string>('2026-09-01');
-  const [endDate, setEndDate] = useState<string>('2026-09-30');
+  const [startDate, setStartDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`;
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`;
+  });
   const [selectedSupplierFilter, setSelectedSupplierFilter] = useState<string>('ALL');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<string>('ALL');
   const [selectedFirm, setSelectedFirm] = useState<string>('ALL FIRMS');

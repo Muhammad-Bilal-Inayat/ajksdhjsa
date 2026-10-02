@@ -26,7 +26,7 @@ export const InvoiceShareModal: React.FC<InvoiceShareModalProps> = ({
   onClose,
   invoice
 }) => {
-  const { business } = useAuth();
+  const { business, tenant } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [activeTab, setActiveTab] = useState<'pdf' | 'jpg' | 'text'>('pdf');
   const [template, setTemplate] = useState<'english' | 'urdu'>('english');
@@ -44,11 +44,11 @@ export const InvoiceShareModal: React.FC<InvoiceShareModalProps> = ({
 
   if (!isOpen || !invoice) return null;
 
-  const businessName = business?.name || 'MBI INVENTRA';
-  const businessAddress = business?.address || 'MBI Corporate Plaza, Commercial Center, Lahore';
-  const businessPhone = business?.phone || '03364585863';
-  const businessTaxNo = business?.taxNumber || '4928172-9';
-  const drugLicenseNo = business?.drugLicenseNo || 'DL-09-2024-MBI';
+  const businessName = business?.name || tenant?.name || 'MBI INVENTRA';
+  const businessAddress = business?.address || (tenant as any)?.address || '';
+  const businessPhone = business?.phone || business?.mobile || (tenant as any)?.phone || (tenant as any)?.ownerPhone || '';
+  const businessTaxNo = business?.taxNumber || (tenant as any)?.taxNumber || '';
+  const drugLicenseNo = business?.drugLicenseNo || (tenant as any)?.drugLicenseNo || '';
 
   const itemsList = invoice.items
     .map((item, idx) => `${idx + 1}. ${item.name} (${item.quantity} ${item.unit || 'Box'}) = Rs ${item.total.toLocaleString()}`)

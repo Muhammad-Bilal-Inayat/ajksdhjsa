@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
+import { getMasterVault } from '../db/sqliteVaultManager';
 import { broadcastTenantEvent } from './syncRoutes';
 import { signJwt } from '../auth/jwt';
 import { activeDevicesRegistry } from '../controllers/authController';
@@ -2481,62 +2482,91 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       return res.json({ success: true, message: `Extended validity to ${targetExpiry}!`, expiryDate: targetExpiry });
     }
 
+    const targetTid = tenantId || licenseKey || '';
+    const targetLic = licenseKey || (targetTid ? `lic_${targetTid}` : '');
+
     if (action === 'suspend') {
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare("UPDATE mbi_tenants SET status = 'Suspended', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET status = 'Suspended' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        try {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
+        } catch (uErr) {}
+      } catch (sqErr) {}
+
       if (pool) {
         try {
-          await pool.query(`UPDATE mbi_licenses SET status = 'Suspended', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [licenseKey, tenantId || licenseKey]);
-          await pool.query(`UPDATE mbi_tenants SET status = 'Suspended', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [tenantId || licenseKey, tenantId || licenseKey]);
+          await pool.query(`UPDATE mbi_licenses SET status = 'Suspended', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
+          await pool.query(`UPDATE mbi_tenants SET status = 'Suspended', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
+          await pool.query(`UPDATE mbi_users SET status = 'Suspended', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
         } catch (dbErr) {}
       }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey || l.tenantId === tenantId);
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
         if (lic) lic.status = 'Suspended';
       }
       if (fallback.tenants) {
-        const t = fallback.tenants.find((item: any) => item.id === tenantId || item.tenantId === tenantId);
+        const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid);
         if (t) t.status = 'Suspended';
       }
       saveLocalFallbackData(fallback);
 
-      broadcastAdminEvent({ type: 'LICENSE_SUSPENDED', licenseKey, tenantId });
-      return res.json({ success: true, message: 'Company suspended and locked remotely.' });
+      broadcastAdminEvent({ type: 'LICENSE_SUSPENDED', licenseKey: targetLic, tenantId: targetTid });
+      return res.json({ success: true, message: 'Company suspended and all sub-users locked.' });
     }
 
     if (action === 'reactivate') {
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare("UPDATE mbi_tenants SET status = 'Active', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET status = 'Active' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        try {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
+        } catch (uErr) {}
+      } catch (sqErr) {}
+
       if (pool) {
         try {
-          await pool.query(`UPDATE mbi_licenses SET status = 'Active', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [licenseKey, tenantId || licenseKey]);
-          await pool.query(`UPDATE mbi_tenants SET status = 'Active', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [tenantId || licenseKey, tenantId || licenseKey]);
+          await pool.query(`UPDATE mbi_licenses SET status = 'Active', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
+          await pool.query(`UPDATE mbi_tenants SET status = 'Active', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
+          await pool.query(`UPDATE mbi_users SET status = 'Active', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
         } catch (dbErr) {}
       }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey || l.tenantId === tenantId);
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
         if (lic) lic.status = 'Active';
       }
       if (fallback.tenants) {
-        const t = fallback.tenants.find((item: any) => item.id === tenantId || item.tenantId === tenantId);
+        const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid);
         if (t) t.status = 'Active';
       }
       saveLocalFallbackData(fallback);
 
-      broadcastAdminEvent({ type: 'LICENSE_REACTIVATED', licenseKey, tenantId });
-      return res.json({ success: true, message: 'Company reactivated and unlocked successfully.' });
+      broadcastAdminEvent({ type: 'LICENSE_REACTIVATED', licenseKey: targetLic, tenantId: targetTid });
+      return res.json({ success: true, message: 'Company reactivated and sub-users unlocked.' });
     }
 
     if (action === 'reset_fingerprint') {
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(targetTid);
+      } catch (sqErr) {}
+
       if (pool) {
         try {
-          await pool.query(`UPDATE mbi_licenses SET bound_hardware_ids = '[]', bound_hwid = NULL, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [licenseKey, tenantId || licenseKey]);
+          await pool.query(`UPDATE mbi_licenses SET bound_hardware_ids = '[]', bound_hwid = NULL, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
         } catch (dbErr) {}
       }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey || l.tenantId === tenantId);
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
         if (lic) {
           lic.boundHardwareIds = [];
           lic.boundHwid = null;
@@ -2544,7 +2574,7 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       }
       saveLocalFallbackData(fallback);
 
-      broadcastAdminEvent({ type: 'HWID_FINGERPRINT_RESET', licenseKey, tenantId });
+      broadcastAdminEvent({ type: 'HWID_FINGERPRINT_RESET', licenseKey: targetLic, tenantId: targetTid });
       return res.json({ success: true, message: 'Hardware fingerprint cleared. New PC can now bind.' });
     }
 
@@ -2552,38 +2582,57 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       const targetExpiry = expiryDate || '2028-12-31';
       const targetPlan = plan || 'Gold';
       const devicesCount = Number(maxDevices) || 3;
+      const cleanStatus = status || 'Active';
+      const cleanFeaturesJson = typeof req.body.features === 'string' ? req.body.features : JSON.stringify(req.body.features || {});
+
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare("UPDATE mbi_tenants SET plan = ?, trial_expires_at = ?, status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, targetExpiry, cleanStatus, targetTid, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET plan = ?, expires_at = ?, max_devices = ?, status = ? WHERE license_key = ? OR tenant_id = ?").run(targetPlan, targetExpiry, devicesCount, cleanStatus, targetLic, targetTid);
+        if (cleanStatus === 'Suspended') {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
+        } else if (cleanStatus === 'Active') {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
+        }
+      } catch (sqErr) {}
 
       if (pool) {
         try {
           await pool.query(`
             UPDATE mbi_licenses 
-            SET plan = ?, max_devices = ?, expiry_date = ?, updated_at = NOW() 
+            SET plan = ?, max_devices = ?, expiry_date = ?, status = ?, updated_at = NOW() 
             WHERE license_key = ? OR tenant_id = ?
-          `, [targetPlan, devicesCount, targetExpiry, licenseKey, tenantId || licenseKey]);
+          `, [targetPlan, devicesCount, targetExpiry, cleanStatus, targetLic, targetTid]);
 
           await pool.query(`
             UPDATE mbi_tenants 
-            SET plan = ?, plan_id = ?, trial_expiry_date = ?, updated_at = NOW() 
+            SET plan = ?, plan_id = ?, trial_expiry_date = ?, status = ?, features_json = ?, updated_at = NOW() 
             WHERE id = ? OR tenant_id = ?
-          `, [targetPlan, targetPlan, targetExpiry, tenantId || licenseKey, tenantId || licenseKey]);
+          `, [targetPlan, targetPlan, targetExpiry, cleanStatus, cleanFeaturesJson, targetTid, targetTid]);
+
+          if (cleanStatus === 'Suspended' || cleanStatus === 'Active') {
+            await pool.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid]);
+          }
         } catch (dbErr) {}
       }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === licenseKey || l.license_key === licenseKey || l.tenantId === tenantId);
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
         if (lic) {
           lic.plan = targetPlan;
           lic.maxDevices = devicesCount;
           lic.expiryDate = targetExpiry;
+          lic.status = cleanStatus;
         }
       }
       if (fallback.tenants) {
-        const t = fallback.tenants.find((item: any) => item.id === tenantId || item.tenantId === tenantId);
+        const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid);
         if (t) {
           t.plan = targetPlan;
           t.trialExpiryDate = targetExpiry;
           t.maxDevices = devicesCount;
+          t.status = cleanStatus;
           if (maxUsers) t.maxUsers = Number(maxUsers);
           if (maxFirms) t.maxFirms = Number(maxFirms);
           if (salePrice !== undefined) t.salePrice = Number(salePrice);
@@ -2593,8 +2642,8 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       }
       saveLocalFallbackData(fallback);
 
-      broadcastAdminEvent({ type: 'PLAN_SUITE_UPDATED', licenseKey, tenantId, plan: targetPlan, expiryDate: targetExpiry });
-      return res.json({ success: true, message: 'Plan & Expiry Suite updated successfully!' });
+      broadcastAdminEvent({ type: 'PLAN_SUITE_UPDATED', licenseKey: targetLic, tenantId: targetTid, plan: targetPlan, expiryDate: targetExpiry, status: cleanStatus });
+      return res.json({ success: true, message: `Plan suite updated permanently to ${targetPlan} (${cleanStatus})!` });
     }
 
     if (action === 'grant_terminal_slot') {

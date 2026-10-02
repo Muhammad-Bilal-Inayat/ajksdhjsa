@@ -17,6 +17,7 @@ import { PWAInstallButton } from '../pwa/PWAComponents';
 import { CompanySettingsModal } from '../modals/CompanySettingsModal';
 import { CashierShift } from '../../types';
 import { getBrandContact } from '../../lib/siteCmsService';
+import { isPrimaryOwner } from '../../services/rbacService';
 
 interface HeaderProps {
   isServerRoute?: boolean;
@@ -108,8 +109,9 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const canSale = canAccess('sale') && settings.modules?.sales !== false;
-  const canPurchase = canAccess('purchase') && settings.modules?.purchases !== false;
+  const isOwnerOrAdmin = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || isPrimaryOwner(activeUser || currentUser);
+  const canSale = isOwnerOrAdmin || (canAccess('sale') && settings.modules?.sales !== false);
+  const canPurchase = isOwnerOrAdmin || (canAccess('purchase') && settings.modules?.purchases !== false);
 
   const openCompanySettings = (tab: 'general' | 'contact' | 'tax' | 'invoice' | 'currency' = 'general') => {
     setCompanyModalTab(tab);
@@ -386,26 +388,26 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Action Controls & Quick Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
 
-          {/* Primary Quick Actions (Sale & Purchase) */}
-          <div className="hidden lg:flex items-center gap-1.5">
+          {/* Primary Quick Actions (Sale & Purchase - Prominent & Always Visible) */}
+          <div className="flex items-center gap-2 shrink-0">
             {canSale && (
               <button
                 onClick={() => openTransaction('Sale')}
-                className="flex items-center gap-1 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 active:from-rose-800 active:to-red-800 text-white px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-black shadow-md hover:shadow-lg transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95 ring-2 ring-rose-400/30"
                 title="Add Sale Invoice (Alt+S)"
               >
-                <PlusCircle className="w-3.5 h-3.5 fill-white text-rose-600 shrink-0" />
-                <span>Sale</span>
+                <PlusCircle className="w-4 h-4 fill-white text-rose-600 shrink-0" />
+                <span>+ Sale</span>
               </button>
             )}
             {canPurchase && (
               <button
                 onClick={() => openTransaction('Purchase')}
-                className="hidden xl:flex items-center gap-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 text-white px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-black shadow-md hover:shadow-lg transition-all duration-150 whitespace-nowrap cursor-pointer transform active:scale-95 ring-2 ring-blue-400/30"
                 title="Add Purchase Bill (Alt+P)"
               >
-                <PlusCircle className="w-3.5 h-3.5 fill-white text-blue-600 shrink-0" />
-                <span>Purchase</span>
+                <PlusCircle className="w-4 h-4 fill-white text-blue-600 shrink-0" />
+                <span>+ Purchase</span>
               </button>
             )}
           </div>

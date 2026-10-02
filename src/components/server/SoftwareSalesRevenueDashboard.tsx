@@ -670,15 +670,40 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     toast(`🔑 New API Key generated for ${target.name}: ${newApiKey}`);
   };
 
-  // Get Sub-Users for a Tenant
+  // Get Sub-Users for a Tenant (Excludes Primary Admin/Owner to prevent dummy/duplicate rows)
   const getSubUsersForTenant = (tenant: Tenant): MasterActiveUser[] => {
     const tid = (tenant.tenantId || tenant.id || '').toLowerCase();
-    const storeName = (tenant.name || '').toLowerCase();
+    if (!tid) return [];
+
+    const seenUserIds = new Set<string>();
 
     return activeUsers.filter(u => {
+      if (!u || !u.id) return false;
+      const uid = String(u.id);
+      if (seenUserIds.has(uid)) return false;
+
       const userTid = (u.tenantId || '').toLowerCase();
-      const userStore = (u.storeName || '').toLowerCase();
-      return (userTid && userTid === tid) || (userStore && userStore === storeName);
+      // Strictly match by tenantId only
+      if (!userTid || userTid !== tid) return false;
+
+      const uRole = (u.role || '').toLowerCase();
+      // Exclude primary admin or owner account (they are the store owner, not a sub-user)
+      if (
+        uRole === 'primary admin' ||
+        uRole === 'store owner' ||
+        uRole === 'owner' ||
+        uid.endsWith('_admin') ||
+        uid === tid ||
+        (u as any).isPrimaryOwner ||
+        (u as any).is_primary_owner ||
+        (u as any).isPrimaryAdmin ||
+        (u as any).is_primary_admin
+      ) {
+        return false;
+      }
+
+      seenUserIds.add(uid);
+      return true;
     });
   };
 
@@ -803,10 +828,11 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
 
-    // Persist live to MariaDB backend
-    await callLicenseActionApi({
+    // Persist live to MariaDB & SQLite Master backend
+    const actPromise = callLicenseActionApi({
       action: 'update_plan_suite',
       tenantId: target.tenantId || target.id,
+      licenseKey: target.licenseId || `lic_${target.tenantId || target.id}`,
       plan: target.plan,
       status: target.status,
       expiryDate: newExpiryStr === 'Lifetime' ? '2099-12-31' : newExpiryStr,
@@ -822,6 +848,28 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       saleNotes: target.saleNotes,
       features: planForm.featureOverrides
     });
+
+    const fleetPromise = fetch('/api/fleet/tenants/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: target.id || target.tenantId,
+        tenant_id: target.tenantId || target.id,
+        name: target.name,
+        owner_name: target.ownerName,
+        owner_phone: target.ownerPhone,
+        owner_email: target.ownerEmail,
+        city: target.city,
+        address: target.address,
+        plan: target.plan,
+        status: target.status,
+        api_key: target.apiKey,
+        features_json: JSON.stringify(planForm.featureOverrides),
+        trial_expiry_date: newExpiryStr === 'Lifetime' ? 'Lifetime' : newExpiryStr.slice(0, 10)
+      })
+    }).catch(() => {});
+
+    await Promise.all([actPromise, fleetPromise]);
 
     // 3. Save explicitly to localStorage for sub-user instant permissions engine
     try {
@@ -859,9 +907,13 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       target.name
     );
 
+    // Instant Optimistic State Update for zero latency and persistent display
+    setTenants(prev => prev.map(t => (t.id === target.id || t.tenantId === target.tenantId ? { ...target } : t)));
+    setLicenses(prev => prev.map(l => (l.licenseKey === target.licenseId ? { ...l, plan: target.plan as any, status: target.status === 'Suspended' ? 'Suspended' : 'Active', expiryDate: newExpiryStr } : l)));
+
     setIsPlanModalOpen(false);
     refreshAllData();
-    toast(`🎉 Successfully assigned Plan, Expiry & API Key for ${target.name}! Auto-synced to all sub-users without reversion.`);
+    toast(`🎉 Successfully assigned Plan [${target.plan}], Expiry & API Key for ${target.name}! Auto-synced without reversion.`);
   };
 
   // Quick 1-click Fast Extend
@@ -927,11 +979,23 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       saveClientLicense(linkedLicense);
     }
 
-    // Call MariaDB backend action endpoint
-    await callLicenseActionApi({
+    // Call MariaDB & SQLite backend action endpoint
+    const actPromise = callLicenseActionApi({
       action: newStatus === 'Suspended' ? 'suspend' : 'reactivate',
-      tenantId: target.tenantId || target.id
+      tenantId: target.tenantId || target.id,
+      licenseKey: target.licenseId || `lic_${target.tenantId || target.id}`
     });
+
+    const fleetStatusPromise = fetch('/api/fleet/tenants/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenantId: target.tenantId || target.id,
+        status: newStatus
+      })
+    }).catch(() => {});
+
+    await Promise.all([actPromise, fleetStatusPromise]);
 
     logMasterAudit(
       newStatus === 'Suspended' ? 'Tenant Locked' : 'Tenant Unlocked',
@@ -939,6 +1003,10 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       `Company ${target.name} was ${newStatus === 'Suspended' ? 'LOCKED / SUSPENDED' : 'UNLOCKED'} by Master Admin. All sub-users ${newStatus === 'Suspended' ? 'locked out' : 'restored'}.`,
       target.name
     );
+
+    // Instant Optimistic React State Update so Lock reflects with 0ms latency
+    setTenants(prev => prev.map(t => (t.id === target.id || t.tenantId === target.tenantId ? { ...t, status: newStatus } : t)));
+    setLicenses(prev => prev.map(l => (l.licenseKey === target.licenseId ? { ...l, status: newStatus === 'Suspended' ? 'Suspended' : 'Active' } : l)));
 
     refreshAllData();
     toast(

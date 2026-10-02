@@ -510,13 +510,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Backup & Restore is strictly EXCLUSIVE to Primary Store Owner
   const isBackupAllowed = canAccessBackupRestore(activeUser || currentUser);
 
-  const isSettingsAllowed = (isPrimaryOwner(activeUser || currentUser) || canAccess('settings')) && isRouteAllowedForRole('/settings', activeUser || currentUser) && evaluatePermission({
-    userId: currentUid,
-    role: activeRole,
-    plan: currentPlan,
-    tenantId: currentTid,
-    menuId: 'settings'
-  });
+  const isSettingsAllowed = isPrimaryOwner(activeUser || currentUser) || canAccess('settings') || isRouteAllowedForRole('/settings', activeUser || currentUser);
 
   return (
     <>

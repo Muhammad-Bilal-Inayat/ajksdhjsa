@@ -118,9 +118,9 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
       { label: 'Sale Invoices', path: '/sale/invoices', hasAdd: false },
       { label: 'Payment In', path: '/sale/payment-in', hasAdd: false },
       { label: 'Credit Notes / Returns', path: '/sale/return', hasAdd: false },
-      { label: 'Estimate / Quotation', path: '/sale/quotation', hasAdd: false },
-      { label: 'Sale Order', path: '/sale/order', hasAdd: false },
-      { label: 'Delivery Challan', path: '/sale/challan', hasAdd: false },
+      { label: 'Estimate / Quotation', path: '/sale/quotation', hasAdd: false, requiredPlan: 'gold' },
+      { label: 'Sale Order', path: '/sale/order', hasAdd: false, requiredPlan: 'gold' },
+      { label: 'Delivery Challan', path: '/sale/challan', hasAdd: false, requiredPlan: 'gold' },
     ]
   },
   { 
@@ -136,8 +136,8 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     subItems: [
       { label: 'Stock Inventory', path: '/inventory', addPath: '/items?action=add', hasAdd: true },
       { label: 'Top Selling Medicines', path: '/top-products', hasAdd: false },
-      { label: 'Shortage Register', path: '/shortage-registry', addPath: '/shortage-registry?action=add', hasAdd: false },
       { label: 'QR & Barcode Generator', path: '/settings?tab=QR%20CODE%20GENERATOR', hasAdd: false },
+      { label: 'Shortage Register', path: '/shortage-registry', addPath: '/shortage-registry?action=add', hasAdd: false, requiredPlan: 'gold' },
     ]
   },
   { 
@@ -152,9 +152,9 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     hasAdd: true,
     subItems: [
       { label: 'Purchase Bills', path: '/purchase', hasAdd: false },
-      { label: 'Purchase Orders (PO)', path: '/purchase/order', hasAdd: false },
       { label: 'Supplier Returns / Dr. Note', path: '/purchase/return', hasAdd: false },
       { label: 'Payment Out', path: '/purchase/payment-out', hasAdd: false },
+      { label: 'Purchase Orders (PO)', path: '/purchase/order', hasAdd: false, requiredPlan: 'gold' },
     ]
   },
   { 

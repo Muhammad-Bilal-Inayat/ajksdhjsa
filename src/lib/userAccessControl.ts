@@ -1719,6 +1719,22 @@ export function createDefaultUserAccessProfile(
   };
 }
 
+const profileMemoryCache = new Map<string, { profile: UserAccessControlProfile; ts: number }>();
+
+export function clearUserAccessProfileMemoryCache(): void {
+  profileMemoryCache.clear();
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('mbi-user-access-profile-updated', clearUserAccessProfileMemoryCache);
+  window.addEventListener('mbi-effective-permissions-updated', clearUserAccessProfileMemoryCache);
+  window.addEventListener('storage', (e) => {
+    if (e.key?.includes('mbi_user_access') || e.key?.includes('permission')) {
+      clearUserAccessProfileMemoryCache();
+    }
+  });
+}
+
 /**
  * Load User Access Control Profile from storage or initialize
  */
@@ -1734,95 +1750,106 @@ export function getUserAccessControlProfile(
   }
 
   const normalizedUserId = userId.trim();
-  const aliases = resolveUserAliases(normalizedUserId);
-
-  // 1. Direct exact tenant + firm + user key for the target userId first
-  const exactKey = getUserAccessProfileKey(normalizedUserId, tenantId, firmId);
-  try {
-    const raw = localStorage.getItem(exactKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return sanitizeAccessProfile(parsed, role, plan, tenantId);
-      }
-    }
-  } catch (e) {}
-
-  // 2. Direct user key for target userId
-  try {
-    const directUserKey = `mbi_user_access_profile_user_${normalizedUserId}`;
-    const raw = localStorage.getItem(directUserKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return sanitizeAccessProfile(parsed, role, plan, tenantId);
-      }
-    }
-  } catch (e) {}
-
-  // 3. Active session priority: Only if querying 'usr_active' or if the active cached session strictly belongs to this user/alias
-  try {
-    const activeCached = localStorage.getItem('mbi_active_user_access_profile');
-    if (activeCached) {
-      const parsed = JSON.parse(activeCached);
-      if (parsed && typeof parsed === 'object') {
-        const matchesActive = 
-          normalizedUserId === 'usr_active' || 
-          parsed.userId === normalizedUserId || 
-          aliases.includes(parsed.userId);
-        if (matchesActive) {
-          return sanitizeAccessProfile(parsed, parsed.role || role, parsed.plan || plan, tenantId || parsed.tenantId);
-        }
-      }
-    }
-  } catch (e) {}
-
-  // 4. Try exact keys across all aliases
-  for (const uid of aliases) {
-    if (uid === normalizedUserId) continue;
-    const aliasExactKey = getUserAccessProfileKey(uid, tenantId, firmId);
-    try {
-      const raw = localStorage.getItem(aliasExactKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          return sanitizeAccessProfile(parsed, role, plan, tenantId);
-        }
-      }
-    } catch (e) {}
-
-    try {
-      const aliasDirectKey = `mbi_user_access_profile_user_${uid}`;
-      const raw = localStorage.getItem(aliasDirectKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          return sanitizeAccessProfile(parsed, role, plan, tenantId);
-        }
-      }
-    } catch (e) {}
+  const cacheKey = `${normalizedUserId}_${role}_${plan}_${tenantId || ''}_${firmId || ''}`;
+  const cached = profileMemoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < 3000) {
+    return cached.profile;
   }
 
-  // 5. Try global index lookup by userId and aliases
-  try {
-    const idx = getProfilesIndex();
+  const aliases = resolveUserAliases(normalizedUserId);
+
+  const resolveProfile = (): UserAccessControlProfile => {
+    // 1. Direct exact tenant + firm + user key for the target userId first
+    const exactKey = getUserAccessProfileKey(normalizedUserId, tenantId, firmId);
+    try {
+      const raw = localStorage.getItem(exactKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return sanitizeAccessProfile(parsed, role, plan, tenantId);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Direct user key for target userId
+    try {
+      const directUserKey = `mbi_user_access_profile_user_${normalizedUserId}`;
+      const raw = localStorage.getItem(directUserKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return sanitizeAccessProfile(parsed, role, plan, tenantId);
+        }
+      }
+    } catch (e) {}
+
+    // 3. Active session priority: Only if querying 'usr_active' or if the active cached session strictly belongs to this user/alias
+    try {
+      const activeCached = localStorage.getItem('mbi_active_user_access_profile');
+      if (activeCached) {
+        const parsed = JSON.parse(activeCached);
+        if (parsed && typeof parsed === 'object') {
+          const matchesActive = 
+            normalizedUserId === 'usr_active' || 
+            parsed.userId === normalizedUserId || 
+            aliases.includes(parsed.userId);
+          if (matchesActive) {
+            return sanitizeAccessProfile(parsed, parsed.role || role, parsed.plan || plan, tenantId || parsed.tenantId);
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 4. Try exact keys across all aliases
     for (const uid of aliases) {
-      const indexedKey = idx[uid];
-      if (indexedKey) {
-        const raw = localStorage.getItem(indexedKey);
+      if (uid === normalizedUserId) continue;
+      const aliasExactKey = getUserAccessProfileKey(uid, tenantId, firmId);
+      try {
+        const raw = localStorage.getItem(aliasExactKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && typeof parsed === 'object') {
             return sanitizeAccessProfile(parsed, role, plan, tenantId);
           }
         }
-      }
-    }
-  } catch (e) {}
+      } catch (e) {}
 
-  // Fallback: return default profile safely WITHOUT clobbering active cached session
-  const defaultProfile = createDefaultUserAccessProfile(normalizedUserId, role, plan, tenantId, firmId);
-  return defaultProfile;
+      try {
+        const aliasDirectKey = `mbi_user_access_profile_user_${uid}`;
+        const raw = localStorage.getItem(aliasDirectKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            return sanitizeAccessProfile(parsed, role, plan, tenantId);
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 5. Try global index lookup by userId and aliases
+    try {
+      const idx = getProfilesIndex();
+      for (const uid of aliases) {
+        const indexedKey = idx[uid];
+        if (indexedKey) {
+          const raw = localStorage.getItem(indexedKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+              return sanitizeAccessProfile(parsed, role, plan, tenantId);
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    // Fallback: return default profile safely WITHOUT clobbering active cached session
+    return createDefaultUserAccessProfile(normalizedUserId, role, plan, tenantId, firmId);
+  };
+
+  const finalProfile = resolveProfile();
+  profileMemoryCache.set(cacheKey, { profile: finalProfile, ts: Date.now() });
+  return finalProfile;
 }
 
 /**

@@ -288,6 +288,45 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
       updated_at: new Date().toISOString()
     };
 
+    // 1. Primary Engine: Save immediately to Native SQLite Master Hub Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expires_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          owner_phone = excluded.owner_phone,
+          owner_email = excluded.owner_email,
+          city = excluded.city,
+          address = excluded.address,
+          plan = excluded.plan,
+          status = excluded.status,
+          api_key = excluded.api_key,
+          features_json = excluded.features_json,
+          trial_expires_at = excluded.trial_expires_at,
+          updated_at = datetime('now');
+      `).run(
+        cleanId,
+        cleanTenantId,
+        cleanTenantId,
+        name || 'Pharmacy Store',
+        owner_name || ownerName || 'Store Admin',
+        owner_phone || ownerPhone || phone || '',
+        owner_email || ownerEmail || email || '',
+        city || 'Lahore',
+        address || '',
+        plan || 'Business',
+        status || 'Active',
+        drug_license_no || '',
+        ntn_number || '',
+        cleanApiKey,
+        cleanFeaturesJson,
+        cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : null
+      );
+    } catch (sqErr) {}
+
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
@@ -698,7 +737,7 @@ fleetRouter.get('/users', async (req: TenantRequest, res: Response): Promise<voi
                   u.is_silent_monitored as isSilentMonitored, u.bound_hwid as boundHwid, 
                   u.last_sync_time as lastSyncTime, t.name as storeName 
            FROM mbi_users u
-           LEFT JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
+           INNER JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
            ORDER BY u.created_at DESC;`
         );
         if (Array.isArray(rows)) {
@@ -714,20 +753,19 @@ fleetRouter.get('/users', async (req: TenantRequest, res: Response): Promise<voi
       } catch (dbErr) {}
     }
 
-    // 2. Merge with local .master_users.json
+    // 2. Merge passcode data from .master_users.json — only for users already in usersMap (real tenant users)
     try {
       const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
       if (fs.existsSync(usersJsonPath)) {
         const localList = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
         if (Array.isArray(localList)) {
           for (const lu of localList) {
-            if (lu && lu.id) {
+            if (lu && lu.id && usersMap.has(lu.id)) {
+              // Only enrich existing real-tenant users — do NOT inject standalone dummy users
               const existing = usersMap.get(lu.id);
               usersMap.set(lu.id, {
-                ...lu,
                 ...existing,
                 passcode: lu.passcode || existing?.passcode || '1234',
-                storeName: lu.storeName || existing?.storeName || 'MBI INVENTRA'
               });
             }
           }

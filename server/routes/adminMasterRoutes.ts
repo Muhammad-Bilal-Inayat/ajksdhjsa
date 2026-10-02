@@ -1104,28 +1104,7 @@ adminMasterRouter.get('/lan/status', async (req: TenantRequest, res: Response): 
         companies = rows;
       }
     } catch (e) {
-      // Fallback from master users
-      try {
-        const usersPath = path.join(process.cwd(), '.master_users.json');
-        if (fs.existsSync(usersPath)) {
-          const uList = JSON.parse(fs.readFileSync(usersPath, 'utf8') || '[]');
-          const storeMap = new Map<string, any>();
-          for (const u of uList) {
-            const sName = u.storeName || 'MBI INVENTRA';
-            if (!storeMap.has(sName)) {
-              storeMap.set(sName, {
-                id: u.installationId || 'store_main',
-                tenant_id: u.installationId || 'store_main',
-                name: sName,
-                city: 'Local Host',
-                plan: 'Enterprise',
-                status: 'active'
-              });
-            }
-          }
-          companies = Array.from(storeMap.values());
-        }
-      } catch (err2) { }
+      // MariaDB fallback handled via sync storage
     }
 
     // Always merge newly registered companies from sync storage

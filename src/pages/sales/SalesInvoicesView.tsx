@@ -17,11 +17,13 @@ import { SpecialControlledSaleModal } from '../../components/sales/SpecialContro
 import { ColumnHeader } from '../../components/common/ColumnHeader';
 import { SalePurchaseKpiCards } from '../../components/reports/SalePurchaseKpiCards';
 import { useAuth } from '../../contexts/AuthContext';
+import { getActiveTenantPlan, isPlanSufficient } from '../../utils/planPermissions';
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 
 export const SalesInvoicesView: React.FC = () => {
   const { canEditBills, canDeleteBills, canReprintBills } = useAuth();
+  const isControlledAllowed = useMemo(() => isPlanSufficient(getActiveTenantPlan(), 'gold'), []);
   const navigate = useNavigate();
 
   // Data states
@@ -32,10 +34,15 @@ export const SalesInvoicesView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filters
-  const [dateRange, setDateRange] = useState<DateRangeState>({
-    startDate: '2026-09-01',
-    endDate: '2026-09-30',
-    preset: 'This Month'
+  const [dateRange, setDateRange] = useState<DateRangeState>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return {
+      startDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+      endDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`,
+      preset: 'This Month'
+    };
   });
   const [selectedParty, setSelectedParty] = useState<string>('ALL');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -93,6 +100,19 @@ export const SalesInvoicesView: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
+    const handleLiveSync = () => {
+      loadAllData();
+    };
+    window.addEventListener('mbi-local-db-change', handleLiveSync);
+    window.addEventListener('mbi-invoices-updated', handleLiveSync);
+    window.addEventListener('mbi-data-synced', handleLiveSync);
+    window.addEventListener('storage', handleLiveSync);
+    return () => {
+      window.removeEventListener('mbi-local-db-change', handleLiveSync);
+      window.removeEventListener('mbi-invoices-updated', handleLiveSync);
+      window.removeEventListener('mbi-data-synced', handleLiveSync);
+      window.removeEventListener('storage', handleLiveSync);
+    };
   }, []);
 
   const medicineCategoryMap = useMemo(() => {
@@ -197,9 +217,12 @@ export const SalesInvoicesView: React.FC = () => {
   }, [filteredInvoices]);
 
   const handleResetFilters = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     setDateRange({
-      startDate: '2026-09-01',
-      endDate: '2026-09-30',
+      startDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+      endDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`,
       preset: 'This Month'
     });
     setSelectedParty('ALL');
@@ -304,13 +327,15 @@ export const SalesInvoicesView: React.FC = () => {
 
           {/* Right: Only Action Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setIsControlledSaleOpen(true)}
-              className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs whitespace-nowrap"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Controlled</span>
-            </button>
+            {isControlledAllowed && (
+              <button
+                onClick={() => setIsControlledSaleOpen(true)}
+                className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs whitespace-nowrap"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Controlled</span>
+              </button>
+            )}
 
             <button
               onClick={() => {

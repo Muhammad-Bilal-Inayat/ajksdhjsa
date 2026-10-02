@@ -39,23 +39,23 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
     genericId: '',
     saltComposition: '',
     strength: '',
-    dosageForm: 'Tablet',
+    dosageForm: '',
     barcode: '',
     batchNumber: '',
     manufacturer: '',
-    category: 'Surgical Items',
-    unit: 'PCS',
+    category: '',
+    unit: '',
     packSize: '',
-    rackLocation: 'Rack A-1',
-    hsnCode: '3004.9090',
+    rackLocation: '',
+    hsnCode: '',
     description: '',
-    quantity: 100,
-    lowStockThreshold: 20,
+    quantity: 0,
+    lowStockThreshold: 0,
     purchasePrice: 0,
     mrp: 0,
     sellingPrice: 0,
     gstPercentage: 0,
-    expiryDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString().slice(0, 10),
+    expiryDate: '',
     manufacturingDate: '',
     // Controlled / Restricted Substance & Granular Visibility Controls
     isControlled: false,
@@ -63,13 +63,13 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
     showInNormalSearch: true,
     showInOnlineStore: true,
     specialAccessRequired: false,
-    regulatorySchedule: 'Schedule D - Prescription Only Medicine (POM)',
+    regulatorySchedule: '',
     // Online Store fields
     showOnline: true,
     onlineStatus: 'Published',
     onlinePrice: 0,
     compareAtPrice: 0,
-    onlineCategory: 'Surgical Items',
+    onlineCategory: '',
     onlineDescription: '',
     onlineImages: [],
     requiresPrescription: false,
@@ -146,35 +146,35 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
         genericId: '',
         saltComposition: '',
         strength: '',
-        dosageForm: 'Tablet',
-        barcode: `${Math.floor(1000000000000 + Math.random() * 9000000000000)}`,
-        batchNumber: `BATCH-${Math.floor(100 + Math.random() * 900)}`,
+        dosageForm: '',
+        barcode: '',
+        batchNumber: '',
         manufacturer: '',
-        category: 'Surgical Items',
-        unit: 'PCS',
+        category: '',
+        unit: '',
         packSize: '',
-        rackLocation: 'Rack A-1',
-        hsnCode: '3004.9090',
+        rackLocation: '',
+        hsnCode: '',
         description: '',
-        quantity: 100,
-        lowStockThreshold: 20,
+        quantity: 0,
+        lowStockThreshold: 0,
         purchasePrice: 0,
         mrp: 0,
         sellingPrice: 0,
         gstPercentage: 0,
-        expiryDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365).toISOString().slice(0, 10),
+        expiryDate: '',
         manufacturingDate: '',
         isControlled: false,
         showInNormalPOS: true,
         showInNormalSearch: true,
         showInOnlineStore: true,
         specialAccessRequired: false,
-        regulatorySchedule: 'Schedule D - Prescription Only Medicine (POM)',
+        regulatorySchedule: '',
         showOnline: true,
         onlineStatus: 'Published',
         onlinePrice: 0,
         compareAtPrice: 0,
-        onlineCategory: 'Surgical Items',
+        onlineCategory: '',
         onlineDescription: '',
         onlineImages: [],
         requiresPrescription: false,
@@ -530,9 +530,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <label className="text-xs font-bold text-slate-700">Dosage Form</label>
                     <select
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.dosageForm || 'Tablet'}
+                      value={formData.dosageForm || ''}
                       onChange={(e) => setFormData({ ...formData, dosageForm: e.target.value })}
                     >
+                      <option value="">-- Select Dosage Form --</option>
                       <option value="Tablet">Tablet</option>
                       <option value="Capsule">Capsule</option>
                       <option value="Syrup">Syrup</option>
@@ -553,9 +554,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <label className="text-xs font-bold text-slate-700">Category *</label>
                     <select
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.category || 'Surgical Items'}
+                      value={formData.category || ''}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     >
+                      <option value="">-- Select Category --</option>
                       <option value="Surgical Items">Surgical Items</option>
                       <option value="Syringes">Syringes</option>
                       <option value="IV Infusions">IV Infusions</option>
@@ -574,9 +576,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <label className="text-xs font-bold text-slate-700">Unit of Measurement *</label>
                     <select
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.unit || 'PCS'}
+                      value={formData.unit || ''}
                       onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     >
+                      <option value="">-- Select Unit --</option>
                       <option value="PCS">PCS (Pieces)</option>
                       <option value="BOX">BOX</option>
                       <option value="PACK">PACK</option>
@@ -702,9 +705,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                       required
                       type="number"
                       step="0.01"
-                      value={formData.purchasePrice ?? 0}
+                      placeholder="0.00"
+                      value={formData.purchasePrice !== undefined && formData.purchasePrice !== null ? formData.purchasePrice : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold font-mono text-slate-800"
-                      onChange={(e) => setFormData({ ...formData, purchasePrice: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                     />
                   </div>
 
@@ -714,10 +718,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <input
                       type="number"
                       step="0.01"
-                      placeholder="e.g. 2500"
-                      value={formData.mrp ?? 0}
+                      placeholder="0.00"
+                      value={formData.mrp !== undefined && formData.mrp !== null ? formData.mrp : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold font-mono text-slate-800"
-                      onChange={(e) => setFormData({ ...formData, mrp: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, mrp: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                     />
                     <p className="text-[10px] text-slate-500">Retail price printed on medicine box / strip.</p>
                   </div>
@@ -729,15 +733,15 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                       required
                       type="number"
                       step="0.01"
-                      placeholder="e.g. 2000"
-                      value={formData.sellingPrice ?? 0}
+                      placeholder="0.00"
+                      value={formData.sellingPrice !== undefined && formData.sellingPrice !== null ? formData.sellingPrice : ''}
                       className="w-full rounded-xl border border-emerald-300 p-2 text-xs font-black font-mono text-emerald-700 bg-emerald-50/40 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
+                        const val = e.target.value === '' ? ('' as any) : parseFloat(e.target.value);
                         setFormData({ 
                           ...formData, 
                           sellingPrice: val,
-                          onlinePrice: formData.onlinePrice || val 
+                          onlinePrice: typeof val === 'number' ? val : 0 
                         });
                       }}
                     />
@@ -750,9 +754,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={formData.gstPercentage ?? 0}
+                      placeholder="0"
+                      value={formData.gstPercentage !== undefined && formData.gstPercentage !== null ? formData.gstPercentage : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-mono"
-                      onChange={(e) => setFormData({ ...formData, gstPercentage: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, gstPercentage: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                     />
                   </div>
 
@@ -762,9 +767,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <input
                       required
                       type="number"
-                      value={formData.quantity ?? 100}
+                      placeholder="0"
+                      value={formData.quantity !== undefined && formData.quantity !== null ? formData.quantity : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-bold font-mono"
-                      onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value === '' ? ('' as any) : parseInt(e.target.value) })}
                     />
                   </div>
 
@@ -773,9 +779,10 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     <label className="text-xs font-bold text-slate-700">Low Stock Alert Threshold</label>
                     <input
                       type="number"
-                      value={formData.lowStockThreshold ?? 20}
+                      placeholder="0"
+                      value={formData.lowStockThreshold !== undefined && formData.lowStockThreshold !== null ? formData.lowStockThreshold : ''}
                       className="w-full rounded-xl border border-slate-300 p-2 text-xs font-mono"
-                      onChange={(e) => setFormData({ ...formData, lowStockThreshold: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value === '' ? ('' as any) : parseInt(e.target.value) })}
                     />
                   </div>
 

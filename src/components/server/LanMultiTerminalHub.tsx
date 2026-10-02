@@ -505,11 +505,11 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
                   {data?.companies && data.companies.length > 0 ? (
                     data.companies.map(c => (
                       <option key={c.id || c.tenant_id} value={c.tenant_id || c.id}>
-                        🏢 {c.name} ({c.city}) — {c.plan} Plan
+                        🏢 {c.name} {c.city && c.city !== 'Local Host' ? `(${c.city})` : ''} — {c.plan || 'Active'} Plan
                       </option>
                     ))
                   ) : (
-                    <option value="default">🏢 Main Pharmacy & Retail Counter (Lahore)</option>
+                    <option value="default">🏢 Main Pharmacy & Retail Counter</option>
                   )}
                 </select>
                 

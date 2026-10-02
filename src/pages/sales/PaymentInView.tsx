@@ -17,10 +17,15 @@ export const PaymentInView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [dateRange, setDateRange] = useState<DateRangeState>({
-    startDate: '2026-09-01',
-    endDate: '2026-09-30',
-    preset: 'This Month'
+  const [dateRange, setDateRange] = useState<DateRangeState>(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return {
+      startDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+      endDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`,
+      preset: 'This Month'
+    };
   });
   const [selectedParty, setSelectedParty] = useState<string>('ALL');
   const [showGraph, setShowGraph] = useState(false);
@@ -96,9 +101,12 @@ export const PaymentInView: React.FC = () => {
   }, [filteredPayments]);
 
   const handleResetFilters = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     setDateRange({
-      startDate: '2026-09-01',
-      endDate: '2026-09-30',
+      startDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01`,
+      endDate: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(lastDay)}`,
       preset: 'This Month'
     });
     setSelectedParty('ALL');

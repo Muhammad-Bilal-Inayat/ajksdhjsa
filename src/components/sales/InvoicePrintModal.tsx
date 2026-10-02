@@ -1047,11 +1047,11 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                   {/* Clean Non-Overflowing A4 Footer */}
                   <div className="mt-3 pt-2 border-t border-slate-300 text-center select-text">
                     <div className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight flex items-center justify-center gap-2 flex-wrap">
-                      <span>Developed by <strong className="text-slate-900">MBI INVENTRA</strong></span>
+                      <span>Powered by <strong className="text-slate-900">MBI INVENTRA</strong></span>
                       <span>•</span>
                       <span>0328-1302636</span>
                       <span>•</span>
-                      <span className="font-mono text-slate-800">www.mbiinventra.com</span>
+                      <span className="font-mono text-slate-800">mbiinventra.com</span>
                     </div>
                   </div>
 
@@ -1199,18 +1199,12 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
                       <div className="border-t border-dashed border-slate-900 my-1.5"></div>
 
                       {/* Compact Footer (Tight & Clean) */}
-                      <div className="text-center text-[10px] space-y-1 pt-1 font-sans">
-                        <div className="font-black tracking-wider uppercase text-slate-900">
-                          THANK YOU FOR SHOPPING!
+                      <div className="text-center text-[10px] space-y-0.5 pt-1 font-sans">
+                        <div className="font-extrabold text-[9.5px] text-slate-900">
+                          Powered by MBI INVENTRA
                         </div>
-                        {(printConf.phone || businessPhone) && (
-                          <div className="text-[9.5px] text-slate-700">
-                            Contact: {printConf.phone || businessPhone}
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 pt-0.5 border-t border-dashed border-slate-300">
-                          <span>Pharmacy POS & ERP</span>
-                          <span className="font-mono font-bold">www.mbiinventra.com</span>
+                        <div className="text-[9px] text-slate-700">
+                          {(printConf.phone || businessPhone || '0328-1302636')} &bull; mbiinventra.com
                         </div>
                       </div>
                     </div>
@@ -1455,9 +1449,8 @@ export const InvoicePrintModal: React.FC<InvoicePrintModalProps> = ({
 
                   {/* Locked Official Clean Footer (Thermal POS Format) */}
                   <div className="text-center pt-2 mt-2 border-t border-dashed border-slate-900 text-[10px] text-slate-900 space-y-0.5 select-text leading-tight">
-                    <div className="font-bold text-slate-900">Thank You for Your Business!</div>
                     <div className="font-extrabold text-[9.5px] text-slate-900">Powered by MBI INVENTRA</div>
-                    <div className="text-[9px] text-slate-700">mbiinventra.com &bull; Contact Us: 0328-1302636</div>
+                    <div className="text-[9px] text-slate-700">0328-1302636 &bull; mbiinventra.com</div>
                   </div>
                 </div>
               )}

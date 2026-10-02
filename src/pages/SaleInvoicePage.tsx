@@ -287,6 +287,30 @@ export const SaleInvoicePage: React.FC = () => {
           } catch (e) {
             console.warn('Could not deduct stock for medicine', item.name, e);
           }
+        } else if (item.name && item.name.trim()) {
+          try {
+            const newMedId = `med_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            const newMed: Medicine = {
+              id: newMedId,
+              name: item.name.trim(),
+              genericName: '',
+              category: 'General',
+              unit: item.unit || 'Box',
+              purchasePrice: Number(item.pricePerUnit || item.sellingPrice || 0) * 0.8,
+              sellingPrice: Number(item.pricePerUnit || item.sellingPrice || 0),
+              salePrice: Number(item.pricePerUnit || item.sellingPrice || 0),
+              mrp: Number(item.mrp || item.sellingPrice || 0),
+              quantity: 0,
+              batchNumber: item.batchNumber || '',
+              expiryDate: item.expiryDate || '',
+              tenantId: invoiceRecord.tenantId || 'tenant_main',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            };
+            await dbMedicines.save(newMed);
+          } catch (e) {
+            console.warn('Auto create medicine note:', e);
+          }
         }
       }
 

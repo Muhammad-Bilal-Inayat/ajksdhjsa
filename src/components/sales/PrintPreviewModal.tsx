@@ -388,7 +388,7 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
               {/* Clean Official Permanent Footer (A4 / A5 1-Line Format - Master Enforced) */}
               <div className="mt-auto pt-2.5 border-t border-slate-300 text-center select-text">
                 <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                  {masterConfig.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
+                  {masterConfig.a4MasterFooterText || 'Powered by MBI INVENTRA • 0328-1302636 • mbiinventra.com'}
                 </p>
               </div>
 

@@ -4,8 +4,14 @@ import {
   DeviceReplacementToken,
   getAllRegisteredDevices,
   authorizeDevice,
+  approveAndKeepDevice,
+  replaceUserDevice,
   revokeDevice,
   generateDeviceReplacementToken,
+  getAllReplacementTokens,
+  deleteReplacementToken,
+  getUserMaxAllowedDevices,
+  setUserMaxAllowedDevices,
   preConfigureDevice,
   deleteDeviceRecord,
   getLocalInstallationId
@@ -35,7 +41,10 @@ import {
   Building2,
   ExternalLink,
   Sliders,
-  Send
+  Send,
+  Flame,
+  Layers,
+  Settings
 } from 'lucide-react';
 
 interface DeviceAuthorizationManagerPanelProps {
@@ -43,7 +52,9 @@ interface DeviceAuthorizationManagerPanelProps {
 }
 
 export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManagerPanelProps> = ({ showToast }) => {
+  const [activeTab, setActiveTab] = useState<'devices' | 'tokens' | 'limits'>('devices');
   const [devices, setDevices] = useState<UserDeviceRecord[]>([]);
+  const [tokens, setTokens] = useState<DeviceReplacementToken[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<string>('all');
@@ -59,6 +70,14 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
   const [revocationModalDevice, setRevocationModalDevice] = useState<UserDeviceRecord | null>(null);
   const [revocationReasonInput, setRevocationReasonInput] = useState('Administrative Security Check / Device Superseded');
 
+  // Replace device modal state
+  const [replaceModalDevice, setReplaceModalDevice] = useState<UserDeviceRecord | null>(null);
+  const [replaceReasonInput, setReplaceReasonInput] = useState('Hardware Upgrade / Old Device Superseded');
+
+  // Custom limit modal state
+  const [limitModalUser, setLimitModalUser] = useState<any | null>(null);
+  const [customLimitInput, setCustomLimitInput] = useState<number>(1);
+
   // Form states
   const [selectedUserId, setSelectedUserId] = useState('');
   const [preConfigData, setPreConfigData] = useState({
@@ -71,6 +90,7 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
 
   const loadData = () => {
     setDevices(getAllRegisteredDevices());
+    setTokens(getAllReplacementTokens());
     setTenants(getAllTenants());
     setActiveUsers(getMasterActiveUsers());
   };
@@ -90,7 +110,13 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
   const handleAuthorize = (deviceId: string) => {
     const updated = authorizeDevice(deviceId, 'Master Admin');
     setDevices(updated);
-    toast('Device authorized successfully! Bound to user account.');
+    toast('Device authorized successfully as primary terminal.');
+  };
+
+  const handleApproveAndKeep = (deviceId: string) => {
+    const updated = approveAndKeepDevice(deviceId, 'Master Admin');
+    setDevices(updated);
+    toast('Multi-device authorized! Both terminals will remain operational.');
   };
 
   const handleOpenRevokeModal = (dev: UserDeviceRecord) => {
@@ -106,6 +132,23 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
     toast(`Authorization revoked for ${revocationModalDevice.deviceName}.`);
   };
 
+  const handleOpenReplaceModal = (dev: UserDeviceRecord) => {
+    setReplaceModalDevice(dev);
+    setReplaceReasonInput('Hardware Upgrade / Old Device Superseded');
+  };
+
+  const handleConfirmReplace = () => {
+    if (!replaceModalDevice) return;
+    const res = replaceUserDevice(replaceModalDevice.userId, replaceModalDevice.id, replaceReasonInput, 'Master Admin');
+    if (res.success) {
+      loadData();
+      setReplaceModalDevice(null);
+      toast(`Device ${replaceModalDevice.deviceName} activated! Previous hardware retired with 0 data loss.`);
+    } else {
+      toast('Failed to replace device.');
+    }
+  };
+
   const handleDelete = (deviceId: string) => {
     if (!confirm('Are you sure you want to delete this device registration record?')) return;
     const updated = deleteDeviceRecord(deviceId);
@@ -113,11 +156,25 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
     toast('Device record deleted.');
   };
 
+  const handleDeleteToken = (tokenId: string) => {
+    if (!confirm('Are you sure you want to delete this one-time key record?')) return;
+    const updated = deleteReplacementToken(tokenId);
+    setTokens(updated);
+    toast('One-time key record deleted.');
+  };
+
   const handleGenerateTokenForUser = (userId: string, userName: string, tenantId: string) => {
     const token = generateDeviceReplacementToken(userId, userName, tenantId, 'Master Admin');
     setGeneratedToken(token);
     setShowTokenModal(true);
-    toast(`One-Time Replacement Key generated: ${token.tokenKey}`);
+    setTokens(getAllReplacementTokens());
+    toast(`One-Time Single-Use Key generated: ${token.tokenKey}`);
+  };
+
+  const handleSaveCustomLimit = (targetId: string, limit: number) => {
+    setUserMaxAllowedDevices(targetId, limit);
+    setLimitModalUser(null);
+    toast(`Custom limit updated: Max ${limit} device(s) allowed.`);
   };
 
   const handleExecuteAllowWorkflow = (e: React.FormEvent) => {
@@ -136,7 +193,8 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
       setGeneratedToken(token);
       setShowAllowNewDeviceModal(false);
       setShowTokenModal(true);
-      toast(`One-Time Replacement Key created for ${uName}!`);
+      setTokens(getAllReplacementTokens());
+      toast(`1-Time Single-Use Key created for ${uName}!`);
     } else if (workflowTab === 'preconfig') {
       if (!preConfigData.deviceName) {
         alert('Please enter a device name.');
@@ -246,9 +304,13 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-400/20 text-emerald-200 border border-emerald-300/30">
                 1 USER = 1 DEVICE ENFORCED
               </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-300/30 flex items-center gap-1">
+                <Flame className="w-3 h-3 text-amber-300" />
+                1-TIME KEY BURN
+              </span>
             </div>
             <p className="text-xs text-blue-100 mt-1 max-w-2xl">
-              Inspect authorized user hardware, revoke unauthorized logins, and grant new replacement devices via one-time tokens or instant pre-authorization with 0 data loss.
+              Inspect authorized user hardware, revoke unauthorized logins, issue 1-key single-use activation tokens, and set custom multi-device limits per user or tenant.
             </p>
           </div>
         </div>
@@ -276,6 +338,47 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
         </div>
       </div>
 
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('devices')}
+          className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer ${
+            activeTab === 'devices'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Laptop className="w-4 h-4" />
+          <span>Registered Fleet Devices</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white/20">{devices.length}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('tokens')}
+          className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer ${
+            activeTab === 'tokens'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Key className="w-4 h-4" />
+          <span>1-Time Single-Use Keys Vault</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-white/20">{tokens.length}</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('limits')}
+          className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer ${
+            activeTab === 'limits'
+              ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Sliders className="w-4 h-4" />
+          <span>Custom Device Limits (Per Tenant/User)</span>
+        </button>
+      </div>
+
       {/* Metric Counters */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs">
@@ -294,178 +397,557 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
           <p className="text-[11px] text-amber-600/80 dark:text-amber-500/80 mt-0.5">New Device Logins</p>
         </div>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs">
-          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Replaced / Revoked</p>
-          <p className="text-2xl font-black text-slate-700 dark:text-slate-300 mt-1">{devices.filter(d => d.status === 'Replaced' || d.status === 'Revoked').length}</p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Historical Devices</p>
+          <p className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Burned 1-Time Keys</p>
+          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{tokens.filter(t => t.isUsed).length} / {tokens.length}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Single-Use Redeemed</p>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xs">
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search user, device name, model, HWID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
-          />
-        </div>
+      {/* TAB 1: REGISTERED FLEET DEVICES */}
+      {activeTab === 'devices' && (
+        <div className="space-y-4">
+          {/* Filter and Search Bar */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3.5 flex flex-col md:flex-row items-center justify-between gap-3 shadow-2xs">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search user, device name, model, HWID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+              />
+            </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-blue-500 shrink-0 font-medium"
-          >
-            <option value="all">All Device Statuses</option>
-            <option value="Active">Authorized Active</option>
-            <option value="Pending_Authorization">Pending Authorization</option>
-            <option value="Replaced">Replaced / Inactive</option>
-            <option value="Revoked">Revoked / Disabled</option>
-          </select>
+            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-blue-500 shrink-0 font-medium"
+              >
+                <option value="all">All Device Statuses</option>
+                <option value="Active">Authorized Active</option>
+                <option value="Pending_Authorization">Pending Authorization</option>
+                <option value="Replaced">Replaced / Inactive</option>
+                <option value="Revoked">Revoked / Disabled</option>
+              </select>
 
-          <select
-            value={selectedTenant}
-            onChange={(e) => setSelectedTenant(e.target.value)}
-            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-blue-500 shrink-0 font-medium"
-          >
-            <option value="all">All Tenants / Stores</option>
-            {tenants.map(t => (
-              <option key={t.id || t.tenantId} value={t.tenantId || t.id}>
-                {t.name || t.storeName}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+              <select
+                value={selectedTenant}
+                onChange={(e) => setSelectedTenant(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-blue-500 shrink-0 font-medium"
+              >
+                <option value="all">All Tenants / Stores</option>
+                {tenants.map(t => (
+                  <option key={t.id || t.tenantId} value={t.tenantId || t.id}>
+                    {t.name || t.storeName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-      {/* Devices List Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-            <thead className="bg-slate-100 dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="py-3 px-4">User / Account</th>
-                <th className="py-3 px-4">Device & Specifications</th>
-                <th className="py-3 px-4">Installation ID</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Last Active</th>
-                <th className="py-3 px-4 text-right">Master Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-              {filteredDevices.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-500 dark:text-slate-400">
-                    <Laptop className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
-                    <p className="font-bold">No registered devices found</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Allow New Device" to authorize a user's computer or smartphone.</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredDevices.map(dev => {
-                  const isCurrentMachine = dev.installationId === currentLocalId;
-                  return (
-                    <tr key={dev.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{dev.userName}</span>
-                          {isCurrentMachine && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/40">
-                              THIS MACHINE
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                          ID: {dev.userId} • Store: {dev.tenantId}
-                        </div>
+          {/* Devices List Table */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-100 dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">User / Account</th>
+                    <th className="py-3 px-4">Device & Specifications</th>
+                    <th className="py-3 px-4">HWID / Install ID</th>
+                    <th className="py-3 px-4">Device Limit</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Last Active</th>
+                    <th className="py-3 px-4 text-right">Master Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                  {filteredDevices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-slate-500 dark:text-slate-400">
+                        <Laptop className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                        <p className="font-bold">No registered devices found</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Allow New Device" to authorize a user's computer or smartphone.</p>
                       </td>
+                    </tr>
+                  ) : (
+                    filteredDevices.map(dev => {
+                      const isCurrentMachine = dev.installationId === currentLocalId;
+                      const userMaxLimit = getUserMaxAllowedDevices(dev.userId, dev.tenantId);
+                      const userActiveCount = devices.filter(d => d.userId === dev.userId && d.status === 'Active').length;
 
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shrink-0">
-                            {getDeviceIcon(dev.deviceType)}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900 dark:text-slate-100">{dev.deviceName}</div>
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              {dev.os} • {dev.browserInfo || 'Browser POS'}
-                              {dev.model && ` • Model: ${dev.model}`}
-                              {dev.serialNumber && ` • S/N: ${dev.serialNumber}`}
+                      return (
+                        <tr key={dev.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                              <span>{dev.userName}</span>
+                              {isCurrentMachine && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/40">
+                                  THIS MACHINE
+                                </span>
+                              )}
                             </div>
-                          </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                              ID: {dev.userId} • Store: {dev.tenantId}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shrink-0">
+                                {getDeviceIcon(dev.deviceType)}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-slate-900 dark:text-slate-100">{dev.deviceName}</div>
+                                <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  {dev.os} • {dev.browserInfo || 'Browser POS'}
+                                  {dev.model && ` • Model: ${dev.model}`}
+                                  {dev.serialNumber && ` • S/N: ${dev.serialNumber}`}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-mono text-[11px] text-indigo-700 dark:text-indigo-300">
+                            <span className="bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 select-all">
+                              {dev.hardwareFingerprint || dev.installationId}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-black ${
+                                userActiveCount > userMaxLimit
+                                  ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                              }`}>
+                                {userActiveCount} / {userMaxLimit} Dev
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setLimitModalUser({ id: dev.userId, name: dev.userName, tenantId: dev.tenantId });
+                                  setCustomLimitInput(userMaxLimit);
+                                }}
+                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-blue-600 transition cursor-pointer"
+                                title="Edit max device limit for this user"
+                              >
+                                <Sliders className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {getStatusBadge(dev.status)}
+                            {dev.revocationReason && (
+                              <div className="text-[10px] text-rose-600 dark:text-rose-400 mt-1 max-w-xs truncate">
+                                {dev.revocationReason}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
+                            {new Date(dev.lastSeenAt).toLocaleString()}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {dev.status !== 'Active' ? (
+                                <>
+                                  <button
+                                    onClick={() => handleAuthorize(dev.id)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition shadow-2xs flex items-center gap-1 cursor-pointer"
+                                    title="Authorize this device as primary"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleApproveAndKeep(dev.id)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/80 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                    title="Approve and keep all devices active (Multi-device)"
+                                  >
+                                    <Layers className="w-3.5 h-3.5" />
+                                    <span>Keep Both</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenReplaceModal(dev)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/80 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                    title="Replace old hardware with this new unit"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>Replace Old</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenRevokeModal(dev)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                  title="Revoke device authorization (Remote kill)"
+                                >
+                                  <ShieldAlert className="w-3.5 h-3.5" />
+                                  <span>Revoke</span>
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleGenerateTokenForUser(dev.userId, dev.userName, dev.tenantId)}
+                                className="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                title="Generate 1-time single-use replacement key"
+                              >
+                                <Key className="w-3.5 h-3.5" />
+                                <span>1-Time Key</span>
+                              </button>
+
+                              <button
+                                onClick={() => handleDelete(dev.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                title="Delete device record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: 1-TIME SINGLE-USE KEYS VAULT */}
+      {activeTab === 'tokens' && (
+        <div className="space-y-4">
+          <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/50 rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                <Key className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Single-Use Disposable Activation Tokens (1 Key = 1 Device)</span>
+              </h3>
+              <p className="text-xs text-indigo-900/80 dark:text-indigo-300/80">
+                Issued tokens expire immediately upon single entry on client hardware. Once used, the token is permanently burned and cannot be used on another computer.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setShowAllowNewDeviceModal(true);
+                setWorkflowTab('token');
+                if (activeUsers.length > 0 && !selectedUserId) setSelectedUserId(activeUsers[0].id);
+              }}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Generate 1-Time Key</span>
+            </button>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-100 dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className="py-3 px-4">Token Key</th>
+                    <th className="py-3 px-4">Target User & Store</th>
+                    <th className="py-3 px-4">Issued At / Expiry</th>
+                    <th className="py-3 px-4">Single-Use Burn Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                  {tokens.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-10 text-slate-500 dark:text-slate-400">
+                        <Key className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-50" />
+                        <p className="font-bold">No one-time tokens generated yet</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Generate 1-Time Key" to issue a disposable token for a client.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    tokens.map(token => {
+                      const isExpired = new Date(token.expiresAt).getTime() < Date.now();
+                      const whatsappMsg = encodeURIComponent(
+                        `Salam ${token.userName}! MBI INVENTRA POS Terminal Activation Key: [${token.tokenKey}]. Yeh key sirf 1 martaba 1 device par use hogi (48h limit).`
+                      );
+
+                      return (
+                        <tr key={token.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                          <td className="py-3.5 px-4">
+                            <span className="font-mono text-sm font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded border border-indigo-200 dark:border-indigo-800 select-all">
+                              {token.tokenKey}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900 dark:text-white">{token.userName}</div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                              ID: {token.userId} • Store: {token.tenantId}
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-[11px] text-slate-500 dark:text-slate-400">
+                            <div>Issued: {new Date(token.issuedAt).toLocaleString()}</div>
+                            <div className="text-[10px] text-slate-400">Expires: {new Date(token.expiresAt).toLocaleString()}</div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {token.isUsed ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-500/40">
+                                <Flame className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                                <span>🔥 Burned & Used ({token.usedByDeviceId?.slice(-8) || 'Redeemed'})</span>
+                              </span>
+                            ) : isExpired ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Expired (48h Exceeded)</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/40">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Active (Unused)</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => copyToClipboard(token.tokenKey)}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
+                                title="Copy key"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy</span>
+                              </button>
+
+                              {!token.isUsed && !isExpired && (
+                                <a
+                                  href={`https://wa.me/?text=${whatsappMsg}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  title="Send key on WhatsApp"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
+
+                              <button
+                                onClick={() => handleDeleteToken(token.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                title="Delete token record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: CUSTOM DEVICE LIMITS */}
+      {activeTab === 'limits' && (
+        <div className="space-y-4">
+          <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-1 text-slate-700 dark:text-slate-300">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Sliders className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>Per-User & Tenant Multi-Device Limit Allocation</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Configure how many simultaneous hardware devices are permitted per user account or entire tenant store.
+            </p>
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-100 dark:bg-slate-950/80 text-slate-600 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="py-3 px-4">User Account / Role</th>
+                  <th className="py-3 px-4">Store / Pharmacy</th>
+                  <th className="py-3 px-4">Current Active Devices</th>
+                  <th className="py-3 px-4">Configured Max Limit</th>
+                  <th className="py-3 px-4 text-right">Adjust Limit</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
+                {activeUsers.map(u => {
+                  const currentLimit = getUserMaxAllowedDevices(u.id, u.storeName || u.tenantId);
+                  const activeCount = devices.filter(d => d.userId === u.id && d.status === 'Active').length;
+
+                  return (
+                    <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900 dark:text-white">{u.name}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                          ID: {u.id} • Role: {u.role || 'Staff User'}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-indigo-700 dark:text-indigo-300">
-                        <span className="bg-slate-100 dark:bg-slate-950 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 select-all">
-                          {dev.installationId}
+                      <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                        {u.storeName || 'Primary Store'}
+                      </td>
+
+                      <td className="py-3.5 px-4 font-mono font-bold">
+                        <span className={`px-2 py-0.5 rounded text-[11px] ${
+                          activeCount > currentLimit
+                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        }`}>
+                          {activeCount} Active Units
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        {getStatusBadge(dev.status)}
-                        {dev.revocationReason && (
-                          <div className="text-[10px] text-rose-600 dark:text-rose-400 mt-1 max-w-xs truncate">
-                            {dev.revocationReason}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
-                        {new Date(dev.lastSeenAt).toLocaleString()}
+                      <td className="py-3.5 px-4 font-mono font-black text-sm text-blue-600 dark:text-blue-400">
+                        {currentLimit} Device(s)
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {dev.status !== 'Active' ? (
-                            <button
-                              onClick={() => handleAuthorize(dev.id)}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="Authorize this device as primary"
-                            >
-                              <ShieldCheck className="w-3.5 h-3.5" />
-                              <span>Authorize</span>
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleOpenRevokeModal(dev)}
-                              className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
-                              title="Revoke device authorization"
-                            >
-                              <ShieldAlert className="w-3.5 h-3.5" />
-                              <span>Revoke</span>
-                            </button>
-                          )}
-
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => handleGenerateTokenForUser(dev.userId, dev.userName, dev.tenantId)}
-                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/80 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 font-bold text-[11px] transition flex items-center gap-1 cursor-pointer"
-                            title="Generate one-time replacement key"
+                            onClick={() => handleSaveCustomLimit(u.id, Math.max(1, currentLimit - 1))}
+                            disabled={currentLimit <= 1}
+                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 font-black text-xs cursor-pointer flex items-center justify-center"
+                            title="Decrease limit"
                           >
-                            <Key className="w-3.5 h-3.5" />
-                            <span>Replace Key</span>
+                            -
                           </button>
-
                           <button
-                            onClick={() => handleDelete(dev.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                            title="Delete device record"
+                            onClick={() => handleSaveCustomLimit(u.id, currentLimit + 1)}
+                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-black text-xs cursor-pointer flex items-center justify-center text-blue-600"
+                            title="Increase limit"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            +
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLimitModalUser({ id: u.id, name: u.name, tenantId: u.storeName });
+                              setCustomLimitInput(currentLimit);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold text-[11px] cursor-pointer"
+                          >
+                            Set Exact
                           </button>
                         </div>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* MODAL: CUSTOM LIMIT MODAL */}
+      {limitModalUser && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-sm w-full p-5 text-slate-900 dark:text-white shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <h3 className="font-bold text-sm">Set Max Allowed Devices</h3>
+              <button onClick={() => setLimitModalUser(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs space-y-2">
+              <p className="text-slate-500 dark:text-slate-400">
+                User: <span className="font-bold text-slate-900 dark:text-white">{limitModalUser.name}</span>
+              </p>
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Max Devices Allowed (Simultaneous):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={customLimitInput}
+                  onChange={(e) => setCustomLimitInput(parseInt(e.target.value, 10) || 1)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setLimitModalUser(null)}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveCustomLimit(limitModalUser.id, customLimitInput)}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer"
+              >
+                Save Limit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REPLACE DEVICE CONFIRMATION */}
+      {replaceModalDevice && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-2xl max-w-md w-full p-6 text-slate-900 dark:text-white shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-indigo-900 dark:text-indigo-200">Replace Old Hardware (Zero Data Loss)</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{replaceModalDevice.userName} • {replaceModalDevice.deviceName}</p>
+              </div>
+            </div>
+
+            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-2">
+              <p>
+                This will activate <span className="font-bold text-slate-900 dark:text-white">{replaceModalDevice.deviceName}</span> as the primary authorized machine. Previous hardware will be retired with 0 data loss.
+              </p>
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-bold mb-1">Reason for Replacement</label>
+                <input
+                  type="text"
+                  value={replaceReasonInput}
+                  onChange={(e) => setReplaceReasonInput(e.target.value)}
+                  placeholder="e.g. Counter 1 upgraded to new laptop"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setReplaceModalDevice(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReplace}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/30 cursor-pointer"
+              >
+                Confirm Replace & Activate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL: ALLOW NEW DEVICE WORKFLOW */}
       {showAllowNewDeviceModal && (
@@ -518,8 +1000,8 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                 >
                   <Key className="w-4 h-4 mb-1.5 text-indigo-600 dark:text-indigo-400" />
                   <div>
-                    <p className="font-bold text-xs">Issue 48h Key</p>
-                    <p className="text-[10px] opacity-80 mt-0.5">Token entry on client login</p>
+                    <p className="font-bold text-xs">1-Time 48h Key</p>
+                    <p className="text-[10px] opacity-80 mt-0.5">Single-use burned token</p>
                   </div>
                 </button>
 
@@ -535,7 +1017,7 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                   <Laptop className="w-4 h-4 mb-1.5 text-blue-600 dark:text-blue-400" />
                   <div>
                     <p className="font-bold text-xs">Pre-Configure</p>
-                    <p className="text-[10px] opacity-80 mt-0.5">Register exact hardware unit</p>
+                    <p className="text-[10px] opacity-80 mt-0.5">Register exact hardware</p>
                   </div>
                 </button>
 
@@ -563,12 +1045,12 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                 <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/40 rounded-xl p-3.5 space-y-1.5 text-slate-700 dark:text-slate-300">
                   <p className="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
                     <Key className="w-4 h-4" />
-                    <span>How One-Time Replacement Key Works:</span>
+                    <span>How 1-Time Disposable Key Works:</span>
                   </p>
                   <ul className="list-disc list-inside text-[11px] space-y-1 text-slate-600 dark:text-slate-400 pl-1">
-                    <li>Generates a secure 12-character alphanumeric code valid for 48 hours.</li>
-                    <li>The client user opens the application on their new computer or phone and enters the key.</li>
-                    <li>The system instantly binds the new hardware to their account and retires the previous device.</li>
+                    <li>Generates a secure 12-character code (e.g. <code>MBI-DEV-XXXX-XXXX</code>) valid for 48 hours.</li>
+                    <li>The user enters the code on their new PC / mobile login.</li>
+                    <li><strong>Single-Use Burn:</strong> The key is instantly burned upon activation and cannot be reused on any other machine.</li>
                   </ul>
                 </div>
               )}
@@ -664,7 +1146,7 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                   disabled={!selectedUserId}
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-600/30 cursor-pointer"
                 >
-                  {workflowTab === 'token' && 'Generate Replacement Key'}
+                  {workflowTab === 'token' && 'Generate 1-Time Key'}
                   {workflowTab === 'preconfig' && 'Authorize Hardware Unit'}
                   {workflowTab === 'unlock' && 'Reset Hardware Lock & Allow'}
                 </button>
@@ -731,7 +1213,7 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">One-Time Device Replacement Key</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">One-Time Device Activation Key</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Issued for <span className="font-bold text-indigo-600 dark:text-indigo-300">{generatedToken.userName}</span>
               </p>
@@ -742,8 +1224,9 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
               <div className="font-mono text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-wider select-all">
                 {generatedToken.tokenKey}
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Valid for 48 Hours • Single Use Only
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center justify-center gap-1">
+                <Flame className="w-3.5 h-3.5" />
+                <span>Single-Use Only • 1 Key 1 Device Par Chal Kar Burn Ho Jaye Gi</span>
               </p>
             </div>
 
@@ -753,7 +1236,7 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                 <span>Zero Data Loss Replacement</span>
               </p>
               <p className="text-slate-600 dark:text-slate-400">
-                When the user enters this key upon logging into their new device, their previous device is revoked, and all branch stock, invoices, and ledgers remain 100% intact.
+                When the user enters this key upon logging into their new device, their previous device is retired and all pharmacy stock, invoices, and ledgers remain 100% intact.
               </p>
             </div>
 
@@ -763,11 +1246,20 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                 className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {copiedToken ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedToken ? 'Copied to Clipboard!' : 'Copy Key for Client'}</span>
+                <span>{copiedToken ? 'Copied to Clipboard!' : 'Copy Key'}</span>
               </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Salam ${generatedToken.userName}! MBI INVENTRA POS Terminal Activation Key: [${generatedToken.tokenKey}]. Yeh key sirf 1 martaba 1 device par use hogi (48h validity).`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/30 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>WhatsApp</span>
+              </a>
               <button
                 onClick={() => setShowTokenModal(false)}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer"
+                className="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer"
               >
                 Close
               </button>

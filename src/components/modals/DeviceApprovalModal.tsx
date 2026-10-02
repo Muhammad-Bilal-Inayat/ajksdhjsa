@@ -4,6 +4,7 @@ import {
   RefreshCw, ExternalLink, HardDrive, Key, CheckCircle2, AlertCircle 
 } from 'lucide-react';
 import { deviceSecurityService, DeviceAuthStatus, SUPPORT_HOTLINES } from '../../services/deviceSecurityService';
+import { redeemDeviceReplacementToken } from '../../lib/deviceSecurityService';
 import { syncEngine } from '../../lib/syncEngine';
 import { emitToast } from '../../contexts/ToastContext';
 
@@ -148,14 +149,37 @@ export const DeviceApprovalModal: React.FC<DeviceApprovalModalProps> = ({
   };
 
   const handleActivateNewDevice = async () => {
-    if (!enteredKey.trim()) {
-      emitToast('Please enter your Multi-Device License Key.', 'warning');
+    const rawKey = enteredKey.trim();
+    if (!rawKey) {
+      emitToast('Please enter your Multi-Device License Key or 1-Time Replacement Token.', 'warning');
       return;
     }
 
     setIsActivating(true);
     try {
-      const result = await deviceSecurityService.activateDeviceWithKey(enteredKey, tenantId);
+      // 1. Check if it's a single-use 1-Time Replacement Token (MBI-DEV-XXXX-XXXX)
+      if (rawKey.toUpperCase().startsWith('MBI-DEV-')) {
+        const uId = userId || localStorage.getItem('mbi_active_user_id') || 'user_active';
+        const res = redeemDeviceReplacementToken(rawKey, uId);
+        if (res.success) {
+          try {
+            localStorage.setItem('mbi_bound_hwid', authStatus.hwid);
+          } catch {}
+          emitToast(res.message, 'success');
+          setIsRestoring(true);
+          setRestoreMessage('1-Time Key Verified & Burned! Restoring pharmacy data...');
+          await syncEngine.restoreTenantCloudData(tenantId, true);
+          setAuthStatus(deviceSecurityService.checkDeviceAuthorization(tenantId, userId));
+          if (onClose) onClose();
+          return;
+        } else {
+          emitToast(res.message, 'error');
+          return;
+        }
+      }
+
+      // 2. Otherwise validate standard multi-device commercial license key
+      const result = await deviceSecurityService.activateDeviceWithKey(rawKey, tenantId);
       if (result.success) {
         emitToast(result.message, 'success');
         setIsRestoring(true);

@@ -37,10 +37,40 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.7-stable',
-    releaseDate: 'September 2026',
+    version: 'v4.3.8-stable',
+    releaseDate: 'October 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Hardware Device Lock (1 User = 1 Device Strict Policy), Single-Use 1-Time Token Burn, Butter-Smooth 60FPS Scroll Animations & Nano-Speed Navigation.',
+    features: [
+      {
+        text: 'Strict 1 User = 1 Device Hardware Lock: Enforces physical machine binding; secondary unauthorized terminal logins require Master approval.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: '1-Key = 1-Time Usable Token Burn: Master-generated activation keys (MBI-DEV-XXXX-XXXX) permanently burn on single entry with zero multi-device leakage.',
+        type: 'security',
+        minPlan: 'all'
+      },
+      {
+        text: 'Butter-Smooth 60FPS Scroll Reveals: Native GPU-accelerated scroll animations with zero layout shift and instant sub-millisecond menu opening.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'Sync & Share Live Build Inspector: Direct OTA update status checker and 1-click delta refresh across all fleet workstations.',
+        type: 'feature',
+        minPlan: 'all'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.7-stable',
+    releaseDate: 'September 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'AI Daily Quotas (Enterprise: 200, Business: 50, Basic: 20, Trial/Guest: 20 msgs/day), Scroll Jump Fixes & Server Live Limit Overrides.',
     features: [

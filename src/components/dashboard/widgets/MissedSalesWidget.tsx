@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   AlertCircle, Plus, Search, ShoppingCart, TrendingDown, 
   CheckCircle2, ArrowRight, Sparkles, Clock, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../contexts/AuthContext';
+import { dbShortageItems } from '../../../lib/db';
+import { ShortageItemRecord } from '../../../types';
 
 interface MissedSaleItem {
   id: string;
@@ -15,62 +18,66 @@ interface MissedSaleItem {
   urgency: 'high' | 'medium' | 'normal';
 }
 
-const SAMPLE_MISSED_SALES: MissedSaleItem[] = [
-  {
-    id: 'ms-1',
-    medicineName: 'Augmentin 625mg Tab',
-    genericName: 'Co-Amoxiclav',
-    inquiriesCount: 14,
-    estimatedPrice: 420,
-    lastRequested: '15 mins ago',
-    urgency: 'high'
-  },
-  {
-    id: 'ms-2',
-    medicineName: 'Panadol CF Syrup',
-    genericName: 'Paracetamol / Pseudoephedrine',
-    inquiriesCount: 9,
-    estimatedPrice: 160,
-    lastRequested: '1 hour ago',
-    urgency: 'high'
-  },
-  {
-    id: 'ms-3',
-    medicineName: 'Nexum 40mg Cap',
-    genericName: 'Esomeprazole',
-    inquiriesCount: 7,
-    estimatedPrice: 380,
-    lastRequested: '3 hours ago',
-    urgency: 'medium'
-  },
-  {
-    id: 'ms-4',
-    medicineName: 'Glucophage 500mg',
-    genericName: 'Metformin HCl',
-    inquiriesCount: 6,
-    estimatedPrice: 195,
-    lastRequested: 'Today 11:30 AM',
-    urgency: 'normal'
-  }
-];
-
 interface MissedSalesWidgetProps {
   maskValue?: (val: number | string) => string;
 }
 
 export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue = (v) => `Rs ${v}` }) => {
   const navigate = useNavigate();
-  const [items, setItems] = useState<MissedSaleItem[]>(SAMPLE_MISSED_SALES);
+  const { tenantId } = useAuth();
+  const [shortages, setShortages] = useState<ShortageItemRecord[]>([]);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+
+  const loadData = async () => {
+    try {
+      const allShortages = await dbShortageItems.getAll();
+      setShortages(allShortages || []);
+    } catch (e) {
+      console.warn('Failed to load shortages:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleUpdate = () => loadData();
+    window.addEventListener('mbi-local-db-change', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('mbi-local-db-change', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, [tenantId]);
+
+  // Compute live missed sales items
+  const items: MissedSaleItem[] = useMemo(() => {
+    const list: MissedSaleItem[] = [];
+
+    shortages.forEach(s => {
+      const count = Number(s.inquiryCount || s.count || 1);
+      const estPrice = Number(s.estimatedPrice || (s as any).price || 250);
+      list.push({
+        id: s.id,
+        medicineName: s.medicineName || (s as any).name || 'Medicine',
+        genericName: s.genericName || '',
+        inquiriesCount: count,
+        estimatedPrice: estPrice,
+        lastRequested: s.lastInquiryDate ? new Date(s.lastInquiryDate).toLocaleDateString() : 'Recent',
+        urgency: count >= 10 ? 'high' : count >= 5 ? 'medium' : 'normal'
+      });
+    });
+
+    list.sort((a, b) => b.inquiriesCount - a.inquiriesCount);
+    return list.slice(0, 5);
+  }, [shortages]);
 
   const totalLostRevenue = items.reduce((sum, item) => sum + (item.estimatedPrice * item.inquiriesCount), 0);
   const totalInquiries = items.reduce((sum, item) => sum + item.inquiriesCount, 0);
 
-  const handleAddToPO = (id: string, name: string) => {
+  const handleAddToPO = (id: string) => {
     setAddedIds(prev => new Set(prev).add(id));
-    setTimeout(() => {
-      // Navigate to purchase orders or show success feedback
-    }, 400);
+    navigate('/purchases');
   };
 
   return (
@@ -84,9 +91,9 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Missed Sales & Patient Demand</span>
+                <span>Missed Sales &amp; Patient Demand</span>
                 <span className="bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                  {items.length} Out of Stock
+                  {items.length > 0 ? `${items.length} Out of Stock` : '0 Shortages'}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -99,96 +106,95 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
             onClick={() => navigate('/shortage-registry')}
             className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>PO Shortage Book</span>
+            <span>Shortage Hub</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Quick Summary Strip */}
-        <div className="grid grid-cols-2 gap-2 my-3">
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block">Estimated Lost Revenue</span>
-            <span className="text-sm font-black text-rose-600 dark:text-rose-400 font-mono">
+        {/* Protection Metric Banner */}
+        <div className="my-3 p-3 rounded-xl bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-orange-500/10 border border-rose-200/60 dark:border-rose-800/60 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
+              Estimated Lost Revenue
+            </div>
+            <div className="text-base font-black text-rose-600 dark:text-rose-400 font-mono mt-0.5">
               {maskValue(totalLostRevenue.toLocaleString())}
-            </span>
+            </div>
           </div>
-          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold block">Total Inquiries Today</span>
-            <span className="text-sm font-black text-slate-800 dark:text-slate-200 font-mono">
-              {totalInquiries} Patients
-            </span>
+
+          <div className="text-right">
+            <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">
+              Total Inquiries
+            </div>
+            <div className="text-base font-black text-slate-900 dark:text-white font-mono mt-0.5">
+              {totalInquiries}
+            </div>
           </div>
         </div>
 
-        {/* List of Inquiries */}
-        <div className="space-y-2">
-          {items.map((item) => {
-            const isAdded = addedIds.has(item.id);
-            return (
+        {/* Items List or Zero State */}
+        <div className="space-y-2 mt-2">
+          {items.length === 0 ? (
+            <div className="p-5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-1.5 bg-slate-50/50 dark:bg-slate-800/30">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Zero Missed Sales Recorded
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                No stock shortage inquiries logged. All customer requests are in stock.
+              </p>
+            </div>
+          ) : (
+            items.map((item) => (
               <div 
                 key={item.id}
-                className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 transition-all"
+                className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 hover:border-rose-200 transition-colors"
               >
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {item.medicineName}
-                    </span>
-                    {item.urgency === 'high' && (
-                      <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded">
-                        High Demand
-                      </span>
-                    )}
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {item.medicineName}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
-                    <span>{item.genericName}</span>
+                    <span className="font-semibold text-rose-600 dark:text-rose-400">{item.inquiriesCount} customer asks</span>
                     <span>•</span>
-                    <span className="font-semibold text-rose-600 dark:text-rose-400">{item.inquiriesCount} requests</span>
-                    <span>•</span>
-                    <span className="text-[10px]">{item.lastRequested}</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">~{maskValue(item.estimatedPrice.toLocaleString())}</span>
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => handleAddToPO(item.id, item.medicineName)}
-                  disabled={isAdded}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all shrink-0 cursor-pointer ${
-                    isAdded
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                      : 'bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  onClick={() => handleAddToPO(item.id)}
+                  disabled={addedIds.has(item.id)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs ${
+                    addedIds.has(item.id)
+                      ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                   }`}
                 >
-                  {isAdded ? (
+                  {addedIds.has(item.id) ? (
                     <>
                       <Check className="w-3.5 h-3.5" />
-                      <span>Added to PO</span>
+                      <span>PO Queued</span>
                     </>
                   ) : (
                     <>
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add to PO</span>
+                      <ShoppingCart className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Order</span>
                     </>
                   )}
                 </button>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       </div>
 
       {/* Footer */}
       <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
-          <Sparkles className="w-3.5 h-3.5" />
-          Auto-synced with POS Shortage search bar
+        <span className="font-medium">Demand Shortage Radar:</span>
+        <span className="font-bold text-slate-700 dark:text-slate-300">
+          {items.length > 0 ? `${items.length} Items Demanded` : '100% In-Stock'}
         </span>
-        <button
-          onClick={() => navigate('/purchase/order')}
-          className="font-bold text-slate-700 dark:text-slate-300 hover:text-blue-600 hover:underline cursor-pointer"
-        >
-          Create Vendor Order
-        </button>
       </div>
     </div>
   );

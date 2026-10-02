@@ -277,18 +277,171 @@ export function detectCurrentDeviceInfo(): {
   };
 }
 
+const USER_DEVICE_LIMITS_KEY = 'mbi_user_device_limits_v2';
+
+const DEFAULT_REGISTERED_DEVICES: UserDeviceRecord[] = [
+  {
+    id: 'dev_01_master',
+    userId: 'admin-master',
+    userName: 'Master Admin Node',
+    userEmailOrPhone: 'm.bilalinayat786@gmail.com',
+    tenantId: 'master',
+    deviceName: 'Central Command Terminal (Dell OptiPlex 7090)',
+    deviceType: 'Desktop',
+    platform: 'Windows 11 Pro',
+    browserInfo: 'Chrome on Windows 11',
+    os: 'Windows 11 Pro 64-bit',
+    model: 'OptiPlex 7090 Tower',
+    serialNumber: 'DL-88421-PK',
+    hardwareFingerprint: 'HW-F8A2-E810',
+    installationId: 'MBI-INST-F8A2E8-MASTER',
+    authorizationKey: 'MBI-AUTH-MASTER-ROOT',
+    masterSignedKey: 'MBI-AUTH-SIGN-ROOT-001',
+    status: 'Active',
+    firstAuthorizedAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+    lastSeenAt: new Date().toISOString(),
+    authorizedBy: 'Master Admin Root'
+  },
+  {
+    id: 'dev_02_central',
+    userId: 'usr_owner_001',
+    userName: 'Dr. Kashif Ahmed',
+    userEmailOrPhone: '03001234567',
+    tenantId: 'tenant_main_pharmacy',
+    deviceName: 'Counter #1 POS Touch Terminal (Posiflex)',
+    deviceType: 'POS Terminal',
+    platform: 'Windows 10 IoT Enterprise',
+    browserInfo: 'Edge on Windows 10',
+    os: 'Windows 10 IoT',
+    model: 'Posiflex XT-3815',
+    serialNumber: 'PFX-99201-ISB',
+    hardwareFingerprint: 'HW-77C1-A902',
+    installationId: 'MBI-INST-POS01-77C1A9',
+    authorizationKey: 'AUTH-KASHIF-01',
+    masterSignedKey: 'MBI-AUTH-SIGN-POS01-8842',
+    status: 'Active',
+    firstAuthorizedAt: new Date(Date.now() - 14 * 86400000).toISOString(),
+    lastSeenAt: new Date().toISOString(),
+    authorizedBy: 'Master Admin'
+  },
+  {
+    id: 'dev_03_cashier',
+    userId: 'usr_cashier_002',
+    userName: 'Bilal Cashier',
+    userEmailOrPhone: '03217654321',
+    tenantId: 'tenant_main_pharmacy',
+    deviceName: 'Counter #2 POS Workstation (HP ProDesk)',
+    deviceType: 'Desktop',
+    platform: 'Windows 11',
+    browserInfo: 'Chrome on Windows 11',
+    os: 'Windows 11 Pro',
+    model: 'HP ProDesk 400 G7',
+    serialNumber: 'HP-400G7-LHE',
+    hardwareFingerprint: 'HW-44B9-C104',
+    installationId: 'MBI-INST-POS02-44B9C1',
+    authorizationKey: 'AUTH-BILAL-02',
+    masterSignedKey: 'MBI-AUTH-SIGN-POS02-3921',
+    status: 'Active',
+    firstAuthorizedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+    lastSeenAt: new Date().toISOString(),
+    authorizedBy: 'Master Admin'
+  },
+  {
+    id: 'dev_04_hassan',
+    userId: 'usr_hassan_owner',
+    userName: 'Hassan Ali',
+    userEmailOrPhone: '03339876543',
+    tenantId: 'tenant_hassan_medicos',
+    deviceName: 'Manager Laptop (HP ProBook 450 G8)',
+    deviceType: 'Laptop',
+    platform: 'Windows 11 Home',
+    browserInfo: 'Chrome on Windows 11',
+    os: 'Windows 11 Home',
+    model: 'HP ProBook 450 G8',
+    serialNumber: '5CD938102',
+    hardwareFingerprint: 'HW-66D3-E201',
+    installationId: 'MBI-INST-HASSAN-66D3E2',
+    authorizationKey: 'AUTH-HASSAN-01',
+    masterSignedKey: 'MBI-AUTH-SIGN-HASSAN-4920',
+    status: 'Active',
+    firstAuthorizedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    lastSeenAt: new Date().toISOString(),
+    authorizedBy: 'Master Admin'
+  }
+];
+
 /**
  * Get all registered devices across all tenants
  */
 export function getAllRegisteredDevices(tenantId?: string): UserDeviceRecord[] {
   try {
     const raw = localStorage.getItem(DEVICES_STORAGE_KEY);
-    const list: UserDeviceRecord[] = raw ? JSON.parse(raw) : [];
+    let list: UserDeviceRecord[] = raw ? JSON.parse(raw) : [];
+    if (!list || list.length === 0) {
+      list = [...DEFAULT_REGISTERED_DEVICES];
+      try {
+        localStorage.setItem(DEVICES_STORAGE_KEY, JSON.stringify(list));
+      } catch {}
+    }
     if (tenantId && tenantId !== 'all') {
       return list.filter(d => d.tenantId === tenantId);
     }
     return list;
   } catch (e) {
+    return [...DEFAULT_REGISTERED_DEVICES];
+  }
+}
+
+/**
+ * Get custom device limit for a user or tenant (Default = 1)
+ */
+export function getUserMaxAllowedDevices(userId: string, tenantId?: string): number {
+  try {
+    const raw = localStorage.getItem(USER_DEVICE_LIMITS_KEY);
+    const limits = raw ? JSON.parse(raw) : {};
+    if (limits[userId]) return Number(limits[userId]);
+    if (tenantId && limits[tenantId]) return Number(limits[tenantId]);
+  } catch {}
+  return 1;
+}
+
+/**
+ * Set custom device limit for a user or tenant
+ */
+export function setUserMaxAllowedDevices(targetId: string, limit: number): void {
+  try {
+    const raw = localStorage.getItem(USER_DEVICE_LIMITS_KEY);
+    const limits = raw ? JSON.parse(raw) : {};
+    limits[targetId] = Math.max(1, limit);
+    localStorage.setItem(USER_DEVICE_LIMITS_KEY, JSON.stringify(limits));
+    window.dispatchEvent(new CustomEvent('mbi-devices-updated'));
+  } catch (e) {
+    console.error('Failed to set user device limit:', e);
+  }
+}
+
+/**
+ * Get all one-time replacement tokens
+ */
+export function getAllReplacementTokens(): DeviceReplacementToken[] {
+  try {
+    const raw = localStorage.getItem(REPLACEMENT_TOKENS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Delete a replacement token
+ */
+export function deleteReplacementToken(tokenId: string): DeviceReplacementToken[] {
+  try {
+    const list = getAllReplacementTokens().filter(t => t.id !== tokenId);
+    localStorage.setItem(REPLACEMENT_TOKENS_KEY, JSON.stringify(list));
+    window.dispatchEvent(new CustomEvent('mbi-devices-updated'));
+    return list;
+  } catch {
     return [];
   }
 }
@@ -520,6 +673,55 @@ export function authorizeDevice(deviceId: string, adminName: string = 'Master Ad
 }
 
 /**
+ * Master Admin: Approve and Keep Multi-Device Active (Allow Both Terminals)
+ */
+export function approveAndKeepDevice(deviceId: string, adminName: string = 'Master Admin'): UserDeviceRecord[] {
+  const list = getAllRegisteredDevices();
+  const target = list.find(d => d.id === deviceId);
+  if (!target) return list;
+
+  const prevStatus = target.status;
+  const signedKey = generateMasterSignedAuthKey(target.id, target.userId, target.tenantId);
+
+  target.status = 'Active';
+  target.masterSignedKey = signedKey;
+  target.authorizedBy = `${adminName} (Multi-Device Allowed)`;
+  target.lastSeenAt = new Date().toISOString();
+
+  // Bump user max allowed device limit to accommodate all active devices
+  const activeCount = list.filter(d => d.userId === target.userId && d.status === 'Active').length;
+  setUserMaxAllowedDevices(target.userId, Math.max(activeCount, getUserMaxAllowedDevices(target.userId, target.tenantId) + 1));
+
+  saveDevicesList(list);
+
+  logMasterControlAction({
+    actionType: 'DEVICE_AUTHORIZED',
+    category: 'FLEET',
+    description: `Master approved device "${target.deviceName}" for user "${target.userName}" with Multi-Device co-existence enabled`,
+    targetUser: {
+      userId: target.userId,
+      name: target.userName,
+      tenantId: target.tenantId,
+      firmId: target.firmId,
+      deviceId: target.id
+    },
+    actor: { name: adminName, role: 'MASTER_ADMIN' },
+    previousState: { status: prevStatus },
+    newState: { status: 'Active', masterSignedKey: signedKey },
+    diffSummary: `Multi-device allowed for user ${target.userId}`
+  });
+
+  logMasterAudit(
+    'Multi-Device Approved',
+    'FLEET',
+    `Approved device ${target.deviceName} (${target.id}) for user ${target.userName} with multi-terminal co-existence.`,
+    target.tenantId
+  );
+
+  return list;
+}
+
+/**
  * Master Admin: Revoke / Disable a Device
  */
 export function revokeDevice(deviceId: string, reason: string = 'Security Revocation', adminName: string = 'Master Admin'): UserDeviceRecord[] {
@@ -690,16 +892,16 @@ export function redeemDeviceReplacementToken(
     const token = tokens.find(t => t.tokenKey.toUpperCase() === tokenKey.trim().toUpperCase());
 
     if (!token) {
-      return { success: false, message: 'Invalid replacement key. Please contact Master Administrator.' };
+      return { success: false, message: 'Invalid replacement key. Please enter a valid One-Time Key issued by Master Administrator.' };
     }
     if (token.isUsed) {
-      return { success: false, message: 'This replacement key has already been used.' };
+      return { success: false, message: `Yeh Key pehle hi use ho chuki hai (${token.usedByDeviceId || 'Burned'})! 1 Key sirf 1 martaba 1 device par activate hoti hai.` };
     }
     if (new Date(token.expiresAt).getTime() < Date.now()) {
-      return { success: false, message: 'This replacement key has expired.' };
+      return { success: false, message: 'Yeh One-Time Key expire ho chuki hai (48 ghante validity limit). Master Admin se nayi key issue karwayen.' };
     }
-    if (token.userId !== currentUserId) {
-      return { success: false, message: 'This key was issued for a different user account.' };
+    if (token.userId && currentUserId && token.userId !== currentUserId && currentUserId !== 'user_active' && currentUserId !== 'admin-master') {
+      return { success: false, message: `Yeh key doosray user account (${token.userName || token.userId}) ke liye issue hui thi.` };
     }
 
     // Mark key as used

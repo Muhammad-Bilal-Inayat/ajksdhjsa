@@ -71,6 +71,51 @@ export const Home: React.FC = () => {
     });
   };
 
+  // Scroll reveal observer for 60FPS butter-smooth scroll animations
+  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({
+    hero: true
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setVisibleSections({
+        features: true,
+        'pos-speed': true,
+        'fefo-radar': true,
+        'cloud-synapse': true,
+        testimonials: true,
+        pricing: true,
+        faq: true
+      });
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.getAttribute('id') || entry.target.getAttribute('data-section-id');
+            if (id) {
+              setVisibleSections((prev) => ({ ...prev, [id]: true }));
+            }
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px'
+      }
+    );
+
+    const sectionElements = document.querySelectorAll('.mbi-scroll-reveal');
+    sectionElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      sectionElements.forEach((el) => observer.unobserve(el));
+      observer.disconnect();
+    };
+  }, []);
+
   return (
     <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 w-full max-w-full overflow-x-hidden">
       <PWAInstallBanner />
@@ -91,7 +136,15 @@ export const Home: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           3. CORE FEATURES GRID (Animated Interactive Feature Cards)
       ───────────────────────────────────────────────────────────── */}
-      <section id="features" className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="features"
+        data-section-id="features"
+        className={`mbi-scroll-reveal py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['features']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-14 space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
             <Layers className="w-3.5 h-3.5" />
@@ -111,14 +164,30 @@ export const Home: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           4. INTERACTIVE 0.2s POS SPEED SIMULATION WIDGET
       ───────────────────────────────────────────────────────────── */}
-      <section id="pos-speed" className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="pos-speed"
+        data-section-id="pos-speed"
+        className={`mbi-scroll-reveal py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['pos-speed']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
         <PosSpeedVisualWidget />
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
           5. INTERACTIVE 6-HORIZON FEFO EXPIRY RADAR & CALCULATOR
       ───────────────────────────────────────────────────────────── */}
-      <section id="fefo-radar" className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <section
+        id="fefo-radar"
+        data-section-id="fefo-radar"
+        className={`mbi-scroll-reveal py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12 transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['fefo-radar']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
         <FefoRadarGraphic />
         <div id="calculator">
           <ExpiryCalculator onOpenTrial={() => navigate('/register')} />
@@ -128,24 +197,60 @@ export const Home: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           6. REAL-TIME MULTI-BRANCH CLOUD SYNAPSE MESH WIDGET
       ───────────────────────────────────────────────────────────── */}
-      <section id="cloud-synapse" className="py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section
+        id="cloud-synapse"
+        data-section-id="cloud-synapse"
+        className={`mbi-scroll-reveal py-12 sm:py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['cloud-synapse']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
         <CloudSynapseVisualWidget />
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
           7. 3D CLIENT TESTIMONIALS (Auto-Slides every 3s & Server-Synced)
       ───────────────────────────────────────────────────────────── */}
-      <ClientTestimonialsSection id="testimonials" />
+      <div
+        id="testimonials"
+        data-section-id="testimonials"
+        className={`mbi-scroll-reveal transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['testimonials']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
+        <ClientTestimonialsSection id="testimonials" />
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────
           8. STANDARDIZED PRICING SECTION
       ───────────────────────────────────────────────────────────── */}
-      <PricingSection id="pricing" />
+      <div
+        id="pricing"
+        data-section-id="pricing"
+        className={`mbi-scroll-reveal transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['pricing']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
+        <PricingSection id="pricing" />
+      </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          6. FAQ SECTION
+          9. FAQ SECTION
       ───────────────────────────────────────────────────────────── */}
-      <section id="faq" className="py-16 sm:py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+      <section
+        id="faq"
+        data-section-id="faq"
+        className={`mbi-scroll-reveal py-16 sm:py-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 transition-all duration-700 ease-out will-change-transform ${
+          visibleSections['faq']
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-8'
+        }`}
+      >
         <div className="text-center space-y-2">
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">Frequently Asked Questions</h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">Everything you need to know about MBI Inventra  licensing and features</p>
@@ -200,7 +305,7 @@ export const Home: React.FC = () => {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          7. CLEAN SITEMAP & FOOTER (Zero Technical Jargon)
+          10. CLEAN SITEMAP & FOOTER (Zero Technical Jargon)
       ───────────────────────────────────────────────────────────── */}
       <Footer onScrollToSection={scrollToSection} />
 

@@ -1870,6 +1870,38 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                     notes: `Sold in Invoice #${newInvoice.invoiceNumber} to ${newInvoice.customerName} (Batch: ${item.batchNumber || `${rotationMethod} Auto`})`,
                   });
                 }
+              } else if (item.name && item.name.trim()) {
+                // Auto-create new medicine in inventory so it appears in all stock reports and menus!
+                const newMedId = `med_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                const newMed: Medicine = {
+                  id: newMedId,
+                  name: item.name.trim(),
+                  genericName: (item as any).genericName || '',
+                  category: 'General',
+                  unit: item.unit || 'Box',
+                  purchasePrice: Number(item.costPrice || item.latestPurchasePrice || (item.sellingPrice ? item.sellingPrice * 0.8 : 0)),
+                  sellingPrice: Number(item.pricePerUnit || item.sellingPrice || item.mrp || 0),
+                  salePrice: Number(item.pricePerUnit || item.sellingPrice || item.mrp || 0),
+                  mrp: Number(item.mrp || item.sellingPrice || 0),
+                  quantity: 0,
+                  batchNumber: item.batchNumber || '',
+                  expiryDate: item.expiryDate || '',
+                  tenantId: effectiveTenantId,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+                await dbMedicines.save(newMed);
+                
+                auditLogsList.push({
+                  id: uuidv4(),
+                  date: new Date().toISOString(),
+                  action: 'SALE',
+                  medicineId: newMedId,
+                  medicineName: newMed.name,
+                  quantityChanged: -item.quantity,
+                  userId: effectiveUserId,
+                  notes: `Auto-registered on POS Sale & sold in Invoice #${newInvoice.invoiceNumber} to ${newInvoice.customerName}`,
+                });
               }
             }
           } else if (txType === 'Sale Return') {

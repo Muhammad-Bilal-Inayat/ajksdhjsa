@@ -50,8 +50,8 @@ export const DEFAULT_MASTER_PRINT_CONFIG: MasterPrintConfig = {
   thermalCountry: 'Pakistan',
   thermalCashierDefault: 'Bilal Inayat',
   thermalFooterTitle: 'THANK YOU FOR SHOPPING!',
-  thermalFooterContact: 'Contact us : 03281302636',
-  thermalFooterWebsite: 'Pharmacy POS & ERP    www.mbiinventra.com',
+  thermalFooterContact: '0328-1302636',
+  thermalFooterWebsite: 'mbiinventra.com',
   thermalCompactFooter: true,
   thermalDefaultTheme: 'THERMAL_MBI_STANDARD',
   thermalPaperWidth: '80mm',
@@ -69,8 +69,8 @@ export const DEFAULT_MASTER_PRINT_CONFIG: MasterPrintConfig = {
   a4BankDetailsText: 'Bank: Meezan Bank Ltd\nAccount: 0102-0105829102\nTitle: MBI INVENTRA PHARMA\nIBAN: PK64MEZN0001020105829102',
   a4ShowQrCode: true,
   
-  // Permanent 1-Line Master Footer
-  a4MasterFooterText: 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com',
+  // Permanent Short 1-Line Master Footer (Site Name • Number • Site Link)
+  a4MasterFooterText: 'Powered by MBI INVENTRA • 0328-1302636 • mbiinventra.com',
   
   isClientEditingLocked: true,
   lockReason: 'Protected by Master Server. Official branding & receipt layout is centrally managed.',
@@ -83,7 +83,12 @@ export const getMasterPrintConfig = (): MasterPrintConfig => {
   try {
     const saved = localStorage.getItem(MASTER_PRINT_STORAGE_KEY);
     if (saved) {
-      return { ...DEFAULT_MASTER_PRINT_CONFIG, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      // Auto-migrate older long footer strings to clean short server-synced format
+      if (parsed.a4MasterFooterText && (parsed.a4MasterFooterText.includes('Master System Verified') || parsed.a4MasterFooterText.includes('Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP'))) {
+        parsed.a4MasterFooterText = DEFAULT_MASTER_PRINT_CONFIG.a4MasterFooterText;
+      }
+      return { ...DEFAULT_MASTER_PRINT_CONFIG, ...parsed };
     }
   } catch (err) {
     console.error('Failed to load master print config:', err);
@@ -448,7 +453,7 @@ export const MasterPrinterTemplatesPanel: React.FC<{ onNotify?: (msg: string) =>
                     type="text"
                     value={config.a4MasterFooterText}
                     onChange={(e) => setConfig({ ...config, a4MasterFooterText: e.target.value })}
-                    placeholder="Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com"
+                    placeholder="Powered by MBI INVENTRA • 0328-1302636 • mbiinventra.com"
                     className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-indigo-300 dark:border-indigo-700 text-xs font-mono font-semibold text-slate-900 dark:text-white shadow-xs focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -711,7 +716,7 @@ export const MasterPrinterTemplatesPanel: React.FC<{ onNotify?: (msg: string) =>
                         ========================================================================= */}
                     <div className="border-t border-slate-300 pt-2 text-center select-text">
                       <p className="text-[9.5px] sm:text-[10px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                        {config.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
+                        {config.a4MasterFooterText || 'Powered by MBI INVENTRA • 0328-1302636 • mbiinventra.com'}
                       </p>
                     </div>
 
@@ -995,16 +1000,12 @@ export const MasterPrinterTemplatesPanel: React.FC<{ onNotify?: (msg: string) =>
                   <div className="border-t border-dashed border-slate-900 my-1.5"></div>
 
                   {/* Compact Footer */}
-                  <div className="text-center text-[10px] space-y-1 pt-1">
-                    <div className="font-black tracking-wider uppercase text-slate-900">
-                      {config.thermalFooterTitle || 'THANK YOU FOR SHOPPING!'}
+                  <div className="text-center text-[10px] space-y-0.5 pt-1">
+                    <div className="font-extrabold text-[9.5px] text-slate-900">
+                      Powered by MBI INVENTRA
                     </div>
-                    <div className="text-[9.5px] text-slate-700">
-                      {config.thermalFooterContact || 'Contact us : 03281302636'}
-                    </div>
-                    <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 pt-0.5 border-t border-dashed border-slate-300">
-                      <span>Pharmacy POS & ERP</span>
-                      <span className="font-mono font-bold">www.mbiinventra.com</span>
+                    <div className="text-[9px] text-slate-700">
+                      {config.thermalFooterContact || '0328-1302636'} &bull; {config.thermalFooterWebsite || 'mbiinventra.com'}
                     </div>
                   </div>
                 </div>

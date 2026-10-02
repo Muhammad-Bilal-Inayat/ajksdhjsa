@@ -1047,16 +1047,12 @@ export const PrintTab: React.FC = () => {
                       <div className="border-t border-dashed border-slate-900 my-1.5"></div>
 
                       {/* Compact Footer */}
-                      <div className="text-center text-[10px] space-y-1 pt-1 font-sans">
-                        <div className="font-black tracking-wider uppercase text-slate-900">
-                          THANK YOU FOR SHOPPING!
+                      <div className="text-center text-[10px] space-y-0.5 pt-1 font-sans">
+                        <div className="font-extrabold text-[9.5px] text-slate-900">
+                          Powered by MBI INVENTRA
                         </div>
-                        <div className="text-[9.5px] text-slate-700">
-                          Contact us : {printConf.phone || '03281302636'}
-                        </div>
-                        <div className="flex justify-between items-center text-[9px] text-slate-600 px-1 pt-0.5 border-t border-dashed border-slate-300">
-                          <span>Pharmacy POS & ERP</span>
-                          <span className="font-mono font-bold">www.mbiinventra.com</span>
+                        <div className="text-[9px] text-slate-700">
+                          {printConf.phone || '0328-1302636'} &bull; mbiinventra.com
                         </div>
                       </div>
                     </div>
@@ -1223,9 +1219,8 @@ export const PrintTab: React.FC = () => {
 
                     {/* Locked Official Footer */}
                     <div className="text-center pt-2 mt-2 border-t border-dashed border-slate-900 text-[10px] text-slate-900 space-y-0.5 select-text leading-tight">
-                      <div className="font-bold text-slate-900">Thank You for Your Business!</div>
                       <div className="font-extrabold text-[9.5px] text-slate-900">Powered by MBI INVENTRA</div>
-                      <div className="text-[9px] text-slate-700">mbiinventra.com &bull; Contact Us: 0328-1302636</div>
+                      <div className="text-[9px] text-slate-700">{printConf.phone || '0328-1302636'} &bull; mbiinventra.com</div>
                     </div>
                   </div>
                   )
@@ -1774,7 +1769,7 @@ export const PrintTab: React.FC = () => {
                       {/* Locked Official Clean Permanent Footer (A4 / A5 1-Line Format - Master Enforced) */}
                       <div className="col-span-2 mt-4 pt-2.5 border-t border-slate-300 text-center select-text">
                         <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
-                          {masterConfig.a4MasterFooterText || 'Thank You for Your Business! • Powered by MBI INVENTRA Cloud POS & ERP • Master System Verified • 24/7 Helpline: 0328-1302636 • www.mbiinventra.com'}
+                          {masterConfig.a4MasterFooterText || 'Powered by MBI INVENTRA • 0328-1302636 • mbiinventra.com'}
                         </p>
                       </div>
 

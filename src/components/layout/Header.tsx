@@ -217,12 +217,12 @@ export const Header: React.FC<HeaderProps> = ({
                       navigate('/sale/invoices?action=add');
                     }
                   }}
-                  className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 dark:from-blue-500 dark:to-indigo-600 dark:hover:from-blue-400 dark:hover:to-indigo-500 text-white text-xs font-black rounded-xl shadow-sm hover:shadow-md dark:shadow-[0_0_14px_rgba(59,130,246,0.35)] border border-blue-500/30 dark:border-blue-400/50 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none"
+                  className="px-3 sm:px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-black rounded-xl shadow-xs hover:shadow-md dark:border dark:border-blue-400/60 dark:shadow-sm dark:shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none shrink-0"
                   title="Create New Sale Invoice (Alt + S)"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[3] text-blue-100" />
-                  <span className="tracking-wide">Sale</span>
-                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 bg-black/25 dark:bg-black/40 text-blue-100 text-[9px] font-mono font-bold rounded border border-white/10">Alt+S</kbd>
+                  <Plus className="w-3.5 h-3.5 stroke-[3] text-white" />
+                  <span className="tracking-wide text-white">Sale</span>
+                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 bg-black/25 dark:bg-blue-950/70 text-white dark:text-blue-100 text-[9px] font-mono font-bold rounded border border-white/20 dark:border-blue-400/40">Alt+S</kbd>
                 </button>
               )}
 
@@ -236,12 +236,12 @@ export const Header: React.FC<HeaderProps> = ({
                       navigate('/purchase?action=add');
                     }
                   }}
-                  className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:from-emerald-800 active:to-teal-800 dark:from-emerald-500 dark:to-teal-600 dark:hover:from-emerald-400 dark:hover:to-teal-500 text-white text-xs font-black rounded-xl shadow-sm hover:shadow-md dark:shadow-[0_0_14px_rgba(16,185,129,0.35)] border border-emerald-500/30 dark:border-emerald-400/50 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none"
+                  className="px-3 sm:px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-black dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white dark:text-white border border-slate-700/60 dark:border-emerald-400/60 dark:shadow-sm dark:shadow-emerald-500/20 text-xs font-black rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none shrink-0"
                   title="Create New Purchase Bill (Alt + B)"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[3] text-emerald-100" />
-                  <span className="tracking-wide">Purchase</span>
-                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 bg-black/25 dark:bg-black/40 text-emerald-100 text-[9px] font-mono font-bold rounded border border-white/10">Alt+B</kbd>
+                  <Plus className="w-3.5 h-3.5 stroke-[3] text-white" />
+                  <span className="tracking-wide text-white">Purchase</span>
+                  <kbd className="hidden lg:inline-block px-1.5 py-0.5 bg-white/10 dark:bg-emerald-950/70 text-slate-200 dark:text-emerald-100 text-[9px] font-mono font-bold rounded border border-white/10 dark:border-emerald-400/40">Alt+B</kbd>
                 </button>
               )}
             </div>

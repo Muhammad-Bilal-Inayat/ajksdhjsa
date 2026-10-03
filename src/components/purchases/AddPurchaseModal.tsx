@@ -437,13 +437,17 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
 
   // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (supplierDropdownRef.current && !supplierDropdownRef.current.contains(event.target as Node)) {
         setIsSupplierDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   // Keyboard Shortcuts (F2: Rapid Mode, F4: Supplier Focus, F8: Save & Print, F9/Ctrl+S: Save, F12: Shortcuts)
@@ -1263,18 +1267,18 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
           
           {/* Supplier & Header Inputs Card */}
           <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-2.5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2.5 text-xs">
+            <div className="flex flex-wrap items-end gap-2.5 text-xs">
               
               {/* Mode Switch: Cash / Credit Toggle */}
-              <div className="col-span-2 sm:col-span-2 lg:col-span-2">
+              <div className="w-full sm:w-36 shrink-0">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                   Payment Mode
                 </label>
-                <div className="flex items-center p-0.5 bg-slate-200 dark:bg-slate-700/80 rounded-xl">
+                <div className="flex items-center p-0.5 bg-slate-200 dark:bg-slate-700/80 rounded-xl h-[34px]">
                   <button
                     type="button"
                     onClick={() => updateCurrentTab({ isCredit: false, mode: 'cash', paymentMode: 'Cash' })}
-                    className={`flex-1 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`flex-1 h-full rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1 ${
                       currentTab?.mode === 'cash'
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -1286,7 +1290,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                   <button
                     type="button"
                     onClick={() => updateCurrentTab({ isCredit: true, mode: 'credit', paymentMode: 'Credit' })}
-                    className={`flex-1 py-1 rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`flex-1 h-full rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1 ${
                       currentTab?.mode === 'credit'
                         ? 'bg-rose-600 text-white shadow-xs'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -1299,7 +1303,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
               </div>
 
               {/* Supplier Autocomplete Search */}
-              <div className="col-span-2 sm:col-span-2 lg:col-span-3 relative" ref={supplierDropdownRef}>
+              <div className="flex-1 min-w-[220px] relative" ref={supplierDropdownRef}>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
                     <User className="w-3 h-3 text-blue-500" />
@@ -1325,8 +1329,16 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                       setIsSupplierDropdownOpen(true);
                     }}
                     onFocus={() => setIsSupplierDropdownOpen(true)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Escape') {
+                        setIsSupplierDropdownOpen(false);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setIsSupplierDropdownOpen(false), 200);
+                    }}
                     placeholder="Search supplier by name or phone..."
-                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-medium"
+                    className="w-full px-3 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white font-medium h-[34px]"
                   />
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 </div>
@@ -1338,7 +1350,8 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                       {filteredSuppliers.map((sup) => (
                         <div
                           key={sup.id}
-                          onClick={() => {
+                          onMouseDown={(e) => {
+                            e.preventDefault();
                             updateCurrentTab({
                               selectedSupplierId: sup.id,
                               supplier: sup,
@@ -1369,8 +1382,19 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                         </div>
                       ))}
                       {filteredSuppliers.length === 0 && (
-                        <div className="p-3 text-center text-xs text-slate-400">
-                          No suppliers found. Type to use custom name or click "+ Add Supplier"
+                        <div className="p-3 text-center text-xs text-slate-400 flex items-center justify-between">
+                          <span>No suppliers found.</span>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setIsSupplierDropdownOpen(false);
+                              setIsAddSupplierOpen(true);
+                            }}
+                            className="text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                          >
+                            + Add Supplier
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1380,24 +1404,22 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
 
               {/* Supplier Phone */}
               {columnSettings.supplierPhone && (
-                <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                <div className="w-full sm:w-32 shrink-0">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                     Supplier Phone
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={currentTab?.supplierPhone || ''}
-                      onChange={(e) => updateCurrentTab({ supplierPhone: e.target.value })}
-                      placeholder="0300-1234567"
-                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={currentTab?.supplierPhone || ''}
+                    onChange={(e) => updateCurrentTab({ supplierPhone: e.target.value })}
+                    placeholder="0300-1234567"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white h-[34px]"
+                  />
                 </div>
               )}
 
               {/* Inward Bill / Inv Number */}
-              <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+              <div className="w-full sm:w-24 shrink-0">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                   Bill / Inv #
                 </label>
@@ -1405,12 +1427,12 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                   type="text"
                   value={currentTab?.supplierBillNumber || ''}
                   onChange={(e) => updateCurrentTab({ supplierBillNumber: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-600 dark:text-blue-400"
+                  className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-600 dark:text-blue-400 h-[34px]"
                 />
               </div>
 
               {/* Bill Date */}
-              <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+              <div className="w-full sm:w-36 shrink-0">
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                   Bill Date
                 </label>
@@ -1418,20 +1440,20 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                   type="date"
                   value={currentTab?.billDate || ''}
                   onChange={(e) => updateCurrentTab({ billDate: e.target.value })}
-                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+                  className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white h-[34px]"
                 />
               </div>
 
               {/* Payment Terms */}
               {columnSettings.paymentTerms && (
-                <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+                <div className="w-full sm:w-32 shrink-0">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                     Terms
                   </label>
                   <select
                     value={currentTab?.paymentTerms || 'Due on Receipt'}
                     onChange={(e) => updateCurrentTab({ paymentTerms: e.target.value })}
-                    className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+                    className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white h-[34px]"
                   >
                     <option value="Due on Receipt">Due on Receipt</option>
                     <option value="Net 15">Net 15</option>
@@ -1443,7 +1465,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
 
               {/* Due Date */}
               {columnSettings.dueDate && (
-                <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+                <div className="w-full sm:w-36 shrink-0">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                     Due Date
                   </label>
@@ -1451,14 +1473,14 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                     type="date"
                     value={currentTab?.dueDate || ''}
                     onChange={(e) => updateCurrentTab({ dueDate: e.target.value })}
-                    className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+                    className="w-full px-2 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white h-[34px]"
                   />
                 </div>
               )}
 
               {/* PO Number */}
               {columnSettings.poNumber && (
-                <div className="col-span-1 sm:col-span-1 lg:col-span-1">
+                <div className="w-full sm:w-28 shrink-0">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
                     P.O. #
                   </label>
@@ -1467,7 +1489,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                     value={currentTab?.poNumber || ''}
                     onChange={(e) => updateCurrentTab({ poNumber: e.target.value })}
                     placeholder="PO-123"
-                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white"
+                    className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-white h-[34px]"
                   />
                 </div>
               )}

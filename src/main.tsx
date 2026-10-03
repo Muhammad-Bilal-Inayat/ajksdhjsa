@@ -110,11 +110,7 @@ try {
     clearTimeout((window as any).__mbi_timeout_timer);
   }
 
-  root.render(
-    <StrictMode>
-      <App />
-    </StrictMode>
-  );
+  root.render(<App />);
 
   console.log(`%c[MBI Bootstrap]%c Mounted successfully in ${(performance.now() - BOOTSTRAP_START).toFixed(1)}ms`, 'color: #10b981; font-weight: bold;', 'color: #94a3b8;');
 } catch (err: any) {

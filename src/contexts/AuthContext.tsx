@@ -184,7 +184,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [business, setBusiness] = useState<Business | null>(() => {
     try {
       const stored = localStorage.getItem('mock_business');
-      return stored ? JSON.parse(stored) : null;
+      if (stored) return JSON.parse(stored);
+      // Fallback for returning users to prevent blank screen or bouncing to setup
+      const sessionUser = localStorage.getItem('mock_session');
+      if (sessionUser) {
+        const u = JSON.parse(sessionUser);
+        const cached = localStorage.getItem('mbi_active_tenant_cache');
+        const t = cached ? JSON.parse(cached) : null;
+        const bName = t?.name || u?.storeName || 'Pharmacy Store';
+        const bId = t?.tenantId || t?.id || u?.tenantId || 'biz_default';
+        const fallbackBiz: Business = {
+          ...DEFAULT_BUSINESS_PROFILE,
+          id: bId,
+          tenantId: bId,
+          name: bName,
+          ownerUid: u.uid || 'u_admin_default',
+          members: [u.uid || 'u_admin_default'],
+          phone: t?.phone || '',
+          email: u.email || 'admin@mypharmacy.com',
+          address: t?.address || 'Commercial Market',
+          city: t?.city || 'Lahore'
+        };
+        localStorage.setItem('mock_business', JSON.stringify(fallbackBiz));
+        return fallbackBiz;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -1696,6 +1720,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('mbi_active_business_id');
     localStorage.removeItem('mbi_impersonation_session');
     localStorage.removeItem('mbi_active_terminal_session');
+    localStorage.removeItem('mbi_shadow_token');
+    localStorage.removeItem('mbi_shadow_session');
+    localStorage.removeItem('mbi_active_token');
+    localStorage.removeItem('mbi_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('mbi_app_unlocked');
+    localStorage.removeItem('mbi_current_user');
+    localStorage.removeItem('mbi_auth_user');
+    localStorage.removeItem('mbi_user_session');
+    localStorage.removeItem('mbi_active_company');
+    localStorage.removeItem('mbi_last_active_route');
+    try {
+      sessionStorage.clear();
+    } catch (e) {}
 
     // Reset memory state
     setCurrentUser(null);
@@ -1710,6 +1748,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Notify components
     window.dispatchEvent(new CustomEvent('mbi-user-logged-out'));
     emitToast('Logged out successfully', 'info');
+
+    // Hard redirect to login screen
+    window.location.href = '/login';
   };
 
   const canAccess = (module: keyof typeof ROLE_DEFINITIONS['Primary Admin']['allowedModules']): boolean => {

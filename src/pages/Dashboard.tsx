@@ -690,10 +690,13 @@ export const Dashboard: React.FC = () => {
   const activeFirm = settings?.general?.firms?.find(f => f?.isDefault) || settings?.general?.firms?.[0];
   const effectiveFirmId = activeFirm?.id;
 
-  const loadDashboardData = async (isCurrent?: () => boolean) => {
+  const loadDashboardData = async (isCurrent?: () => boolean, forceRefresh: boolean = false) => {
     try {
+      if (forceRefresh) {
+        DashboardSummaryService.clearCache(effectiveTenantId);
+      }
       // 1. Fetch pre-aggregated fast summary (< 2ms) without massive disk read overhead
-      const summary = await DashboardSummaryService.getSummary(effectiveTenantId, timeFilter, false, effectiveFirmId);
+      const summary = await DashboardSummaryService.getSummary(effectiveTenantId, timeFilter, forceRefresh, effectiveFirmId);
       if (isCurrent && !isCurrent()) return;
       applySummaryData(summary);
 
@@ -734,9 +737,9 @@ export const Dashboard: React.FC = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         if (isMounted) {
-          loadDashboardData(isCurrent);
+          loadDashboardData(isCurrent, true);
         }
-      }, 1000);
+      }, 150);
     };
 
     const handleDateRangeChanged = (e: any) => {

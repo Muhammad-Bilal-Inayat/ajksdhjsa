@@ -204,9 +204,10 @@ export function LanMultiTerminalHub({ onNotify }: LanMultiTerminalHubProps) {
     fetchLanStatus();
     fetchBroadcastHistory();
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchLanStatus();
       fetchBroadcastHistory();
-    }, 15000);
+    }, 20000);
     return () => clearInterval(interval);
   }, []);
 

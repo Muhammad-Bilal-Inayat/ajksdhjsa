@@ -14,6 +14,23 @@ const SUMMARY_STORAGE_PREFIX = 'mbi_dashboard_summary_v3_';
 
 export class DashboardSummaryService {
   /**
+   * Clears cached dashboard summary so that real-time calculations reflect immediately on save
+   */
+  public static clearCache(businessId?: string): void {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const prefix = SUMMARY_STORAGE_PREFIX;
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(prefix)) {
+          if (!businessId || key.includes(businessId)) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+    } catch {}
+  }
+
+  /**
    * Primary method: Retrieve pre-aggregated sanitized summary for dashboard.
    * Eliminates granular item-level exposures from UI components.
    */

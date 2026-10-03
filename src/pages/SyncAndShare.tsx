@@ -24,7 +24,8 @@ import { CompanyAuditLogsTab } from '../components/staff/CompanyAuditLogsTab';
 import { UserPermissionDrawer } from '../components/staff/UserPermissionDrawer';
 import { OperationalSecuritySwitches } from '../utils/rolePermissions';
 import { BackupRestoreTab } from '../components/settings/BackupRestoreTab';
-import { APP_VERSION_STABLE, APP_RELEASE_DATE, APP_RELEASE_CHANNEL } from '../config/appVersion';
+import { APP_VERSION_STABLE, APP_RELEASE_DATE, APP_RELEASE_CHANNEL, APP_VERSION_RAW } from '../config/appVersion';
+import { checkForAppVersionUpdate, triggerSeamlessHotUpdate } from '../lib/pwaService';
 
 export const ALL_AVAILABLE_ROLES: UserRole[] = [
   'Primary Admin',
@@ -140,11 +141,27 @@ export const SyncAndShare: React.FC = () => {
           await reg.update();
         }
       }
-      setTimeout(() => {
+      const updateInfo = await checkForAppVersionUpdate();
+      if (updateInfo?.isUpdateAvailable) {
+        setOtaStatusMessage(`🚀 New version ${updateInfo.version} found! Installing update seamlessly...`);
+        showToast(`Installing Update ${updateInfo.version}...`);
+        await triggerSeamlessHotUpdate();
+      } else {
+        // Purge previous build static caches without logging out
+        if ('caches' in window) {
+          try {
+            const cacheKeys = await caches.keys();
+            await Promise.all(
+              cacheKeys
+                .filter(key => key !== `mbi-inventra-v${APP_VERSION_RAW}` && (key.includes('workbox') || key.includes('app-') || key.includes('html') || key.startsWith('mbi-inventra-') || key.includes('assets') || key.includes('vite')))
+                .map(key => caches.delete(key))
+            );
+          } catch (e) {}
+        }
         setIsCheckingOtaUpdate(false);
-        setOtaStatusMessage(`✅ You are on latest ${APP_VERSION_STABLE}! All fleet devices in sync.`);
+        setOtaStatusMessage(`✅ You are on latest ${APP_VERSION_STABLE}! Previous cache purged & session preserved.`);
         showToast(`System Updated & Verified (${APP_VERSION_STABLE})`);
-      }, 600);
+      }
     } catch {
       setIsCheckingOtaUpdate(false);
       setOtaStatusMessage(`✅ System build ${APP_VERSION_STABLE} is active.`);

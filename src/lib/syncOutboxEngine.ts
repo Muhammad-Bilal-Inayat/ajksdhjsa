@@ -292,9 +292,9 @@ export class OutboxSyncEngine {
         }
       }
 
-      // Cleanup synced items keeping recent 50 for telemetry audit
+      // Cleanup synced items immediately keeping only non-synced or last 10 synced items
       this.outboxQueue = this.outboxQueue.filter(
-        op => op.status !== 'SYNCED' || (Date.now() - new Date(op.syncedAt || 0).getTime() < 300000)
+        op => op.status !== 'SYNCED' || (Date.now() - new Date(op.syncedAt || 0).getTime() < 30000)
       );
 
       this.persistLocalOutbox();
@@ -308,7 +308,7 @@ export class OutboxSyncEngine {
   private persistLocalOutbox() {
     try {
       if (typeof localStorage !== 'undefined') {
-        const compact = this.outboxQueue.slice(-150);
+        const compact = this.outboxQueue.slice(-30);
         localStorage.setItem('mbi_sync_outbox_queue', JSON.stringify(compact));
       }
     } catch {}
@@ -321,7 +321,7 @@ export class OutboxSyncEngine {
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            this.outboxQueue = parsed;
+            this.outboxQueue = parsed.slice(-30);
             parsed.forEach(op => {
               if (op.operationId) processedOperationIds.add(op.operationId);
             });

@@ -40,6 +40,8 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 
   const currentPlan = getCurrentPlan(tenantId || tenant?.id);
   const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS'); // Gold & Platinum only
+  const isControlledAllowed = isPlanAtLeast(currentPlan, 'BUSINESS'); // Gold (Business) & Platinum (Enterprise)
+  const isOnlineAndImagesAllowed = isPlanAtLeast(currentPlan, 'ENTERPRISE'); // Platinum (Enterprise) only
 
   // Core Form State
   const [formData, setFormData] = useState<Partial<Medicine>>({
@@ -110,18 +112,18 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
         genericId: medicine.genericId || '',
         saltComposition: medicine.saltComposition || medicine.genericName || '',
         strength: medicine.strength || '',
-        dosageForm: medicine.dosageForm || 'Tablet',
+        dosageForm: medicine.dosageForm || '',
         barcode: medicine.barcode || '',
         batchNumber: medicine.batchNumber || '',
         manufacturer: medicine.manufacturer || '',
-        category: medicine.category || 'Surgical Items',
-        unit: medicine.unit || 'PCS',
+        category: medicine.category || '',
+        unit: medicine.unit || '',
         packSize: medicine.packSize || '',
-        rackLocation: medicine.rackLocation || 'Rack A-1',
-        hsnCode: medicine.hsnCode || '3004.9090',
+        rackLocation: medicine.rackLocation || '',
+        hsnCode: medicine.hsnCode || '',
         description: medicine.description || '',
-        quantity: medicine.quantity ?? 100,
-        lowStockThreshold: medicine.lowStockThreshold ?? 20,
+        quantity: medicine.quantity ?? 0,
+        lowStockThreshold: medicine.lowStockThreshold ?? 0,
         purchasePrice: medicine.purchasePrice ?? 0,
         mrp: medicine.mrp ?? 0,
         sellingPrice: medicine.sellingPrice ?? 0,
@@ -134,13 +136,13 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
         showInNormalSearch: medicine.showInNormalSearch !== undefined ? Boolean(medicine.showInNormalSearch) : !medicine.isControlled,
         showInOnlineStore: medicine.showInOnlineStore !== undefined ? Boolean(medicine.showInOnlineStore) : !medicine.isControlled,
         specialAccessRequired: medicine.specialAccessRequired !== undefined ? Boolean(medicine.specialAccessRequired) : Boolean(medicine.isControlled),
-        regulatorySchedule: medicine.regulatorySchedule || (medicine.isControlled ? 'Schedule G - Controlled Narcotic / Psychotropic' : 'Schedule D - Prescription Only Medicine (POM)'),
+        regulatorySchedule: medicine.regulatorySchedule || '',
         // Online Store
         showOnline: medicine.showOnline !== undefined ? Boolean(medicine.showOnline) : true,
         onlineStatus: medicine.onlineStatus || 'Published',
         onlinePrice: medicine.onlinePrice ?? medicine.sellingPrice ?? 0,
         compareAtPrice: medicine.compareAtPrice ?? 0,
-        onlineCategory: medicine.onlineCategory || medicine.category || 'Surgical Items',
+        onlineCategory: medicine.onlineCategory || medicine.category || '',
         onlineDescription: medicine.onlineDescription || medicine.description || '',
         onlineImages: Array.isArray(medicine.onlineImages) && medicine.onlineImages.length > 0 
           ? medicine.onlineImages 
@@ -281,14 +283,14 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
         ...(formData as Medicine),
         id: finalId,
         name: (formData.name || '').trim().toUpperCase(),
-        barcode: formData.barcode || `${Math.floor(1000000000000 + Math.random() * 9000000000000)}`,
-        category: formData.category || 'Surgical Items',
-        unit: formData.unit || 'PCS',
+        barcode: formData.barcode ? formData.barcode.trim() : '',
+        category: formData.category || '',
+        unit: formData.unit || '',
         purchasePrice: Number(formData.purchasePrice) || 0,
         sellingPrice: Number(formData.sellingPrice) || 0,
         mrp: Number(formData.mrp) || Number(formData.sellingPrice) || 0,
         quantity: Number(formData.quantity) || 0,
-        lowStockThreshold: Number(formData.lowStockThreshold) || 10,
+        lowStockThreshold: Number(formData.lowStockThreshold) || 0,
         gstPercentage: Number(formData.gstPercentage) || 0,
         onlinePrice: Number(formData.onlinePrice) || Number(formData.sellingPrice) || 0,
         compareAtPrice: Number(formData.compareAtPrice) || 0,
@@ -297,7 +299,7 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
         showInNormalSearch: formData.isControlled ? Boolean(formData.showInNormalSearch) : true,
         showInOnlineStore: formData.isControlled ? Boolean(formData.showInOnlineStore) : Boolean(formData.showOnline),
         specialAccessRequired: Boolean(formData.specialAccessRequired),
-        regulatorySchedule: formData.regulatorySchedule || (formData.isControlled ? 'Schedule G - Controlled Narcotic / Psychotropic' : 'Standard'),
+        regulatorySchedule: formData.regulatorySchedule || '',
         showOnline: Boolean(formData.showOnline),
         onlineStatus: formData.onlineStatus || 'Published',
         createdAt: medicine?.createdAt || new Date().toISOString(),
@@ -407,6 +409,11 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
             }`}>3</span>
             <span className="flex items-center gap-1.5">
               <span>Controlled & Visibility</span>
+              {!isControlledAllowed && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-bold border border-purple-200">
+                  Gold+
+                </span>
+              )}
               {formData.isControlled && (
                 <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
               )}
@@ -423,7 +430,14 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
             }`}
           >
             <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[10px] flex items-center justify-center font-black">4</span>
-            <span>Images & Gallery</span>
+            <span className="flex items-center gap-1.5">
+              <span>Images & Gallery</span>
+              {!isOnlineAndImagesAllowed && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200">
+                  Platinum
+                </span>
+              )}
+            </span>
           </button>
 
           <button
@@ -436,7 +450,14 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
             }`}
           >
             <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] flex items-center justify-center font-black">5</span>
-            <span>Online Store</span>
+            <span className="flex items-center gap-1.5">
+              <span>Online Store</span>
+              {!isOnlineAndImagesAllowed && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                  Platinum
+                </span>
+              )}
+            </span>
           </button>
         </div>
 
@@ -867,6 +888,34 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 
             {/* ================= TAB 3: CONTROLLED & VISIBILITY CONTROLS ================= */}
             {activeTab === 'CONTROLLED' && (
+              !isControlledAllowed ? (
+                <div className="p-8 text-center bg-purple-50/50 border border-purple-200 rounded-2xl space-y-4 animate-in fade-in duration-150">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-xs">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-purple-200 text-purple-900 rounded-full">
+                      👑 Business (Gold) & Enterprise Plan Feature
+                    </span>
+                    <h3 className="text-base font-black text-purple-950">
+                      DRAP Form-7 & Controlled Substance Governance
+                    </h3>
+                    <p className="text-xs text-purple-800 leading-relaxed">
+                      Statutory Form-7 registers, doctor PMDC & patient CNIC validation, and granular sales channel visibility controls are exclusive to the <strong>Business (Gold)</strong> and <strong>Enterprise (Platinum)</strong> tiers.
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('PRICING')}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back to Pricing</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-5 animate-in fade-in duration-150">
                 
                 {/* Page Intro Banner */}
@@ -1102,10 +1151,39 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                   </button>
                 </div>
               </div>
+              )
             )}
 
             {/* ================= TAB 4: IMAGES & GALLERY ================= */}
             {activeTab === 'IMAGES' && (
+              !isOnlineAndImagesAllowed ? (
+                <div className="p-8 text-center bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-4 animate-in fade-in duration-150">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-700 shadow-xs">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-indigo-200 text-indigo-900 rounded-full">
+                      💎 Enterprise (Platinum) Feature
+                    </span>
+                    <h3 className="text-base font-black text-indigo-950">
+                      High-Resolution Product Media & Gallery
+                    </h3>
+                    <p className="text-xs text-indigo-800 leading-relaxed">
+                      Multi-angle product image uploads, cloud gallery hosting, and POS receipt photo printing are exclusive to the <strong>Enterprise (Platinum)</strong> plan.
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('CONTROLLED')}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back: Controlled</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 text-xs text-blue-900">
                   <strong>Page 4 of 5: Product Media, Photos & Attachments</strong>
@@ -1227,10 +1305,48 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                   </button>
                 </div>
               </div>
+              )
             )}
 
             {/* ================= TAB 5: ONLINE STORE RATES ================= */}
             {activeTab === 'ONLINE_STORE' && (
+              !isOnlineAndImagesAllowed ? (
+                <div className="p-8 text-center bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-4 animate-in fade-in duration-150">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 shadow-xs">
+                    <Lock className="w-7 h-7" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 bg-emerald-200 text-emerald-900 rounded-full">
+                      💎 Enterprise (Platinum) Feature
+                    </span>
+                    <h3 className="text-base font-black text-emerald-950">
+                      Customer Online E-Commerce Storefront
+                    </h3>
+                    <p className="text-xs text-emerald-800 leading-relaxed">
+                      Dedicated online catalog rates, promotional discounts, strike-through pricing, and e-commerce storefront publishing are exclusive to the <strong>Enterprise (Platinum)</strong> plan.
+                    </p>
+                  </div>
+                  <div className="flex justify-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('IMAGES')}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back: Images</span>
+                    </button>
+                    <button
+                      type="submit"
+                      form="add-edit-med-form"
+                      disabled={isSubmitting}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition active:scale-95"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>{isSubmitting ? 'Saving...' : isEditing ? 'Update & Save Product Master' : 'Save Product Master'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-4 animate-in fade-in duration-150">
                 <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 text-xs text-emerald-950 space-y-1">
                   <div className="font-bold flex items-center gap-1.5 text-emerald-950">
@@ -1350,6 +1466,7 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                   </button>
                 </div>
               </div>
+              )
             )}
 
           </form>

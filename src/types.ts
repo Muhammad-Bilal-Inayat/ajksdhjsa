@@ -631,6 +631,8 @@ export interface Medicine {
   id: string;
   barcode: string;
   name: string;
+  tenantId?: string;
+  firmId?: string;
   genericId?: string; // Links to GenericMaster ID (e.g. GEN-000102)
   genericMasterId?: string; // Alias for genericId
   genericName?: string;

@@ -73,6 +73,25 @@ export class ErrorBoundary extends React.Component<Props, State> {
       errorMsg.includes('Importing a module script failed') ||
       error.name === 'ChunkLoadError';
 
+    const isQuotaError =
+      errorMsg.includes('exceeded the quota') ||
+      errorMsg.includes('QuotaExceededError') ||
+      error.name === 'QuotaExceededError';
+
+    if (isQuotaError && typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('mbi_ai_chat_home');
+        localStorage.removeItem('mbi_ai_chat_user');
+        localStorage.removeItem('mbi_ai_chat_server');
+        localStorage.removeItem('mbi_ai_control_tower_logs');
+        localStorage.removeItem('mbi_recycle_bin');
+      } catch (e) {}
+      setTimeout(() => {
+        window.location.reload();
+      }, 50);
+      return;
+    }
+
     if (isChunkError && typeof window !== 'undefined') {
       if ('caches' in window) {
         try {

@@ -39,10 +39,10 @@ export function getActiveTenantPlan(tenantId?: string): PlanTier {
       }
     }
 
-    const activeTier = localStorage.getItem('mbi_active_plan_tier') || 
-                       localStorage.getItem('mbi_subscription_tier') || 
-                       localStorage.getItem('mbi_plan') ||
-                       localStorage.getItem('mbi_license_plan');
+    const activeTier = localStorage.getItem('mbi_active_plan_tier') ||
+      localStorage.getItem('mbi_subscription_tier') ||
+      localStorage.getItem('mbi_plan') ||
+      localStorage.getItem('mbi_license_plan');
     if (activeTier) return normalizePlan(activeTier);
 
     const checkSources = [
@@ -63,7 +63,7 @@ export function getActiveTenantPlan(tenantId?: string): PlanTier {
           if (parsed.plan) return normalizePlan(parsed.plan);
           if (parsed.tenant?.plan) return normalizePlan(parsed.tenant.plan);
           if (parsed.business?.plan) return normalizePlan(parsed.business.plan);
-        } catch {}
+        } catch { }
       }
     }
   } catch (e) {

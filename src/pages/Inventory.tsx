@@ -49,6 +49,8 @@ import { playScannerBeep } from '../lib/barcodeAudio';
 import { syncAssignedMedicinesForTenant, getAssignedMedicinesForTenant } from '../lib/centralMedicineDatabaseService';
 import { getCurrentBusinessContext } from '../lib/db';
 
+import { getCurrentPlan, isPlanAtLeast } from '../lib/planFeatureManager';
+
 // Transaction item structure for the selected product
 interface ItemTransaction {
   id: string;
@@ -69,10 +71,11 @@ export const Inventory: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Plan-Based Feature Access Gating
-  const currentPlan = (tenant?.plan || (tenant as any)?.subscription_plan || (tenant as any)?.plan_id || (business as any)?.plan || 'basic').toLowerCase();
-  const isGoldOrEnterprise = currentPlan.includes('gold') || currentPlan.includes('business') || currentPlan.includes('enterprise') || currentPlan.includes('platinum');
-  const isEnterprise = currentPlan.includes('enterprise') || currentPlan.includes('platinum');
+  // Plan-Based Feature Access Gating (Centralized Standard)
+  const currentPlanTier = getCurrentPlan(tenant?.id || (tenant as any)?.tenantId);
+  const isGoldOrEnterprise = isPlanAtLeast(currentPlanTier, 'BUSINESS');
+  const isEnterprise = isPlanAtLeast(currentPlanTier, 'ENTERPRISE');
+  const isRotationAndBatchesAllowed = isPlanAtLeast(currentPlanTier, 'BUSINESS'); // Gold & Platinum only
 
   // Stock Rotation Mode View Toggle (defaults to user configured setting)
   const [activeRotationView, setActiveRotationView] = useState<'FIFO' | 'FEFO' | null>(null);
@@ -355,21 +358,21 @@ export const Inventory: React.FC = () => {
             genericName: genericStr,
             genericFormula: genericStr,
             brandName: centralMed.brandName || companyStr,
-            dosageForm: (centralMed.dosageForm as any) || 'Tablet',
+            dosageForm: (centralMed.dosageForm as any) || '',
             strength: centralMed.strength || '',
-            category: centralMed.category || 'General Pharmacy',
+            category: centralMed.category || '',
             manufacturer: companyStr,
             company: companyStr,
             salePrice: existingLocal?.salePrice || 0,
             purchasePrice: existingLocal?.purchasePrice || 0,
             mrp: existingLocal?.mrp || 0,
             sellingPrice: existingLocal?.sellingPrice || 0,
-            quantity: existingLocal?.quantity !== undefined ? existingLocal.quantity : 20,
-            lowStockThreshold: existingLocal?.lowStockThreshold || 10,
-            minStock: existingLocal?.minStock || 10,
-            unit: centralMed.unit || existingLocal?.unit || 'Box',
+            quantity: existingLocal?.quantity !== undefined ? existingLocal.quantity : 0,
+            lowStockThreshold: existingLocal?.lowStockThreshold || 0,
+            minStock: existingLocal?.minStock || 0,
+            unit: centralMed.unit || existingLocal?.unit || '',
             barcode: existingLocal?.barcode || (centralMed as any).barcode || '',
-            batchNumber: existingLocal?.batchNumber || 'INIT-BATCH',
+            batchNumber: existingLocal?.batchNumber || '',
             gstPercentage: existingLocal?.gstPercentage || 0,
             expiryDate: existingLocal?.expiryDate || '',
             batches: existingLocal?.batches || [],
@@ -1685,7 +1688,7 @@ export const Inventory: React.FC = () => {
                         PURCHASE PRICE:
                       </div>
                       <div className="text-slate-800 font-bold text-sm mt-0.5 font-mono">
-                        {canViewCostsAndProfit ? `Rs ${activeMedicine.purchasePrice ? activeMedicine.purchasePrice.toFixed(2) : '67.00'}` : '••••••'}
+                        {canViewCostsAndProfit ? `Rs ${activeMedicine.purchasePrice ? activeMedicine.purchasePrice.toFixed(2) : '0.00'}` : '••••••'}
                       </div>
                     </div>
 
@@ -1713,8 +1716,8 @@ export const Inventory: React.FC = () => {
 
                   </div>
 
-                  {/* STOCK ROTATION BATCHES & EXPIRY BREAKDOWN SECTION (FIFO / FEFO) */}
-                  {(() => {
+                  {/* STOCK ROTATION BATCHES & EXPIRY BREAKDOWN SECTION (FIFO / FEFO - Gold & Platinum Only) */}
+                  {isRotationAndBatchesAllowed && (() => {
                     const defaultRotationMethod = settings?.item?.stockRotationMethod || 'FIFO';
                     const activeMethod = activeRotationView || defaultRotationMethod;
                     const allowExpired = !(settings?.item?.enforceExpiredBlock ?? true);

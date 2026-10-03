@@ -631,9 +631,29 @@ export const Reports: React.FC = () => {
     }
   }, [parties]);
 
-  // Load all data
+  // Load all data with live event listeners
   useEffect(() => {
     loadAllData();
+
+    const handleDataChange = () => {
+      loadAllData();
+    };
+
+    window.addEventListener('mbi-local-db-change', handleDataChange);
+    window.addEventListener('mbi-invoices-updated', handleDataChange);
+    window.addEventListener('mbi-purchases-updated', handleDataChange);
+    window.addEventListener('mbi-stock-updated', handleDataChange);
+    window.addEventListener('mbi-data-synced', handleDataChange);
+    window.addEventListener('storage', handleDataChange);
+
+    return () => {
+      window.removeEventListener('mbi-local-db-change', handleDataChange);
+      window.removeEventListener('mbi-invoices-updated', handleDataChange);
+      window.removeEventListener('mbi-purchases-updated', handleDataChange);
+      window.removeEventListener('mbi-stock-updated', handleDataChange);
+      window.removeEventListener('mbi-data-synced', handleDataChange);
+      window.removeEventListener('storage', handleDataChange);
+    };
   }, []);
 
   const loadAllData = async () => {

@@ -76,7 +76,10 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
   useEffect(() => {
     fetchStatus();
-    const timer = setInterval(fetchStatus, 15000);
+    const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchStatus();
+    }, 20000);
     return () => clearInterval(timer);
   }, []);
 

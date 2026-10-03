@@ -151,8 +151,9 @@ export const AiSupportModule: React.FC = () => {
   useEffect(() => {
     fetchAllData();
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchSilentUpdates();
-    }, 5000);
+    }, 6000);
     return () => clearInterval(timer);
   }, [sessionFilter]);
 

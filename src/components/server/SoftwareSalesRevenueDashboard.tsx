@@ -586,6 +586,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     refreshAllData();
 
     const handleUpdate = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       refreshAllData();
     };
 
@@ -593,7 +594,10 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     window.addEventListener('mbi-users-updated', handleUpdate);
     window.addEventListener('mbi-registration-leads-updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
-    const poller = setInterval(refreshAllData, 12000);
+    const poller = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      refreshAllData();
+    }, 20000);
 
     return () => {
       window.removeEventListener('mbi-tenants-updated', handleUpdate);

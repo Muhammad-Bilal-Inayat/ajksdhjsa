@@ -349,6 +349,23 @@ async function saveRecord<T extends StoreNames>(storeName: T, record: any) {
           // Silent non-blocking sync fallback
         }
       }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: storeName, record: recordToSave } }));
+        window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName, count: 1 } }));
+        if (storeName === 'invoices') {
+          window.dispatchEvent(new CustomEvent('mbi-invoices-updated', { detail: { record: recordToSave } }));
+          window.dispatchEvent(new CustomEvent('dashboard-metrics-updated'));
+          window.dispatchEvent(new CustomEvent('mbi-dashboard-refresh'));
+        } else if (storeName === 'purchaseOrders') {
+          window.dispatchEvent(new CustomEvent('mbi-purchases-updated', { detail: { record: recordToSave } }));
+          window.dispatchEvent(new CustomEvent('dashboard-metrics-updated'));
+          window.dispatchEvent(new CustomEvent('mbi-dashboard-refresh'));
+        } else if (storeName === 'medicines') {
+          window.dispatchEvent(new CustomEvent('mbi-medicines-updated', { detail: { count: 1 } }));
+          window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
+        }
+      }
     } catch (err) {
       // Non-blocking sync notice
     }
@@ -550,7 +567,7 @@ export async function getAllRecords<T extends StoreNames>(
   }
 
   const userTenant = explicitContext?.tenantId || ctx.tenantId || 'tenant-demo-01';
-  const DEFAULT_ALIASES = new Set(['tenant-demo-01', 'local-business-id', 'mbi-tenant-main', 'biz_default', 'default-tenant']);
+  const DEFAULT_ALIASES = new Set(['tenant-demo-01', 'local-business-id', 'mbi-tenant-main', 'biz_default', 'default-tenant', 'tenant-default']);
   const isUserDefault = DEFAULT_ALIASES.has(userTenant);
 
   return clean.filter((r: any) => {
@@ -558,7 +575,7 @@ export async function getAllRecords<T extends StoreNames>(
     if (userTenant && userTenant !== 'all') {
       if (r.tenantId) {
         if (r.tenantId === userTenant) return true;
-        if (isUserDefault && (r.tenantId === 'tenant-demo-01' || r.tenantId === 'local-business-id')) return true;
+        if (isUserDefault && DEFAULT_ALIASES.has(r.tenantId)) return true;
         return false;
       } else {
         // Strict: Do NOT leak untagged records across isolated tenants

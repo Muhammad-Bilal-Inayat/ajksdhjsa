@@ -176,10 +176,11 @@ export const AiHumanSupportMasterHub: React.FC<AiHumanSupportMasterHubProps> = (
 
   useEffect(() => {
     fetchAllHubData();
-    // Live polling every 4 seconds for real-time human chat & clicks sync
+    // Live polling for real-time human chat & clicks sync (throttled in background)
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       fetchSessionsAndAnalyticsSilently();
-    }, 4000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [sessionFilter]);
 

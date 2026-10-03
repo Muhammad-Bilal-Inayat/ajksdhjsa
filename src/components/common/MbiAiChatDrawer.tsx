@@ -186,13 +186,27 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
   // Persistent live session ID for home/user/server sync with Master Live Desk
   const [sessionId] = useState<string>(() => {
-    const key = `mbi_ai_session_id_${isServerRoute ? 'server' : (isHomeScope ? 'home' : 'user')}`;
-    let sid = localStorage.getItem(key);
-    if (!sid) {
-      sid = `sess_${isServerRoute ? 'srv' : (isHomeScope ? 'pub' : 'usr')}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      localStorage.setItem(key, sid);
+    try {
+      const key = `mbi_ai_session_id_${isServerRoute ? 'server' : (isHomeScope ? 'home' : 'user')}`;
+      let sid = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+      if (!sid) {
+        sid = `sess_${isServerRoute ? 'srv' : (isHomeScope ? 'pub' : 'usr')}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        try {
+          localStorage.setItem(key, sid);
+        } catch (storageErr) {
+          // If storage quota exceeded, clear non-essential AI chat caches and retry
+          try {
+            localStorage.removeItem('mbi_ai_chat_home');
+            localStorage.removeItem('mbi_ai_chat_user');
+            localStorage.removeItem('mbi_ai_chat_server');
+            localStorage.setItem(key, sid);
+          } catch {}
+        }
+      }
+      return sid;
+    } catch {
+      return `sess_usr_${Date.now()}`;
     }
-    return sid;
   });
 
   // Human Support Form States
@@ -249,14 +263,20 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     };
   }, [isOpen, sessionId]);
 
-  // Persist messages in localStorage
+  // Persist messages in localStorage safely
   useEffect(() => {
     try {
       const storageKey = isHomeScope 
         ? 'mbi_ai_chat_home' 
         : `mbi_ai_chat_${isServerRoute ? 'server' : 'user'}`;
-      localStorage.setItem(storageKey, JSON.stringify(messages.slice(-30)));
-    } catch (e) {}
+      localStorage.setItem(storageKey, JSON.stringify(messages.slice(-15)));
+    } catch (e) {
+      try {
+        localStorage.removeItem('mbi_ai_chat_home');
+        localStorage.removeItem('mbi_ai_chat_user');
+        localStorage.removeItem('mbi_ai_chat_server');
+      } catch {}
+    }
   }, [messages, isServerRoute, isHomeScope, currentUser]);
 
   const handleCopy = (text: string, id: string) => {

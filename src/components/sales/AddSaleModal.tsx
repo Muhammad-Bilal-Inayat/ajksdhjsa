@@ -7,7 +7,7 @@ import {
   Keyboard
 } from 'lucide-react';
 import { Medicine, Party, Invoice, InvoiceItem, AuditLog, PurchaseOrder, Booker } from '../../types';
-import { dbMedicines, dbSuppliers, dbInvoices, dbPurchaseOrders, dbAuditLogs, dbBookers } from '../../lib/db';
+import { dbMedicines, dbSuppliers, dbInvoices, dbPurchaseOrders, dbAuditLogs, dbBookers, getCurrentBusinessContext } from '../../lib/db';
 import { bookerService } from '../../lib/bookerService';
 import { v4 as uuidv4 } from 'uuid';
 import { CalculatorModal } from './CalculatorModal';
@@ -156,7 +156,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
   const indexedMedicines = useMemo(() => {
     return medicines.map(m => ({
       med: m,
-      searchStr: `${m.name || ''} ${m.genericName || ''} ${m.batchNumber || ''} ${(m as any).formula || ''} ${m.rackLocation || ''}`.toLowerCase(),
+      searchStr: `${m.name || ''} ${m.genericName || ''} ${m.saltComposition || ''} ${m.batchNumber || ''} ${(m as any).formula || ''} ${m.rackLocation || ''}`.toLowerCase(),
       barcodeStr: (m.barcode || m.id || (m as any).code || '').toLowerCase().trim()
     }));
   }, [medicines]);
@@ -321,18 +321,22 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       loadData();
     }
 
+    let reloadDebounceTimer: any = null;
     const handleStockReload = async () => {
       if (!isOpen) return;
-      try {
-        const [medsData, partiesData] = await Promise.all([
-          dbMedicines.getAll(),
-          dbSuppliers.getAll()
-        ]);
-        setMedicines(medsData);
-        setParties(partiesData);
-      } catch (err) {
-        console.warn('Failed to refresh stock in POS sale modal:', err);
-      }
+      if (reloadDebounceTimer) clearTimeout(reloadDebounceTimer);
+      reloadDebounceTimer = setTimeout(async () => {
+        try {
+          const [medsData, partiesData] = await Promise.all([
+            dbMedicines.getAll(),
+            dbSuppliers.getAll()
+          ]);
+          setMedicines(medsData);
+          setParties(partiesData);
+        } catch (err) {
+          console.warn('Failed to refresh stock in POS sale modal:', err);
+        }
+      }, 300);
     };
 
     window.addEventListener('mbi-stock-updated', handleStockReload);
@@ -340,6 +344,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
     window.addEventListener('mbi-local-db-change', handleStockReload);
 
     return () => {
+      if (reloadDebounceTimer) clearTimeout(reloadDebounceTimer);
       window.removeEventListener('mbi-stock-updated', handleStockReload);
       window.removeEventListener('mbi-purchases-updated', handleStockReload);
       window.removeEventListener('mbi-local-db-change', handleStockReload);
@@ -834,7 +839,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       const item = indexedMedicines[i];
       if (item.barcodeStr === q || item.searchStr.includes(q)) {
         results.push(item.med);
-        if (results.length >= 8) break;
+        if (results.length >= 15) break;
       }
     }
     setLightningResults(results);
@@ -1684,7 +1689,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
       const currentFirm = settings.general?.firms?.find(f => f.isDefault) || settings.general?.firms?.[0];
       const effectiveFirmId = currentFirm?.id || 'firm-1';
       const effectiveFirmName = currentFirm?.name || business?.name || 'MBI INVENTRA';
-      const effectiveTenantId = tenantId || tenant?.id || business?.tenantId || 'tenant-default';
+      const effectiveTenantId = tenantId || tenant?.id || business?.tenantId || getCurrentBusinessContext().tenantId || 'tenant-demo-01';
       const effectiveUserId = activeUser?.id || currentUser?.uid || '1';
       const effectiveUserName = activeUser?.name || currentUser?.displayName || 'Admin';
 
@@ -1875,8 +1880,10 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 const newMedId = `med_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                 const newMed: Medicine = {
                   id: newMedId,
+                  barcode: (item as any).barcode || (item as any).code || newMedId,
                   name: item.name.trim(),
                   genericName: (item as any).genericName || '',
+                  manufacturer: (item as any).manufacturer || 'General Pharma',
                   category: 'General',
                   unit: item.unit || 'Box',
                   purchasePrice: Number(item.costPrice || item.latestPurchasePrice || (item.sellingPrice ? item.sellingPrice * 0.8 : 0)),
@@ -1884,6 +1891,8 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                   salePrice: Number(item.pricePerUnit || item.sellingPrice || item.mrp || 0),
                   mrp: Number(item.mrp || item.sellingPrice || 0),
                   quantity: 0,
+                  lowStockThreshold: 5,
+                  gstPercentage: Number(item.taxPercentage || 0),
                   batchNumber: item.batchNumber || '',
                   expiryDate: item.expiryDate || '',
                   tenantId: effectiveTenantId,
@@ -3732,7 +3741,14 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                   }`}
                                 >
                                   <div className="min-w-0 pr-3">
-                                    <div className="font-bold text-slate-900 truncate">{med.name}</div>
+                                    <div className="font-bold text-slate-900 truncate flex items-center gap-2">
+                                      <span>{med.name}</span>
+                                      {(med.genericName || med.saltComposition) && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                                          Formula: {med.genericName || med.saltComposition}
+                                        </span>
+                                      )}
+                                    </div>
                                     {metaItems.length > 0 && (
                                       <div className="text-[10px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                         {metaItems.map((elem, mIdx) => (
@@ -4114,7 +4130,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                               </span>
                             </div>
                             {medicines
-                              .filter(m => !item.name || m.name.toLowerCase().includes(item.name.toLowerCase()) || (m.barcode && m.barcode.toLowerCase().includes(item.name.toLowerCase())) || (m.genericName && m.genericName.toLowerCase().includes(item.name.toLowerCase())))
+                              .filter(m => !item.name || m.name.toLowerCase().includes(item.name.toLowerCase()) || (m.barcode && m.barcode.toLowerCase().includes(item.name.toLowerCase())) || (m.genericName && m.genericName.toLowerCase().includes(item.name.toLowerCase())) || (m.saltComposition && m.saltComposition.toLowerCase().includes(item.name.toLowerCase())))
                               .slice(0, 15)
                               .map((m, idx) => {
                                 const showBatch = settings.transaction?.showBatchInAutocomplete !== false;
@@ -4154,7 +4170,14 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                                     }`}
                                   >
                                     <div className="pr-3 min-w-0 flex-1">
-                                      <div className="font-bold text-slate-900 text-xs truncate">{m.name}</div>
+                                      <div className="font-bold text-slate-900 text-xs truncate flex items-center gap-2">
+                                        <span>{m.name}</span>
+                                        {(m.genericName || m.saltComposition) && (
+                                          <span className="text-[10px] font-normal px-1.5 py-0.2 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                                            Formula: {m.genericName || m.saltComposition}
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="text-[10px] text-slate-500 mt-0.5">{subDetails.join(' • ') || (m.unit || 'Box')}</div>
                                     </div>
                                     <div className="flex items-center gap-6 flex-shrink-0 font-mono text-xs">

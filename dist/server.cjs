@@ -1165,6 +1165,9 @@ function getMasterVault() {
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
     PRAGMA foreign_keys = ON;
+    PRAGMA wal_autocheckpoint = 1000;
+    PRAGMA mmap_size = 268435456;
+    PRAGMA cache_size = -64000;
 
     CREATE TABLE IF NOT EXISTS mbi_tenants (
       id TEXT PRIMARY KEY,
@@ -1243,6 +1246,10 @@ function getTenantVault(tenantId) {
   tenantDb.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA synchronous = NORMAL;
+    PRAGMA foreign_keys = ON;
+    PRAGMA wal_autocheckpoint = 1000;
+    PRAGMA mmap_size = 268435456;
+    PRAGMA cache_size = -64000;
 
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,

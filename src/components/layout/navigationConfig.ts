@@ -43,7 +43,7 @@ export const CATEGORIZED_REPORTS: ReportCategoryGroup[] = [
     categoryIcon: Package,
     requiredPlan: 'silver',
     reports: [
-      { id: 'fefo_expiry_report', label: 'Near-Expiry & Expired Stock (FEFO)', path: '/reports?report=fefo_expiry_report', requiredPlan: 'silver' },
+      { id: 'fefo_expiry_report', label: 'Near-Expiry & Expired Stock (FEFO)', path: '/reports?report=fefo_expiry_report', requiredPlan: 'gold' },
       { id: 'low_stock_summary', label: 'Low Stock & Reorder Alert', path: '/reports?report=low_stock_summary', requiredPlan: 'silver' },
       { id: 'stock_summary', label: 'Stock Valuation & Batch Audit', path: '/reports?report=stock_summary', requiredPlan: 'silver' },
       { id: 'item_batch_report', label: 'Item Batch & Expiry Traceability', path: '/reports?report=item_batch_report', requiredPlan: 'gold' },

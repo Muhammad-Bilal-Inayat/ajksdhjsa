@@ -44,6 +44,7 @@ export const AnimatedHeroGraphs: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       setSalesTicker(prev => prev + Math.floor(Math.random() * 350) + 120);
       setBillsTicker(prev => prev + Math.floor(Math.random() * 2) + 1);
       setVelocityTicker(prev => {

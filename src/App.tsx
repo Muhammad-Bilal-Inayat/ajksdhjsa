@@ -49,12 +49,32 @@ function lazyWithRetry<T extends React.ComponentType<any> = React.ComponentType<
           }
         }
       }
-      return { default: (() => null) as unknown as T };
-    } catch (error: any) {
-      console.warn('[MBI Dynamic Import Chunk Notice]', error?.message);
-      return {
-        default: (() => null) as unknown as T
-      };
+      return { default: module as unknown as T };
+    } catch (firstError: any) {
+      console.warn('[MBI Dynamic Import Retry]', firstError?.message);
+      try {
+        await new Promise(res => setTimeout(res, 250));
+        const retryModule: any = await componentImport();
+        if (retryModule && retryModule.default) return { default: retryModule.default };
+        return { default: retryModule as unknown as T };
+      } catch (retryError: any) {
+        console.warn('[MBI Dynamic Import Notice]', retryError?.message);
+        return {
+          default: (() => (
+            <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 max-w-sm shadow-xl space-y-3">
+                <p className="text-xs text-slate-300 font-medium">Session refreshed. Click to reload screen.</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                >
+                  Reload Screen
+                </button>
+              </div>
+            </div>
+          )) as unknown as T
+        };
+      }
     }
   }) as React.LazyExoticComponent<T>;
 }
@@ -565,41 +585,44 @@ function DeviceAuthorizationOverlay() {
 
 export default function App() {
   useEffect(() => {
-    console.log('%c[MBI App]%c App tree mounted successfully.', 'color: #3b82f6; font-weight: bold;', 'color: #94a3b8;');
-    
-    // Start automated background backup daemon
-    try {
-      const intervalStr = localStorage.getItem('mbi_auto_backup_interval');
-      const interval = intervalStr ? parseInt(intervalStr, 10) : 15;
-      startAutomatedBackupService(interval);
-    } catch (e) {
-      console.warn('Failed to start auto backup daemon:', e);
-    }
-
-    // Start system clock integrity & anti-time-tampering guard
-    try {
-      startClockIntegrityDaemon(6);
-    } catch (e) {
-      console.warn('Failed to start clock integrity monitor:', e);
-    }
-
-    // Initialize PWA Hot-Update Service
-    try {
-      initializePwaService();
-    } catch (e) {
-      console.warn('Failed to initialize PWA Hot-Update daemon:', e);
-    }
-
-    // Zero-Data-Loss Initial Device Sync & Cloud Pull on New Device / Fresh OS
-    try {
-      const activeTenant = localStorage.getItem('mbi_active_business_id') || localStorage.getItem('mbi_active_tenant') || '';
-      if (activeTenant && activeTenant !== 'master') {
-        const restoredKey = `mbi_cloud_restored_${activeTenant}`;
-        if (!localStorage.getItem(restoredKey)) {
-          syncEngine.restoreTenantCloudData(activeTenant, false).catch(() => {});
-        }
+    // Non-blocking background daemons: Defer by 1000ms so initial UI renders immediately at 0ms!
+    const timer = setTimeout(() => {
+      // Start automated background backup daemon
+      try {
+        const intervalStr = localStorage.getItem('mbi_auto_backup_interval');
+        const interval = intervalStr ? parseInt(intervalStr, 10) : 15;
+        startAutomatedBackupService(interval);
+      } catch (e) {
+        console.warn('Failed to start auto backup daemon:', e);
       }
-    } catch {}
+
+      // Start system clock integrity & anti-time-tampering guard
+      try {
+        startClockIntegrityDaemon(6);
+      } catch (e) {
+        console.warn('Failed to start clock integrity monitor:', e);
+      }
+
+      // Initialize PWA Hot-Update Service
+      try {
+        initializePwaService();
+      } catch (e) {
+        console.warn('Failed to initialize PWA Hot-Update daemon:', e);
+      }
+
+      // Zero-Data-Loss Initial Device Sync & Cloud Pull on New Device / Fresh OS
+      try {
+        const activeTenant = localStorage.getItem('mbi_active_business_id') || localStorage.getItem('mbi_active_tenant') || '';
+        if (activeTenant && activeTenant !== 'master') {
+          const restoredKey = `mbi_cloud_restored_${activeTenant}`;
+          if (!localStorage.getItem(restoredKey)) {
+            syncEngine.restoreTenantCloudData(activeTenant, false).catch(() => {});
+          }
+        }
+      } catch {}
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (

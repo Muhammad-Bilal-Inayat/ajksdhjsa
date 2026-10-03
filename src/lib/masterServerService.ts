@@ -97,6 +97,7 @@ export const DEFAULT_USER_PERMISSIONS: MasterUserPermissions = {
 export interface MasterActiveUser {
   id: string;
   name: string;
+  username?: string;
   emailOrPhone: string;
   role: 'Primary Admin' | 'Store Manager' | 'Cashier' | 'Accountant' | 'Sales Staff' | 'Guest';
   status: 'Active' | 'Suspended' | 'Disconnected';

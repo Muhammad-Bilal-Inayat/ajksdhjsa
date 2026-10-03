@@ -134,7 +134,10 @@ export const Layout: React.FC = () => {
 
   useEffect(() => {
     loadActiveShift();
-    const interval = setInterval(loadActiveShift, 30000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadActiveShift();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 

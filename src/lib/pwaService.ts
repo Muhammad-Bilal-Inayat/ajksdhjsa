@@ -97,6 +97,17 @@ export const initializePwaService = () => {
   window.addEventListener('focus', () => checkForAppVersionUpdate());
   window.addEventListener('online', () => checkForAppVersionUpdate());
 
+  // In local development on localhost/127.0.0.1, unregister stale service workers to prevent chunk hanging
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (isLocalDev && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister().catch(() => {});
+      }
+    }).catch(() => {});
+    return () => clearInterval(interval);
+  }
+
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then((registration) => {
       // Check for updates on register
@@ -137,7 +148,7 @@ export const initializePwaService = () => {
 // Backward-compatibility alias
 export const registerPWA = initializePwaService;
 
-// ZERO-LOGOUT & ZERO CACHE-CLEAR INSTANT RESUME
+// ZERO-LOGOUT & ZERO DATA LOSS INSTANT HOT UPDATE
 export const triggerSeamlessHotUpdate = async () => {
   if (isUpdating) return;
   isUpdating = true;
@@ -149,17 +160,18 @@ export const triggerSeamlessHotUpdate = async () => {
     const currentState = {
       path: window.location.pathname + window.location.search + window.location.hash,
       timestamp: Date.now(),
-      authUser: localStorage.getItem('mbi_user') || localStorage.getItem('user'),
-      activeTenant: localStorage.getItem('mbi_active_tenant') || localStorage.getItem('activeTenantId'),
+      authUser: localStorage.getItem('mock_session') || localStorage.getItem('mbi_user') || localStorage.getItem('user'),
+      mockProfile: localStorage.getItem('mock_user_profile'),
+      mockBiz: localStorage.getItem('mock_business'),
+      activeTenant: localStorage.getItem('mbi_active_tenant_cache') || localStorage.getItem('mbi_active_business_id'),
       token: localStorage.getItem('token') || localStorage.getItem('mbi_token')
     };
 
     sessionStorage.setItem('mbi_hot_update_resume', JSON.stringify(currentState));
 
     // 2. Set active installed version to new version
-    if (latestServerVersionInfo?.version) {
-      localStorage.setItem('mbi_active_version', latestServerVersionInfo.version);
-    }
+    const newVersion = latestServerVersionInfo?.version || CURRENT_CLIENT_VERSION;
+    localStorage.setItem('mbi_active_version', newVersion);
 
     // 3. Send SKIP_WAITING signal to waiting ServiceWorker
     if (waitingWorker) {
@@ -171,22 +183,22 @@ export const triggerSeamlessHotUpdate = async () => {
       }
     }
 
-    // 4. Purge outdated static caches while preserving IndexedDB and user auth data
+    // 4. Purge outdated static code & asset caches while preserving IndexedDB and user auth data
     if ('caches' in window) {
       try {
         const cacheKeys = await caches.keys();
         await Promise.all(
           cacheKeys
-            .filter(key => key !== CURRENT_CACHE_NAME && (key.includes('workbox') || key.includes('app-') || key.includes('html') || key.startsWith('mbi-inventra-')))
+            .filter(key => key !== CURRENT_CACHE_NAME && (key.includes('workbox') || key.includes('app-') || key.includes('html') || key.startsWith('mbi-inventra-') || key.includes('assets') || key.includes('vite')))
             .map(key => caches.delete(key))
         );
       } catch (e) {}
     }
 
-    // 5. Fast Instant Reload
+    // 5. Fast Instant Reload without logging out
     setTimeout(() => {
       window.location.reload();
-    }, 200);
+    }, 150);
 
   } catch (err) {
     console.error('[PWA UPDATE ERROR]', err);

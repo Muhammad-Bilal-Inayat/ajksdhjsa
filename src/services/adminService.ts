@@ -225,6 +225,46 @@ class AdminService {
   }
 
   /**
+   * Save Granular 173-Feature Matrix overrides for a company
+   */
+  async saveTenantFeatures(tenantId: string, features: any): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      const response = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/features`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ features, feature_toggles: features })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+      const errData = await response.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'Failed to deploy feature switchboard matrix' };
+    } catch (e: any) {
+      console.warn('Failed to save tenant features:', e);
+      return { success: false, error: e?.message || 'Network error while saving features' };
+    }
+  }
+
+  /**
+   * Fetch Granular Feature Matrix for a company
+   */
+  async getTenantFeatures(tenantId: string): Promise<{ success: boolean; features: any }> {
+    try {
+      const response = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/features`, {
+        headers: this.getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch tenant features:', e);
+    }
+    return { success: true, features: {} };
+  }
+
+  /**
    * Fetch full nested staff and connected devices for a store drill-down
    */
   async getTenantStaffAndDevices(tenantId: string): Promise<{
@@ -448,29 +488,11 @@ class AdminService {
   }
 
   /**
-   * Update 173-Feature Matrix for a tenant
+   * Update 173-Feature Matrix for a tenant (Compatibility bridge)
    */
-  async updateTenantFeatures(tenantId: string, features: TenantFeatureMap): Promise<boolean> {
-    try {
-      localStorage.setItem(`mbi_tenant_features_${tenantId}`, JSON.stringify(features));
-      window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', { detail: { tenantId, features } }));
-
-      const response = await fetch(`/api/admin/tenants/${encodeURIComponent(tenantId)}/features`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ features })
-      });
-
-      const data = await response.json();
-      return Boolean(response.ok && data.success);
-    } catch (e) {
-      console.warn('Network update for features failed:', e);
-      return true; // Still true since local override was persisted
-    }
-  }
-
-  async saveTenantFeatures(tenantId: string, features: TenantFeatureMap): Promise<boolean> {
-    return this.updateTenantFeatures(tenantId, features);
+  async updateTenantFeatures(tenantId: string, features: any): Promise<boolean> {
+    const res = await this.saveTenantFeatures(tenantId, features);
+    return res.success;
   }
 
   /**

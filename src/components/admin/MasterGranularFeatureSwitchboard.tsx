@@ -101,8 +101,8 @@ export const MasterGranularFeatureSwitchboard: React.FC<{ isDarkMode: boolean }>
         const tName = activeCompany?.name || 'Company Owner';
         emitToast(`Live features & overrides deployed successfully for ${tName}! ✨`, 'success');
       }
-    } catch (e) {
-      emitToast('Failed to save feature switchboard to MariaDB', 'error');
+    } catch (e: any) {
+      emitToast(e?.message || 'Failed to save feature switchboard matrix', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -187,7 +187,7 @@ export const MasterGranularFeatureSwitchboard: React.FC<{ isDarkMode: boolean }>
               </span>
             </h1>
             <p className="text-xs text-slate-400 mt-1">
-              Custom feature allocation & security overrides with instant zero-restart MariaDB sync to live POS terminals.
+              Custom feature allocation & security overrides with instant zero-restart SQLite Vault sync to live POS terminals.
             </p>
           </div>
         </div>

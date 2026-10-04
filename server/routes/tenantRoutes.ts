@@ -35,32 +35,36 @@ tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise
     let features: Record<string, boolean> = {};
     let plan = 'Basic';
 
-    // 1. Read directly from SQLite Master Vault (0ms latency)
+    // 1. Read directly from SQLite Master Vault (0ms latency, WAL mode)
     try {
       const master = getMasterVault();
-      const tenantRow: any = master.prepare("SELECT plan, status FROM mbi_tenants WHERE tenant_id = ? OR id = ?").get(tenantId, tenantId);
-      if (tenantRow && tenantRow.plan) {
-        plan = tenantRow.plan;
+      const tenantRow: any = master.prepare("SELECT plan, status, features_json FROM mbi_tenants WHERE tenant_id = ? OR id = ? LIMIT 1").get(tenantId, tenantId);
+      if (tenantRow) {
+        if (tenantRow.plan) plan = tenantRow.plan;
+        if (tenantRow.features_json) {
+          try {
+            features = typeof tenantRow.features_json === 'string'
+              ? JSON.parse(tenantRow.features_json)
+              : tenantRow.features_json;
+          } catch {}
+        }
       }
     } catch (sqliteErr) {}
 
-    try {
-      const pool = getMariaDbPool();
-      
-      // Try reading from mbi_settings table
-      const [settingsRows]: any = await pool.query(
-        'SELECT setting_value FROM mbi_settings WHERE tenant_id = ? AND setting_key = "granular_features_matrix" LIMIT 1;',
-        [tenantId]
-      );
-
-      if (Array.isArray(settingsRows) && settingsRows.length > 0 && settingsRows[0].setting_value) {
-        try {
-          features = typeof settingsRows[0].setting_value === 'string'
-            ? JSON.parse(settingsRows[0].setting_value)
-            : settingsRows[0].setting_value;
-        } catch {}
-      }
-    } catch (dbErr) {}
+    // 2. Read from Tenant SQLite Vault settings table if empty
+    if (!features || Object.keys(features).length === 0) {
+      try {
+        const tenantDb = getTenantVault(tenantId);
+        const setRow: any = tenantDb.prepare("SELECT setting_value FROM mbi_settings WHERE setting_key = 'granular_features_matrix' LIMIT 1").get();
+        if (setRow && setRow.setting_value) {
+          try {
+            features = typeof setRow.setting_value === 'string'
+              ? JSON.parse(setRow.setting_value)
+              : setRow.setting_value;
+          } catch {}
+        }
+      } catch (tErr) {}
+    }
 
     res.json({
       success: true,

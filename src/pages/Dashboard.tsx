@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowUpRight, ArrowDownRight, ShoppingCart, 
@@ -690,7 +690,15 @@ export const Dashboard: React.FC = () => {
   const activeFirm = settings?.general?.firms?.find(f => f?.isDefault) || settings?.general?.firms?.[0];
   const effectiveFirmId = activeFirm?.id;
 
+  const isFetchingRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
+
   const loadDashboardData = async (isCurrent?: () => boolean, forceRefresh: boolean = false) => {
+    if (isFetchingRef.current) {
+      pendingRefreshRef.current = true;
+      return;
+    }
+    isFetchingRef.current = true;
     try {
       if (forceRefresh) {
         DashboardSummaryService.clearCache(effectiveTenantId);
@@ -725,6 +733,14 @@ export const Dashboard: React.FC = () => {
       setActiveCashierShift(openShift);
     } catch (e) {
       console.warn('Dashboard summary loading notice:', e);
+    } finally {
+      isFetchingRef.current = false;
+      if (pendingRefreshRef.current) {
+        pendingRefreshRef.current = false;
+        if (!isCurrent || isCurrent()) {
+          loadDashboardData(isCurrent, true);
+        }
+      }
     }
   };
 
@@ -734,16 +750,6 @@ export const Dashboard: React.FC = () => {
 
     loadDashboardData(isCurrent);
 
-    // Realtime Cloud Firestore snapshot listener for aggregated summaries
-    const unsubscribeCloud = DashboardSummaryService.subscribeToSummary(
-      effectiveTenantId,
-      timeFilter,
-      (cloudSummary) => {
-        if (!isMounted) return;
-        applySummaryData(cloudSummary);
-      }
-    );
-
     let debounceTimer: any = null;
     const handleSyncUpdate = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -751,7 +757,7 @@ export const Dashboard: React.FC = () => {
         if (isMounted) {
           loadDashboardData(isCurrent, true);
         }
-      }, 150);
+      }, 250);
     };
 
     const handleDateRangeChanged = (e: any) => {
@@ -786,7 +792,6 @@ export const Dashboard: React.FC = () => {
     return () => {
       isMounted = false;
       if (debounceTimer) clearTimeout(debounceTimer);
-      unsubscribeCloud();
       window.removeEventListener('mbi-data-synced', handleSyncUpdate);
       window.removeEventListener('mbi-local-db-change', handleSyncUpdate);
       window.removeEventListener('mbi-medicines-updated', handleSyncUpdate);
@@ -3051,6 +3056,7 @@ export const Dashboard: React.FC = () => {
                 totalReceivables={totalReceivables}
                 totalPayables={totalPayables}
                 totalStockValue={stockValue}
+                cashInHand={cashInHandBalance}
               />
             );
           case 'pharmacy_erp_analytics_hub':

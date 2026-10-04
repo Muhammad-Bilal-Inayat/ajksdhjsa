@@ -23,10 +23,11 @@ interface PharmacyErpWidgetProps {
   totalReceivables?: number;
   totalPayables?: number;
   totalStockValue?: number;
+  cashInHand?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. TOP 4 KPI CARDS WIDGET (Today Revenue, Today Profit, Outstanding, Total Stock)
+// 1. TOP 4 KPI CARDS WIDGET (Cash in Hand, Today Profit, Outstanding, Total Stock)
 // ─────────────────────────────────────────────────────────────────────────────
 export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
   invoices = [],
@@ -37,7 +38,8 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
   onNavigate,
   totalReceivables,
   totalPayables,
-  totalStockValue
+  totalStockValue,
+  cashInHand
 }) => {
   const safeInvoices = Array.isArray(invoices) ? invoices : [];
   const safeMedicines = Array.isArray(medicines) ? medicines : [];
@@ -64,9 +66,14 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
     const totalItems = safeMedicines.reduce((sum, m) => sum + (Number(m.quantity) || 0), 0);
     const totalSkus = safeMedicines.length;
 
+    const effectiveCashInHand = cashInHand !== undefined 
+      ? cashInHand 
+      : Math.max(0, todaySales);
+
     return {
       todaySales: todaySales || 0,
       todayProfit: todayProfit || 0,
+      cashInHand: effectiveCashInHand || 0,
       customersDue: customersDue || 0,
       suppliersDue: suppliersDue || 0,
       totalOutstanding: totalOutstanding || 0,
@@ -74,33 +81,33 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
       totalItems: totalItems || 0,
       totalSkus: totalSkus || 0,
     };
-  }, [safeInvoices, safeMedicines, safeSuppliers, totalReceivables, totalPayables, totalStockValue]);
+  }, [safeInvoices, safeMedicines, safeSuppliers, totalReceivables, totalPayables, totalStockValue, cashInHand]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 w-full">
-      {/* 1. Today Revenue (Green) */}
+      {/* 1. Cash in Hand (Green) */}
       <div 
-        onClick={() => onNavigate && onNavigate('/sale/invoices')}
+        onClick={() => onNavigate && onNavigate('/bank')}
         className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer group flex flex-col justify-between"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#10b981] text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0 group-hover:scale-105 transition-transform">
-            <BarChart3 className="w-5 h-5" />
+            <Wallet className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Today Revenue</span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block">Cash in Hand</span>
             <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              {privacyMode ? '••••••' : maskValue(metrics.todaySales)}
+              {privacyMode ? '••••••' : maskValue(metrics.cashInHand)}
             </div>
           </div>
         </div>
 
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
           <span className="inline-flex items-center gap-1 font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
-            <TrendingUp className="w-3 h-3" /> {metrics.todaySales > 0 ? '↑ Active' : '0%'}
+            <Wallet className="w-3 h-3" /> {metrics.cashInHand > 0 ? 'Drawer Cash' : 'Till Ready'}
           </span>
           <span className="text-[11px] text-slate-400 font-medium">
-            {metrics.todaySales > 0 ? `vs. yesterday (${maskValue(Math.round(metrics.todaySales * 0.89))})` : 'No sales today'}
+            {metrics.todaySales > 0 ? `Today Sale: ${maskValue(metrics.todaySales)}` : 'Register / Safe Active'}
           </span>
         </div>
       </div>

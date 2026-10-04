@@ -15885,6 +15885,8 @@ async function startServer() {
   });
   app.use(import_express18.default.json({ limit: "100mb" }));
   app.use(import_express18.default.urlencoded({ limit: "100mb", extended: true }));
+  app.get(["/api/broadcasts/active", "/api/notifications/broadcasts", "/api/broadcast/active"], getBroadcastHistoryController);
+  app.post(["/api/broadcasts/:id/seen", "/api/notifications/:id/mark-seen", "/api/broadcast/:id/seen"], markBroadcastSeenController);
   app.use("/api", apiLimiter);
   app.use("/api/auth", authRouter);
   app.use("/api/tenant", tenantRouter);

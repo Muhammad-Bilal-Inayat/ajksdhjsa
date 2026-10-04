@@ -223,9 +223,12 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
       } catch {}
 
-      // 3. Broadcast Announcements from Master Server
+      // 3. Broadcast Announcements from Master Server (Active & Real-Time)
       try {
-        let res = await fetch('/api/master/broadcast/history');
+        let res = await fetch('/api/broadcasts/active');
+        if (!res.ok) {
+          res = await fetch('/api/master/broadcast/history');
+        }
         if (!res.ok) {
           res = await fetch('/api/admin/broadcast/history');
         }
@@ -233,7 +236,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           const bData = await res.json();
           const bList = bData.broadcasts || (Array.isArray(bData) ? bData : []);
           if (Array.isArray(bList)) {
-            for (const b of bList.slice(0, 10)) {
+            for (const b of bList.slice(0, 15)) {
               if (
                 !b.id ||
                 b.id.startsWith('perm_') ||
@@ -249,11 +252,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 generated.push({
                   id: b.id,
                   type: 'system',
-                  severity: b.type === 'urgent' ? 'critical' : b.type === 'success' ? 'success' : 'info',
+                  severity: b.type === 'urgent' || b.priority === 'critical_notice' ? 'critical' : (b.type === 'success' || b.priority === 'special_offer') ? 'success' : 'info',
                   title: b.title || 'Broadcast Announcement',
                   description: (b.body || b.subtitle || '').replace(/[*_#]/g, ''),
                   time: b.dispatchedAt ? new Date(b.dispatchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live',
-                  timestamp: b.dispatchedAt ? new Date(b.dispatchedAt).getTime() : now,
+                  timestamp: b.dispatchedAt ? new Date(b.dispatchedAt).getTime() : (now + 1000),
                   unread: !isSeen,
                   link: b.ctaUrl || undefined,
                   actionLabel: b.ctaLabel || 'View Notice'
@@ -274,12 +277,15 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           title: 'Hardware IndexedDB Sync Active',
           description: 'Local offline transactions and master drug catalogue are in sync.',
           time: 'Ready',
-          timestamp: now,
+          timestamp: now - 3600000,
           unread: !readIds.has(systemId),
           link: '/settings',
           actionLabel: 'System Status'
         });
       }
+
+      // Sort notifications by timestamp descending (newest first)
+      generated.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
       setNotifications(generated);
     } finally {
@@ -364,6 +370,12 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
   const handleNotificationClick = (notif: AppNotification) => {
     const { readKey } = getTenantNotificationKeys();
+    
+    // Persist seen state for broadcasts
+    localStorage.setItem(`mbi_broadcast_seen_${notif.id}`, 'true');
+    localStorage.setItem(`mbi_bcast_ack_${notif.id}`, new Date().toISOString());
+    window.dispatchEvent(new CustomEvent('mbi-broadcast-read', { detail: { id: notif.id } }));
+
     setNotifications(prev => {
       const updated = prev.map(n => n.id === notif.id ? { ...n, unread: false } : n);
       try {
@@ -375,7 +387,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
     onClose();
     if (notif.link) {
-      navigate(notif.link);
+      if (notif.link.startsWith('http://') || notif.link.startsWith('https://')) {
+        window.open(notif.link, '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(notif.link);
+      }
     }
   };
 

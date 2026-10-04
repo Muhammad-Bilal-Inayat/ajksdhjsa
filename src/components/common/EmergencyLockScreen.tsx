@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldAlert, Lock, PhoneCall, KeyRound, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Lock, PhoneCall, AlertTriangle } from 'lucide-react';
 import { getInstallationId } from '../../lib/licenseManager';
-import { verifyMasterCredentials } from '../../lib/masterServerService';
 
 interface EmergencyLockState {
   isLocked: boolean;
@@ -18,10 +17,6 @@ export const EmergencyLockScreen: React.FC = () => {
     } catch (e) {}
     return null;
   });
-
-  const [unlockPassword, setUnlockPassword] = useState('');
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-  const [isUnlocking, setIsUnlocking] = useState(false);
 
   useEffect(() => {
     const handleTrigger = (e: any) => {
@@ -65,26 +60,6 @@ export const EmergencyLockScreen: React.FC = () => {
   }
 
   if (!lockState || !lockState.isLocked) return null;
-
-  const handleAttemptUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    setUnlockError(null);
-    setIsUnlocking(true);
-
-    setTimeout(() => {
-      const isMasterValid = verifyMasterCredentials('mbi786', unlockPassword.trim());
-      // Also allow 0000 or emergency bypass code if matching
-      if (isMasterValid.success || unlockPassword.trim() === 'mbi786' || unlockPassword.trim() === '786000') {
-        localStorage.removeItem('mbi_emergency_lock_active');
-        setLockState(null);
-        setUnlockPassword('');
-        window.dispatchEvent(new CustomEvent('mbi-emergency-lock-removed', { detail: { installationId: getInstallationId() } }));
-      } else {
-        setUnlockError('Invalid Master Administrative Unlock Key!');
-      }
-      setIsUnlocking(false);
-    }, 400);
-  };
 
   return (
     <div className="fixed inset-0 z-[999999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 select-none">
@@ -133,45 +108,25 @@ export const EmergencyLockScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Master Admin On-site Unlock Form */}
-          <form onSubmit={handleAttemptUnlock} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-blue-400" />
-                <span>On-Site Administrative Emergency Unlock</span>
-              </label>
-              <span className="text-[10px] text-slate-500 font-mono">Master Passcode Required</span>
+          {/* Super Admin Remote Lockout Notice - Strictly Unlockable Only from /server */}
+          <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-3">
+            <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+              <Lock className="w-5 h-5" />
             </div>
-
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="Enter Master Password..."
-                value={unlockPassword}
-                onChange={(e) => setUnlockPassword(e.target.value)}
-                className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500"
-                required
-              />
-              <button
-                type="submit"
-                disabled={isUnlocking}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-rose-600/30 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {isUnlocking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                <span>Unlock</span>
-              </button>
-            </div>
-
-            {unlockError && (
-              <p className="text-xs text-rose-400 font-bold flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" />
-                <span>{unlockError}</span>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-white">Station Suspended by Central Master Server</h4>
+              <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                This workstation has been locked from the Master Server Control Panel. Terminal access can strictly only be unlocked remotely by the Master Administrator from <code className="text-blue-400 font-mono">/server</code>.
               </p>
-            )}
-          </form>
+            </div>
+            <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-emerald-400 font-medium">
+              <PhoneCall className="w-3.5 h-3.5" />
+              <span>Helpline & Support: 0336-4585863 / 0328-1302636</span>
+            </div>
+          </div>
 
           <div className="text-center text-xs text-slate-500">
-            Please contact MBI Inventra central server support to re-activate your software license.
+            Please contact MBI INVENTRA central server administration to resume your station access.
           </div>
         </div>
 

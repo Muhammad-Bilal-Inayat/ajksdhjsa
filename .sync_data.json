@@ -234110,6 +234110,21 @@
   ],
   "broadcasts": [
     {
+      "id": "bc_1791142787383_w07hh",
+      "title": "asa",
+      "subtitle": "asdsadsadadadsa",
+      "body": "ddfffffffdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "type": "info",
+      "priority": "feature_update",
+      "targetType": "global",
+      "dispatchedAt": "2026-10-04T19:39:47.383Z",
+      "author": "Super Admin",
+      "deliveredCount": 15,
+      "readCount": 0,
+      "readPercentage": 0,
+      "receipts": []
+    },
+    {
       "id": "bc_1791142454452_wz2pq",
       "title": "hi",
       "subtitle": "hhhhhh",
@@ -234155,6 +234170,19 @@
       "readCount": 0,
       "readPercentage": 0,
       "receipts": []
+    }
+  ],
+  "broadcast_receipts": [
+    {
+      "id": "rc_1791144411382_vzsj",
+      "broadcastId": "bc_1791142454452_wz2pq",
+      "tenantId": "tenant_1791129576392_m8dol",
+      "storeName": "Muhammad",
+      "ownerName": "Store Admin",
+      "city": "Pakistan",
+      "hwid": "HWID-7566795BE5E675C6-D2EB4B6D",
+      "status": "READ",
+      "seenAt": "2026-10-04T20:06:51.382Z"
     }
   ]
 }

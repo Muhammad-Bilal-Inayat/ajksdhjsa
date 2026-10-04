@@ -225,7 +225,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       targetUserName: targetType === 'user' ? (selectedUserName || selectedUserId) : undefined,
       ctaLabel: ctaLabel.trim() || undefined,
       ctaUrl: ctaUrl.trim() || undefined,
-      author: 'Super Admin',
+      author: 'MBI INVENTRA',
       dispatchedAt: new Date().toISOString()
     };
 
@@ -389,7 +389,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Main Compose Form (8 cols) */}
-          <form onSubmit={handleDispatch} className="lg:col-span-8 space-y-6">
+          <form onSubmit={handleDispatch} noValidate className="lg:col-span-8 space-y-6">
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
               
               {/* Audience Selector */}
@@ -694,7 +694,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                     {/* Direct URL Input */}
                     <div className="relative">
                       <input
-                        type="url"
+                        type="text"
                         placeholder="Or paste image URL (https://...)"
                         value={imageUrl.startsWith('data:') ? '📎 [Attached File from Computer]' : imageUrl}
                         onChange={(e) => setImageUrl(e.target.value)}

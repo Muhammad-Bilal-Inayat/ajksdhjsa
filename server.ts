@@ -31,6 +31,7 @@ import { cmsRouter } from './server/routes/cmsRoutes';
 import { backupRouter } from './server/routes/backupRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
+import { getBroadcastHistoryController, markBroadcastSeenController } from './server/controllers/broadcastController';
 
 async function startServer() {
   const app = express();
@@ -59,6 +60,10 @@ async function startServer() {
 
   app.use(express.json({ limit: '100mb' }));
   app.use(express.urlencoded({ limit: '100mb', extended: true }));
+
+  // Client Accessible Master Announcements & Broadcasts API
+  app.get(['/api/broadcasts/active', '/api/notifications/broadcasts', '/api/broadcast/active'], getBroadcastHistoryController);
+  app.post(['/api/broadcasts/:id/seen', '/api/notifications/:id/mark-seen', '/api/broadcast/:id/seen'], markBroadcastSeenController);
 
   // Relaxed Enterprise Rate Limiter
   app.use('/api', apiLimiter);

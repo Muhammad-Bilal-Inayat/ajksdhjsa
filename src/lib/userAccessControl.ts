@@ -2546,27 +2546,18 @@ export function evaluatePermission(params: {
 }): boolean {
   let { userId, role = 'Primary Admin', plan = 'Standard POS', tenantId, menuId, submenuId, functionId, actionId, feature } = params;
 
-  // Master Admin & Stealth Remote Switch Bypass: Allow full silent access to inspect all features
-  if (
-    typeof window !== 'undefined' && (
-      localStorage.getItem('mbi_master_token') !== null ||
-      localStorage.getItem('mbi_is_master_admin') === 'true' ||
-      localStorage.getItem('mbi_is_shadow_mode') === 'true' ||
-      localStorage.getItem('mbi_shadow_token') === 'master_stealth_switch' ||
-      isMasterAdminAuthenticated() ||
-      Boolean(getActiveImpersonation())
-    )
-  ) {
-    return true;
-  }
-
-  // Resolve user ID if missing from active session
+  // Resolve user ID and tenant ID if missing from active session
   if (!userId) {
     try {
       const activeId = localStorage.getItem('mbi_user_access_active_id');
       const activeUserStr = localStorage.getItem('active_simulated_user');
       if (activeId) userId = activeId;
       else if (activeUserStr) userId = JSON.parse(activeUserStr)?.id;
+    } catch {}
+  }
+  if (!tenantId) {
+    try {
+      tenantId = localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('activeTenantId') || localStorage.getItem('mbi_active_tenant') || undefined;
     } catch {}
   }
   const effectiveUserId = userId || 'usr_active';
@@ -2613,7 +2604,7 @@ export function evaluatePermission(params: {
     return false;
   }
 
-  // Load User Access Profile
+  // Load User Access Profile (checks exact tenant + user storage keys and fallback)
   const profile = getUserAccessControlProfile(effectiveUserId, role, plan, tenantId);
 
   // If high-level feature is passed, check effective capabilities & map first
@@ -2629,8 +2620,44 @@ export function evaluatePermission(params: {
     if (profile.actionToggles[feature] === false) return false;
   }
 
+  // Check specific high-priority action aliases
+  if (actionId === 'SALE_EDIT' || actionId === 'act_edit_sale' || feature === 'canEditBills' || feature === 'canEditInvoices') {
+    if (profile.functionToggles['editSale'] === false) return false;
+    if (profile.actionToggles['act_edit_sale'] === false) return false;
+    if (profile.actionToggles['SALE_EDIT'] === false) return false;
+    if (profile.actionToggles['canEditBills'] === false) return false;
+  }
+
+  if (actionId === 'SALE_DELETE' || actionId === 'act_delete_sale' || feature === 'canDeleteBills' || feature === 'canVoidSaleInvoice') {
+    if (profile.functionToggles['deleteSale'] === false) return false;
+    if (profile.actionToggles['act_delete_sale'] === false) return false;
+    if (profile.actionToggles['SALE_DELETE'] === false) return false;
+    if (profile.actionToggles['canDeleteBills'] === false) return false;
+  }
+
+  if (actionId === 'SALE_PRINT' || actionId === 'act_print_sale' || feature === 'canReprintBills' || feature === 'canShareInvoice') {
+    if (profile.functionToggles['reprintSale'] === false) return false;
+    if (profile.actionToggles['act_print_sale'] === false) return false;
+    if (profile.actionToggles['SALE_PRINT'] === false) return false;
+    if (profile.actionToggles['canReprintBills'] === false) return false;
+  }
+
+  if (actionId === 'VIEW_COST' || actionId === 'act_view_cost' || feature === 'canViewCostsAndProfit' || feature === 'canViewCost') {
+    if (profile.functionToggles['viewCostsAndMargins'] === false) return false;
+    if (profile.actionToggles['act_view_cost'] === false) return false;
+    if (profile.actionToggles['VIEW_COST'] === false) return false;
+    if (profile.actionToggles['canViewCost'] === false) return false;
+  }
+
+  if (actionId === 'SALE_DISC' || actionId === 'act_apply_disc' || feature === 'canApplyDiscount' || feature === 'canGiveDiscount') {
+    if (profile.functionToggles['applyDiscount'] === false) return false;
+    if (profile.actionToggles['act_apply_disc'] === false) return false;
+    if (profile.actionToggles['SALE_DISC'] === false) return false;
+    if (profile.actionToggles['canApplyDiscount'] === false) return false;
+  }
+
   // Hierarchy Check: If parent Menu is OFF -> Submenu is OFF -> Function is OFF -> Action is OFF
-  // CRITICAL: An explicit false toggle in the 173-Feature Switchboard ALWAYS blocks, even for Primary Admin!
+  // CRITICAL: An explicit false toggle in the 173-Feature Switchboard ALWAYS blocks!
   if (menuId) {
     if (profile.menuToggles[menuId] === false) return false;
   }
@@ -2684,20 +2711,6 @@ export function checkGranularRouteAccess(
   pathname: string,
   userParams: { userId?: string; role?: UserRole; plan?: string; tenantId?: string }
 ): { isAllowed: boolean; reason?: string; requiredFunction?: string; blockingFactor?: string } {
-  // Master Admin & Stealth Remote Switch Bypass: Allow full silent access to inspect all routes & tenants
-  if (
-    typeof window !== 'undefined' && (
-      localStorage.getItem('mbi_master_token') !== null ||
-      localStorage.getItem('mbi_is_master_admin') === 'true' ||
-      localStorage.getItem('mbi_is_shadow_mode') === 'true' ||
-      localStorage.getItem('mbi_shadow_token') === 'master_stealth_switch' ||
-      isMasterAdminAuthenticated() ||
-      Boolean(getActiveImpersonation())
-    )
-  ) {
-    return { isAllowed: true };
-  }
-
   const role = userParams.role || 'Primary Admin';
   const targetUserId = userParams.userId || 'usr_active';
   const plan = userParams.plan || 'Pharmacy Pro';

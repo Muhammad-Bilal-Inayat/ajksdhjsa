@@ -1,1 +1,123 @@
-if(!self.define){let s,e={};const l=(l,i)=>(l=new URL(l+".js",i).href,e[l]||new Promise(e=>{if("document"in self){const s=document.createElement("script");s.src=l,s.onload=e,document.head.appendChild(s)}else s=l,importScripts(l),e()}).then(()=>{let s=e[l];if(!s)throw new Error(`Module ${l} didn’t register its module`);return s}));self.define=(i,n)=>{const r=s||("document"in self?document.currentScript.src:"")||location.href;if(e[r])return;let a={};const o=s=>l(s,r),u={module:{uri:r},exports:a,require:o};e[r]=Promise.all(i.map(s=>u[s]||o(s))).then(s=>(n(...s),a))}}define(["./workbox-835c8c05"],function(s){"use strict";self.skipWaiting(),s.clientsClaim(),s.precacheAndRoute([{url:"registerSW.js",revision:"1872c500de691dce40960bb85481de07"},{url:"pwa-maskable-512x512.png",revision:"d4b9bd1b7e74ab0bf15cd648ecad6d9e"},{url:"pwa-512x512.png",revision:"d4b9bd1b7e74ab0bf15cd648ecad6d9e"},{url:"pwa-192x192.png",revision:"dbbf75375da55df80188a13c9bcfd1ee"},{url:"mbi-logo.svg",revision:"5b3b803fd1ba6880f7a4c5e88102ec61"},{url:"mbi-logo.png",revision:"b5fa251b62468cec70ce79494603d033"},{url:"mbi-favicon.svg",revision:"3dda309722c673b8a9f18f1d856340db"},{url:"mbi-favicon.png",revision:"45b544197a2da3323c5ae0242b1b02c0"},{url:"manifest.json",revision:"8945d0328768406876daf4c70debec33"},{url:"logo.svg",revision:"c0bcd2cc1c634aa84535af21d5fd092f"},{url:"logo-light.svg",revision:"c1810a7824c58886917bc56e492e21fa"},{url:"logo-light.png",revision:"b5fa251b62468cec70ce79494603d033"},{url:"logo-dark.svg",revision:"3e37431b5585de86634b494b0d3c65a6"},{url:"logo-dark.png",revision:"bf7e5b24c2a2e94188044b1f42dd06e1"},{url:"index.html",revision:"d03e3732a78536a3674047a89439d306"},{url:"icon.svg",revision:"1e829e22b6bad680d81c62489db6c17a"},{url:"favicon.svg",revision:"d321408df83cf881ab3b4ddb852b8048"},{url:"favicon.png",revision:"45b544197a2da3323c5ae0242b1b02c0"},{url:"favicon.ico",revision:"946a44acd8452ee414bddf0d3743108b"},{url:"apple-touch-icon.png",revision:"80f0b0adc8a1bf16d8469951a92b6fc9"},{url:"assets/vendor-react-DCeHAtwK.js",revision:null},{url:"assets/vendor-purify-Bf2tXmMS.js",revision:null},{url:"assets/vendor-pdf-DsOoMeXV.js",revision:null},{url:"assets/vendor-icons-Bo2IPWMK.js",revision:null},{url:"assets/vendor-dnd-DE1jj2HH.js",revision:null},{url:"assets/vendor-charts-lvj6a3bY.js",revision:null},{url:"assets/Utilities-BoZJELIF.js",revision:null},{url:"assets/UserPortalPage-CmpRBYFp.js",revision:null},{url:"assets/usePWAInstall-L94p0sG4.js",revision:null},{url:"assets/TopProducts-DMAhKdz5.js",revision:null},{url:"assets/TermsConditionsModal-CoJsaJcK.js",revision:null},{url:"assets/SyncHealthPage-DyN8K15n.js",revision:null},{url:"assets/SyncConflictsResolverPanel-CRkaIyHd.js",revision:null},{url:"assets/SyncAndShare-CAWV8ASr.js",revision:null},{url:"assets/Suppliers-BtSxCWou.js",revision:null},{url:"assets/SupplierReturnTab-Be9PDL6f.js",revision:null},{url:"assets/SupplierKhataPage-BeqKONne.js",revision:null},{url:"assets/StoreProductDetail-Cp6JA7Za.js",revision:null},{url:"assets/StoreOrderTracking-_2AvRmwE.js",revision:null},{url:"assets/StoreOrderConfirmation-Dxmn1S7L.js",revision:null},{url:"assets/storeManager-CHQuER7T.js",revision:null},{url:"assets/StoreLayout-1rLVJhvQ.js",revision:null},{url:"assets/StoreHome-CkkwgQ7L.js",revision:null},{url:"assets/StoreContext-CqWiFDES.js",revision:null},{url:"assets/StoreCheckout-XKF3iAyd.js",revision:null},{url:"assets/StoreCatalog-DibA2k_x.js",revision:null},{url:"assets/StoreCart-BkpRfsEB.js",revision:null},{url:"assets/SoftwareUpdatesPage-DvF3QQ6q.js",revision:null},{url:"assets/ShortageRegistry-CNv3Rf6E.js",revision:null},{url:"assets/ShiftManagement-BQIV5iDj.js",revision:null},{url:"assets/SetupBusiness-BeeLY3ig.js",revision:null},{url:"assets/ServerOverviewPage-DlRor7pL.js",revision:null},{url:"assets/SEOStrategyPage-DrTR9wyp.js",revision:null},{url:"assets/SEOStrategyHub-Dv8-Jmj1.js",revision:null},{url:"assets/seoManager-BsHq2hm8.js",revision:null},{url:"assets/securityAuditService-Dq_FfvkD.js",revision:null},{url:"assets/SalePurchaseKpiCards-p46hbU3s.js",revision:null},{url:"assets/SaleInvoicePage-x3-0jSYR.js",revision:null},{url:"assets/Register-BwcBywCc.js",revision:null},{url:"assets/PWAInstallBanner-Br3Z34Xx.js",revision:null},{url:"assets/Purchases-D9movh0e.js",revision:null},{url:"assets/PurchaseInvoicePage-CT_4_0jk.js",revision:null},{url:"assets/PricingSection-BHG_g8wv.js",revision:null},{url:"assets/Pricing-BcEGyDo9.js",revision:null},{url:"assets/PopularTopicsCard-CrW0xNGb.js",revision:null},{url:"assets/PlanComparisonModal-gKwkj_BG.js",revision:null},{url:"assets/PaymentVoucherPrintModal-BwmdRVre.js",revision:null},{url:"assets/PartiesManagementPage-C3062Quy.js",revision:null},{url:"assets/OnlineStoreManagement-CNP2wAyc.js",revision:null},{url:"assets/MultiItemShortageBillModal-COmHBpXc.js",revision:null},{url:"assets/MasterServerHub-c4BVJm0s.js",revision:null},{url:"assets/MasterPanelPage-BzR2W5eg.js",revision:null},{url:"assets/MasterCommandCenter-mvaJSzPg.js",revision:null},{url:"assets/MasterBroadcastCenterTab-7z6Qani6.js",revision:null},{url:"assets/Master2faSettingsModal-Df1mAc07.js",revision:null},{url:"assets/Login-B1ZTA4_M.js",revision:null},{url:"assets/LedgersStatementsPage-DTxMMZtm.js",revision:null},{url:"assets/LandingPage-BBabgAgV.js",revision:null},{url:"assets/InvoiceColumnSettingsModal-b67aU0LG.js",revision:null},{url:"assets/Inventory-a7EttaB8.js",revision:null},{url:"assets/index.es-CRJBjvp0.js",revision:null},{url:"assets/HelpDeskPage-BmiEE7d-.js",revision:null},{url:"assets/Feedback-EaKo3sJ_.js",revision:null},{url:"assets/Expenses-22RTKvhT.js",revision:null},{url:"assets/EmailNotificationManagerPanel-D4c8yP3p.js",revision:null},{url:"assets/Dashboard-D4_u721f.js",revision:null},{url:"assets/DailyNotes-DMr1O95u.js",revision:null},{url:"assets/CustomerKhataPage-BeyNeZZk.js",revision:null},{url:"assets/ConfirmDeleteModal-CZIqlqO4.js",revision:null},{url:"assets/CheckoutPage-jKu32ao6.js",revision:null},{url:"assets/checkoutOrderService-CBzeGUcd.js",revision:null},{url:"assets/CashInHand-CxJVexsE.js",revision:null},{url:"assets/CashierShiftModal-_TcdOZCi.js",revision:null},{url:"assets/Breadcrumbs-Bf1ioxed.js",revision:null},{url:"assets/BookersManagement-6tdlnARx.js",revision:null},{url:"assets/blogService-MlnP28NV.js",revision:null},{url:"assets/BlogListingPage-CMhYTq2A.js",revision:null},{url:"assets/BlogDetailPage-CJpgFB9m.js",revision:null},{url:"assets/Billing-Tn67LAp1.js",revision:null},{url:"assets/Bank-B85xrKIP.js",revision:null},{url:"assets/AuthPage-94He_FVG.js",revision:null},{url:"assets/assistantKnowledgeService-CAzZ-HFc.js",revision:null},{url:"assets/app.js",revision:null},{url:"assets/app.css",revision:null},{url:"assets/AiAssistantPage-BLlN5pGu.js",revision:null},{url:"apple-touch-icon.png",revision:"80f0b0adc8a1bf16d8469951a92b6fc9"},{url:"favicon.ico",revision:"946a44acd8452ee414bddf0d3743108b"},{url:"mbi-favicon.png",revision:"45b544197a2da3323c5ae0242b1b02c0"},{url:"mbi-favicon.svg",revision:"3dda309722c673b8a9f18f1d856340db"},{url:"mbi-logo.png",revision:"b5fa251b62468cec70ce79494603d033"},{url:"mbi-logo.svg",revision:"5b3b803fd1ba6880f7a4c5e88102ec61"},{url:"manifest.webmanifest",revision:"a48d5587d6723d309c604f065cce7408"}],{}),s.cleanupOutdatedCaches(),s.registerRoute(new s.NavigationRoute(s.createHandlerBoundToURL("/index.html"),{denylist:[/^\/api\//]})),s.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i,new s.CacheFirst({cacheName:"google-fonts-cache",plugins:[new s.ExpirationPlugin({maxEntries:20,maxAgeSeconds:31536e3}),new s.CacheableResponsePlugin({statuses:[0,200]})]}),"GET"),s.registerRoute(/^https:\/\/fonts\.gstatic\.com\/.*/i,new s.CacheFirst({cacheName:"gstatic-fonts-cache",plugins:[new s.ExpirationPlugin({maxEntries:20,maxAgeSeconds:31536e3}),new s.CacheableResponsePlugin({statuses:[0,200]})]}),"GET"),s.registerRoute(/\.(?:png|jpg|jpeg|svg|gif|webp|ico)$/i,new s.CacheFirst({cacheName:"images-cache",plugins:[new s.ExpirationPlugin({maxEntries:100,maxAgeSeconds:2592e3}),new s.CacheableResponsePlugin({statuses:[0,200]})]}),"GET")});
+// MBI INVENTRA — High-Performance Offline Service Worker & Hot-Update Cache Purge Engine
+const CURRENT_CACHE = 'mbi-inventra-v4.2.2';
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/mbi-favicon.png',
+  '/mbi-favicon.svg',
+  '/mbi-logo.png',
+  '/mbi-logo.svg',
+  '/manifest.json'
+];
+
+// Install: Pre-cache core shell
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CURRENT_CACHE).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn('[SW INSTALL] Non-blocking cache warning:', err);
+      });
+    })
+  );
+  // Auto activate if forced
+  self.skipWaiting();
+});
+
+// Activate: Delete all old caches immediately and claim clients
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CURRENT_CACHE).map((key) => {
+          console.log('[SW ACTIVATE] Purging legacy cache:', key);
+          return caches.delete(key);
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Message listener: Handle Instant Zero-Logout Hot-Update
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[SW MESSAGE] Received SKIP_WAITING signal. Claiming clients immediately.');
+    self.skipWaiting();
+    self.clients.claim();
+  }
+});
+
+// Fetch: Network-First for index.html/root & API exclusions, Cache-First for static assets
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Exclude API, SSE streams and non-GET backend calls
+  if (url.pathname.startsWith('/api/') || event.request.method !== 'GET') {
+    return;
+  }
+
+  // Network-First with cache fallback for navigation / HTML requests / root
+  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CURRENT_CACHE).then((cache) => {
+              cache.put('/index.html', responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cached = await caches.match('/index.html') || await caches.match('/') || await caches.match(event.request);
+          if (cached) return cached;
+          return new Response(
+            '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1"></head><body>Reconnecting...</body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
+        })
+    );
+    return;
+  }
+
+  // Cache-First with network fallback for static images, fonts and icons
+  if (
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.ico') ||
+    url.pathname.endsWith('.woff2')
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) return cachedResponse;
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CURRENT_CACHE).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        }).catch(() => cachedResponse);
+      })
+    );
+    return;
+  }
+
+  // Default Stale-While-Revalidate for bundled assets & scripts with safety fallback
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CURRENT_CACHE).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return networkResponse;
+      }).catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
+  );
+});

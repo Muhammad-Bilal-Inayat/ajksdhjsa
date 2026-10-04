@@ -294,6 +294,8 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     localStorage.setItem('mbi_user_access_profile_user_usr_active', serialized);
     localStorage.setItem(`mbi_user_access_profile_user_${newProfile.userId}`, serialized);
     localStorage.setItem(`mbi_user_access_profile_${targetTenantId}_${newProfile.userId}`, serialized);
+    localStorage.setItem(`mbi_user_access_profile_tenant_${targetTenantId}`, serialized);
+    localStorage.setItem(`mbi_user_access_profile_user_${targetTenantId}`, serialized);
     localStorage.setItem('mbi_master_control_last_selected_user', newProfile.userId);
 
     // Also mirror to tenant-level feature store so all subusers inherit immediately
@@ -315,6 +317,11 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
           live_profit_margin: newProfile.functionToggles['viewCostsAndMargins'] !== false,
           batch_management: newProfile.functionToggles['batchTracking'] !== false,
           custom_item_fields: newProfile.functionToggles['itemCustomFields'] !== false,
+          can_edit_bills: newProfile.actionToggles['act_edit_sale'] !== false && newProfile.functionToggles['editSale'] !== false,
+          can_delete_bills: newProfile.actionToggles['act_delete_sale'] !== false && newProfile.functionToggles['deleteSale'] !== false,
+          can_reprint_bills: newProfile.actionToggles['act_print_sale'] !== false && newProfile.functionToggles['reprintSale'] !== false,
+          can_view_costs: newProfile.actionToggles['act_view_cost'] !== false && newProfile.functionToggles['viewCostsAndMargins'] !== false,
+          can_apply_discount: newProfile.actionToggles['act_apply_disc'] !== false && newProfile.functionToggles['applyDiscount'] !== false,
         };
         localStorage.setItem(`mbi_tenant_features_${targetTenantId}`, JSON.stringify(tenantFeatureMap));
         window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', {
@@ -366,6 +373,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
           nextFunctionToggles[fn.id] = newVal;
           fn.actions.forEach(act => {
             nextActionToggles[act.id] = newVal;
+            if (act.code) nextActionToggles[act.code] = newVal;
           });
         });
       });
@@ -404,6 +412,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         nextFunctionToggles[fn.id] = newVal;
         fn.actions.forEach(act => {
           nextActionToggles[act.id] = newVal;
+          if (act.code) nextActionToggles[act.code] = newVal;
         });
       });
     }
@@ -441,6 +450,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     if (fn) {
       fn.actions.forEach(act => {
         nextActionToggles[act.id] = newVal;
+        if (act.code) nextActionToggles[act.code] = newVal;
       });
     }
 
@@ -466,6 +476,15 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     const nextSubmenuToggles = { ...profile.submenuToggles };
     const nextMenuToggles = { ...profile.menuToggles };
 
+    // Also find action code and set it
+    const menu = SYSTEM_MENU_TREE.find(m => m.id === parentMenuId);
+    const sub = menu?.submenus.find(s => s.id === parentSubmenuId);
+    const fn = sub?.functions.find(f => f.id === parentFunctionId);
+    const act = fn?.actions.find(a => a.id === actionId);
+    if (act?.code) {
+      nextActionToggles[act.code] = newVal;
+    }
+
     if (newVal) {
       nextFunctionToggles[parentFunctionId] = true;
       nextSubmenuToggles[parentSubmenuId] = true;
@@ -488,11 +507,35 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
   };
 
   // High-Priority Direct Quick-Toggles
-  const isInvoiceEditingAllowed = profile.actionToggles['act_edit_sale'] !== false && profile.functionToggles['editSale'] !== false;
-  const isBillDeletionAllowed = profile.actionToggles['act_delete_sale'] !== false && profile.functionToggles['deleteSale'] !== false;
-  const isShareAccessAllowed = profile.actionToggles['act_print_sale'] !== false && profile.functionToggles['reprintSale'] !== false;
-  const isPurchaseCostAllowed = profile.actionToggles['act_view_cost'] !== false && profile.functionToggles['viewCostsAndMargins'] !== false;
-  const isDiscountAllowed = profile.actionToggles['act_apply_disc'] !== false && profile.functionToggles['applyDiscount'] !== false;
+  const isInvoiceEditingAllowed = 
+    profile.actionToggles['act_edit_sale'] !== false && 
+    profile.functionToggles['editSale'] !== false && 
+    profile.actionToggles['SALE_EDIT'] !== false &&
+    profile.actionToggles['canEditBills'] !== false;
+
+  const isBillDeletionAllowed = 
+    profile.actionToggles['act_delete_sale'] !== false && 
+    profile.functionToggles['deleteSale'] !== false &&
+    profile.actionToggles['SALE_DELETE'] !== false &&
+    profile.actionToggles['canDeleteBills'] !== false;
+
+  const isShareAccessAllowed = 
+    profile.actionToggles['act_print_sale'] !== false && 
+    profile.functionToggles['reprintSale'] !== false &&
+    profile.actionToggles['SALE_PRINT'] !== false &&
+    profile.actionToggles['canReprintBills'] !== false;
+
+  const isPurchaseCostAllowed = 
+    profile.actionToggles['act_view_cost'] !== false && 
+    profile.functionToggles['viewCostsAndMargins'] !== false &&
+    profile.actionToggles['VIEW_COST'] !== false &&
+    profile.actionToggles['canViewCost'] !== false;
+
+  const isDiscountAllowed = 
+    profile.actionToggles['act_apply_disc'] !== false && 
+    profile.functionToggles['applyDiscount'] !== false &&
+    profile.actionToggles['SALE_DISC'] !== false &&
+    profile.actionToggles['canApplyDiscount'] !== false;
 
   const handleQuickToggleInvoiceEditing = () => {
     const newVal = !isInvoiceEditingAllowed;
@@ -506,7 +549,12 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         ...profile.actionToggles, 
         act_edit_sale: newVal,
         act_edit_invoice: newVal,
-        act_edit_bills: newVal
+        act_edit_bills: newVal,
+        SALE_EDIT: newVal,
+        canEditBills: newVal,
+        canEditInvoices: newVal,
+        canEditSaleInvoice: newVal,
+        override_invoice_editing: newVal
       }
     }, `Invoice editing ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
@@ -524,7 +572,11 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         act_delete_sale: newVal, 
         act_del_sale: newVal,
         act_void_sale: newVal,
-        act_delete_bills: newVal
+        act_delete_bills: newVal,
+        SALE_DELETE: newVal,
+        canDeleteBills: newVal,
+        canVoidSaleInvoice: newVal,
+        canDeleteTransactions: newVal
       }
     }, `Bill deletion ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
@@ -542,7 +594,12 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         act_print_sale: newVal,
         act_share_sale: newVal,
         act_pdf_sale: newVal,
-        act_duplicate_print: newVal
+        act_duplicate_print: newVal,
+        SALE_PRINT: newVal,
+        SALE_SHARE: newVal,
+        canReprintBills: newVal,
+        canShareInvoice: newVal,
+        canShareBill: newVal
       }
     }, `Share & PDF print access ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
@@ -559,7 +616,11 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         ...profile.actionToggles, 
         act_view_cost: newVal,
         act_view_purchase_cost: newVal,
-        act_cost_margins: newVal
+        act_cost_margins: newVal,
+        VIEW_COST: newVal,
+        canViewCost: newVal,
+        canViewCostsAndProfit: newVal,
+        canViewPurchaseCost: newVal
       }
     }, `Purchase cost & margin view ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };
@@ -577,7 +638,10 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
         act_apply_disc: newVal, 
         act_disc_sale: newVal,
         act_discount: newVal,
-        act_grant_discount: newVal
+        act_grant_discount: newVal,
+        SALE_DISC: newVal,
+        canApplyDiscount: newVal,
+        canGiveDiscount: newVal
       }
     }, `Discount authorization ${newVal ? 'ALLOWED' : 'DENIED'} for ${selectedUser.name}`);
   };

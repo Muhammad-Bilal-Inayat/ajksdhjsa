@@ -217,10 +217,38 @@ export const SyncAndShare: React.FC = () => {
         return currentTenantId === 'tenant_main_pharmacy' || currentTenantId === 'tenant-demo-01';
       });
 
-      // 3. Merge server and local records strictly for this tenant
+      // 3. Merge server and local records strictly for this tenant with deduplication
       const userMap = new Map<string, AppUserRecord>();
-      localTenantUsers.forEach(u => userMap.set(u.id, u));
-      serverUsers.forEach(u => userMap.set(u.id, { ...userMap.get(u.id), ...u }));
+      const seenNames = new Map<string, string>();
+
+      // Seed local users first and prune local duplicates
+      for (const u of localTenantUsers) {
+        const normName = (u.name || '').trim().toLowerCase();
+        if (normName) {
+          if (!seenNames.has(normName)) {
+            seenNames.set(normName, u.id);
+            userMap.set(u.id, u);
+          } else {
+            // Prune duplicate record with same name
+            dbAppUsers.delete(u.id).catch(() => {});
+          }
+        } else {
+          userMap.set(u.id, u);
+        }
+      }
+
+      // Merge server users matching either ID or normalized name
+      for (const s of serverUsers) {
+        const normName = (s.name || '').trim().toLowerCase();
+        const existingId = (normName && seenNames.get(normName)) || (userMap.has(s.id) ? s.id : null);
+        if (existingId) {
+          const current = userMap.get(existingId)!;
+          userMap.set(existingId, { ...current, ...s, id: existingId });
+        } else {
+          userMap.set(s.id, s);
+          if (normName) seenNames.set(normName, s.id);
+        }
+      }
 
       // 4. Ensure there is at least 1 Primary Admin for this company
       if (userMap.size === 0) {
@@ -345,8 +373,28 @@ export const SyncAndShare: React.FC = () => {
     }
 
     const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+    let assignedId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    try {
+      const serverCreated = await userService.createUser({
+        name: formData.name.trim(),
+        emailOrPhone: formData.emailOrPhone.trim(),
+        email: formData.emailOrPhone.includes('@') ? formData.emailOrPhone.trim() : undefined,
+        phone: !formData.emailOrPhone.includes('@') ? formData.emailOrPhone.trim() : undefined,
+        role: formData.role as any,
+        passcode: formData.passcode.trim(),
+        pin: formData.passcode.trim(),
+        notes: formData.notes.trim()
+      }, currentTenantId);
+      if (serverCreated && serverCreated.id) {
+        assignedId = serverCreated.id;
+      }
+    } catch (apiErr) {
+      console.warn('Backend server user creation notice:', apiErr);
+    }
+
     const newUser: AppUserRecord = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: assignedId,
       name: formData.name.trim(),
       emailOrPhone: formData.emailOrPhone.trim(),
       role: formData.role,
@@ -367,21 +415,6 @@ export const SyncAndShare: React.FC = () => {
       lastSyncTime: new Date().toISOString(),
       isOnline: navigator.onLine
     } as any);
-
-    try {
-      await userService.createUser({
-        name: newUser.name,
-        emailOrPhone: newUser.emailOrPhone,
-        email: newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
-        phone: !newUser.emailOrPhone.includes('@') ? newUser.emailOrPhone : undefined,
-        role: newUser.role as any,
-        passcode: newUser.passcode,
-        pin: newUser.passcode,
-        notes: newUser.notes
-      }, currentTenantId);
-    } catch (apiErr) {
-      console.warn('Failed to save to server user API:', apiErr);
-    }
 
     await firebaseSyncManager.queueRecord('appUsers', newUser.id, { ...newUser, tenantId: currentTenantId }, 'set');
 

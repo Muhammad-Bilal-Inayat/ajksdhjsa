@@ -85,7 +85,7 @@ const AuthPage = lazyWithRetry(() => import('./pages/AuthPage').then(m => ({ def
 const Login = lazyWithRetry(() => import('./pages/Login').then(m => ({ default: m.default || m.Login || m.LoginPage })));
 const Register = lazyWithRetry(() => import('./pages/Register').then(m => ({ default: m.default || m.Register || m.RegisterPage })));
 const SetupBusiness = lazyWithRetry(() => import('./pages/SetupBusiness'));
-const MasterServerHub = lazyWithRetry<React.FC<{ initialTab?: string }>>(() => import('./pages/MasterServerHub').then(m => ({ default: m.MasterServerHub })));
+const MasterServerHub = lazyWithRetry<React.FC<{ initialTab?: string }>>(() => import('./pages/MasterServerHub').then(m => ({ default: m.default || m.MasterServerHub })));
 
 // Core POS/ERP pages code-split for lightning-fast initial page load and 0ms navigation
 const Dashboard = lazyWithRetry(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -400,10 +400,10 @@ function AppRoutes() {
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/workspace" element={<AuthPage />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
-        <Route path="/server" element={<MasterServerHub />} />
-        <Route path="/server/lan" element={<MasterServerHub initialTab="lan_hub" />} />
-        <Route path="/lan" element={<MasterServerHub initialTab="lan_hub" />} />
-        <Route path="/server/command-center" element={<MasterCommandCenter />} />
+        <Route path="/server" element={<ErrorBoundary><MasterServerHub /></ErrorBoundary>} />
+        <Route path="/server/lan" element={<ErrorBoundary><MasterServerHub initialTab="lan_hub" /></ErrorBoundary>} />
+        <Route path="/lan" element={<ErrorBoundary><MasterServerHub initialTab="lan_hub" /></ErrorBoundary>} />
+        <Route path="/server/command-center" element={<ErrorBoundary><MasterCommandCenter /></ErrorBoundary>} />
         <Route path="/setup" element={<ProtectedRoute><SetupBusiness /></ProtectedRoute>} />
 
         {/* Public Online Storefront Routes */}

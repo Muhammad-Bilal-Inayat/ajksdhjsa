@@ -883,3 +883,5 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
     </div>
   );
 }
+
+export default MasterServerHub;

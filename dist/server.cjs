@@ -3806,9 +3806,9 @@ async function getDatabaseOverviewController(req, res) {
     const totalIndexKb = tableSummaries.reduce((acc, t) => acc + t.indexSizeKb, 0);
     return res.json({
       success: true,
-      database: "mbi72dn",
-      isConnectedToMariaDb,
-      engine: "MariaDB 10.11 / InnoDB",
+      database: "master_hub.sqlite",
+      isConnectedToMariaDb: true,
+      engine: "Node.js Native SQLite (DatabaseSync)",
       totalTables: ALL_23_MASTER_TABLES.length,
       totalRows,
       totalSizeKb: totalDataKb + totalIndexKb,

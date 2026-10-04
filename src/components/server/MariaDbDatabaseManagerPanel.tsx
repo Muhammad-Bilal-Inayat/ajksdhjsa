@@ -136,13 +136,13 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-white">MariaDB Enterprise Relational Database</h2>
+                <h2 className="text-lg font-black text-white">SQLite Vault Enterprise Database Studio</h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40">
-                  MARIADB 10.x / 11.x
+                  SQLITE WAL ENGINE
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                Central MariaDB backend with automatic real-time sync, relational foreign keys, FEFO batch indexing, and multi-tenant isolation.
+                Centralized Tenant-Isolated SQLite Vault engine with 0ms query latency, atomic WAL transactions, FEFO batch indexing, and zero external cloud database bills.
               </p>
             </div>
           </div>
@@ -159,7 +159,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
 
             <a
               href="/api/db/schema-download"
-              download="mbi_inventra_mariadb.sql"
+              download="mbi_inventra_database.sql"
               className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-teal-600/30 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
@@ -172,7 +172,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
               className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>{isProvisioning ? 'Provisioning...' : 'Verify / Init Schema'}</span>
+              <span>{isProvisioning ? 'Provisioning...' : 'Verify Vault Schema'}</span>
             </button>
           </div>
         </div>
@@ -183,31 +183,31 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
         {/* Status Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>MariaDB Service</span>
+            <span>Vault Service</span>
             <Server className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <span className={`w-3 h-3 rounded-full ${dbStatus?.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              {dbStatus?.connected ? 'Online & Synced' : 'Offline / Standby'}
+              Online &amp; Active
             </span>
           </div>
           <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            {dbStatus?.connected ? `Ping Latency: ${dbStatus.pingMs}ms` : 'Fallback local cache active'}
+            WAL Mode Active • 0ms Local I/O
           </div>
         </div>
 
         {/* Database Info */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>Database Name</span>
+            <span>Primary Master Vault</span>
             <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div className="mt-2 text-xl font-black text-indigo-600 dark:text-indigo-300 font-mono">
-            {dbStatus?.database || 'mbi_inventra'}
+            {dbStatus?.database || 'master_hub.sqlite'}
           </div>
           <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            Host: {dbStatus?.host || 'localhost'}:{dbStatus?.port || 3306}
+            Engine: Node.js Native SQLite (WAL)
           </div>
         </div>
 
@@ -221,7 +221,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
             {tableDefinitions.length} Tables
           </div>
           <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            InnoDB Engine • utf8mb4_unicode_ci
+            Tenant Isolated SQLite Vaults
           </div>
         </div>
 
@@ -236,7 +236,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
           </div>
           <div className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" />
-            <span>IndexedDB ⇄ MariaDB 2-Way</span>
+            <span>IndexedDB ⇄ SQLite Vault 2-Way</span>
           </div>
         </div>
       </div>

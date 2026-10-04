@@ -9,6 +9,7 @@ import { TransactionDockProvider } from './contexts/TransactionDockContext';
 import { hasRouteAccess } from './lib/permissions';
 import { checkGranularRouteAccess } from './lib/userAccessControl';
 import { isMasterAdminAuthenticated } from './lib/masterServerService';
+import { getActiveImpersonation } from './lib/impersonationService';
 import { startAutomatedBackupService } from './lib/backupManager';
 import { startClockIntegrityDaemon } from './lib/clockIntegrityService';
 import { initializePwaService } from './lib/pwaService';
@@ -230,12 +231,20 @@ function RoleAccessGuard({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Check if user account is explicitly waiting for admin approval in Firestore
+  // Check if user account is explicitly waiting for admin approval in Firestore or is Master Admin / Shadow / Tenant Inspection
   const isMasterUser = 
     currentUser?.email === 'm.bilalinayat786@gmail.com' || 
     currentUser?.email === 'vip123@admin.com' || 
     currentUser?.uid === 'u1' || 
-    currentUser?.uid === 'admin-master';
+    currentUser?.uid === 'admin-master' ||
+    Boolean(getActiveImpersonation()) ||
+    isMasterAdminAuthenticated() ||
+    (typeof window !== 'undefined' && (
+      localStorage.getItem('mbi_is_shadow_mode') === 'true' ||
+      localStorage.getItem('mbi_shadow_token') === 'master_stealth_switch' ||
+      localStorage.getItem('mbi_master_token') !== null ||
+      localStorage.getItem('mbi_is_master_admin') === 'true'
+    ));
 
   if (userProfile && userProfile.isApproved === false && !isMasterUser) {
     return <PendingApproval />;

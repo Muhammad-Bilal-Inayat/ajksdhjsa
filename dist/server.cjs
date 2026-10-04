@@ -12598,6 +12598,7 @@ adminMasterRouter.post("/verify-pin", async (req, res) => {
     res.status(401).json({ success: false, error: "Access Denied: Invalid Master Security Key" });
   }
 });
+adminMasterRouter.use(requireMasterAuth);
 adminMasterRouter.get("/search", async (req, res) => {
   try {
     const q = (req.query.q || "").trim();

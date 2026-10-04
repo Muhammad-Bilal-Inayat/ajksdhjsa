@@ -35,13 +35,16 @@ adminMasterRouter.post('/verify-pin', async (req: TenantRequest, res: Response):
       token: masterSessionToken,
       isRecoverySession: isRecoveryKey,
       message: isRecoveryKey
-      ? 'Emergency Disaster Recovery Access Authorized'
-      : 'Master Command Access Authorized (MBI INVENTRA 4 Master Station)'
+        ? 'Emergency Disaster Recovery Access Authorized'
+        : 'Master Command Access Authorized (MBI INVENTRA 4 Master Station)'
     });
   } else {
-  res.status(401).json({ success: false, error: 'Access Denied: Invalid Master Security Key' });
-}
+    res.status(401).json({ success: false, error: 'Access Denied: Invalid Master Security Key' });
+  }
 });
+
+// Enforce strict Master Authorization for all administrative operations below
+adminMasterRouter.use(requireMasterAuth);
 
 // 2. Dedicated Server-Wide Global Search API (MariaDB + Local Sync Cache Fallback)
 adminMasterRouter.get('/search', async (req: TenantRequest, res: Response): Promise<void> => {

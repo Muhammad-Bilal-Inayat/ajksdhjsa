@@ -1271,7 +1271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         if (match) {
           const expectedPass = match.passcode || (match as any).password || (match as any).pin || '0000';
-          if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase() || cleanPass === 'vip123' || cleanPass === 'admin123' || cleanPass === '0000' || cleanPass === '1234') {
+          if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase()) {
             authenticatedUserObj = {
               uid: match.id,
               email: match.emailOrPhone || match.email || '',
@@ -1300,7 +1300,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (matchedLead) {
         const leadPass = matchedLead.password || (matchedLead as any).passcode || '1234';
-        if (cleanPass === leadPass || cleanPass.toLowerCase() === leadPass.toLowerCase() || cleanPass === 'vip123' || cleanPass === 'admin123' || cleanPass === '0000' || cleanPass === '1234') {
+        if (cleanPass === leadPass || cleanPass.toLowerCase() === leadPass.toLowerCase()) {
           const allTenants = getAllTenants();
           const foundTenant = allTenants.find(t => 
             (matchedLead.activationKey && t.licenseId === matchedLead.activationKey) ||
@@ -1339,7 +1339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (mUser) {
           const expectedPass = mUser.passcode || (mUser as any).password || (mUser as any).pin || '0000';
-          if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase() || cleanPass === 'vip123' || cleanPass === 'admin123' || cleanPass === '0000' || cleanPass === '1234') {
+          if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase()) {
             authenticatedUserObj = {
               uid: mUser.id,
               email: mUser.emailOrPhone || '',
@@ -1398,7 +1398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           );
           if (match) {
             const expectedPass = match.passcode || match.password || match.pin || '0000';
-            if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase() || cleanPass === 'vip123' || cleanPass === 'admin123' || cleanPass === '0000') {
+            if (cleanPass === expectedPass || cleanPass.toLowerCase() === expectedPass.toLowerCase()) {
               authenticatedUserObj = {
                 uid: match.id,
                 email: match.emailOrPhone || match.email || '',

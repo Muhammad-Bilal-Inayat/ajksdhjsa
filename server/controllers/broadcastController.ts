@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { getMasterVault } from '../db/sqliteVaultManager';
 import { getMariaDbPool } from '../db/mariaClient';
-import { broadcastTenantEvent } from '../routes/syncRoutes';
+import { broadcastTenantEvent, broadcastGlobalEvent } from '../routes/syncRoutes';
 import { broadcastFleetActivity, broadcastAdminEvent } from '../routes/adminRoutes';
 import fs from 'fs';
 import path from 'path';
@@ -329,15 +329,24 @@ export async function dispatchBroadcastController(req: Request, res: Response): 
     if (fallback.broadcasts.length > 100) fallback.broadcasts = fallback.broadcasts.slice(0, 100);
     saveLocalData(fallback);
 
-    // 3. Emit SSE Event to target channels
-    const targetChannel = targetType === 'store' && targetStoreId ? targetStoreId : 'global';
+    // 3. Emit SSE Event to target channels (Global or Specific Tenant)
     try {
-      broadcastTenantEvent(targetChannel, {
-        type: 'NEW_BROADCAST_ANNOUNCEMENT',
-        entity: 'broadcast',
-        payload: broadcastRecord
-      });
-    } catch (sseErr) {}
+      if (targetType === 'store' && targetStoreId) {
+        broadcastTenantEvent(targetStoreId, {
+          type: 'NEW_BROADCAST_ANNOUNCEMENT',
+          entity: 'broadcast',
+          payload: broadcastRecord
+        });
+      } else {
+        broadcastGlobalEvent({
+          type: 'NEW_BROADCAST_ANNOUNCEMENT',
+          entity: 'broadcast',
+          payload: broadcastRecord
+        });
+      }
+    } catch (sseErr) {
+      console.warn('[SSE Broadcast Error]:', sseErr);
+    }
 
     // 4. Record Fleet Activity Stream
     try {

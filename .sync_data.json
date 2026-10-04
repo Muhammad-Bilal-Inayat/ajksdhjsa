@@ -234110,6 +234110,21 @@
   ],
   "broadcasts": [
     {
+      "id": "bc_1791142454452_wz2pq",
+      "title": "hi",
+      "subtitle": "hhhhhh",
+      "body": "hhhhh",
+      "type": "info",
+      "priority": "feature_update",
+      "targetType": "global",
+      "dispatchedAt": "2026-10-04T19:34:14.452Z",
+      "author": "Super Admin",
+      "deliveredCount": 15,
+      "readCount": 0,
+      "readPercentage": 0,
+      "receipts": []
+    },
+    {
       "id": "bc_1791141937741_g2n5q",
       "title": "hi",
       "subtitle": "hi",

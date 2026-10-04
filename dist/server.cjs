@@ -3359,14 +3359,22 @@ async function dispatchBroadcastController(req, res) {
     fallback.broadcasts.unshift(broadcastRecord);
     if (fallback.broadcasts.length > 100) fallback.broadcasts = fallback.broadcasts.slice(0, 100);
     saveLocalData(fallback);
-    const targetChannel = targetType === "store" && targetStoreId ? targetStoreId : "global";
     try {
-      broadcastTenantEvent(targetChannel, {
-        type: "NEW_BROADCAST_ANNOUNCEMENT",
-        entity: "broadcast",
-        payload: broadcastRecord
-      });
+      if (targetType === "store" && targetStoreId) {
+        broadcastTenantEvent(targetStoreId, {
+          type: "NEW_BROADCAST_ANNOUNCEMENT",
+          entity: "broadcast",
+          payload: broadcastRecord
+        });
+      } else {
+        broadcastGlobalEvent({
+          type: "NEW_BROADCAST_ANNOUNCEMENT",
+          entity: "broadcast",
+          payload: broadcastRecord
+        });
+      }
     } catch (sseErr) {
+      console.warn("[SSE Broadcast Error]:", sseErr);
     }
     try {
       broadcastFleetActivity({

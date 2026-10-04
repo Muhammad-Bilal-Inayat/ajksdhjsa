@@ -642,16 +642,47 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              emitToast('Image size exceeds 2MB limit. Please choose a smaller image.', 'error');
-                              return;
-                            }
                             const reader = new FileReader();
                             reader.onload = (event) => {
-                              const result = event.target?.result as string;
-                              if (result) {
-                                setImageUrl(result);
-                                emitToast('Image attached successfully!', 'success');
+                              const rawData = event.target?.result as string;
+                              if (rawData) {
+                                // Auto-Optimize & Resize via Canvas
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement('canvas');
+                                  const maxW = 1200;
+                                  const maxH = 630;
+                                  let width = img.width;
+                                  let height = img.height;
+
+                                  if (width > maxW || height > maxH) {
+                                    if (width / height > maxW / maxH) {
+                                      height = Math.round((height * maxW) / width);
+                                      width = maxW;
+                                    } else {
+                                      width = Math.round((width * maxH) / height);
+                                      height = maxH;
+                                    }
+                                  }
+
+                                  canvas.width = width;
+                                  canvas.height = height;
+                                  const ctx = canvas.getContext('2d');
+                                  if (ctx) {
+                                    ctx.drawImage(img, 0, 0, width, height);
+                                    const optimizedDataUrl = canvas.toDataURL('image/webp', 0.85);
+                                    setImageUrl(optimizedDataUrl);
+                                    emitToast(`✨ Image auto-optimized & resized to ${width}x${height}px!`, 'success');
+                                  } else {
+                                    setImageUrl(rawData);
+                                    emitToast('Image attached successfully!', 'success');
+                                  }
+                                };
+                                img.onerror = () => {
+                                  setImageUrl(rawData);
+                                  emitToast('Image attached successfully!', 'success');
+                                };
+                                img.src = rawData;
                               }
                             };
                             reader.readAsDataURL(file);

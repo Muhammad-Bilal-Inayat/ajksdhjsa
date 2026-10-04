@@ -133,6 +133,42 @@ export function getMasterVault(): DatabaseSync {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_notifications (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      body TEXT NOT NULL,
+      image_url TEXT,
+      type TEXT NOT NULL DEFAULT 'info',
+      priority TEXT NOT NULL DEFAULT 'feature_update',
+      target_type TEXT NOT NULL DEFAULT 'global',
+      target_plan TEXT,
+      target_store_id TEXT,
+      target_store_name TEXT,
+      target_user_id TEXT,
+      target_user_name TEXT,
+      cta_label TEXT,
+      cta_url TEXT,
+      author TEXT NOT NULL DEFAULT 'Super Admin',
+      dispatched_at TEXT NOT NULL DEFAULT (datetime('now')),
+      delivered_count INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mbi_notification_receipts (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      store_name TEXT,
+      owner_name TEXT,
+      city TEXT,
+      user_id TEXT,
+      user_name TEXT,
+      hwid TEXT,
+      seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (notification_id, tenant_id, hwid)
+    );
   `);
 
   // Dynamically add any missing columns so SQLite master hub never rejects payload fields

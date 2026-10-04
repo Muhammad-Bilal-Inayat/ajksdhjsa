@@ -255,6 +255,42 @@ function getMasterVault() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_notifications (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      body TEXT NOT NULL,
+      image_url TEXT,
+      type TEXT NOT NULL DEFAULT 'info',
+      priority TEXT NOT NULL DEFAULT 'feature_update',
+      target_type TEXT NOT NULL DEFAULT 'global',
+      target_plan TEXT,
+      target_store_id TEXT,
+      target_store_name TEXT,
+      target_user_id TEXT,
+      target_user_name TEXT,
+      cta_label TEXT,
+      cta_url TEXT,
+      author TEXT NOT NULL DEFAULT 'Super Admin',
+      dispatched_at TEXT NOT NULL DEFAULT (datetime('now')),
+      delivered_count INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS mbi_notification_receipts (
+      id TEXT PRIMARY KEY,
+      notification_id TEXT NOT NULL,
+      tenant_id TEXT NOT NULL,
+      store_name TEXT,
+      owner_name TEXT,
+      city TEXT,
+      user_id TEXT,
+      user_name TEXT,
+      hwid TEXT,
+      seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (notification_id, tenant_id, hwid)
+    );
   `);
   const tenantColumns = [
     "organization_id TEXT",
@@ -3089,90 +3125,28 @@ function saveLocalData(data) {
     console.warn("[Broadcast Controller] Failed to write local fallback data:", e);
   }
 }
-async function initTablesIfNecessary() {
-  try {
-    const pool = getMariaDbPool();
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS mbi_notifications (
-        id VARCHAR(64) PRIMARY KEY,
-        title VARCHAR(255) NOT NULL,
-        subtitle VARCHAR(255),
-        body TEXT NOT NULL,
-        image_url TEXT,
-        type VARCHAR(32) NOT NULL DEFAULT 'info',
-        priority VARCHAR(32) NOT NULL DEFAULT 'feature_update',
-        target_type VARCHAR(32) NOT NULL DEFAULT 'global',
-        target_plan VARCHAR(64),
-        target_store_id VARCHAR(64),
-        target_store_name VARCHAR(255),
-        target_user_id VARCHAR(64),
-        target_user_name VARCHAR(255),
-        cta_label VARCHAR(128),
-        cta_url VARCHAR(512),
-        author VARCHAR(128) NOT NULL DEFAULT 'Super Admin',
-        dispatched_at DATETIME NOT NULL,
-        delivered_count INT NOT NULL DEFAULT 1,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `).catch(() => {
-    });
-    await pool.query(`
-      ALTER TABLE mbi_notifications ADD COLUMN IF NOT EXISTS image_url TEXT;
-    `).catch(() => {
-    });
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS mbi_notification_receipts (
-        id VARCHAR(64) PRIMARY KEY,
-        notification_id VARCHAR(64) NOT NULL,
-        tenant_id VARCHAR(64) NOT NULL,
-        store_name VARCHAR(255),
-        owner_name VARCHAR(255),
-        city VARCHAR(128),
-        user_id VARCHAR(64),
-        user_name VARCHAR(255),
-        hwid VARCHAR(128),
-        seen_at DATETIME NOT NULL,
-        CONSTRAINT uq_notif_receipt UNIQUE (notification_id, tenant_id, hwid)
-      );
-    `).catch(() => {
-    });
-    await pool.query(`
-      DELETE FROM mbi_notifications 
-      WHERE id LIKE 'perm_%' 
-         OR id LIKE 'security_%' 
-         OR id LIKE 'toggle_%' 
-         OR type = 'permission_update' 
-         OR title LIKE '%Security & Access Permissions%'
-         OR title LIKE '%Permissions Updated%';
-    `).catch(() => {
-    });
-  } catch (err) {
-  }
-}
-initTablesIfNecessary().catch(() => {
-});
 async function getBroadcastHistoryController(req, res) {
   try {
     const fallback = getLocalData();
     let broadcasts = [];
     let receipts = fallback.broadcast_receipts || [];
     try {
-      const pool = getMariaDbPool();
-      const rows = await pool.query(
-        `SELECT * FROM mbi_notifications 
-         WHERE id NOT LIKE 'perm_%' 
-           AND id NOT LIKE 'security_%' 
-           AND id NOT LIKE 'toggle_%' 
-           AND (type IS NULL OR type != 'permission_update')
-           AND title NOT LIKE '%Security & Access Permissions%'
-           AND title NOT LIKE '%Permissions Updated%'
-         ORDER BY dispatched_at DESC LIMIT 100;`
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        const rcptRows = await pool.query(
-          "SELECT * FROM mbi_notification_receipts ORDER BY seen_at DESC LIMIT 500;"
-        ).catch(() => []);
-        const dbReceipts = Array.isArray(rcptRows) ? rcptRows.map((r) => ({
+      const masterDb = getMasterVault();
+      const rows = masterDb.prepare(`
+        SELECT * FROM mbi_notifications 
+        WHERE id NOT LIKE 'perm_%' 
+          AND id NOT LIKE 'security_%' 
+          AND id NOT LIKE 'toggle_%' 
+          AND (type IS NULL OR type != 'permission_update')
+          AND title NOT LIKE '%Security & Access Permissions%'
+          AND title NOT LIKE '%Permissions Updated%'
+        ORDER BY dispatched_at DESC LIMIT 100;
+      `).all();
+      const rcptRows = masterDb.prepare(`
+        SELECT * FROM mbi_notification_receipts ORDER BY seen_at DESC LIMIT 500;
+      `).all();
+      if (Array.isArray(rcptRows)) {
+        const sqliteReceipts = rcptRows.map((r) => ({
           id: r.id,
           broadcastId: r.notification_id,
           tenantId: r.tenant_id,
@@ -3183,9 +3157,11 @@ async function getBroadcastHistoryController(req, res) {
           userName: r.user_name,
           hwid: r.hwid || "DEV-HWID",
           status: "READ",
-          seenAt: r.seen_at ? new Date(r.seen_at).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
-        })) : [];
-        receipts = [...dbReceipts, ...receipts];
+          seenAt: r.seen_at || (/* @__PURE__ */ new Date()).toISOString()
+        }));
+        receipts = [...sqliteReceipts, ...receipts];
+      }
+      if (Array.isArray(rows) && rows.length > 0) {
         broadcasts = rows.map((r) => {
           const matchingReceipts = receipts.filter((rc) => rc.broadcastId === r.id);
           const readCount = matchingReceipts.length;
@@ -3208,7 +3184,7 @@ async function getBroadcastHistoryController(req, res) {
             ctaLabel: r.cta_label,
             ctaUrl: r.cta_url,
             author: r.author || "Super Admin",
-            dispatchedAt: r.dispatched_at ? new Date(r.dispatched_at).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+            dispatchedAt: r.dispatched_at || (/* @__PURE__ */ new Date()).toISOString(),
             deliveredCount,
             readCount,
             readPercentage,
@@ -3216,7 +3192,54 @@ async function getBroadcastHistoryController(req, res) {
           };
         });
       }
-    } catch (dbErr) {
+    } catch (sqliteErr) {
+    }
+    if (broadcasts.length === 0) {
+      try {
+        const pool = getMariaDbPool();
+        const rows = await pool.query(
+          `SELECT * FROM mbi_notifications 
+           WHERE id NOT LIKE 'perm_%' 
+             AND id NOT LIKE 'security_%' 
+             AND id NOT LIKE 'toggle_%' 
+             AND (type IS NULL OR type != 'permission_update')
+             AND title NOT LIKE '%Security & Access Permissions%'
+             AND title NOT LIKE '%Permissions Updated%'
+           ORDER BY dispatched_at DESC LIMIT 100;`
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          broadcasts = rows.map((r) => {
+            const matchingReceipts = receipts.filter((rc) => rc.broadcastId === r.id);
+            const readCount = matchingReceipts.length;
+            const deliveredCount = r.delivered_count || Math.max(1, readCount + 3);
+            const readPercentage = deliveredCount > 0 ? Math.min(100, Math.round(readCount / deliveredCount * 100)) : 0;
+            return {
+              id: r.id,
+              title: r.title,
+              subtitle: r.subtitle,
+              body: r.body,
+              imageUrl: r.image_url || r.imageUrl || void 0,
+              type: r.type || "info",
+              priority: r.priority || "feature_update",
+              targetType: r.target_type || "global",
+              targetPlan: r.target_plan,
+              targetStoreId: r.target_store_id,
+              targetStoreName: r.target_store_name,
+              targetUserId: r.target_user_id,
+              targetUserName: r.target_user_name,
+              ctaLabel: r.cta_label,
+              ctaUrl: r.cta_url,
+              author: r.author || "Super Admin",
+              dispatchedAt: r.dispatched_at ? new Date(r.dispatched_at).toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+              deliveredCount,
+              readCount,
+              readPercentage,
+              receipts: matchingReceipts
+            };
+          });
+        }
+      } catch (dbErr) {
+      }
     }
     if (broadcasts.length === 0) {
       const localBc = fallback.broadcasts || [
@@ -3236,30 +3259,7 @@ async function getBroadcastHistoryController(req, res) {
           deliveredCount: 48,
           readCount: 42,
           readPercentage: 88,
-          receipts: [
-            {
-              id: "rc_1",
-              broadcastId: "bc_init_1",
-              tenantId: "tenant_alshifa",
-              storeName: "Al-Shifa Medicine Hub",
-              ownerName: "Dr. Tariq Mahmood",
-              city: "Lahore",
-              hwid: "HWID-PK-9821-X",
-              status: "READ",
-              seenAt: new Date(Date.now() - 36e5 * 22).toISOString()
-            },
-            {
-              id: "rc_2",
-              broadcastId: "bc_init_1",
-              tenantId: "tenant_main",
-              storeName: "Central Inventra Pharmacy",
-              ownerName: "Hassan Raza",
-              city: "Karachi",
-              hwid: "HWID-PK-1044-B",
-              status: "READ",
-              seenAt: new Date(Date.now() - 36e5 * 20).toISOString()
-            }
-          ]
+          receipts: []
         }
       ];
       broadcasts = localBc;
@@ -3324,37 +3324,36 @@ async function dispatchBroadcastController(req, res) {
       receipts: []
     };
     try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        `INSERT INTO mbi_notifications (
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_notifications (
           id, title, subtitle, body, image_url, type, priority, target_type, target_plan, 
           target_store_id, target_store_name, target_user_id, target_user_name, 
-          cta_label, cta_url, author, dispatched_at, delivered_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE title = VALUES(title), image_url = VALUES(image_url);`,
-        [
-          broadcastRecord.id,
-          broadcastRecord.title,
-          broadcastRecord.subtitle || null,
-          broadcastRecord.body,
-          broadcastRecord.imageUrl || null,
-          broadcastRecord.type,
-          broadcastRecord.priority,
-          broadcastRecord.targetType,
-          broadcastRecord.targetPlan || null,
-          broadcastRecord.targetStoreId || null,
-          broadcastRecord.targetStoreName || null,
-          broadcastRecord.targetUserId || null,
-          broadcastRecord.targetUserName || null,
-          broadcastRecord.ctaLabel || null,
-          broadcastRecord.ctaUrl || null,
-          broadcastRecord.author,
-          broadcastRecord.dispatchedAt,
-          broadcastRecord.deliveredCount
-        ]
-      ).catch(() => {
-      });
-    } catch (dbErr) {
+          cta_label, cta_url, author, dispatched_at, delivered_count, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET title = excluded.title, image_url = excluded.image_url;
+      `).run(
+        broadcastRecord.id,
+        broadcastRecord.title,
+        broadcastRecord.subtitle || null,
+        broadcastRecord.body,
+        broadcastRecord.imageUrl || null,
+        broadcastRecord.type,
+        broadcastRecord.priority,
+        broadcastRecord.targetType,
+        broadcastRecord.targetPlan || null,
+        broadcastRecord.targetStoreId || null,
+        broadcastRecord.targetStoreName || null,
+        broadcastRecord.targetUserId || null,
+        broadcastRecord.targetUserName || null,
+        broadcastRecord.ctaLabel || null,
+        broadcastRecord.ctaUrl || null,
+        broadcastRecord.author,
+        broadcastRecord.dispatchedAt,
+        broadcastRecord.deliveredCount
+      );
+    } catch (sqliteErr) {
+      console.warn("[SQLite Vault notification save warning]:", sqliteErr);
     }
     if (!fallback.broadcasts) fallback.broadcasts = [];
     fallback.broadcasts.unshift(broadcastRecord);
@@ -3423,16 +3422,14 @@ async function markBroadcastSeenController(req, res) {
       seenAt
     };
     try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        `INSERT INTO mbi_notification_receipts (
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_notification_receipts (
           id, notification_id, tenant_id, store_name, owner_name, city, user_id, user_name, hwid, seen_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE seen_at = VALUES(seen_at);`,
-        [receiptId, id, tenantId, storeName, ownerName, city, userId || null, userName || null, hwid, seenAt]
-      ).catch(() => {
-      });
-    } catch (dbErr) {
+        ON CONFLICT(notification_id, tenant_id, hwid) DO UPDATE SET seen_at = excluded.seen_at;
+      `).run(receiptId, id, tenantId, storeName, ownerName, city, userId || null, userName || null, hwid, seenAt);
+    } catch (sqliteErr) {
     }
     const fallback = getLocalData();
     if (!fallback.broadcast_receipts) fallback.broadcast_receipts = [];
@@ -3471,11 +3468,10 @@ async function getBroadcastReceiptsController(req, res) {
       (r) => r.broadcastId === id
     );
     try {
-      const pool = getMariaDbPool();
-      const rows = await pool.query(
-        "SELECT * FROM mbi_notification_receipts WHERE notification_id = ? ORDER BY seen_at DESC;",
-        [id]
-      );
+      const masterDb = getMasterVault();
+      const rows = masterDb.prepare(`
+        SELECT * FROM mbi_notification_receipts WHERE notification_id = ? ORDER BY seen_at DESC;
+      `).all(id);
       if (Array.isArray(rows) && rows.length > 0) {
         receipts = rows.map((r) => ({
           id: r.id,
@@ -3488,10 +3484,10 @@ async function getBroadcastReceiptsController(req, res) {
           userName: r.user_name,
           hwid: r.hwid || "DEV-HWID",
           status: "READ",
-          seenAt: r.seen_at ? new Date(r.seen_at).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
+          seenAt: r.seen_at || (/* @__PURE__ */ new Date()).toISOString()
         }));
       }
-    } catch (dbErr) {
+    } catch (sqliteErr) {
     }
     res.json({
       success: true,
@@ -3510,10 +3506,9 @@ async function resendBroadcastController(req, res) {
     let broadcast = (fallback.broadcasts || []).find((b) => b.id === id);
     if (!broadcast) {
       try {
-        const pool = getMariaDbPool();
-        const rows = await pool.query("SELECT * FROM mbi_notifications WHERE id = ?;", [id]);
-        if (Array.isArray(rows) && rows.length > 0) {
-          const r = rows[0];
+        const masterDb = getMasterVault();
+        const r = masterDb.prepare("SELECT * FROM mbi_notifications WHERE id = ?;").get(id);
+        if (r) {
           broadcast = {
             id: r.id,
             title: r.title,
@@ -3537,7 +3532,7 @@ async function resendBroadcastController(req, res) {
             readPercentage: 0
           };
         }
-      } catch (dbErr) {
+      } catch (sqliteErr) {
       }
     }
     if (!broadcast) {
@@ -3567,12 +3562,10 @@ async function deleteBroadcastController(req, res) {
   try {
     const { id } = req.params;
     try {
-      const pool = getMariaDbPool();
-      await pool.query("DELETE FROM mbi_notifications WHERE id = ?;", [id]).catch(() => {
-      });
-      await pool.query("DELETE FROM mbi_notification_receipts WHERE notification_id = ?;", [id]).catch(() => {
-      });
-    } catch (dbErr) {
+      const masterDb = getMasterVault();
+      masterDb.prepare("DELETE FROM mbi_notifications WHERE id = ?;").run(id);
+      masterDb.prepare("DELETE FROM mbi_notification_receipts WHERE notification_id = ?;").run(id);
+    } catch (sqliteErr) {
     }
     const fallback = getLocalData();
     if (fallback.broadcasts) {

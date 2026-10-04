@@ -120,7 +120,23 @@ export const ServerOverviewPage: React.FC = () => {
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'email_notifications' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>('clients');
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'email_notifications' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = params.get('tab');
+        if (urlTab === 'user_broadcasts' || urlTab === 'broadcast' || urlTab === 'broadcasts' || urlTab === 'popups') return 'broadcast';
+        if (urlTab === 'master_control' || urlTab === 'switchboard' || urlTab === 'master_super') return 'master_control';
+        if (urlTab === 'medicines_studio' || urlTab === 'medicines') return 'medicines_studio';
+        if (urlTab === 'email_notifications' || urlTab === 'emails') return 'email_notifications';
+        if (urlTab === 'whatsapp_leads' || urlTab === 'leads') return 'whatsapp_leads';
+        if (urlTab && ['clients', 'email_notifications', 'medicines_studio', 'broadcast', 'ai_support', 'whatsapp_leads', 'checkout_orders', 'site_cms', 'security_alerts', 'security_audit', 'sales_revenue', 'backup_restore', 'storage', 'sync_health', 'sync_conflicts', 'sync_stream', 'pricing_manager', 'seo_strategy', 'cloud_health', 'docs', 'master_control', 'users', 'database', 'devices', 'developer_vault', 'printer_templates', 'activity'].includes(urlTab)) {
+          return urlTab as any;
+        }
+      } catch (e) {}
+    }
+    return 'clients';
+  });
 
   // Dedicated Universal Search Query (for Server & Master top search)
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -129,9 +145,11 @@ export const ServerOverviewPage: React.FC = () => {
   useEffect(() => {
     const handleSetTab = (e: any) => {
       if (e.detail) {
-        if (e.detail === 'master_super' || e.detail === 'open-master' || e.detail === 'open_master' || e.detail === 'master_control') {
+        if (e.detail === 'master_super' || e.detail === 'open-master' || e.detail === 'open_master' || e.detail === 'master_control' || e.detail === 'switchboard') {
           setActiveServerTab('master_control');
           setShowHiddenMasterModal(false);
+        } else if (e.detail === 'user_broadcasts' || e.detail === 'broadcasts' || e.detail === 'broadcast_popups' || e.detail === 'broadcast') {
+          setActiveServerTab('broadcast');
         } else {
           setActiveServerTab(e.detail);
         }
@@ -732,17 +750,16 @@ export const ServerOverviewPage: React.FC = () => {
 
   // Aggregated Multi-User Transaction Feed
   const filteredTransactions = useMemo(() => {
-    let list = invoices.map((inv, idx) => {
-      const assignedUser = activeUsers[idx % (activeUsers.length || 1)] || {
-        name: 'Counter Staff',
-        role: 'Cashier'
-      };
+    let list = (invoices || []).map((inv, idx) => {
+      const assignedUser = (activeUsers && activeUsers.length > 0) 
+        ? (activeUsers[idx % activeUsers.length] || { name: 'Counter Staff', role: 'Cashier' })
+        : { name: 'Counter Staff', role: 'Cashier' };
 
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber || `INV-${202600 + idx}`,
-        userName: assignedUser.name,
-        userRole: assignedUser.role,
+        userName: assignedUser?.name || 'Counter Staff',
+        userRole: assignedUser?.role || 'Cashier',
         customerName: inv.customerName || 'Walk-in Customer',
         date: inv.date || new Date().toISOString(),
         amount: inv.grandTotal || inv.totalAmount || 1450,
@@ -751,16 +768,17 @@ export const ServerOverviewPage: React.FC = () => {
       };
     });
 
-    if (selectedUserFilter !== 'all') {
-      list = list.filter(tx => tx.userName.toLowerCase().includes(selectedUserFilter.toLowerCase()));
+    if (selectedUserFilter && selectedUserFilter !== 'all') {
+      const uFilter = (selectedUserFilter || '').toLowerCase();
+      list = list.filter(tx => (tx.userName || '').toLowerCase().includes(uFilter));
     }
 
-    if (searchTerm.trim()) {
+    if (searchTerm && searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(tx => 
-        tx.invoiceNumber.toLowerCase().includes(q) ||
-        tx.userName.toLowerCase().includes(q) ||
-        tx.customerName.toLowerCase().includes(q)
+        (tx.invoiceNumber || '').toLowerCase().includes(q) ||
+        (tx.userName || '').toLowerCase().includes(q) ||
+        (tx.customerName || '').toLowerCase().includes(q)
       );
     }
 

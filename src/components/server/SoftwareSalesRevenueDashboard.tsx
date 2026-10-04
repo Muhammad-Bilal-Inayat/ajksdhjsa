@@ -690,7 +690,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     } catch (e) {}
 
     // Reset linked license bound HWID in state
-    const linkedLicense = licenses.find(l => l.licenseKey === target.licenseId || l.clientName.toLowerCase() === target.name.toLowerCase());
+    const linkedLicense = licenses.find(l => (l.licenseKey && l.licenseKey === target.licenseId) || ((l.clientName || '').toLowerCase() === (target.name || '').toLowerCase() && target.name));
     if (linkedLicense) {
       linkedLicense.boundHardwareIds = [];
       (linkedLicense as any).boundHwid = null;
@@ -919,7 +919,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     } catch (e) {}
 
     // 4. Update ClientLicense record
-    const linkedLicense = licenses.find(l => l.licenseKey === target.licenseId || l.clientName.toLowerCase() === target.name.toLowerCase());
+    const linkedLicense = licenses.find(l => (l.licenseKey && l.licenseKey === target.licenseId) || ((l.clientName || '').toLowerCase() === (target.name || '').toLowerCase() && target.name));
     if (linkedLicense) {
       linkedLicense.plan = target.plan as any;
       linkedLicense.status = target.status === 'Suspended' ? 'Suspended' : 'Active';
@@ -983,7 +983,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     saveTenant(target);
 
     // Sync license record
-    const linkedLicense = licenses.find(l => l.licenseKey === target.licenseId || l.clientName.toLowerCase() === target.name.toLowerCase());
+    const linkedLicense = licenses.find(l => (l.licenseKey && l.licenseKey === target.licenseId) || ((l.clientName || '').toLowerCase() === (target.name || '').toLowerCase() && target.name));
     if (linkedLicense) {
       linkedLicense.expiryDate = newExpiryStr;
       linkedLicense.status = 'Active';
@@ -1017,7 +1017,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     saveTenant(target);
 
     // Update linked license
-    const linkedLicense = licenses.find(l => l.licenseKey === target.licenseId || l.clientName.toLowerCase() === target.name.toLowerCase());
+    const linkedLicense = licenses.find(l => (l.licenseKey && l.licenseKey === target.licenseId) || ((l.clientName || '').toLowerCase() === (target.name || '').toLowerCase() && target.name));
     if (linkedLicense) {
       linkedLicense.status = newStatus === 'Suspended' ? 'Suspended' : 'Active';
       saveClientLicense(linkedLicense);
@@ -1180,13 +1180,14 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   // Filtered Deals
   const filteredDeals = useMemo(() => {
     return metrics.recentDeals.filter(d => {
-      const matchSearch = 
-        d.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (d.phone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (d.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.licenseKey.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.plan.toLowerCase().includes(searchTerm.toLowerCase());
+      const q = (searchTerm || '').toLowerCase().trim();
+      const matchSearch = !q ||
+        (d.clientName || '').toLowerCase().includes(q) ||
+        (d.ownerName || '').toLowerCase().includes(q) ||
+        (d.phone || '').toLowerCase().includes(q) ||
+        (d.city || '').toLowerCase().includes(q) ||
+        (d.licenseKey || '').toLowerCase().includes(q) ||
+        (d.plan || '').toLowerCase().includes(q);
 
       if (!matchSearch) return false;
       if (statusFilter !== 'all' && d.saleStatus !== statusFilter) return false;
@@ -1222,9 +1223,9 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   const filteredFeatures = useMemo(() => {
     return ULTRA_ADVANCE_FEATURES.filter(f => {
       if (featureCategoryFilter !== 'all' && f.category !== featureCategoryFilter) return false;
-      if (searchTerm.trim()) {
+      if (searchTerm && searchTerm.trim()) {
         const q = searchTerm.toLowerCase().trim();
-        return f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q) || f.badge.toLowerCase().includes(q);
+        return (f.name || '').toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q) || (f.badge || '').toLowerCase().includes(q);
       }
       return true;
     });

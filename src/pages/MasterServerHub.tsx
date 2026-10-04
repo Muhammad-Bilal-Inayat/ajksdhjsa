@@ -129,7 +129,25 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
   const [pinInput, setPinInput] = useState('');
   const [totpInput, setTotpInput] = useState('');
   const [pinError, setPinError] = useState('');
-  const [activeTab, setActiveTab] = useState<ServerTabKey>(initialTab || 'master_control');
+  const [activeTab, setActiveTab] = useState<ServerTabKey>(() => {
+    if (initialTab) return initialTab;
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = params.get('tab');
+        if (urlTab === 'broadcast' || urlTab === 'user_broadcasts' || urlTab === 'broadcasts' || urlTab === 'popups') {
+          return 'user_broadcasts';
+        }
+        if (urlTab === 'master_control' || urlTab === 'switchboard' || urlTab === 'master_super') {
+          return 'master_control';
+        }
+        if (urlTab && ALL_25_TABS.some(t => t.id === urlTab)) {
+          return urlTab as ServerTabKey;
+        }
+      } catch (e) {}
+    }
+    return 'master_control';
+  });
   const [tabSearch, setTabSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   
@@ -171,7 +189,16 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
   // Listen to custom tab navigation events
   useEffect(() => {
     const handleSetTab = (e: any) => {
-      if (e?.detail) setActiveTab(e.detail);
+      if (e?.detail) {
+        const target = e.detail;
+        if (target === 'broadcast' || target === 'user_broadcasts' || target === 'broadcasts' || target === 'popups') {
+          setActiveTab('user_broadcasts');
+        } else if (target === 'master_super' || target === 'open-master' || target === 'open_master' || target === 'switchboard') {
+          setActiveTab('master_control');
+        } else if (ALL_25_TABS.some(t => t.id === target)) {
+          setActiveTab(target);
+        }
+      }
     };
     window.addEventListener('mbi-set-server-tab' as any, handleSetTab);
     return () => window.removeEventListener('mbi-set-server-tab' as any, handleSetTab);
@@ -378,10 +405,13 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
   };
 
   // Filter tabs by search or category
-  const filteredTabs = ALL_25_TABS.filter(t => {
-    const matchQ = t.label.toLowerCase().includes(tabSearch.toLowerCase()) || 
-                   t.description.toLowerCase().includes(tabSearch.toLowerCase()) ||
-                   t.id.toLowerCase().includes(tabSearch.toLowerCase());
+  const filteredTabs = (ALL_25_TABS || []).filter(t => {
+    if (!t) return false;
+    const q = (tabSearch || '').toLowerCase().trim();
+    const matchQ = !q ||
+                   (t.label || '').toLowerCase().includes(q) || 
+                   (t.description || '').toLowerCase().includes(q) ||
+                   (t.id || '').toLowerCase().includes(q);
     const matchC = selectedCategory === 'ALL' || t.category === selectedCategory;
     return matchQ && matchC;
   });

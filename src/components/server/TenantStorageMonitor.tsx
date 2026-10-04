@@ -124,10 +124,11 @@ export const TenantStorageMonitor: React.FC<TenantStorageMonitorProps> = ({ onNo
   // Filtered storage items
   const filteredStorageList = useMemo(() => {
     return storageList.filter(item => {
-      const matchesSearch = !searchQuery || 
-        item.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.tenantId.toLowerCase().includes(searchQuery.toLowerCase());
+      const q = (searchQuery || '').toLowerCase().trim();
+      const matchesSearch = !q || 
+        (item.tenantName || '').toLowerCase().includes(q) ||
+        (item.city || '').toLowerCase().includes(q) ||
+        (item.tenantId || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
 

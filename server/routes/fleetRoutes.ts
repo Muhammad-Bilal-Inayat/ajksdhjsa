@@ -1948,6 +1948,8 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
     // 1. Primary Engine: Native SQLite Master Hub Vault (0ms latency, zero connection timeouts)
     try {
       const masterDb = getMasterVault();
+      
+      // A. Check mbi_user_access_profiles
       const row: any = masterDb.prepare(`
         SELECT profile_json, effective_json, updated_at, updated_by 
         FROM mbi_user_access_profiles 
@@ -1970,85 +1972,53 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
         });
         return;
       }
-    } catch (sqliteErr) {}
 
-    // 2. Try MariaDB if connected
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-        await ensurePermissionsTable(pool);
-        const rows: any = await pool.query(
-          `SELECT profile_json, effective_json, updated_at, updated_by 
-           FROM mbi_user_access_profiles 
-           WHERE user_id = ? OR tenant_id = ? OR id = ? OR id = ? OR id LIKE ? OR user_id LIKE ?
-           ORDER BY (CASE WHEN user_id = ? THEN 1 WHEN tenant_id = ? THEN 2 ELSE 3 END), updated_at DESC LIMIT 1;`,
-          [userId, tenantId, `prof_${tenantId}_${userId}`, `prof_${tenantId}_${tenantId}`, `%${userId}%`, `%${userId}%`, userId, tenantId]
-        );
-        if (Array.isArray(rows) && rows.length > 0 && rows[0].profile_json) {
-          const profile = JSON.parse(rows[0].profile_json);
-          const effective = rows[0].effective_json ? JSON.parse(rows[0].effective_json) : null;
-          res.json({
-            success: true,
-            source: 'mariadb',
-            userId,
-            tenantId,
-            profile,
-            effective,
-            updatedAt: rows[0].updated_at,
-            updatedBy: rows[0].updated_by
-          });
-          return;
-        }
-
-        // Check if mbi_tenants has saved features_json
-        if (tenantId) {
-          const tenantRows: any = await pool.query(
-            `SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1;`,
-            [tenantId, tenantId]
-          );
-          if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0].features_json) {
-            try {
-              const parsed = typeof tenantRows[0].features_json === 'string' ? JSON.parse(tenantRows[0].features_json) : tenantRows[0].features_json;
-              if (parsed && typeof parsed === 'object') {
-                res.json({
-                  success: true,
-                  source: 'mariadb_tenants',
-                  userId,
-                  tenantId,
-                  profile: parsed,
-                  updatedAt: tenantRows[0].updated_at || new Date().toISOString()
-                });
-                return;
-              }
-            } catch (e) {}
-          }
-        }
-
-        // Check if mbi_users has saved permissions JSON
-        const userRows: any = await pool.query(
-          `SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1;`,
-          [userId, userId, tenantId]
-        );
-        if (Array.isArray(userRows) && userRows.length > 0 && userRows[0].permissions) {
+      // B. Check mbi_tenants.features_json
+      if (tenantId) {
+        const tenantRow: any = masterDb.prepare(`
+          SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1
+        `).get(tenantId, tenantId);
+        if (tenantRow && tenantRow.features_json) {
           try {
-            const parsed = typeof userRows[0].permissions === 'string' ? JSON.parse(userRows[0].permissions) : userRows[0].permissions;
+            const parsed = typeof tenantRow.features_json === 'string' ? JSON.parse(tenantRow.features_json) : tenantRow.features_json;
             if (parsed && typeof parsed === 'object') {
               res.json({
                 success: true,
-                source: 'mariadb_users',
+                source: 'sqlite_tenants',
                 userId,
                 tenantId,
                 profile: parsed,
-                updatedAt: userRows[0].updated_at || new Date().toISOString()
+                updatedAt: tenantRow.updated_at || new Date().toISOString()
               });
               return;
             }
           } catch (e) {}
         }
-      } catch (dbErr) {}
-    }
+      }
 
-    // 3. Try fallback JSON store
+      // C. Check mbi_users.permissions
+      const userRow: any = masterDb.prepare(`
+        SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1
+      `).get(userId, userId, tenantId);
+      if (userRow && userRow.permissions) {
+        try {
+          const parsed = typeof userRow.permissions === 'string' ? JSON.parse(userRow.permissions) : userRow.permissions;
+          if (parsed && typeof parsed === 'object') {
+            res.json({
+              success: true,
+              source: 'sqlite_users',
+              userId,
+              tenantId,
+              profile: parsed,
+              updatedAt: userRow.updated_at || new Date().toISOString()
+            });
+            return;
+          }
+        } catch (e) {}
+      }
+    } catch (sqliteErr) {}
+
+    // 2. Try fallback JSON store
     const permFilePath = path.resolve(process.cwd(), '.master_permissions.json');
     if (fs.existsSync(permFilePath)) {
       try {
@@ -2107,44 +2077,22 @@ fleetRouter.post('/permissions/save', async (req: TenantRequest, res: Response):
           updated_by = excluded.updated_by,
           updated_at = datetime('now');
       `).run(docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser);
+
+      // Also update features_json in mbi_tenants
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET features_json = ?, updated_at = datetime('now') 
+        WHERE id = ? OR tenant_id = ?;
+      `).run(profileJson, cleanTenantId, cleanTenantId);
+
+      // Also update permissions in mbi_users
+      masterDb.prepare(`
+        UPDATE mbi_users 
+        SET permissions = ?, updated_at = datetime('now') 
+        WHERE (id = ? OR username = ? OR tenant_id = ?);
+      `).run(profileJson, cleanUserId, cleanUserId, cleanTenantId);
     } catch (sqliteErr) {
       console.warn('[SQLite Vault permissions save warning]:', sqliteErr);
-    }
-
-    // 2. Persist to MariaDB if available
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-        await ensurePermissionsTable(pool);
-        await pool.query(
-          `INSERT INTO mbi_user_access_profiles (id, tenant_id, user_id, profile_json, effective_json, updated_by, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-           ON DUPLICATE KEY UPDATE 
-             profile_json = VALUES(profile_json),
-             effective_json = VALUES(effective_json),
-             updated_by = VALUES(updated_by),
-             updated_at = CURRENT_TIMESTAMP;`,
-          [docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser]
-        );
-
-        // Also update permissions column in mbi_users
-        await pool.query(
-          `UPDATE mbi_users 
-           SET permissions = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE (id = ? OR username = ? OR tenant_id = ?);`,
-          [profileJson, cleanUserId, cleanUserId, cleanTenantId]
-        );
-
-        // Also update features_json in mbi_tenants
-        await pool.query(
-          `UPDATE mbi_tenants 
-           SET features_json = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ? OR tenant_id = ?;`,
-          [profileJson, cleanTenantId, cleanTenantId]
-        );
-      } catch (dbErr) {
-        console.warn('[Permissions Save MariaDB Notice]:', dbErr);
-      }
     }
 
     // 3. Persist to local fallback file .master_permissions.json

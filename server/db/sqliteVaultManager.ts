@@ -113,6 +113,26 @@ export function getMasterVault(): DatabaseSync {
       updated_by TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_users (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      username TEXT,
+      name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      role TEXT NOT NULL DEFAULT 'Owner',
+      is_primary_owner INTEGER NOT NULL DEFAULT 0,
+      passcode TEXT DEFAULT '1234',
+      pin TEXT DEFAULT '1234',
+      status TEXT NOT NULL DEFAULT 'Active',
+      is_online INTEGER DEFAULT 0,
+      is_kill_switch_active INTEGER DEFAULT 0,
+      permissions TEXT,
+      last_login_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Dynamically add any missing columns so SQLite master hub never rejects payload fields
@@ -142,13 +162,37 @@ export function getMasterVault(): DatabaseSync {
     'amount_paid REAL DEFAULT 0',
     'sale_status TEXT DEFAULT \'Paid\'',
     'payment_method TEXT DEFAULT \'Bank Transfer\'',
-    'sale_notes TEXT'
+    'sale_notes TEXT',
+    'bound_hardware_ids TEXT DEFAULT \'[]\'',
+    'expiry_date TEXT'
   ];
   for (const col of licenseColumns) {
     try {
       masterDbInstance.exec(`ALTER TABLE mbi_licenses ADD COLUMN ${col};`);
     } catch (e) {}
   }
+
+  // Self-heal API keys and default users for all tenants
+  try {
+    const tenants: any[] = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
+    for (const t of tenants) {
+      const tid = t.tenant_id || t.id;
+      if (!t.api_key) {
+        const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
+      }
+      // Ensure owner exists in mbi_users
+      const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid) as any;
+      if (!userCount || userCount.c === 0) {
+        const uid = `usr_${tid}_owner`;
+        masterDbInstance.prepare(`
+          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
+          ON CONFLICT(id) DO NOTHING;
+        `).run(uid, tid, (t.name || 'owner').toLowerCase().replace(/\s+/g, '_'), t.owner_name || t.name || 'Store Owner', t.owner_email || '', t.owner_phone || '');
+      }
+    }
+  } catch (healErr) {}
 
   return masterDbInstance;
 }

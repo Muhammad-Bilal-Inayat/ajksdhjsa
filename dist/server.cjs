@@ -235,6 +235,26 @@ function getMasterVault() {
       updated_by TEXT,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_users (
+      id TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      username TEXT,
+      name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      role TEXT NOT NULL DEFAULT 'Owner',
+      is_primary_owner INTEGER NOT NULL DEFAULT 0,
+      passcode TEXT DEFAULT '1234',
+      pin TEXT DEFAULT '1234',
+      status TEXT NOT NULL DEFAULT 'Active',
+      is_online INTEGER DEFAULT 0,
+      is_kill_switch_active INTEGER DEFAULT 0,
+      permissions TEXT,
+      last_login_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   const tenantColumns = [
     "organization_id TEXT",
@@ -262,13 +282,35 @@ function getMasterVault() {
     "amount_paid REAL DEFAULT 0",
     "sale_status TEXT DEFAULT 'Paid'",
     "payment_method TEXT DEFAULT 'Bank Transfer'",
-    "sale_notes TEXT"
+    "sale_notes TEXT",
+    "bound_hardware_ids TEXT DEFAULT '[]'",
+    "expiry_date TEXT"
   ];
   for (const col of licenseColumns) {
     try {
       masterDbInstance.exec(`ALTER TABLE mbi_licenses ADD COLUMN ${col};`);
     } catch (e) {
     }
+  }
+  try {
+    const tenants = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
+    for (const t of tenants) {
+      const tid = t.tenant_id || t.id;
+      if (!t.api_key) {
+        const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "").slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
+      }
+      const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid);
+      if (!userCount || userCount.c === 0) {
+        const uid = `usr_${tid}_owner`;
+        masterDbInstance.prepare(`
+          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
+          VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
+          ON CONFLICT(id) DO NOTHING;
+        `).run(uid, tid, (t.name || "owner").toLowerCase().replace(/\s+/g, "_"), t.owner_name || t.name || "Store Owner", t.owner_email || "", t.owner_phone || "");
+      }
+    }
+  } catch (healErr) {
   }
   return masterDbInstance;
 }
@@ -11190,25 +11232,6 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error executing cascading lock" });
   }
 });
-async function ensurePermissionsTable(pool) {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS mbi_user_access_profiles (
-        id VARCHAR(255) NOT NULL,
-        tenant_id VARCHAR(128) NOT NULL,
-        user_id VARCHAR(128) NOT NULL,
-        profile_json LONGTEXT NOT NULL,
-        effective_json LONGTEXT NULL,
-        updated_by VARCHAR(128) NULL,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
-        UNIQUE KEY idx_tenant_user (tenant_id, user_id),
-        KEY idx_user (user_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-  } catch (err) {
-  }
-}
 fleetRouter.get("/permissions/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -11240,80 +11263,49 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
         });
         return;
       }
-    } catch (sqliteErr) {
-    }
-    if (await isMariaDbAvailable2()) {
-      try {
-        const pool = getMariaDbPool();
-        await ensurePermissionsTable(pool);
-        const rows = await pool.query(
-          `SELECT profile_json, effective_json, updated_at, updated_by 
-           FROM mbi_user_access_profiles 
-           WHERE user_id = ? OR tenant_id = ? OR id = ? OR id = ? OR id LIKE ? OR user_id LIKE ?
-           ORDER BY (CASE WHEN user_id = ? THEN 1 WHEN tenant_id = ? THEN 2 ELSE 3 END), updated_at DESC LIMIT 1;`,
-          [userId, tenantId, `prof_${tenantId}_${userId}`, `prof_${tenantId}_${tenantId}`, `%${userId}%`, `%${userId}%`, userId, tenantId]
-        );
-        if (Array.isArray(rows) && rows.length > 0 && rows[0].profile_json) {
-          const profile = JSON.parse(rows[0].profile_json);
-          const effective = rows[0].effective_json ? JSON.parse(rows[0].effective_json) : null;
-          res.json({
-            success: true,
-            source: "mariadb",
-            userId,
-            tenantId,
-            profile,
-            effective,
-            updatedAt: rows[0].updated_at,
-            updatedBy: rows[0].updated_by
-          });
-          return;
-        }
-        if (tenantId) {
-          const tenantRows = await pool.query(
-            `SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1;`,
-            [tenantId, tenantId]
-          );
-          if (Array.isArray(tenantRows) && tenantRows.length > 0 && tenantRows[0].features_json) {
-            try {
-              const parsed = typeof tenantRows[0].features_json === "string" ? JSON.parse(tenantRows[0].features_json) : tenantRows[0].features_json;
-              if (parsed && typeof parsed === "object") {
-                res.json({
-                  success: true,
-                  source: "mariadb_tenants",
-                  userId,
-                  tenantId,
-                  profile: parsed,
-                  updatedAt: tenantRows[0].updated_at || (/* @__PURE__ */ new Date()).toISOString()
-                });
-                return;
-              }
-            } catch (e) {
-            }
-          }
-        }
-        const userRows = await pool.query(
-          `SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1;`,
-          [userId, userId, tenantId]
-        );
-        if (Array.isArray(userRows) && userRows.length > 0 && userRows[0].permissions) {
+      if (tenantId) {
+        const tenantRow = masterDb.prepare(`
+          SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1
+        `).get(tenantId, tenantId);
+        if (tenantRow && tenantRow.features_json) {
           try {
-            const parsed = typeof userRows[0].permissions === "string" ? JSON.parse(userRows[0].permissions) : userRows[0].permissions;
+            const parsed = typeof tenantRow.features_json === "string" ? JSON.parse(tenantRow.features_json) : tenantRow.features_json;
             if (parsed && typeof parsed === "object") {
               res.json({
                 success: true,
-                source: "mariadb_users",
+                source: "sqlite_tenants",
                 userId,
                 tenantId,
                 profile: parsed,
-                updatedAt: userRows[0].updated_at || (/* @__PURE__ */ new Date()).toISOString()
+                updatedAt: tenantRow.updated_at || (/* @__PURE__ */ new Date()).toISOString()
               });
               return;
             }
           } catch (e) {
           }
         }
-      } catch (dbErr) {
       }
+      const userRow = masterDb.prepare(`
+        SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1
+      `).get(userId, userId, tenantId);
+      if (userRow && userRow.permissions) {
+        try {
+          const parsed = typeof userRow.permissions === "string" ? JSON.parse(userRow.permissions) : userRow.permissions;
+          if (parsed && typeof parsed === "object") {
+            res.json({
+              success: true,
+              source: "sqlite_users",
+              userId,
+              tenantId,
+              profile: parsed,
+              updatedAt: userRow.updated_at || (/* @__PURE__ */ new Date()).toISOString()
+            });
+            return;
+          }
+        } catch (e) {
+        }
+      }
+    } catch (sqliteErr) {
     }
     const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
     if (import_fs11.default.existsSync(permFilePath)) {
@@ -11368,38 +11360,18 @@ fleetRouter.post("/permissions/save", async (req, res) => {
           updated_by = excluded.updated_by,
           updated_at = datetime('now');
       `).run(docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser);
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET features_json = ?, updated_at = datetime('now') 
+        WHERE id = ? OR tenant_id = ?;
+      `).run(profileJson, cleanTenantId, cleanTenantId);
+      masterDb.prepare(`
+        UPDATE mbi_users 
+        SET permissions = ?, updated_at = datetime('now') 
+        WHERE (id = ? OR username = ? OR tenant_id = ?);
+      `).run(profileJson, cleanUserId, cleanUserId, cleanTenantId);
     } catch (sqliteErr) {
       console.warn("[SQLite Vault permissions save warning]:", sqliteErr);
-    }
-    if (await isMariaDbAvailable2()) {
-      try {
-        const pool = getMariaDbPool();
-        await ensurePermissionsTable(pool);
-        await pool.query(
-          `INSERT INTO mbi_user_access_profiles (id, tenant_id, user_id, profile_json, effective_json, updated_by, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-           ON DUPLICATE KEY UPDATE 
-             profile_json = VALUES(profile_json),
-             effective_json = VALUES(effective_json),
-             updated_by = VALUES(updated_by),
-             updated_at = CURRENT_TIMESTAMP;`,
-          [docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser]
-        );
-        await pool.query(
-          `UPDATE mbi_users 
-           SET permissions = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE (id = ? OR username = ? OR tenant_id = ?);`,
-          [profileJson, cleanUserId, cleanUserId, cleanTenantId]
-        );
-        await pool.query(
-          `UPDATE mbi_tenants 
-           SET features_json = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ? OR tenant_id = ?;`,
-          [profileJson, cleanTenantId, cleanTenantId]
-        );
-      } catch (dbErr) {
-        console.warn("[Permissions Save MariaDB Notice]:", dbErr);
-      }
     }
     try {
       const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");

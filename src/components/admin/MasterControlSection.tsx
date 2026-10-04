@@ -151,6 +151,8 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
               if (!tid || seen.has(tid)) continue;
               seen.add(tid);
 
+              const resolvedApiKey = t.api_key || t.apiKey || `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}_K7A8N2`;
+
               sanitizedList.push({
                 id: t.id || tid,
                 tenantId: tid,
@@ -163,12 +165,17 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
                 city: t.city || 'Lahore',
                 plan: t.plan || t.subscription_plan || 'Basic',
                 status: t.status || 'Active',
+                apiKey: resolvedApiKey,
                 passcode: t.passcode || '1234'
               } as unknown as Tenant);
             }
 
             if (sanitizedList.length > 0) {
               setTenants(sanitizedList);
+              if (!selectedTenantId || !sanitizedList.some(item => (item.tenantId && item.tenantId === selectedTenantId) || (item.id && item.id === selectedTenantId))) {
+                const firstId = sanitizedList[0].tenantId || sanitizedList[0].id || '';
+                setSelectedTenantId(firstId);
+              }
               return;
             }
           }
@@ -178,6 +185,10 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       const localTenants = getAllTenants();
       if (localTenants.length > 0) {
         setTenants(localTenants);
+        if (!selectedTenantId || !localTenants.some(item => (item.tenantId && item.tenantId === selectedTenantId) || (item.id && item.id === selectedTenantId))) {
+          const firstId = localTenants[0].tenantId || localTenants[0].id || '';
+          setSelectedTenantId(firstId);
+        }
       }
     };
 
@@ -1057,12 +1068,32 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
           </div>
         </div>
 
-        {/* Selected User Info Bar */}
+        {/* Selected User & Tenant API Key Bar */}
         <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3 text-slate-300">
+          <div className="flex items-center gap-3 text-slate-300 flex-wrap">
             <span>Target: <strong className="text-white">{selectedUser.name}</strong></span>
+            <span>Tenant ID: <code className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold">{targetTenantId || 'N/A'}</code></span>
+            <span className="flex items-center gap-1.5">
+              API Key: 
+              <code className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold" title={selectedTenant?.apiKey || (selectedTenant as any)?.api_key}>
+                {((selectedTenant?.apiKey || (selectedTenant as any)?.api_key || 'mbi_live_key') as string).slice(0, 18)}...
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  const key = selectedTenant?.apiKey || (selectedTenant as any)?.api_key || '';
+                  if (key && navigator.clipboard) {
+                    navigator.clipboard.writeText(key);
+                    triggerNotify(`📋 Copied API Key for ${selectedUser.storeName}`);
+                  }
+                }}
+                className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                title="Copy full API Key"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </span>
             <span>Role: <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">{selectedUser.role}</span></span>
-            <span>Branch/Firm: <strong className="text-slate-200">{selectedUser.storeName}</strong></span>
             <span>Passcode: <code className="text-amber-400 font-mono font-bold">{selectedUser.passcode || '1234'}</code></span>
           </div>
 

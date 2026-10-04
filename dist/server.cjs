@@ -11185,6 +11185,16 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
     const newTenantStatus = isLocking ? "Suspended" : "Active";
     const newUserStatus = isLocking ? "Suspended" : "Active";
     const killSwitchVal = isLocking ? 1 : 0;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newTenantStatus, tenantId, tenantId);
+      try {
+        masterDb.prepare("UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = datetime('now') WHERE tenant_id = ?").run(newUserStatus, killSwitchVal, tenantId);
+      } catch (uErr) {
+      }
+    } catch (sqliteErr) {
+      console.warn("[CASCADING LOCK SQLITE WARNING]:", sqliteErr);
+    }
     if (await isMariaDbAvailable2()) {
       try {
         const pool = getMariaDbPool();

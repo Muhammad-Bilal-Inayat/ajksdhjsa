@@ -108,15 +108,15 @@ export const EmergencyLockScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Super Admin Remote Lockout Notice - Strictly Unlockable Only from /server */}
+          {/* Super Admin Remote Lockout Notice - Strictly Unlockable Only by Technical Support */}
           <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center space-y-3">
             <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
               <Lock className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h4 className="text-sm font-bold text-white">Station Suspended by Central Master Server</h4>
+              <h4 className="text-sm font-bold text-white">Station Suspended by Central Administration</h4>
               <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                This workstation has been locked from the Master Server Control Panel. Terminal access can strictly only be unlocked remotely by the Master Administrator from <code className="text-blue-400 font-mono">/server</code>.
+                This workstation has been suspended. Terminal access can strictly only be unlocked remotely by the System Administrator or Technical Support.
               </p>
             </div>
             <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-emerald-400 font-medium">
@@ -126,7 +126,7 @@ export const EmergencyLockScreen: React.FC = () => {
           </div>
 
           <div className="text-center text-xs text-slate-500">
-            Please contact MBI INVENTRA central server administration to resume your station access.
+            Please contact MBI INVENTRA Support to reactivate your software license and resume station access.
           </div>
         </div>
 

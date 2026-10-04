@@ -234174,6 +234174,17 @@
   ],
   "broadcast_receipts": [
     {
+      "id": "rc_1791144455581_4217",
+      "broadcastId": "bc_1791141275372_tmz8g",
+      "tenantId": "tenant_1791129576392_m8dol",
+      "storeName": "Muhammad",
+      "ownerName": "Store Admin",
+      "city": "Pakistan",
+      "hwid": "HWID-7566795BE5E675C6-D2EB4B6D",
+      "status": "READ",
+      "seenAt": "2026-10-04T20:07:35.581Z"
+    },
+    {
       "id": "rc_1791144411382_vzsj",
       "broadcastId": "bc_1791142454452_wz2pq",
       "tenantId": "tenant_1791129576392_m8dol",

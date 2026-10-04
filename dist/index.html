@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <meta name="theme-color" content="#0F172A" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MBI INVENTRA" />
+  <link rel="icon" type="image/svg+xml" href="/mbi-favicon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192x192.png" />
+  <link rel="apple-touch-icon" sizes="512x512" href="/pwa-512x512.png" />
+  <link rel="shortcut icon" href="/favicon.png" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>MBI INVENTRA</title>
+  <meta name="description" content="Medicine stock &amp; inventory management with offline mode." />
+  <meta name="keywords"
+    content="MBI INVENTRA, pharmacy software, pharmacy POS, pharma inventory management, medicine billing software, FEFO expiry tracking, medical store ERP, pharmacy ledger, pharmaceutical software, enterprise pharmacy cloud" />
+  <meta name="author" content="MBI INVENTRA" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+
+  <!-- OpenGraph Social Metadata -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MBI INVENTRA" />
+  <meta property="og:title" content="MBI INVENTRA" />
+  <meta property="og:description" content="Medicine stock &amp; inventory management with offline mode." />
+  <meta property="og:image" content="/mbi-logo.png?v=4.2.0" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="ur_PK" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="MBI INVENTRA" />
+  <meta name="twitter:description" content="Medicine stock &amp; inventory management with offline mode." />
+  <meta name="twitter:image" content="/mbi-logo.png?v=4.2.0" />
+
+  <!-- Local & Geo SEO Tags -->
+  <meta name="geo.region" content="PK" />
+  <meta name="geo.position" content="30.3753;69.3451" />
+  <meta name="ICBM" content="30.3753, 69.3451" />
+
+  <!-- Schema.org Structured Data (JSON-LD) for Software & Pharmacy -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "MBI INVENTRA",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web, Windows, macOS, Android, iOS",
+          "description": "Enterprise pharmacy POS and medicine inventory management software featuring FEFO batch tracking, barcode scanning, thermal printing, and WhatsApp invoice dispatch.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "PKR"
+          },
+          "featureList": [
+            "Offline-first POS terminal",
+            "FEFO Expiry batch auto-selection",
+            "Below-cost loss prevention dual check",
+            "Thermal receipt printing and WhatsApp bill sharing",
+            "Multi-branch enterprise inventory sync",
+            "Supplier debit/credit ledger management"
+          ]
+        },
+        {
+          "@type": "MedicalBusiness",
+          "name": "MBI Enterprise Pharmacy Systems",
+          "description": "Professional healthcare technology solutions and automated pharmacy management systems.",
+          "currenciesAccepted": "PKR, USD",
+          "paymentAccepted": "Cash, Credit Card, Bank Transfer"
+        }
+      ]
+    </script>
+
+
+  <!-- Early console, fetch setter, and error filter for preview environments -->
+  <script>
+    (function () {
+      // Ensure window.fetch is writable and cannot throw getter-only errors
+      try {
+        if (typeof window !== 'undefined') {
+          var _nativeFetch = window.fetch ? window.fetch.bind(window) : undefined;
+          var desc = Object.getOwnPropertyDescriptor(window, 'fetch') ||
+            Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window) || {}, 'fetch') ||
+            Object.getOwnPropertyDescriptor(window.constructor ? window.constructor.prototype : {}, 'fetch');
+          if (!desc || desc.configurable || (!desc.writable && !desc.set)) {
+            try {
+              Object.defineProperty(window, 'fetch', {
+                get: function () { return _nativeFetch; },
+                set: function (fn) { _nativeFetch = fn; },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (e) { }
+          }
+        }
+      } catch (e) { }
+
+      try {
+        var isIgnored = function (msg) {
+          if (!msg) return false;
+          var str = (typeof msg === 'string' ? msg : (msg.message || msg.reason || (msg.error && msg.error.message) || String(msg))).toLowerCase();
+          return (
+            str.indexOf('[vite]') !== -1 ||
+            str.indexOf('websocket') !== -1 ||
+            str.indexOf('failed to connect to websocket') !== -1 ||
+            str.indexOf('vite:ws') !== -1 ||
+            str.indexOf('sw.js') !== -1 ||
+            str.indexOf('cannot set property fetch') !== -1 ||
+            str.indexOf('which has only a getter') !== -1 ||
+            str.indexOf('resizeobserver') !== -1
+          );
+        };
+
+        ['error', 'warn', 'info', 'debug', 'log'].forEach(function (method) {
+          if (console[method]) {
+            var orig = console[method];
+            console[method] = function () {
+              var args = Array.prototype.slice.call(arguments);
+              for (var i = 0; i < args.length; i++) {
+                if (isIgnored(args[i])) return;
+              }
+              return orig.apply(console, args);
+            };
+          }
+        });
+
+        window.addEventListener('error', function (e) {
+          if (isIgnored(e.message) || isIgnored(e.filename) || isIgnored(e.error)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (e) {
+          if (isIgnored(e.reason)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return true;
+          }
+        }, true);
+      } catch (e) { }
+    })();
+  </script>
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('mbi_system_app_settings_v2');
+        if (raw) {
+          var settings = JSON.parse(raw);
+          var theme = settings && settings.general && settings.general.theme;
+          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+          }
+        }
+      } catch (e) { }
+    })();
+  </script>
+  <style>
+    html,
+    body,
+    #root {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    html.dark,
+    html.dark body,
+    html.dark #root {
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+
+    html:not(.dark),
+    html:not(.dark) body,
+    html:not(.dark) #root {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    .emergency-btn {
+      margin-top: 14px;
+      padding: 8px 18px;
+      background: #dc2626;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .emergency-btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/app.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/vendor-react-DCeHAtwK.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-pdf-DsOoMeXV.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-charts-lvj6a3bY.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-icons-Bo2IPWMK.js">
+  <link rel="modulepreload" crossorigin href="/assets/vendor-dnd-DE1jj2HH.js">
+  <link rel="stylesheet" crossorigin href="/assets/app.css">
+<link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+
+<body>
+  <div id="root"></div>
+
+  <!-- Failsafe emergency helper script -->
+  <script>
+    window.__mbi_emergency_reset = function () {
+      if (confirm('Reset application local storage cache and reload? Your cloud data is safe.')) {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          if (window.indexedDB) {
+            indexedDB.deleteDatabase('pharma-manager-db');
+            indexedDB.deleteDatabase('MbiInventraOfflineDB');
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+        window.location.reload();
+      }
+    };
+  </script>
+
+</body>
+
+</html>

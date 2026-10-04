@@ -57,6 +57,7 @@ function playNotificationChime() {
 
 export function GlobalBroadcastPopupModal() {
   const [activeBroadcast, setActiveBroadcast] = useState<BroadcastPayload | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
   const [currentRoute, setCurrentRoute] = useState<string>(() => 
     typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : ''
   );
@@ -74,6 +75,27 @@ export function GlobalBroadcastPopupModal() {
     };
   }, []);
 
+  // 10-Second Auto-Dismiss Countdown Timer
+  useEffect(() => {
+    if (!activeBroadcast) {
+      setTimeLeft(10);
+      return;
+    }
+
+    setTimeLeft(10);
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          handleAcknowledge();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeBroadcast?.id]);
+
   // Check if current broadcast matches tenant/user filter
   const isTargetedToCurrentClient = (b: BroadcastPayload): boolean => {
     if (!b || !b.id) return false;
@@ -84,7 +106,7 @@ export function GlobalBroadcastPopupModal() {
       b.id.startsWith('security_') || 
       b.id.startsWith('toggle_') ||
       (b as any).category === 'FEATURE_TOGGLE' ||
-      b.title?.toLowerCase().includes('permission')
+      (b.title || '').toLowerCase().includes('permission')
     ) {
       return false;
     }
@@ -209,7 +231,8 @@ export function GlobalBroadcastPopupModal() {
         icon: <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />,
         btnBg: 'bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-lg shadow-rose-950/50',
         borderColor: 'border-rose-500/60',
-        label: 'Critical Notice'
+        label: 'Critical Notice',
+        timerColor: 'bg-rose-500'
       };
     } else if (rawPriority === 'special_offer' || rawPriority === 'success') {
       return {
@@ -218,7 +241,8 @@ export function GlobalBroadcastPopupModal() {
         icon: <Sparkles className="w-5 h-5 text-emerald-400 shrink-0" />,
         btnBg: 'bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-lg shadow-emerald-950/50',
         borderColor: 'border-emerald-500/60',
-        label: 'Special Offer'
+        label: 'Special Offer',
+        timerColor: 'bg-emerald-500'
       };
     } else {
       return {
@@ -227,7 +251,8 @@ export function GlobalBroadcastPopupModal() {
         icon: <Info className="w-5 h-5 text-blue-400 shrink-0" />,
         btnBg: 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-lg shadow-blue-950/50',
         borderColor: 'border-blue-500/60',
-        label: 'Feature Update'
+        label: 'Feature Update',
+        timerColor: 'bg-blue-500'
       };
     }
   };
@@ -281,10 +306,18 @@ export function GlobalBroadcastPopupModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div 
-        className={`w-full max-w-lg bg-slate-900 border ${theme.borderColor} rounded-3xl shadow-2xl shadow-black/90 overflow-hidden animate-in zoom-in-95 duration-200`}
+        className={`w-full max-w-lg bg-slate-900 border ${theme.borderColor} rounded-3xl shadow-2xl shadow-black/80 overflow-hidden animate-in zoom-in-95 duration-200 relative`}
       >
+        {/* Top 10-Second Auto-Dismiss Countdown Bar */}
+        <div className="w-full bg-slate-800 h-1 overflow-hidden relative">
+          <div 
+            className={`h-full ${theme.timerColor} transition-all duration-1000 ease-linear`}
+            style={{ width: `${(timeLeft / 10) * 100}%` }}
+          />
+        </div>
+
         {/* Optional Attached Banner Image */}
         {displayImage && (
           <div className="w-full h-44 bg-slate-950 relative overflow-hidden border-b border-slate-800">
@@ -308,61 +341,66 @@ export function GlobalBroadcastPopupModal() {
           </div>
         )}
 
-        {/* Header Bar */}
+        {/* Header Bar with Logo and Info */}
         <div className={`p-4 border-b ${theme.headerBg} flex items-center justify-between gap-3`}>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-slate-950/60 border border-white/10 shrink-0">
-              {theme.icon}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Logo Badge */}
+            <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 p-1 flex items-center justify-center shrink-0 shadow-inner">
+              <img src="/mbi-logo.svg" alt="MBI INVENTRA Logo" className="w-full h-full object-contain" onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }} />
             </div>
+
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className={`text-[9px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full border ${theme.badgeBg}`}>
                   {theme.label}
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {activeBroadcast.dispatchedAt ? new Date(activeBroadcast.dispatchedAt).toLocaleTimeString() : 'Live'}
+                  {activeBroadcast.dispatchedAt ? new Date(activeBroadcast.dispatchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                </span>
+                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-md">
+                  ⏱️ {timeLeft}s
                 </span>
               </div>
-              <h3 className="text-sm sm:text-base font-black text-white mt-1 leading-snug">
+              <h3 className="text-sm sm:text-base font-black text-white mt-1 leading-snug truncate">
                 {activeBroadcast.title}
               </h3>
               {activeBroadcast.subtitle && (
-                <p className="text-xs text-slate-300 font-semibold mt-0.5 opacity-90">
+                <p className="text-xs text-slate-300 font-semibold mt-0.5 opacity-90 truncate">
                   {activeBroadcast.subtitle}
                 </p>
               )}
             </div>
           </div>
 
-          {!displayImage && (
-            <button
-              type="button"
-              onClick={handleAcknowledge}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
-              title="Dismiss Announcement"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleAcknowledge}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            title="Dismiss Announcement"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Message Body */}
-        <div className="p-5 space-y-4 max-h-[50vh] overflow-y-auto custom-scrollbar">
+        <div className="p-5 space-y-4 max-h-[48vh] overflow-y-auto custom-scrollbar">
           <div className="p-4 rounded-2xl bg-slate-950/75 border border-slate-800 text-slate-200 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-sans select-text">
             {messageText}
           </div>
 
           <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-            <span>Dispatched by: <strong className="text-slate-200">{activeBroadcast.author || activeBroadcast.senderName || 'Master Command Center'}</strong></span>
+            <span className="text-[11px]">Dispatched by: <strong className="text-slate-200">{activeBroadcast.author || activeBroadcast.senderName || 'Super Admin'}</strong></span>
             <span className="font-mono text-[10px] text-slate-500">ID: {activeBroadcast.id}</span>
           </div>
         </div>
 
         {/* Action Footer */}
         <div className="p-4 bg-slate-950 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-[11px] text-slate-500 flex items-center gap-1.5">
+          <span className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
             <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Targeted Terminal Notice</span>
+            <span>Auto-dismissing in <strong className="text-slate-300">{timeLeft}s</strong></span>
           </span>
 
           <div className="flex items-center gap-2">

@@ -57,7 +57,6 @@ import {
 import { isPlanSufficient, getActiveTenantPlan } from '../../utils/planPermissions';
 import { useTransactionDock } from '../../contexts/TransactionDockContext';
 import { TransactionHostModalLayer } from './TransactionHostModalLayer';
-import { BroadcastAnnouncementModal } from '../common/BroadcastAnnouncementModal';
 
 export const Layout: React.FC = () => {
   const { currentUser, activeRole, activeUser, business, tenant, tenantId, switchTenant, canPerform, canAccess, showTrialExpiredModal, setShowTrialExpiredModal } = useAuth();
@@ -534,9 +533,6 @@ export const Layout: React.FC = () => {
 
       {/* Global Multi-Transaction Window Layer & Minimized Dock Bar */}
       <TransactionHostModalLayer />
-
-      {/* Fleet Live Broadcast 1-Time Screen Popup Modal */}
-      <BroadcastAnnouncementModal />
     </div>
   );
 };

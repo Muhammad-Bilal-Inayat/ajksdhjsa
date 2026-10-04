@@ -223,7 +223,48 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         }
       } catch {}
 
-      // 3. System Data Health Notification
+      // 3. Broadcast Announcements from Master Server
+      try {
+        let res = await fetch('/api/master/broadcast/history');
+        if (!res.ok) {
+          res = await fetch('/api/admin/broadcast/history');
+        }
+        if (res.ok) {
+          const bData = await res.json();
+          const bList = bData.broadcasts || (Array.isArray(bData) ? bData : []);
+          if (Array.isArray(bList)) {
+            for (const b of bList.slice(0, 10)) {
+              if (
+                !b.id ||
+                b.id.startsWith('perm_') ||
+                b.id.startsWith('security_') ||
+                b.id.startsWith('toggle_') ||
+                (b.title || '').toLowerCase().includes('permission')
+              ) {
+                continue;
+              }
+
+              if (!dismissedIds.has(b.id)) {
+                const isSeen = !!localStorage.getItem(`mbi_broadcast_seen_${b.id}`) || readIds.has(b.id);
+                generated.push({
+                  id: b.id,
+                  type: 'system',
+                  severity: b.type === 'urgent' ? 'critical' : b.type === 'success' ? 'success' : 'info',
+                  title: b.title || 'Broadcast Announcement',
+                  description: (b.body || b.subtitle || '').replace(/[*_#]/g, ''),
+                  time: b.dispatchedAt ? new Date(b.dispatchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live',
+                  timestamp: b.dispatchedAt ? new Date(b.dispatchedAt).getTime() : now,
+                  unread: !isSeen,
+                  link: b.ctaUrl || undefined,
+                  actionLabel: b.ctaLabel || 'View Notice'
+                });
+              }
+            }
+          }
+        }
+      } catch {}
+
+      // 4. System Data Health Notification
       const systemId = 'system-status-ok';
       if (!dismissedIds.has(systemId)) {
         generated.push({
@@ -247,10 +288,26 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   };
 
   useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
       loadNotifications();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const handleNewBroadcastEvent = () => {
+      loadNotifications();
+    };
+    window.addEventListener('mbi-new-broadcast', handleNewBroadcastEvent);
+    window.addEventListener('mbi-broadcast-read', handleNewBroadcastEvent);
+    return () => {
+      window.removeEventListener('mbi-new-broadcast', handleNewBroadcastEvent);
+      window.removeEventListener('mbi-broadcast-read', handleNewBroadcastEvent);
+    };
+  }, []);
 
   // Update unread count for parent navbar
   const unreadCount = useMemo(() => {

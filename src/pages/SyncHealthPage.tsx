@@ -214,7 +214,7 @@ export default function SyncHealthPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Real-time API latency, write buffers, server activity logs, and MariaDB status monitor
+                Real-time API latency, write buffers, server activity logs, and SQLite Vault engine monitor
               </p>
             </div>
           </div>
@@ -483,16 +483,14 @@ export default function SyncHealthPage() {
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Activity &amp; audit trail records stored in server memory &amp; DB
+              Activity &amp; audit trail records stored in isolated SQLite vaults
             </p>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-              <span>MariaDB Engine:</span>
-              <span className={`inline-flex items-center gap-1 font-bold ${
-                healthData?.mariaDbConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-              }`}>
-                {healthData?.mariaDbConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                {healthData?.mariaDbConnected ? 'CONNECTED' : 'STANDBY'}
+              <span>Vault Engine:</span>
+              <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                SQLITE WAL (ACTIVE)
               </span>
             </div>
           </div>

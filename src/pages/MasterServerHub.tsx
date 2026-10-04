@@ -100,10 +100,10 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'email_notifications', label: 'Email & Auto Alerts', category: 'Security & Users', icon: Mail, description: 'Gmail SMTP engine, automated alerts, registration emails & password reset dispatch' },
 
   // 3. System & Sync
-  { id: 'sync_stream', label: 'Real-Time Activity & Sync Engine', category: 'System & Sync', icon: Activity, description: 'Live SSE telemetry stream, MariaDB central sync engine & company audit' },
+  { id: 'sync_stream', label: 'Real-Time Activity & Sync Engine', category: 'System & Sync', icon: Activity, description: 'Live SSE telemetry stream, SQLite central sync engine & company audit' },
   { id: 'sync_health', label: 'Sync Health & 30-Day SLA', category: 'System & Sync', icon: Wifi, description: '30-day sync uptime percentage & ping diagnostics' },
-  { id: 'cloud_health', label: 'Cloud Probes & Queue', category: 'System & Sync', icon: Server, description: 'MariaDB connection latency & queue health' },
-  { id: 'storage', label: 'Disk Space & Partitions', category: 'System & Sync', icon: HardDrive, description: 'MariaDB mbi72dn storage usage & vacuuming' },
+  { id: 'cloud_health', label: 'Cloud Probes & Queue', category: 'System & Sync', icon: Server, description: 'SQLite Vault connection latency & queue health' },
+  { id: 'storage', label: 'Disk Space & Partitions', category: 'System & Sync', icon: HardDrive, description: 'SQLite Master & Tenant Vault storage usage & vacuuming' },
   { id: 'backup_vault', label: 'Tenant Backups & Restore Hub', category: 'System & Sync', icon: Archive, description: 'Upload, manage & 1-click restore encrypted SQLite/IndexedDB backups for each company' },
 
   // 4. Commerce & CMS
@@ -308,7 +308,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
       if (data.success) {
         setIsPasswordModalOpen(false);
         setNewPasscode('');
-        handleNotify('Master password updated successfully across MariaDB mbi72dn.');
+        handleNotify('Master password updated successfully across SQLite Master Vault.');
       }
     } catch (err) {
       console.error(err);
@@ -583,7 +583,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
                   <span>Midnight Automated Disaster Recovery Cron</span>
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
-                  Automated 12:00 AM encrypted per-tenant snapshots are archived daily on MariaDB <code className="text-indigo-600 dark:text-indigo-400 font-mono">mbi72dn</code>. When a client replaces a stolen or damaged laptop, their latest snapshot restores automatically with ZERO data loss.
+                  Automated 12:00 AM encrypted per-tenant snapshots are archived daily in SQLite Vaults. When a client replaces a stolen or damaged laptop, their latest snapshot restores automatically with ZERO data loss.
                 </p>
               </div>
               <button
@@ -634,7 +634,7 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
               <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>MariaDB: <code className="font-mono text-slate-700 dark:text-slate-300">mbi72dn</code></span>
+                  <span>Vault Engine: <code className="font-mono text-slate-700 dark:text-slate-300">SQLite WAL</code></span>
                 </span>
                 <span>•</span>
                 <span>25 Fleet Tabs</span>

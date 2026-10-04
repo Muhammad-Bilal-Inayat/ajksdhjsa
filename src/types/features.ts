@@ -170,15 +170,15 @@ export const DEFAULT_173_FEATURE_MATRIX: FeatureCategory[] = [
   {
     id: 'cloud_sync',
     name: 'Cloud & Offline Synchronization',
-    description: 'MariaDB replication, 100% offline continuity, SSE live streams & 50GB NVMe cloud',
+    description: 'SQLite Vault replication, 100% offline continuity, SSE live streams & 50GB NVMe cloud',
     icon: 'Cloud',
     features: [
-      { id: 'sync_offline_dual_engine', name: 'Dual Engine 100% Offline Continuity', description: 'Local IndexedDB/MariaDB keeps billing running with 0ms internet dependency', defaultEnabled: true, minPlan: 'basic', category: 'cloud_sync' },
+      { id: 'sync_offline_dual_engine', name: 'Dual Engine 100% Offline Continuity', description: 'Local IndexedDB & SQLite Vault keeps billing running with 0ms internet dependency', defaultEnabled: true, minPlan: 'basic', category: 'cloud_sync' },
       { id: 'sync_sse_realtime_stream', name: 'Real-Time Server-Sent Events (SSE) Stream', description: 'Instant push notifications for price updates, fleet broadcasts, and remote locks', defaultEnabled: true, minPlan: 'basic', category: 'cloud_sync' },
       { id: 'sync_encrypted_cloud_backup', name: '24-Hour Automated Encrypted Cloud Snapshots', description: 'Automated disaster recovery storage with zero data loss guarantee', defaultEnabled: false, minPlan: 'business', category: 'cloud_sync' },
       { id: 'sync_nvme_cloud_mirror_50gb', name: '50GB NVMe Cloud Mirroring & Storage', description: 'Dedicated enterprise cloud replica with sub-second database mirroring', defaultEnabled: false, minPlan: 'enterprise', category: 'cloud_sync' },
       { id: 'sync_pwa_hot_code_push', name: 'PWA Hot Code Push & Service Worker Cache', description: 'Seamless background updates without disrupting active cashiers', defaultEnabled: true, minPlan: 'basic', category: 'cloud_sync' },
-      { id: 'sync_cross_device_counter_link', name: 'Local Area Network (LAN) Multi-Counter Sync', description: 'Link 5+ counter PCs to single local Master MariaDB server', defaultEnabled: false, minPlan: 'business', category: 'cloud_sync' },
+      { id: 'sync_cross_device_counter_link', name: 'Local Area Network (LAN) Multi-Counter Sync', description: 'Link 5+ counter PCs to central Master SQLite Vault', defaultEnabled: false, minPlan: 'business', category: 'cloud_sync' },
       { id: 'sync_online_storefront', name: 'Online Storefront & Mobile Order Integration', description: 'Public patient medicine ordering website with live inventory sync', defaultEnabled: false, minPlan: 'enterprise', category: 'cloud_sync' }
     ]
   },

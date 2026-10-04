@@ -116,7 +116,7 @@ export const MasterCommandCenter: React.FC = () => {
     {
       id: 'database',
       label: 'Database & Cloud Vault',
-      subtitle: 'MariaDB mbi72dn & Backups',
+      subtitle: 'SQLite Vaults & Backups',
       icon: Database,
       badge: 'Vault'
     },
@@ -261,7 +261,7 @@ export const MasterCommandCenter: React.FC = () => {
             }`}>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-semibold">MariaDB mbi72dn</span>
+                <span className="font-semibold">SQLite Vaults (WAL)</span>
               </div>
               <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">ONLINE</span>
             </div>

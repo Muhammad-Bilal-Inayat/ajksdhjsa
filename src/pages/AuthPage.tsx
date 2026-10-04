@@ -384,7 +384,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
         <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>256-Bit Encrypted MariaDB Storage</span>
+            <span>256-Bit Encrypted SQLite Vault Storage</span>
           </div>
           <span className="font-mono text-[11px] text-slate-400">Instant 10-Day Free Trial</span>
         </div>

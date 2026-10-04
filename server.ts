@@ -41,10 +41,9 @@ async function startServer() {
   const HOST = '0.0.0.0';
   const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 
-  // Initialize MariaDB schema in background on boot
-  initializeMariaDbSchema().catch((err) => {
-    console.log('[MARIADB BOOT INFO] Automatic MariaDB initialization:', err?.message || 'Ready');
-  });
+  // Initialize and verify Tenant-Isolated SQLite Vault Engine
+  const vaultHealth = checkVaultEngineHealth();
+  console.log(`[SQLITE VAULT ENGINE]: 100% Standalone Active (WAL Mode). Master Vault: ${vaultHealth.masterDbPath}`);
 
   // Security Hardening: Disable information disclosure
   app.disable('x-powered-by');

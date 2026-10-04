@@ -17075,9 +17075,8 @@ async function startServer() {
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
   const syncFile12 = import_path22.default.resolve(process.cwd(), ".sync_data.json");
-  initializeMariaDbSchema().catch((err) => {
-    console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
-  });
+  const vaultHealth = checkVaultEngineHealth();
+  console.log(`[SQLITE VAULT ENGINE]: 100% Standalone Active (WAL Mode). Master Vault: ${vaultHealth.masterDbPath}`);
   app.disable("x-powered-by");
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");

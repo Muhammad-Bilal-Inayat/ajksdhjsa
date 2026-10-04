@@ -4,7 +4,7 @@ import {
   Crown, Sparkles, AlertTriangle, Info, Clock, Trash2, 
   RefreshCw, CheckCircle2, Check, ExternalLink, Search, 
   Eye, BarChart3, Filter, MessageSquare, ArrowRight, ShieldAlert,
-  Smartphone, Layers, CheckCheck
+  Smartphone, Layers, CheckCheck, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { emitToast } from '../../contexts/ToastContext';
 
@@ -615,7 +615,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    4. Attach Banner Image (Optional)
+                    4. Attach Banner Image (Upload File or URL)
                   </label>
                   {imageUrl && (
                     <button
@@ -629,18 +629,77 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <input
-                    type="url"
-                    placeholder="Paste Image URL (e.g. https://... or .png / .jpg)"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
-                  />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Local File Picker Button */}
+                    <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-blue-500/60 bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100/50 text-blue-600 dark:text-blue-400 text-xs font-bold cursor-pointer transition-all">
+                      <Upload className="w-4 h-4" />
+                      <span>Upload from Device (Max 2MB)</span>
+                      <input 
+                        type="file" 
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 2 * 1024 * 1024) {
+                              emitToast('Image size exceeds 2MB limit. Please choose a smaller image.', 'error');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              const result = event.target?.result as string;
+                              if (result) {
+                                setImageUrl(result);
+                                emitToast('Image attached successfully!', 'success');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    {/* Direct URL Input */}
+                    <div className="relative">
+                      <input
+                        type="url"
+                        placeholder="Or paste image URL (https://...)"
+                        value={imageUrl.startsWith('data:') ? '📎 [Attached File from Computer]' : imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Device Size & Dimensions Recommendation Card */}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-black text-slate-700 dark:text-slate-300">
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Recommended Dimensions (All Device Compatibility):</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-0.5 text-[10px]">
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="font-bold text-slate-900 dark:text-white block">🖥️ Desktop / Wide Banner</span>
+                        <span className="font-mono text-blue-600 dark:text-blue-400 font-bold">1200 x 600 px</span>
+                        <span className="text-slate-400 block text-[9px]">Aspect 2:1 (Best for header)</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="font-bold text-slate-900 dark:text-white block">📱 Mobile & Tablet Card</span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">800 x 450 px</span>
+                        <span className="text-slate-400 block text-[9px]">Aspect 16:9 (Universal)</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800">
+                        <span className="font-bold text-slate-900 dark:text-white block">🔲 Square Promo Badge</span>
+                        <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">600 x 600 px</span>
+                        <span className="text-slate-400 block text-[9px]">Aspect 1:1 (Max size 2MB)</span>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Quick Image Presets */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <span className="text-[10px] text-slate-400 font-bold self-center">Quick Banners:</span>
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold self-center">Quick Stock Presets:</span>
                     <button
                       type="button"
                       onClick={() => setImageUrl('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80')}
@@ -666,11 +725,11 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
 
                   {/* Image Preview in Form */}
                   {imageUrl && (
-                    <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-36 bg-slate-950 flex items-center justify-center">
+                    <div className="mt-2 relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-44 bg-slate-950 flex items-center justify-center">
                       <img 
                         src={imageUrl} 
                         alt="Broadcast Attachment Preview" 
-                        className="w-full h-36 object-cover"
+                        className="w-full h-44 object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}

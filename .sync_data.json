@@ -234107,5 +234107,22 @@
       "updatedAt": "2026-10-04T18:13:00.445Z",
       "syncStatus": "pending"
     }
+  ],
+  "broadcasts": [
+    {
+      "id": "bc_1791141275372_tmz8g",
+      "title": "hi",
+      "subtitle": "hi",
+      "body": "hi",
+      "type": "info",
+      "priority": "feature_update",
+      "targetType": "global",
+      "dispatchedAt": "2026-10-04T19:14:35.372Z",
+      "author": "Super Admin",
+      "deliveredCount": 15,
+      "readCount": 0,
+      "readPercentage": 0,
+      "receipts": []
+    }
   ]
 }

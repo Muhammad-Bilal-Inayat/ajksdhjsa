@@ -115,9 +115,9 @@ export function GlobalBroadcastPopupModal() {
   };
 
   const checkPendingBroadcasts = async () => {
-    // Only check if on client app routes (/user, /billing, /pos, etc.)
+    // Suppress popups ONLY on the Master Infrastructure console (/server & /master)
     const path = window.location.pathname.toLowerCase();
-    if (path.startsWith('/server') || path.startsWith('/admin') || path.startsWith('/master') || path === '/' || path === '/home' || path === '/login') {
+    if (path.startsWith('/server') || path.startsWith('/master')) {
       return;
     }
 
@@ -131,19 +131,21 @@ export function GlobalBroadcastPopupModal() {
         res = await fetch(`/api/master/lan/active-broadcasts?tenantId=${encodeURIComponent(activeTenant)}`);
       }
 
-      const data = await res.json();
-      const list: BroadcastPayload[] = data.broadcasts || [];
-      if (data.success && Array.isArray(list) && list.length > 0) {
-        for (const b of list) {
-          const ackKey = `mbi_bcast_ack_${b.id}`;
-          const seenKey = `mbi_broadcast_seen_${b.id}`;
-          if (!localStorage.getItem(ackKey) && !localStorage.getItem(seenKey)) {
-            if (isTargetedToCurrentClient(b)) {
-              setActiveBroadcast(b);
-              if (b.playChime !== false) {
-                playNotificationChime();
+      if (res.ok) {
+        const data = await res.json();
+        const list: BroadcastPayload[] = data.broadcasts || (Array.isArray(data) ? data : []);
+        if (Array.isArray(list) && list.length > 0) {
+          for (const b of list) {
+            const ackKey = `mbi_bcast_ack_${b.id}`;
+            const seenKey = `mbi_broadcast_seen_${b.id}`;
+            if (!localStorage.getItem(ackKey) && !localStorage.getItem(seenKey)) {
+              if (isTargetedToCurrentClient(b)) {
+                setActiveBroadcast(b);
+                if (b.playChime !== false) {
+                  playNotificationChime();
+                }
+                break;
               }
-              break;
             }
           }
         }
@@ -162,8 +164,8 @@ export function GlobalBroadcastPopupModal() {
       if (!b || !b.id) return;
 
       const path = window.location.pathname.toLowerCase();
-      // Suppress on server or home
-      if (path.startsWith('/server') || path.startsWith('/admin') || path.startsWith('/master') || path === '/' || path === '/home' || path === '/login') {
+      // Suppress only on server or master console
+      if (path.startsWith('/server') || path.startsWith('/master')) {
         return;
       }
 
@@ -180,7 +182,7 @@ export function GlobalBroadcastPopupModal() {
     };
 
     window.addEventListener('mbi-new-broadcast' as any, handleSseBroadcast);
-    const interval = setInterval(checkPendingBroadcasts, 45000);
+    const interval = setInterval(checkPendingBroadcasts, 30000);
 
     return () => {
       window.removeEventListener('mbi-new-broadcast' as any, handleSseBroadcast);
@@ -188,14 +190,10 @@ export function GlobalBroadcastPopupModal() {
     };
   }, []);
 
-  // Suppress display on /server, /admin, /master, /, /home, /login
+  // Suppress display only on master admin console
   const isExcludedRoute = 
     currentRoute.startsWith('/server') || 
-    currentRoute.startsWith('/admin') || 
-    currentRoute.startsWith('/master') || 
-    currentRoute === '/' || 
-    currentRoute === '/home' || 
-    currentRoute === '/login';
+    currentRoute.startsWith('/master');
 
   if (!activeBroadcast || isExcludedRoute) return null;
 

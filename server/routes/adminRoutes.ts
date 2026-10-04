@@ -338,14 +338,13 @@ adminRouter.get('/tenants/:id/staff-and-devices', async (req: Request, res: Resp
   try {
     const { id } = req.params;
 
-    // 1. Fetch Staff Sub-Users
+    // 1. Fetch Staff Sub-Users from SQLite Master Vault
     let staffList: any[] = [];
     try {
-      const pool = getMariaDbPool();
-      const rows: any = await pool.query(
-        'SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC',
-        [id]
-      );
+      const masterDb = getMasterVault();
+      const rows: any = masterDb.prepare(
+        'SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC'
+      ).all(id);
 
       if (Array.isArray(rows) && rows.length > 0) {
         staffList = rows.map((u: any) => ({
@@ -385,16 +384,11 @@ adminRouter.get('/tenants/:id/staff-and-devices', async (req: Request, res: Resp
       }
     }
 
-
-
-    // 3. Fetch Tenant Meta
+    // 3. Fetch Tenant Meta from SQLite Master Vault
     let tenantInfo: any = null;
     try {
-      const pool = getMariaDbPool();
-      const rows: any = await pool.query('SELECT * FROM mbi_tenants WHERE id = ?', [id]);
-      if (Array.isArray(rows) && rows.length > 0) {
-        tenantInfo = rows[0];
-      }
+      const masterDb = getMasterVault();
+      tenantInfo = masterDb.prepare('SELECT * FROM mbi_tenants WHERE id = ? OR tenant_id = ?').get(id, id);
     } catch {}
 
     return res.json({
@@ -427,15 +421,8 @@ adminRouter.post('/tenants/:id/plan', async (req: Request, res: Response) => {
     try {
       const masterDb = getMasterVault();
       masterDb.prepare("UPDATE mbi_tenants SET plan = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, id, id);
+      masterDb.prepare("UPDATE mbi_licenses SET plan = ?, updated_at = datetime('now') WHERE tenant_id = ? OR client_name = ?").run(targetPlan, id, id);
     } catch (sqErr) {}
-
-    try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        'UPDATE mbi_tenants SET plan = ?, subscription_plan = ?, plan_id = ?, updated_at = ? WHERE id = ?',
-        [targetPlan, targetPlan, targetPlan, new Date().toISOString(), id]
-      );
-    } catch (dbErr) {}
 
     // Broadcast SSE
     try {
@@ -644,11 +631,8 @@ adminRouter.post('/tenants/:id/storage-limit', async (req: Request, res: Respons
     const limit = Number(storageLimitMb || 5000);
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        'UPDATE mbi_tenants SET storage_limit_mb = ?, updated_at = ? WHERE id = ?',
-        [limit, new Date().toISOString(), id]
-      );
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET storage_limit_mb = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(limit, id, id);
     } catch (dbErr) {}
 
     // Update fallback data if exists
@@ -718,15 +702,9 @@ adminRouter.post('/tenants/:id/extend-license', async (req: Request, res: Respon
     const newExpiry = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        'UPDATE mbi_tenants SET trial_expiry_date = ?, trial_expires_at = ?, status = "Active", updated_at = ? WHERE id = ?',
-        [newExpiry, newExpiry, new Date().toISOString(), id]
-      );
-      await pool.query(
-        'UPDATE mbi_licenses SET expiry_date = ?, status = "ACTIVE", updated_at = ? WHERE client_name = ? OR tenant_id = ?',
-        [newExpiry, new Date().toISOString(), id, id]
-      );
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET trial_expiry_date = ?, trial_expires_at = ?, status = 'Active', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newExpiry, newExpiry, id, id);
+      masterDb.prepare("UPDATE mbi_licenses SET expiry_date = ?, status = 'ACTIVE', updated_at = datetime('now') WHERE client_name = ? OR tenant_id = ?").run(newExpiry, id, id);
     } catch (dbErr) {}
 
     // Broadcast SSE
@@ -777,16 +755,16 @@ adminRouter.post('/tenants/:id/extend-license', async (req: Request, res: Respon
  */
 export async function handleGetDeviceBindings(req: Request, res: Response) {
   try {
-    const pool = getMariaDbPool();
     const bindings: any[] = [];
 
-    // 1. Fetch licenses from MariaDB
+    // 1. Fetch licenses from SQLite Master Vault
     let dbLicenses: any[] = [];
     try {
-      const [rows]: any = await pool.query(
+      const masterDb = getMasterVault();
+      const rows: any = masterDb.prepare(
         `SELECT id, tenant_id, license_key, client_name, owner_name, plan, status, max_devices, bound_hardware_ids, updated_at 
-         FROM mbi_licenses ORDER BY updated_at DESC;`
-      );
+         FROM mbi_licenses ORDER BY updated_at DESC`
+      ).all();
       if (Array.isArray(rows)) {
         dbLicenses = rows;
       }
@@ -881,20 +859,16 @@ export async function handleDeviceMasterAction(req: Request, res: Response) {
     const cleanKey = (licenseKey || '').trim().toUpperCase();
     const cleanTenant = (tenantId || '').trim();
 
-    const pool = getMariaDbPool();
     let licenseRecord: any = null;
 
-    // Look up license in MariaDB
+    // Look up license in SQLite Master Vault
     try {
-      const [rows]: any = await pool.query(
+      const masterDb = getMasterVault();
+      licenseRecord = masterDb.prepare(
         `SELECT * FROM mbi_licenses 
          WHERE UPPER(license_key) = ? OR tenant_id = ? OR id = ? OR bound_hardware_ids LIKE ? 
-         ORDER BY created_at DESC LIMIT 1`,
-        [cleanKey, cleanTenant, cleanTenant, `%${cleanHwid}%`]
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        licenseRecord = rows[0];
-      }
+         ORDER BY created_at DESC LIMIT 1`
+      ).get(cleanKey, cleanTenant, cleanTenant, `%${cleanHwid}%`);
     } catch (e) {}
 
     // Fallback search in syncFile
@@ -927,15 +901,15 @@ export async function handleDeviceMasterAction(req: Request, res: Response) {
           currentMaxDevices = boundList.length;
         }
 
-        // Update DB
+        // Update SQLite Master Vault
         if (licenseRecord?.id) {
           try {
-            await pool.query(
+            const masterDb = getMasterVault();
+            masterDb.prepare(
               `UPDATE mbi_licenses 
-               SET bound_hardware_ids = ?, max_devices = ?, status = 'Active', updated_at = CURRENT_TIMESTAMP 
-               WHERE id = ?`,
-              [JSON.stringify(boundList), currentMaxDevices, licenseRecord.id]
-            );
+               SET bound_hardware_ids = ?, max_devices = ?, status = 'Active', updated_at = datetime('now') 
+               WHERE id = ?`
+            ).run(JSON.stringify(boundList), currentMaxDevices, licenseRecord.id);
           } catch (e) {}
         }
         message = `Device ${cleanHwid} successfully authorized and bound to license!`;
@@ -948,12 +922,12 @@ export async function handleDeviceMasterAction(req: Request, res: Response) {
 
         if (licenseRecord?.id) {
           try {
-            await pool.query(
+            const masterDb = getMasterVault();
+            masterDb.prepare(
               `UPDATE mbi_licenses 
-               SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = ?`,
-              [JSON.stringify(boundList), licenseRecord.id]
-            );
+               SET bound_hardware_ids = ?, updated_at = datetime('now') 
+               WHERE id = ?`
+            ).run(JSON.stringify(boundList), licenseRecord.id);
           } catch (e) {}
         }
         message = `Device ${cleanHwid} successfully deleted and un-bound from license.`;
@@ -961,17 +935,17 @@ export async function handleDeviceMasterAction(req: Request, res: Response) {
       }
 
       case 'grant_terminal_slot': {
-        // 3. Grant +1 Emergency Terminal Slot -> Increments max_terminals by 1 directly in MariaDB
+        // 3. Grant +1 Emergency Terminal Slot -> Increments max_terminals by 1 directly in SQLite Master Vault
         currentMaxDevices += 1;
 
         if (licenseRecord?.id) {
           try {
-            await pool.query(
+            const masterDb = getMasterVault();
+            masterDb.prepare(
               `UPDATE mbi_licenses 
-               SET max_devices = ?, updated_at = CURRENT_TIMESTAMP 
-               WHERE id = ?`,
-              [currentMaxDevices, licenseRecord.id]
-            );
+               SET max_devices = ?, updated_at = datetime('now') 
+               WHERE id = ?`
+            ).run(currentMaxDevices, licenseRecord.id);
           } catch (e) {}
         }
         message = `Emergency slot granted! Max allowed terminals increased to ${currentMaxDevices}.`;
@@ -984,12 +958,12 @@ export async function handleDeviceMasterAction(req: Request, res: Response) {
 
         if (licenseRecord?.id) {
           try {
-            await pool.query(
+            const masterDb = getMasterVault();
+            masterDb.prepare(
               `UPDATE mbi_licenses 
-               SET bound_hardware_ids = ?, status = 'Active', updated_at = CURRENT_TIMESTAMP 
-               WHERE id = ?`,
-              [JSON.stringify(boundList), licenseRecord.id]
-            );
+               SET bound_hardware_ids = ?, status = 'Active', updated_at = datetime('now') 
+               WHERE id = ?`
+            ).run(JSON.stringify(boundList), licenseRecord.id);
           } catch (e) {}
         }
         message = `Hardware lock cleared for ${cleanHwid}. Terminal can now re-bind cleanly with 0 lock screens.`;
@@ -1087,13 +1061,18 @@ adminRouter.get('/tenants/:id/private-panel-config', async (req: Request, res: R
     };
 
     try {
-      const pool = getMariaDbPool();
-      const rows: any = await pool.query(
-        'SELECT settings_json FROM mbi_settings WHERE tenant_id = ? OR tenant_id = "default"',
-        [id]
-      );
-      if (Array.isArray(rows) && rows.length > 0 && rows[0].settings_json) {
-        const parsed = typeof rows[0].settings_json === 'string' ? JSON.parse(rows[0].settings_json) : rows[0].settings_json;
+      const tenantDb = getTenantVault(id);
+      tenantDb.exec(`
+        CREATE TABLE IF NOT EXISTS mbi_settings (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT,
+          settings_json TEXT,
+          updated_at TEXT
+        )
+      `);
+      const row: any = tenantDb.prepare('SELECT settings_json FROM mbi_settings WHERE tenant_id = ? OR id = ?').get(id, `set_${id}`);
+      if (row && row.settings_json) {
+        const parsed = typeof row.settings_json === 'string' ? JSON.parse(row.settings_json) : row.settings_json;
         if (parsed.privatePanelConfig) {
           config = { ...config, ...parsed.privatePanelConfig };
         }
@@ -1130,21 +1109,26 @@ adminRouter.put('/tenants/:id/private-panel-config', async (req: Request, res: R
     };
 
     try {
-      const pool = getMariaDbPool();
-      // Ensure settings table has this config
-      await pool.query(
-        `INSERT INTO mbi_settings (id, tenant_id, settings_json, updated_at) 
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE settings_json = JSON_SET(COALESCE(settings_json, '{}'), '$.privatePanelConfig', ?), updated_at = ?`,
-        [
-          `set_${id}`,
-          id,
-          JSON.stringify({ privatePanelConfig: updatedConfig }),
-          new Date().toISOString(),
-          JSON.stringify(updatedConfig),
-          new Date().toISOString()
-        ]
-      );
+      const tenantDb = getTenantVault(id);
+      tenantDb.exec(`
+        CREATE TABLE IF NOT EXISTS mbi_settings (
+          id TEXT PRIMARY KEY,
+          tenant_id TEXT,
+          settings_json TEXT,
+          updated_at TEXT
+        )
+      `);
+      let currentSettings: any = {};
+      const existing: any = tenantDb.prepare('SELECT settings_json FROM mbi_settings WHERE tenant_id = ? OR id = ?').get(id, `set_${id}`);
+      if (existing?.settings_json) {
+        try { currentSettings = JSON.parse(existing.settings_json); } catch {}
+      }
+      currentSettings.privatePanelConfig = updatedConfig;
+      tenantDb.prepare(`
+        INSERT INTO mbi_settings (id, tenant_id, settings_json, updated_at)
+        VALUES (?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET settings_json = excluded.settings_json, updated_at = excluded.updated_at
+      `).run(`set_${id}`, id, JSON.stringify(currentSettings));
     } catch (e) {}
 
     // Persist to local fallback store
@@ -1203,12 +1187,8 @@ adminRouter.post('/tenants/:tenantId/staff/:userId/toggle-status', async (req: R
     const newStatus = status || 'Active';
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_users SET status = ?, updated_at = ? WHERE id = ?', [
-        newStatus,
-        new Date().toISOString(),
-        userId
-      ]);
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_users SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, userId);
     } catch (dbErr) {}
 
     const allUsers = getFallbackUsers();
@@ -1242,11 +1222,8 @@ adminRouter.post('/tenants/:tenantId/staff/:userId/reset-passcode', async (req: 
     const newPasscode = passcode || '1234';
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_users SET passcode = ?, updated_at = NOW() WHERE id = ?', [
-        newPasscode,
-        userId
-      ]);
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_users SET passcode = ?, updated_at = datetime('now') WHERE id = ?").run(newPasscode, userId);
     } catch (dbErr) {}
 
     const allUsers = getFallbackUsers();
@@ -1271,7 +1248,7 @@ adminRouter.post('/tenants/:tenantId/staff/:userId/reset-passcode', async (req: 
 
 /**
  * POST /api/admin/users/update-credentials
- * Updates user passcode, password, role or email in MariaDB mbi_users and users tables
+ * Updates user passcode, password, role or email in Master Vault and Tenant Vault
  */
 adminRouter.post('/users/update-credentials', async (req: Request, res: Response) => {
   try {
@@ -1283,54 +1260,43 @@ adminRouter.post('/users/update-credentials', async (req: Request, res: Response
     const newPasscode = (passcode || password || '1234').toString().trim();
     const newPassword = (password || passcode || '1234').toString().trim();
 
-    const isDb = await isMariaDbAvailable();
-    if (isDb) {
-      const pool = getMariaDbPool();
-      try {
-        if (userId) {
-          await pool.query(
-            `UPDATE mbi_users 
-             SET passcode = ?, 
-                 email = COALESCE(?, email), 
-                 role = COALESCE(?, role), 
-                 updated_at = NOW() 
-             WHERE id = ? OR (tenant_id = ? AND role = 'Owner');`,
-            [newPasscode, email || null, role || null, userId, tenantId || '']
-          );
-
-          await pool.query(
-            `UPDATE users 
-             SET password = ?, 
-                 email = COALESCE(?, email), 
-                 role = COALESCE(?, role), 
-                 updated_at = NOW() 
-             WHERE id = ? OR tenant_id = ?;`,
-            [newPassword, email || null, role || null, userId, tenantId || '']
-          );
-        } else if (tenantId) {
-          await pool.query(
-            `UPDATE mbi_users 
-             SET passcode = ?, 
-                 email = COALESCE(?, email), 
-                 role = COALESCE(?, role), 
-                 updated_at = NOW() 
-             WHERE tenant_id = ? AND (role = 'Owner' OR is_primary_owner = 1);`,
-            [newPasscode, email || null, role || null, tenantId]
-          );
-
-          await pool.query(
-            `UPDATE users 
-             SET password = ?, 
-                 email = COALESCE(?, email), 
-                 role = COALESCE(?, role), 
-                 updated_at = NOW() 
-             WHERE tenant_id = ? AND (role = 'owner' OR role = 'Owner');`,
-            [newPassword, email || null, role || null, tenantId]
-          );
-        }
-      } catch (dbErr: any) {
-        console.warn('[UPDATE CREDENTIALS DB ERROR]:', dbErr?.message);
+    try {
+      const masterDb = getMasterVault();
+      if (userId) {
+        masterDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, 
+              email = COALESCE(?, email), 
+              role = COALESCE(?, role), 
+              updated_at = datetime('now') 
+          WHERE id = ? OR (tenant_id = ? AND role = 'Owner')
+        `).run(newPasscode, email || null, role || null, userId, tenantId || '');
+      } else if (tenantId) {
+        masterDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, 
+              email = COALESCE(?, email), 
+              role = COALESCE(?, role), 
+              updated_at = datetime('now') 
+          WHERE tenant_id = ? AND (role = 'Owner' OR is_primary_owner = 1)
+        `).run(newPasscode, email || null, role || null, tenantId);
       }
+    } catch (dbErr: any) {
+      console.warn('[UPDATE CREDENTIALS DB ERROR]:', dbErr?.message);
+    }
+
+    if (tenantId) {
+      try {
+        const tenantDb = getTenantVault(tenantId);
+        tenantDb.prepare(`
+          UPDATE users 
+          SET password = ?, 
+              email = COALESCE(?, email), 
+              role = COALESCE(?, role), 
+              updated_at = datetime('now') 
+          WHERE id = ? OR tenant_id = ? OR role = 'Owner' OR role = 'owner'
+        `).run(newPassword, email || null, role || null, userId || '', tenantId);
+      } catch (tErr: any) {}
     }
 
     // Update local fallback sync file
@@ -1355,7 +1321,7 @@ adminRouter.post('/users/update-credentials', async (req: Request, res: Response
 
     return res.json({
       success: true,
-      message: `Credentials updated in MariaDB successfully! New Passcode: ${newPasscode}`,
+      message: `Credentials updated in SQLite Vault successfully! New Passcode: ${newPasscode}`,
       passcode: newPasscode
     });
   } catch (err: any) {
@@ -1373,13 +1339,12 @@ adminRouter.post('/tenants/:tenantId/staff/:userId/kill-switch', async (req: Req
     const isKillActive = Boolean(killSwitch);
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = ? WHERE id = ?', [
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = datetime('now') WHERE id = ?").run(
         isKillActive ? 1 : 0,
         isKillActive ? 'Suspended' : 'Active',
-        new Date().toISOString(),
         userId
-      ]);
+      );
     } catch (dbErr) {}
 
     const allUsers = getFallbackUsers();
@@ -1408,6 +1373,7 @@ adminRouter.post('/tenants/:tenantId/staff/:userId/kill-switch', async (req: Req
     return res.status(500).json({ success: false, error: err?.message });
   }
 });
+
 
 /**
  * POST /api/admin/tenants/:tenantId/devices/:deviceId/revoke
@@ -1461,13 +1427,12 @@ adminRouter.post('/tenants/:tenantId/devices/transfer-slot', async (req: Request
       return res.status(400).json({ success: false, error: 'New HWID is required for slot transfer' });
     }
 
-    // Update license bound HWID in MariaDB
+    // Update license bound HWID in SQLite Master Vault
     try {
-      const pool = getMariaDbPool();
-      await pool.query(
-        'UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = ? WHERE client_name = ? OR tenant_id = ?',
-        [JSON.stringify([newHwid]), new Date().toISOString(), tenantId, tenantId]
-      );
+      const masterDb = getMasterVault();
+      masterDb.prepare(
+        "UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = datetime('now') WHERE client_name = ? OR tenant_id = ?"
+      ).run(JSON.stringify([newHwid]), tenantId, tenantId);
     } catch (dbErr) {}
 
     // Register new device
@@ -1522,15 +1487,6 @@ adminRouter.post('/tenants/:id/lock', async (req: Request, res: Response) => {
     } catch (sqErr) {}
 
     try {
-      const pool = getMariaDbPool();
-      await pool.query('UPDATE mbi_tenants SET status = ?, updated_at = ? WHERE id = ?', [
-        newStatus,
-        new Date().toISOString(),
-        id
-      ]);
-    } catch (dbErr) {}
-
-    try {
       broadcastTenantEvent(id, {
         type: lock ? 'EMERGENCY_LOCK_ENGAGED' : 'EMERGENCY_LOCK_RELEASED',
         entity: 'tenant_status',
@@ -1566,10 +1522,10 @@ adminRouter.post('/impersonate/:tenantId', async (req: Request, res: Response) =
     let storeName = 'Target Pharmacy Store';
 
     try {
-      const pool = getMariaDbPool();
-      const rows: any = await pool.query('SELECT id, name FROM mbi_tenants WHERE id = ?', [tenantId]);
-      if (Array.isArray(rows) && rows.length > 0) {
-        storeName = rows[0].name;
+      const masterDb = getMasterVault();
+      const row: any = masterDb.prepare('SELECT id, name FROM mbi_tenants WHERE id = ? OR tenant_id = ?').get(tenantId, tenantId);
+      if (row?.name) {
+        storeName = row.name;
       }
     } catch {}
 
@@ -2022,38 +1978,36 @@ adminRouter.get('/licenses', async (req: Request, res: Response) => {
   try {
     let licenses: any[] = [];
 
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-        const [rows]: any = await pool.query(`
-          SELECT 
-            l.id,
-            l.tenant_id,
-            l.license_key,
-            COALESCE(l.client_name, t.name, 'Registered Pharmacy') AS pharmacy_name,
-            COALESCE(l.owner_name, t.owner_name, 'Store Owner') AS owner_name,
-            COALESCE(l.phone, t.owner_phone, t.contact_phone, '') AS owner_contact,
-            COALESCE(l.plan, t.plan_id, t.plan, 'Gold Business') AS plan_tier,
-            COALESCE(l.status, 'Active') AS status,
-            l.issue_date,
-            l.expiry_date,
-            COALESCE(l.max_devices, 5) AS max_terminals,
-            5 AS max_users,
-            5 AS max_branches,
-            l.bound_hardware_ids,
-            l.bound_hwid,
-            l.created_at
-          FROM mbi_licenses l
-          LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id OR l.client_name = t.name)
-          ORDER BY l.created_at DESC
-        `);
+    try {
+      const masterDb = getMasterVault();
+      const rows: any = masterDb.prepare(`
+        SELECT 
+          l.id,
+          l.tenant_id,
+          l.license_key,
+          COALESCE(l.client_name, t.name, 'Registered Pharmacy') AS pharmacy_name,
+          COALESCE(l.owner_name, t.owner_name, 'Store Owner') AS owner_name,
+          COALESCE(l.phone, t.owner_phone, t.contact_phone, '') AS owner_contact,
+          COALESCE(l.plan, t.plan_id, t.plan, 'Gold Business') AS plan_tier,
+          COALESCE(l.status, 'Active') AS status,
+          l.issue_date,
+          l.expiry_date,
+          COALESCE(l.max_devices, 5) AS max_terminals,
+          5 AS max_users,
+          5 AS max_branches,
+          l.bound_hardware_ids,
+          l.bound_hwid,
+          l.created_at
+        FROM mbi_licenses l
+        LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id OR l.client_name = t.name)
+        ORDER BY l.created_at DESC
+      `).all();
 
-        if (Array.isArray(rows) && rows.length > 0) {
-          licenses = rows;
-        }
-      } catch (dbErr) {
-        console.warn('[ADMIN LICENSES DB FETCH]', dbErr);
+      if (Array.isArray(rows) && rows.length > 0) {
+        licenses = rows;
       }
+    } catch (dbErr) {
+      console.warn('[ADMIN LICENSES SQLITE FETCH]', dbErr);
     }
 
     // Merge with any tenants or fallback sync users that don't have a license row yet
@@ -2140,26 +2094,24 @@ adminRouter.post('/licenses/create', async (req: Request, res: Response) => {
       ? '2099-12-31' 
       : new Date(now.getTime() + years * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Write to MariaDB
-    if (await isMariaDbAvailable()) {
-      try {
-        const pool = getMariaDbPool();
-        await pool.query(`
-          INSERT INTO mbi_licenses (
-            id, tenant_id, license_key, client_name, owner_name, phone, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', CURRENT_DATE, ?, ?, '[]')
-          ON DUPLICATE KEY UPDATE status = 'Active', expiry_date = VALUES(expiry_date);
-        `, [licenseId, tenantId, licenseKey, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, expiryDate, terminals]);
+    // Write to SQLite Master Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_licenses (
+          id, tenant_id, license_key, client_name, owner_name, phone, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', date('now'), ?, ?, '[]')
+        ON CONFLICT(id) DO UPDATE SET status = 'Active', expiry_date = excluded.expiry_date
+      `).run(licenseId, tenantId, licenseKey, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, expiryDate, terminals);
 
-        await pool.query(`
-          INSERT INTO mbi_tenants (
-            id, tenant_id, name, owner_name, owner_phone, plan, plan_id, status
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')
-          ON DUPLICATE KEY UPDATE status = 'Active';
-        `, [tenantId, tenantId, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, cleanTier]);
-      } catch (dbErr) {
-        console.warn('[CREATE LICENSE DB ERROR]', dbErr);
-      }
+      masterDb.prepare(`
+        INSERT INTO mbi_tenants (
+          id, tenant_id, name, owner_name, owner_phone, plan, plan_id, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')
+        ON CONFLICT(id) DO UPDATE SET status = 'Active'
+      `).run(tenantId, tenantId, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, cleanTier);
+    } catch (dbErr) {
+      console.warn('[CREATE LICENSE SQLITE ERROR]', dbErr);
     }
 
     // Save to local fallback cache
@@ -2219,9 +2171,6 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
   }
 
   try {
-    const isDb = await isMariaDbAvailable();
-    const pool = isDb ? getMariaDbPool() : null;
-
     if (action === 'extend_days') {
       const targetExpiry = expiryDate 
         ? expiryDate 
@@ -2229,24 +2178,23 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
           ? '2099-12-31' 
           : new Date(Date.now() + (Number(days) || 30) * 86400000).toISOString().split('T')[0];
 
-      if (pool) {
-        try {
-          await pool.query(`
-            UPDATE mbi_licenses 
-            SET expiry_date = ?, status = 'Active', updated_at = NOW()
-            WHERE license_key = ? OR tenant_id = ? OR client_name = ?
-          `, [targetExpiry, licenseKey, tenantId || licenseKey, licenseKey]);
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare(`
+          UPDATE mbi_licenses 
+          SET expiry_date = ?, status = 'Active', updated_at = datetime('now')
+          WHERE license_key = ? OR tenant_id = ? OR client_name = ?
+        `).run(targetExpiry, licenseKey, tenantId || licenseKey, licenseKey);
 
-          if (tenantId || licenseKey) {
-            await pool.query(`
-              UPDATE mbi_tenants 
-              SET trial_expiry_date = ?, trial_expires_at = ?, status = 'Active', updated_at = NOW()
-              WHERE id = ? OR tenant_id = ? OR name = ?
-            `, [targetExpiry, targetExpiry, tenantId || licenseKey, tenantId || licenseKey, licenseKey]);
-          }
-        } catch (dbErr) {
-          console.warn('[DB EXTEND DAYS ERROR]', dbErr);
+        if (tenantId || licenseKey) {
+          masterDb.prepare(`
+            UPDATE mbi_tenants 
+            SET trial_expiry_date = ?, trial_expires_at = ?, status = 'Active', updated_at = datetime('now')
+            WHERE id = ? OR tenant_id = ? OR name = ?
+          `).run(targetExpiry, targetExpiry, tenantId || licenseKey, tenantId || licenseKey, licenseKey);
         }
+      } catch (dbErr) {
+        console.warn('[SQLITE EXTEND DAYS ERROR]', dbErr);
       }
 
       // Update local fallback
@@ -2341,37 +2289,7 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
         console.warn('[SQLite Update Plan Suite Error]', sqErr);
       }
 
-      // 2. MariaDB
-      if (pool) {
-        try {
-          await pool.query(`
-            UPDATE mbi_tenants 
-            SET plan = ?, plan_id = ?, status = ?, trial_expiry_date = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
-                max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
-                sale_status = ?, payment_method = ?, sale_notes = ?, updated_at = NOW()
-            WHERE id = ? OR tenant_id = ? OR (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND ? != '')
-          `, [
-            cleanPlan, cleanPlan, cleanStatus, targetExpiry, targetExpiry, cleanFeaturesJson, cleanApiKey || null,
-            usersCount, firmsCount, devicesCount, sPrice, aPaid,
-            sStatus, pMethod, sNotes,
-            targetTid, targetTid, targetName, targetName
-          ]);
-
-          await pool.query(`
-            UPDATE mbi_licenses 
-            SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = NOW()
-            WHERE license_key = ? OR tenant_id = ?
-          `, [cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic, targetTid]);
-
-          if (cleanStatus === 'Suspended' || cleanStatus === 'Active') {
-            await pool.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid]);
-          }
-        } catch (dbErr) {
-          console.warn('[DB Update Plan Suite Error]', dbErr);
-        }
-      }
-
-      // 3. Fallback
+      // 2. Fallback
       const fallback = getLocalFallbackData();
       if (fallback.tenants) {
         const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid || (targetName && item.name && item.name.toLowerCase() === targetName.toLowerCase()));
@@ -2414,19 +2332,11 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       try {
         const masterDb = getMasterVault();
         masterDb.prepare("UPDATE mbi_tenants SET status = 'Suspended', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
-        masterDb.prepare("UPDATE mbi_licenses SET status = 'Suspended' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET status = 'Suspended', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
         try {
           masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
         } catch (uErr) {}
       } catch (sqErr) {}
-
-      if (pool) {
-        try {
-          await pool.query(`UPDATE mbi_licenses SET status = 'Suspended', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
-          await pool.query(`UPDATE mbi_tenants SET status = 'Suspended', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
-          await pool.query(`UPDATE mbi_users SET status = 'Suspended', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
-        } catch (dbErr) {}
-      }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
@@ -2447,19 +2357,11 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       try {
         const masterDb = getMasterVault();
         masterDb.prepare("UPDATE mbi_tenants SET status = 'Active', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
-        masterDb.prepare("UPDATE mbi_licenses SET status = 'Active' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET status = 'Active', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
         try {
           masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
         } catch (uErr) {}
       } catch (sqErr) {}
-
-      if (pool) {
-        try {
-          await pool.query(`UPDATE mbi_licenses SET status = 'Active', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
-          await pool.query(`UPDATE mbi_tenants SET status = 'Active', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
-          await pool.query(`UPDATE mbi_users SET status = 'Active', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
-        } catch (dbErr) {}
-      }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
@@ -2479,15 +2381,9 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
     if (action === 'reset_fingerprint') {
       try {
         const masterDb = getMasterVault();
-        masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
+        masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
         masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(targetTid);
       } catch (sqErr) {}
-
-      if (pool) {
-        try {
-          await pool.query(`UPDATE mbi_licenses SET bound_hardware_ids = '[]', bound_hwid = NULL, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
-        } catch (dbErr) {}
-      }
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {
@@ -2503,14 +2399,11 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       return res.json({ success: true, message: 'Hardware fingerprint cleared. New PC can now bind.' });
     }
 
-
-
     if (action === 'grant_terminal_slot') {
-      if (pool) {
-        try {
-          await pool.query(`UPDATE mbi_licenses SET max_devices = COALESCE(max_devices, 1) + 1, updated_at = NOW() WHERE license_key = ?`, [licenseKey]);
-        } catch (dbErr) {}
-      }
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare("UPDATE mbi_licenses SET max_devices = COALESCE(max_devices, 1) + 1, updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(licenseKey, tenantId || licenseKey);
+      } catch (sqErr) {}
 
       const fallback = getLocalFallbackData();
       if (fallback.mbi_licenses) {

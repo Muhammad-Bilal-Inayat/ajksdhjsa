@@ -511,7 +511,6 @@ export const PLAN_ALLOWED_SETTINGS_TABS: Record<PlanTier, string[]> = {
     'FEATURE FLAGS',
     'MODULE VISIBILITY',
     'ROLES & RBAC',
-    'WHATSAPP AUTOMATION',
     'DEMO DATA',
   ]
 };

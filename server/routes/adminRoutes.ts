@@ -2537,11 +2537,13 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
           WHERE license_key = ? OR tenant_id = ?
         `).run(cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic, targetTid);
 
-        if (cleanStatus === 'Suspended') {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
-        } else if (cleanStatus === 'Active') {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
-        }
+        try {
+          if (cleanStatus === 'Suspended') {
+            masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
+          } else if (cleanStatus === 'Active') {
+            masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
+          }
+        } catch {}
       } catch (sqErr) {
         console.warn('[SQLite Update Plan Suite Error]', sqErr);
       }
@@ -2621,7 +2623,7 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
         masterDb.prepare("UPDATE mbi_tenants SET status = 'Suspended', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
         masterDb.prepare("UPDATE mbi_licenses SET status = 'Suspended' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
         try {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
+          masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
         } catch (uErr) {}
       } catch (sqErr) {}
 
@@ -2654,7 +2656,7 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
         masterDb.prepare("UPDATE mbi_tenants SET status = 'Active', updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetTid, targetTid);
         masterDb.prepare("UPDATE mbi_licenses SET status = 'Active' WHERE license_key = ? OR tenant_id = ?").run(targetLic, targetTid);
         try {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
+          masterDb.prepare("UPDATE mbi_user_access_profiles SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
         } catch (uErr) {}
       } catch (sqErr) {}
 

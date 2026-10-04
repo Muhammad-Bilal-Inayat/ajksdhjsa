@@ -2309,7 +2309,7 @@ fleetRouter.post('/tenants/status', async (req: TenantRequest, res: Response): P
       masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newStatus, tenantId, tenantId);
       masterDb.prepare("UPDATE mbi_licenses SET status = ?, updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(newStatus, targetLic, tenantId);
       try {
-        masterDb.prepare("UPDATE mbi_users SET status = ?, updated_at = datetime('now') WHERE tenant_id = ?").run(newStatus, tenantId);
+        masterDb.prepare("UPDATE mbi_user_access_profiles SET status = ?, updated_at = datetime('now') WHERE tenant_id = ?").run(newStatus, tenantId);
       } catch (uErr) {}
     } catch (sqErr) {
       console.warn('[SQLite Lock Status Update Error]', sqErr);

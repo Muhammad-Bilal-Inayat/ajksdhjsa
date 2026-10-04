@@ -610,7 +610,8 @@ export const GeneralTab: React.FC = () => {
               )}
             </div>
 
-            {/* WhatsApp Automation & Invoice Dispatch Control */}
+            {/* WhatsApp Automation & Invoice Dispatch Control (Hidden from user settings UI) */}
+            {false && (
             <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/10 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -702,6 +703,7 @@ export const GeneralTab: React.FC = () => {
                 </label>
               </div>
             </div>
+            )}
 
           </div>
 

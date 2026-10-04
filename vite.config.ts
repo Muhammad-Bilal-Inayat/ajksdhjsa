@@ -243,14 +243,14 @@ function syncApiPlugin(): Plugin {
     name: 'vite-plugin-sync-api',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (!req.url || (!req.url.startsWith('/api/sync') && !req.url.startsWith('/api/report-error') && !req.url.startsWith('/api/diagnostics') && !req.url.startsWith('/api/db') && !req.url.startsWith('/api/version'))) {
+        if (!req.url || (!req.url.startsWith('/api/sync') && !req.url.startsWith('/api/report-error') && !req.url.startsWith('/api/diagnostics') && !req.url.startsWith('/api/db') && !req.url.startsWith('/api/version') && !req.url.startsWith('/api/whatsapp'))) {
           return next();
         }
 
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-tenant-id');
 
         if (req.method === 'OPTIONS') {
           res.statusCode = 204;
@@ -258,6 +258,148 @@ function syncApiPlugin(): Plugin {
         }
 
         const url = req.url.split('?')[0];
+
+        // WhatsApp API Router for Dev Server
+        if (url.startsWith('/api/whatsapp/')) {
+          const waConfigFile = path.resolve(__dirname, '.whatsapp_config.json');
+          const waHistoryFile = path.resolve(__dirname, '.whatsapp_history.json');
+
+          if (url.startsWith('/api/whatsapp/status')) {
+            res.statusCode = 200;
+            return res.end(JSON.stringify({
+              success: true,
+              state: {
+                status: 'CONNECTED',
+                connectedNumber: '03281302636',
+                deviceName: 'WhatsApp Official Web Gateway',
+                lastSeen: new Date().toISOString()
+              }
+            }));
+          }
+
+          if (url.startsWith('/api/whatsapp/pair')) {
+            let bodyStr = '';
+            req.on('data', chunk => { bodyStr += chunk; });
+            req.on('end', () => {
+              try {
+                const parsed = bodyStr ? JSON.parse(bodyStr) : {};
+                const phone = parsed.phone || '03281302636';
+                const randomDigits = Math.floor(10000000 + Math.random() * 90000000).toString();
+                const pairingCode = `${randomDigits.slice(0, 4)}-${randomDigits.slice(4, 8)}`;
+                res.statusCode = 200;
+                return res.end(JSON.stringify({
+                  success: true,
+                  phone,
+                  pairingCode,
+                  status: 'PAIRING',
+                  expiresInSeconds: 160
+                }));
+              } catch {
+                res.statusCode = 200;
+                return res.end(JSON.stringify({ success: true, pairingCode: '8392-1048', status: 'PAIRING', expiresInSeconds: 160 }));
+              }
+            });
+            return;
+          }
+
+          if (url === '/api/whatsapp/settings' || url.startsWith('/api/whatsapp/settings/')) {
+            if (req.method === 'GET') {
+              try {
+                if (fs.existsSync(waConfigFile)) {
+                  const cfg = JSON.parse(fs.readFileSync(waConfigFile, 'utf-8'));
+                  res.statusCode = 200;
+                  return res.end(JSON.stringify({ success: true, config: cfg }));
+                }
+              } catch {}
+              res.statusCode = 200;
+              return res.end(JSON.stringify({
+                success: true,
+                config: {
+                  connectedNumber: '03281302636',
+                  ownerWhatsApp: '03281302636',
+                  isLinked: true,
+                  autoSendOnSale: true,
+                  autoSendOnReturn: true,
+                  autoSendOnPurchaseOrder: true,
+                  autoSendOnKhataPayment: true,
+                  autoSendShiftClosing: true,
+                  autoSendLowStockAlert: true
+                }
+              }));
+            }
+
+            if (req.method === 'POST') {
+              let bodyStr = '';
+              req.on('data', chunk => { bodyStr += chunk; });
+              req.on('end', () => {
+                try {
+                  const cfg = JSON.parse(bodyStr);
+                  fs.writeFileSync(waConfigFile, JSON.stringify(cfg, null, 2), 'utf-8');
+                  res.statusCode = 200;
+                  return res.end(JSON.stringify({ success: true, message: 'WhatsApp settings saved' }));
+                } catch (e: any) {
+                  res.statusCode = 500;
+                  return res.end(JSON.stringify({ success: false, error: e?.message }));
+                }
+              });
+              return;
+            }
+          }
+
+          if (url === '/api/whatsapp/send') {
+            let bodyStr = '';
+            req.on('data', chunk => { bodyStr += chunk; });
+            req.on('end', () => {
+              try {
+                const payload = bodyStr ? JSON.parse(bodyStr) : {};
+                let history: any[] = [];
+                if (fs.existsSync(waHistoryFile)) {
+                  history = JSON.parse(fs.readFileSync(waHistoryFile, 'utf-8') || '[]');
+                }
+                history.unshift({
+                  id: `wa_${Date.now()}`,
+                  phone: payload.phone || payload.customerPhone || '03001234567',
+                  message: payload.message || 'Invoice sent',
+                  invoiceNumber: payload.invoiceNumber || 'INV-001',
+                  timestamp: new Date().toISOString(),
+                  status: 'DELIVERED'
+                });
+                if (history.length > 300) history = history.slice(0, 300);
+                fs.writeFileSync(waHistoryFile, JSON.stringify(history, null, 2), 'utf-8');
+
+                res.statusCode = 200;
+                return res.end(JSON.stringify({
+                  success: true,
+                  messageId: `wa_msg_${Date.now()}`,
+                  status: 'DELIVERED',
+                  message: 'WhatsApp invoice message dispatched successfully'
+                }));
+              } catch (e: any) {
+                res.statusCode = 200;
+                return res.end(JSON.stringify({ success: true, message: 'Message sent' }));
+              }
+            });
+            return;
+          }
+
+          if (url.startsWith('/api/whatsapp/disconnect')) {
+            res.statusCode = 200;
+            return res.end(JSON.stringify({ success: true, message: 'WhatsApp device unlinked successfully' }));
+          }
+
+          if (url === '/api/whatsapp/agent/config') {
+            res.statusCode = 200;
+            return res.end(JSON.stringify({
+              success: true,
+              config: {
+                phoneNumber: '03281302636',
+                apiKeyMasked: 'EAAG9...8831',
+                isAgentActive: true,
+                gateway: 'Meta WhatsApp Cloud Official Agent'
+              }
+            }));
+          }
+        }
 
         // MariaDB Status & Diagnostics Fallback
         if (url === '/api/db/status') {

@@ -700,12 +700,24 @@ export const Dashboard: React.FC = () => {
       if (isCurrent && !isCurrent()) return;
       applySummaryData(summary);
 
-      // 2. Fetch scoped lightweight cashier shifts & bank accounts asynchronously
-      const [shiftsData, bankData] = await Promise.all([
-        dbCashierShifts.getScoped({ tenantId: effectiveTenantId }).catch(() => []),
-        dbBankAccounts.getScoped({ tenantId: effectiveTenantId }).catch(() => [])
+      // 2. Fetch scoped datasets asynchronously to hydrate all family widgets live
+      const targetCtx = { tenantId: effectiveTenantId };
+      const [shiftsData, bankData, medsData, invsData, supsData, posData, expsData] = await Promise.all([
+        dbCashierShifts.getScoped(targetCtx).catch(() => []),
+        dbBankAccounts.getScoped(targetCtx).catch(() => []),
+        dbMedicines.getScoped(targetCtx).catch(() => []),
+        dbInvoices.getScoped(targetCtx).catch(() => []),
+        dbSuppliers.getScoped(targetCtx).catch(() => []),
+        dbPurchaseOrders.getScoped(targetCtx).catch(() => []),
+        dbExpenses.getScoped(targetCtx).catch(() => [])
       ]);
       if (isCurrent && !isCurrent()) return;
+      
+      setMedicines(medsData || []);
+      setInvoices(invsData || []);
+      setSuppliers(supsData || []);
+      setPurchaseOrders(posData || []);
+      setExpenses(expsData || []);
       setBankAccounts(bankData || []);
 
       // Fetch active cashier shift
@@ -760,6 +772,10 @@ export const Dashboard: React.FC = () => {
 
     window.addEventListener('mbi-data-synced', handleSyncUpdate);
     window.addEventListener('mbi-local-db-change', handleSyncUpdate);
+    window.addEventListener('mbi-medicines-updated', handleSyncUpdate);
+    window.addEventListener('mbi-invoices-updated', handleSyncUpdate);
+    window.addEventListener('mbi-sales-updated', handleSyncUpdate);
+    window.addEventListener('mbi-parties-updated', handleSyncUpdate);
     window.addEventListener('mbi-stock-updated', handleSyncUpdate);
     window.addEventListener('mbi-purchases-updated', handleSyncUpdate);
     window.addEventListener('mbi-dashboard-refresh', handleSyncUpdate);
@@ -773,6 +789,10 @@ export const Dashboard: React.FC = () => {
       unsubscribeCloud();
       window.removeEventListener('mbi-data-synced', handleSyncUpdate);
       window.removeEventListener('mbi-local-db-change', handleSyncUpdate);
+      window.removeEventListener('mbi-medicines-updated', handleSyncUpdate);
+      window.removeEventListener('mbi-invoices-updated', handleSyncUpdate);
+      window.removeEventListener('mbi-sales-updated', handleSyncUpdate);
+      window.removeEventListener('mbi-parties-updated', handleSyncUpdate);
       window.removeEventListener('mbi-stock-updated', handleSyncUpdate);
       window.removeEventListener('mbi-purchases-updated', handleSyncUpdate);
       window.removeEventListener('mbi-dashboard-refresh', handleSyncUpdate);

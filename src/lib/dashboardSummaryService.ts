@@ -282,9 +282,14 @@ export class DashboardSummaryService {
         updatedAt: new Date().toISOString(),
       };
 
-      // 1. Cache to local storage
-      const storageKey = `${SUMMARY_STORAGE_PREFIX}${businessId}_${timeFilter.replace(/\s+/g, '_')}`;
-      localStorage.setItem(storageKey, JSON.stringify(summaryDoc));
+      // 1. Cache to local storage (both new firm-scoped key and legacy key for backward compatibility)
+      const safeFirm = firmId || 'all';
+      const storageKey = `${SUMMARY_STORAGE_PREFIX}${businessId}_${safeFirm}_${timeFilter.replace(/\s+/g, '_')}`;
+      const legacyStorageKey = `${SUMMARY_STORAGE_PREFIX}${businessId}_${timeFilter.replace(/\s+/g, '_')}`;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(summaryDoc));
+        localStorage.setItem(legacyStorageKey, JSON.stringify(summaryDoc));
+      } catch {}
 
       // 2. Persist aggregated document to Firestore collection 'dashboardSummaries'
       if (navigator.onLine) {

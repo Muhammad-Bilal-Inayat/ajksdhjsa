@@ -8842,10 +8842,10 @@ tenantRouter.post("/sync-operation", async (req, res) => {
     if (entityType === "userSettings" && payload) {
       try {
         const tenantVault = getTenantVault(tenantId);
-        const scopeKey = String(entityId || payload.scopeKey || payload.id || `${tenantId}_${req.user?.id || "default"}_firm-1`);
+        const scopeKey = String(entityId || payload.scopeKey || payload.id || `${tenantId}_${req.user?.userId || "default"}_firm-1`);
         const settingsJson = JSON.stringify(payload.settings || {});
         const prefsJson = JSON.stringify(payload.userPreferences || {});
-        const userId = String(payload.userId || req.user?.id || "user_1");
+        const userId = String(payload.userId || req.user?.userId || "user_1");
         const firmId = String(payload.firmId || "firm-1");
         tenantVault.prepare(`
           INSERT INTO mbi_user_settings (scope_key, tenant_id, user_id, firm_id, settings_json, user_prefs_json, updated_at)

@@ -28,6 +28,7 @@ import { auditRouter } from './server/routes/auditRoutes';
 import { purchaseRouter } from './server/routes/purchaseRoutes';
 import { whatsappRouter } from './server/routes/whatsappRoutes';
 import { cmsRouter } from './server/routes/cmsRoutes';
+import { backupRouter } from './server/routes/backupRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
 

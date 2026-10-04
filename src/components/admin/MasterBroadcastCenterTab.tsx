@@ -318,11 +318,16 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
     }
   };
 
-  const filteredArchive = broadcasts.filter(b => 
-    b.title.toLowerCase().includes(searchArchive.toLowerCase()) ||
-    b.body.toLowerCase().includes(searchArchive.toLowerCase()) ||
-    (b.targetStoreName && b.targetStoreName.toLowerCase().includes(searchArchive.toLowerCase()))
-  );
+  const qArchive = (searchArchive || '').toLowerCase().trim();
+  const filteredArchive = (broadcasts || []).filter(b => {
+    if (!b) return false;
+    if (!qArchive) return true;
+    return (
+      (b.title || '').toLowerCase().includes(qArchive) ||
+      (b.body || '').toLowerCase().includes(qArchive) ||
+      (b.targetStoreName || '').toLowerCase().includes(qArchive)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -843,9 +848,9 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                 }}
                 className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
               >
-                {broadcasts.map(b => (
+                {(broadcasts || []).map(b => (
                   <option key={b.id} value={b.id}>
-                    {b.title} ({new Date(b.dispatchedAt).toLocaleDateString()})
+                    {b.title || 'Untitled'} ({b.dispatchedAt ? new Date(b.dispatchedAt).toLocaleDateString() : 'Recent'})
                   </option>
                 ))}
               </select>
@@ -861,7 +866,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                   <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono mt-1 block">
                     {selectedBroadcastForReceipts.deliveredCount || 1} Stores / Devices
                   </span>
-                  <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Target: {selectedBroadcastForReceipts.targetType.toUpperCase()}</span>
+                  <span className="text-[11px] text-blue-600 font-semibold mt-1 block">Target: {String(selectedBroadcastForReceipts.targetType || 'Global').toUpperCase()}</span>
                 </div>
 
                 <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md">
@@ -1013,22 +1018,22 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                         {b.priority || b.type}
                       </span>
                       <span className="text-[11px] font-bold text-slate-500">
-                        Target: {b.targetStoreName || b.targetType.toUpperCase()}
+                        Target: {b.targetStoreName || String(b.targetType || 'Global').toUpperCase()}
                       </span>
                       <span className="text-slate-300">•</span>
                       <span className="text-[11px] text-slate-400">
-                        {new Date(b.dispatchedAt).toLocaleString('en-PK')}
+                        {b.dispatchedAt ? new Date(b.dispatchedAt).toLocaleString('en-PK') : 'Recent'}
                       </span>
                     </div>
 
                     <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                      {b.title}
+                      {b.title || 'Untitled Broadcast'}
                     </h4>
                     {b.subtitle && (
                       <p className="text-xs text-slate-500 dark:text-slate-400">{b.subtitle}</p>
                     )}
                     <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                      {b.body.replace(/[*_#]/g, '')}
+                      {(b.body || '').replace(/[*_#]/g, '')}
                     </p>
                   </div>
 

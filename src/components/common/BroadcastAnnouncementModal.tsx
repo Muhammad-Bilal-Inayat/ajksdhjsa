@@ -25,8 +25,8 @@ export const BroadcastAnnouncementModal: React.FC = () => {
       b.id.startsWith('toggle_') ||
       (b as any).type === 'permission_update' ||
       (b as any).category === 'FEATURE_TOGGLE' ||
-      b.title?.toLowerCase().includes('permission') ||
-      b.title?.toLowerCase().includes('security & access')
+      (b.title || '').toLowerCase().includes('permission') ||
+      (b.title || '').toLowerCase().includes('security & access')
     ) {
       return false;
     }

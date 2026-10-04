@@ -696,6 +696,8 @@ export default defineConfig(() => {
             'vendor-icons': ['lucide-react'],
             'vendor-charts': ['recharts'],
             'vendor-pdf': ['html2canvas', 'jspdf'],
+            'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+            'vendor-purify': ['dompurify'],
           },
         },
       },

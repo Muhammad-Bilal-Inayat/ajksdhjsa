@@ -27,6 +27,7 @@ export interface BroadcastRecord {
   title: string;
   subtitle?: string;
   body: string;
+  imageUrl?: string;
   type: 'info' | 'success' | 'urgent';
   priority?: 'feature_update' | 'special_offer' | 'critical_notice' | 'info' | 'success' | 'urgent';
   targetType: 'global' | 'store' | 'user' | 'plan';
@@ -62,6 +63,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [body, setBody] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [priority, setPriority] = useState<'feature_update' | 'special_offer' | 'critical_notice'>('feature_update');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
@@ -71,11 +73,28 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const [receiptsList, setReceiptsList] = useState<BroadcastReceipt[]>([]);
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(false);
 
+  const getAuthHeaders = () => {
+    const token = 
+      localStorage.getItem('mbi_master_token') || 
+      localStorage.getItem('mbi_master_session_token') || 
+      localStorage.getItem('mbi_jwt_token') || 
+      localStorage.getItem('admin_session_token') || '';
+    return {
+      'Content-Type': 'application/json',
+      'x-master-password': 'Ami7788!@',
+      'x-master-pin': 'Ami7788!@',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  };
+
   // Load Broadcast History & Stores
   const fetchBroadcastHistory = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/broadcast/history');
+      let res = await fetch('/api/master/broadcast/history', { headers: getAuthHeaders() });
+      if (!res.ok) {
+        res = await fetch('/api/admin/broadcast/history', { headers: getAuthHeaders() });
+      }
       if (res.ok) {
         const data = await res.json();
         if (data && data.broadcasts) {
@@ -94,7 +113,13 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
 
   const fetchStoresList = async () => {
     try {
-      const res = await fetch('/api/admin/tenants');
+      let res = await fetch('/api/fleet/tenants', { headers: getAuthHeaders() });
+      if (!res.ok) {
+        res = await fetch('/api/admin/tenants', { headers: getAuthHeaders() });
+      }
+      if (!res.ok) {
+        res = await fetch('/api/master/tenants', { headers: getAuthHeaders() });
+      }
       if (res.ok) {
         const data = await res.json();
         const list = (data.tenants || data || []).map((t: any) => ({
@@ -116,7 +141,10 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const fetchReceiptsForBroadcast = async (broadcastId: string) => {
     setIsLoadingReceipts(true);
     try {
-      const res = await fetch(`/api/admin/broadcasts/${broadcastId}/receipts`);
+      let res = await fetch(`/api/master/broadcasts/${broadcastId}/receipts`, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        res = await fetch(`/api/admin/broadcasts/${broadcastId}/receipts`, { headers: getAuthHeaders() });
+      }
       if (res.ok) {
         const data = await res.json();
         setReceiptsList(data.receipts || []);
@@ -145,6 +173,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       setTitle('🚀 MBI INVENTRA v4.2.2 Engine Update');
       setSubtitle('Nano-Second POS Speed & 100% Offline Bulk Sync');
       setBody('**What\'s New in this Release:**\n- ⚡ **0.2s POS Billing**: Instant barcode detection & sub-second cash billing\n- 🔄 **Zero-Conflict Bulk Sync**: Reliable offline queue syncing for weak connections\n- 🛡️ **Anti-Tamper Hardware Security**: Automatic primary device registration\n\n*No app restart required. Enjoy seamless automated updates!*');
+      setImageUrl('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80');
       setPriority('feature_update');
       setCtaLabel('Explore POS Screen');
       setCtaUrl('/billing');
@@ -152,6 +181,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       setTitle('💎 Upgrade to Enterprise (Platinum) - Save 40% Today');
       setSubtitle('Unlock Multi-Godown Transfers & WhatsApp Bot Automation');
       setBody('**Exclusive Upgrade Deal for Your Pharmacy:**\n- 🏬 **Multi-Branch Transfers**: Send medicine between branches with auto-challans\n- 📱 **WhatsApp Online Storefront**: Patients can order medicines directly on WhatsApp\n- 📊 **Executive P&L Analytics**: Real-time margin protection and loss-sale locking\n\n*Contact Master Support to claim your discount coupon.*');
+      setImageUrl('https://images.unsplash.com/photo-1587854692152-cbe660dbde88?auto=format&fit=crop&w=800&q=80');
       setPriority('special_offer');
       setCtaLabel('Chat with Support on WhatsApp');
       setCtaUrl('https://wa.me/923281302636');
@@ -159,6 +189,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       setTitle('⚠️ Scheduled Database Maintenance Notice');
       setSubtitle('Tonight 02:00 AM - 02:30 AM PKT');
       setBody('**Notice to All Counter Operators:**\n- Scheduled MariaDB index optimization tonight from **02:00 AM to 02:30 AM PKT**.\n- Local offline billing remains **100% active and uninterrupted**.\n- All pending receipts will auto-sync once server maintenance completes.');
+      setImageUrl('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80');
       setPriority('critical_notice');
       setCtaLabel('View System Health');
       setCtaUrl('/utilities');
@@ -183,6 +214,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       title: title.trim(),
       subtitle: subtitle.trim() || undefined,
       body: body.trim(),
+      imageUrl: imageUrl.trim() || undefined,
       type: typeMapping,
       priority,
       targetType,
@@ -199,24 +231,33 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
 
     setIsSending(true);
     try {
-      const res = await fetch('/api/admin/broadcast', {
+      let res = await fetch('/api/master/broadcast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        emitToast('🚀 Broadcast announcement dispatched live via SSE with 1-Time popup!', 'success');
+        emitToast('🚀 Broadcast announcement dispatched live via SSE with instant popup & notification sync!', 'success');
         setTitle('');
         setSubtitle('');
         setBody('');
+        setImageUrl('');
         setCtaLabel('');
         setCtaUrl('');
         fetchBroadcastHistory();
         setSubView('analytics');
       } else {
-        emitToast(data.error || 'Failed to dispatch broadcast', 'error');
+        emitToast(data.error || 'Failed to dispatch broadcast announcement', 'error');
       }
     } catch (err: any) {
       console.error(err);
@@ -230,7 +271,16 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const handleResend = async (broadcast: BroadcastRecord) => {
     if (!window.confirm(`Resend "${broadcast.title}" to target audience?`)) return;
     try {
-      const res = await fetch(`/api/admin/broadcast/${broadcast.id}/resend`, { method: 'POST' });
+      let res = await fetch(`/api/master/broadcast/${broadcast.id}/resend`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) {
+        res = await fetch(`/api/admin/broadcast/${broadcast.id}/resend`, {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+      }
       if (res.ok) {
         emitToast('🔄 Broadcast re-dispatched live successfully!', 'success');
         fetchBroadcastHistory();
@@ -246,7 +296,16 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this broadcast announcement from history?')) return;
     try {
-      const res = await fetch(`/api/admin/broadcast/${id}`, { method: 'DELETE' });
+      let res = await fetch(`/api/master/broadcast/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (!res.ok) {
+        res = await fetch(`/api/admin/broadcast/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      }
       if (res.ok) {
         emitToast('Broadcast deleted from history', 'info');
         setBroadcasts(prev => prev.filter(b => b.id !== id));
@@ -547,10 +606,79 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                 </div>
               </div>
 
+              {/* Attach Image Banner */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    4. Attach Banner Image (Optional)
+                  </label>
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="text-[11px] font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove Image
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="url"
+                    placeholder="Paste Image URL (e.g. https://... or .png / .jpg)"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                  />
+
+                  {/* Quick Image Presets */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span className="text-[10px] text-slate-400 font-bold self-center">Quick Banners:</span>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80')}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      🏥 POS & Pharmacy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('https://images.unsplash.com/photo-1587854692152-cbe660dbde88?auto=format&fit=crop&w=800&q=80')}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      💎 Upgrade Offer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80')}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-amber-50 hover:text-amber-600 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                    >
+                      ⚠️ System Radar
+                    </button>
+                  </div>
+
+                  {/* Image Preview in Form */}
+                  {imageUrl && (
+                    <div className="mt-2 relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-36 bg-slate-950 flex items-center justify-center">
+                      <img 
+                        src={imageUrl} 
+                        alt="Broadcast Attachment Preview" 
+                        className="w-full h-36 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Action Button Config */}
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                  4. Optional Action Button (CTA)
+                  5. Optional Action Button (CTA)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -578,7 +706,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
               <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
                 <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                   <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Emits real-time SSE event & triggers 1-time floating popup on clients</span>
+                  <span>Emits real-time SSE event & triggers instant client popups</span>
                 </div>
 
                 <button
@@ -642,6 +770,19 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
               </span>
 
               <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden text-xs">
+                {imageUrl && (
+                  <div className="w-full h-32 bg-slate-900 overflow-hidden">
+                    <img 
+                      src={imageUrl} 
+                      alt="Banner Preview" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div className={`p-3 text-white ${
                   priority === 'critical_notice' ? 'bg-gradient-to-r from-rose-600 to-red-700' :
                   priority === 'special_offer' ? 'bg-gradient-to-r from-emerald-600 to-teal-700' :

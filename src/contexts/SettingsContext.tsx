@@ -1179,7 +1179,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const biz = authContext?.business;
     const ten = authContext?.tenant;
-    const isMaster = (authContext as any)?.isMasterAdmin || authContext?.currentUser?.email === 'm.bilalinayat786@gmail.com' || authContext?.currentUser?.email === 'vip123@admin.com';
+    const isMaster = (authContext as any)?.isMasterAdmin || authContext?.currentUser?.email === 'm.bilalinayat786@gmail.com';
     
     const bizName = (biz?.name || ten?.name || '').trim();
     if (!bizName) return;

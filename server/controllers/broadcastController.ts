@@ -26,6 +26,7 @@ export interface BroadcastRecord {
   title: string;
   subtitle?: string;
   body: string;
+  imageUrl?: string;
   type: 'info' | 'success' | 'urgent';
   priority?: 'feature_update' | 'special_offer' | 'critical_notice' | 'info' | 'success' | 'urgent';
   targetType: 'global' | 'store' | 'user' | 'plan';
@@ -76,6 +77,7 @@ async function initTablesIfNecessary() {
         title VARCHAR(255) NOT NULL,
         subtitle VARCHAR(255),
         body TEXT NOT NULL,
+        image_url TEXT,
         type VARCHAR(32) NOT NULL DEFAULT 'info',
         priority VARCHAR(32) NOT NULL DEFAULT 'feature_update',
         target_type VARCHAR(32) NOT NULL DEFAULT 'global',
@@ -91,6 +93,11 @@ async function initTablesIfNecessary() {
         delivered_count INT NOT NULL DEFAULT 1,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    `).catch(() => {});
+
+    // Ensure image_url column exists if table was already created earlier
+    await pool.query(`
+      ALTER TABLE mbi_notifications ADD COLUMN IF NOT EXISTS image_url TEXT;
     `).catch(() => {});
 
     await pool.query(`
@@ -179,6 +186,7 @@ export async function getBroadcastHistoryController(req: Request, res: Response)
             title: r.title,
             subtitle: r.subtitle,
             body: r.body,
+            imageUrl: r.image_url || r.imageUrl || undefined,
             type: r.type || 'info',
             priority: r.priority || 'feature_update',
             targetType: r.target_type || 'global',
@@ -208,6 +216,7 @@ export async function getBroadcastHistoryController(req: Request, res: Response)
           title: '🎉 MBI INVENTRA v4.2.2 Released',
           subtitle: 'High Performance POS & Offline Telemetry',
           body: '**What\'s New in this Release:**\n- ⚡ **0.2s POS Engine**: Instant barcode detection & sub-second cash billing\n- 🔄 **Zero-Conflict Bulk Sync**: Reliable offline queue syncing for weak connections\n- 🛡️ **Multi-Role Security**: Primary Admin exclusive backup & staff permissions\n\n*No app restart required. Enjoy seamless automated updates!*',
+          imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80',
           type: 'success',
           priority: 'feature_update',
           targetType: 'global',
@@ -266,6 +275,7 @@ export async function dispatchBroadcastController(req: Request, res: Response): 
       title,
       subtitle,
       body,
+      imageUrl,
       type = 'info',
       priority = 'feature_update',
       targetType = 'global',
@@ -296,6 +306,7 @@ export async function dispatchBroadcastController(req: Request, res: Response): 
       title: String(title).trim(),
       subtitle: subtitle ? String(subtitle).trim() : undefined,
       body: String(body).trim(),
+      imageUrl: imageUrl ? String(imageUrl).trim() : undefined,
       type: ['info', 'success', 'urgent'].includes(type) ? type : 'info',
       priority: ['feature_update', 'special_offer', 'critical_notice', 'info', 'success', 'urgent'].includes(priority) ? priority : 'feature_update',
       targetType: ['global', 'store', 'user', 'plan'].includes(targetType) ? targetType : 'global',
@@ -319,16 +330,17 @@ export async function dispatchBroadcastController(req: Request, res: Response): 
       const pool = getMariaDbPool();
       await pool.query(
         `INSERT INTO mbi_notifications (
-          id, title, subtitle, body, type, priority, target_type, target_plan, 
+          id, title, subtitle, body, image_url, type, priority, target_type, target_plan, 
           target_store_id, target_store_name, target_user_id, target_user_name, 
           cta_label, cta_url, author, dispatched_at, delivered_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE title = VALUES(title);`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE title = VALUES(title), image_url = VALUES(image_url);`,
         [
           broadcastRecord.id,
           broadcastRecord.title,
           broadcastRecord.subtitle || null,
           broadcastRecord.body,
+          broadcastRecord.imageUrl || null,
           broadcastRecord.type,
           broadcastRecord.priority,
           broadcastRecord.targetType,
@@ -536,6 +548,7 @@ export async function resendBroadcastController(req: Request, res: Response): Pr
             title: r.title,
             subtitle: r.subtitle,
             body: r.body,
+            imageUrl: r.image_url || r.imageUrl || undefined,
             type: r.type,
             priority: r.priority,
             targetType: r.target_type,

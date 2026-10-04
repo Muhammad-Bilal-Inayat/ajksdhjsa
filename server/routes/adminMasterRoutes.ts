@@ -7,6 +7,15 @@ import { getMasterVault, getTenantVault, checkVaultEngineHealth, listTenantUsers
 import { signJwt } from '../auth/jwt';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
+import { getEmailSettings, saveEmailSettings, sendEmail, sendCustomTenantEmail } from '../services/emailService';
+import {
+  getBroadcastHistoryController,
+  dispatchBroadcastController,
+  markBroadcastSeenController,
+  getBroadcastReceiptsController,
+  resendBroadcastController,
+  deleteBroadcastController
+} from '../controllers/broadcastController';
 
 export const adminMasterRouter = express.Router();
 
@@ -1389,7 +1398,292 @@ adminMasterRouter.post('/print-config', async (req: TenantRequest, res: Response
   }
 });
 
+// 30. GET /email/settings (Get Email & SMTP Settings)
+adminMasterRouter.get('/email/settings', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const settings = getEmailSettings();
+    // Mask password partially for security UI display
+    const maskedSettings = {
+      ...settings,
+      smtpPassMasked: settings.smtpPass ? '••••••••' + settings.smtpPass.slice(-4) : ''
+    };
+    res.json({ success: true, settings: maskedSettings });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to fetch email settings' });
+  }
+});
+
+// 31. POST /email/settings (Update Email & SMTP Settings)
+adminMasterRouter.post('/email/settings', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { adminEmail, smtpUser, smtpPass, senderName, senderEmail, enabled } = req.body;
+    const updatePayload: any = {};
+    if (adminEmail !== undefined) updatePayload.adminEmail = adminEmail.trim();
+    if (smtpUser !== undefined) updatePayload.smtpUser = smtpUser.trim();
+    if (smtpPass !== undefined && smtpPass.trim() && !smtpPass.startsWith('•••')) {
+      updatePayload.smtpPass = smtpPass.trim();
+    }
+    if (senderName !== undefined) updatePayload.senderName = senderName.trim();
+    if (senderEmail !== undefined) updatePayload.senderEmail = senderEmail.trim();
+    if (enabled !== undefined) updatePayload.enabled = Boolean(enabled);
+
+    const saved = saveEmailSettings(updatePayload);
+    res.json({
+      success: true,
+      message: 'Email & Notification settings saved successfully!',
+      settings: saved
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save email settings' });
+  }
+});
+
+// 32. POST /email/test (Send 1-Click Test Email)
+adminMasterRouter.post('/email/test', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { targetEmail } = req.body;
+    const settings = getEmailSettings();
+    const recipient = targetEmail || settings.adminEmail || 'mbiinventra@gmail.com';
+
+    const testHtml = `
+      <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800;">✅ Test Email Successful!</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">MBI INVENTRA Automated Email Engine</p>
+          </div>
+          <div style="padding: 22px;">
+            <p style="font-size: 14px; color: #334155; line-height: 1.5;">
+              This test confirms that your <strong>Gmail SMTP Relay</strong> is active and connected 100% automatically.
+            </p>
+            <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; margin: 15px 0; font-size: 12px; font-family: monospace;">
+              <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${new Date().toLocaleString()}</p>
+              <p style="margin: 3px 0;"><strong>Sender:</strong> ${settings.smtpUser}</p>
+              <p style="margin: 3px 0;"><strong>Recipient:</strong> ${recipient}</p>
+              <p style="margin: 3px 0;"><strong>Status:</strong> LIVE_OPERATIONAL</p>
+            </div>
+            <p style="font-size: 12px; color: #64748b; margin: 0;">
+              All future registrations, cashier invitations, and password resets will be delivered automatically.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const result = await sendEmail({
+      to: recipient,
+      subject: `✅ MBI INVENTRA - Live Email Test (${new Date().toLocaleTimeString()})`,
+      html: testHtml
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Test email sent successfully to ${recipient}!`,
+        messageId: result.messageId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'Failed to dispatch test email. Please check your App Password.'
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Email test execution failed' });
+  }
+});
+
+// 33. POST /email/broadcast-tenant (Send Custom Email to Tenant or Broadcast to All)
+adminMasterRouter.post('/email/broadcast-tenant', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const {
+      targetType, // 'tenant' | 'all' | 'custom'
+      tenantId,
+      customEmail,
+      subject,
+      message,
+      priority,
+      badgeText,
+      actionButtonText,
+      actionButtonUrl
+    } = req.body;
+
+    if (!subject || !subject.trim()) {
+      res.status(400).json({ success: false, error: 'Email subject is required.' });
+      return;
+    }
+    if (!message || !message.trim()) {
+      res.status(400).json({ success: false, error: 'Email message content is required.' });
+      return;
+    }
+
+    let recipients: Array<{ email: string; name?: string; storeName?: string }> = [];
+
+    // 1. Direct Custom Email
+    if (targetType === 'custom' || (!tenantId && customEmail)) {
+      if (!customEmail || !customEmail.includes('@')) {
+        res.status(400).json({ success: false, error: 'Valid custom recipient email is required.' });
+        return;
+      }
+      recipients.push({ email: customEmail.trim(), storeName: 'Direct Client' });
+    }
+    // 2. Single Specific Tenant
+    else if (targetType === 'tenant' && tenantId && tenantId !== 'all') {
+      let found = false;
+      const cleanId = String(tenantId).trim();
+
+      // Look up in MariaDB
+      if (await isMariaDbAvailable()) {
+        try {
+          const pool = getMariaDbPool();
+          const [rows]: any = await pool.query(
+            `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
+            [cleanId, cleanId]
+          );
+          if (Array.isArray(rows) && rows.length > 0 && rows[0].owner_email) {
+            recipients.push({
+              email: rows[0].owner_email.trim(),
+              name: rows[0].owner_name,
+              storeName: rows[0].name
+            });
+            found = true;
+          }
+        } catch (dbErr) { }
+      }
+
+      // Fallback to SQLite master vault
+      if (!found) {
+        try {
+          const masterDb = getMasterVault();
+          const row: any = masterDb.prepare("SELECT * FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1").get(cleanId, cleanId);
+          if (row && row.owner_email) {
+            recipients.push({
+              email: row.owner_email.trim(),
+              name: row.owner_name,
+              storeName: row.name
+            });
+            found = true;
+          }
+        } catch (sqliteErr) { }
+      }
+
+      // If still not found, check custom email or sync file
+      if (!found && customEmail && customEmail.includes('@')) {
+        recipients.push({ email: customEmail.trim(), storeName: cleanId });
+      } else if (!found) {
+        res.status(404).json({ success: false, error: `Tenant ${cleanId} does not have a registered email address.` });
+        return;
+      }
+    }
+    // 3. Broadcast to All Active Tenants
+    else if (targetType === 'all' || tenantId === 'all') {
+      const emailMap = new Map<string, { email: string; name?: string; storeName?: string }>();
+
+      // Fetch from SQLite Master
+      try {
+        const masterDb = getMasterVault();
+        const rows: any[] = masterDb.prepare("SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE status != 'Wiped'").all();
+        for (const r of rows) {
+          if (r.owner_email && r.owner_email.includes('@')) {
+            emailMap.set(r.owner_email.toLowerCase().trim(), {
+              email: r.owner_email.trim(),
+              name: r.owner_name,
+              storeName: r.name
+            });
+          }
+        }
+      } catch (err) { }
+
+      // Also merge from MariaDB
+      if (await isMariaDbAvailable()) {
+        try {
+          const pool = getMariaDbPool();
+          const [rows]: any = await pool.query(
+            `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE status != 'Wiped';`
+          );
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              if (r.owner_email && r.owner_email.includes('@')) {
+                emailMap.set(r.owner_email.toLowerCase().trim(), {
+                  email: r.owner_email.trim(),
+                  name: r.owner_name,
+                  storeName: r.name
+                });
+              }
+            }
+          }
+        } catch (err) { }
+      }
+
+      recipients = Array.from(emailMap.values());
+      if (recipients.length === 0) {
+        res.status(400).json({ success: false, error: 'No active tenants with registered email addresses found.' });
+        return;
+      }
+    }
+
+    // Dispatch email to all matched recipients
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const rec of recipients) {
+      try {
+        const result = await sendCustomTenantEmail({
+          toEmail: rec.email,
+          storeName: rec.storeName,
+          recipientName: rec.name,
+          subject: subject.trim(),
+          message: message.trim(),
+          priority: priority || 'normal',
+          badgeText: badgeText?.trim(),
+          actionButtonText: actionButtonText?.trim(),
+          actionButtonUrl: actionButtonUrl?.trim()
+        });
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+          if (result.error) errors.push(`${rec.email}: ${result.error}`);
+        }
+      } catch (err: any) {
+        failCount++;
+        errors.push(`${rec.email}: ${err?.message || 'Error'}`);
+      }
+    }
+
+    res.json({
+      success: successCount > 0,
+      dispatchedCount: successCount,
+      failedCount: failCount,
+      totalTargets: recipients.length,
+      recipients: recipients.map(r => r.email),
+      errors: errors.length > 0 ? errors : undefined,
+      message: `Custom email dispatched successfully to ${successCount} recipient(s)!`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to dispatch custom tenant email.' });
+  }
+});
+
+/**
+ * Universal User & Tenant Broadcast Popups API for Master Station
+ */
+adminMasterRouter.get('/broadcast/history', getBroadcastHistoryController);
+adminMasterRouter.get('/broadcasts/history', getBroadcastHistoryController);
+adminMasterRouter.get('/broadcasts/:id/receipts', getBroadcastReceiptsController);
+adminMasterRouter.post('/broadcast', dispatchBroadcastController);
+adminMasterRouter.post('/broadcasts', dispatchBroadcastController);
+adminMasterRouter.post('/broadcast/:id/resend', resendBroadcastController);
+adminMasterRouter.post('/broadcasts/:id/resend', resendBroadcastController);
+adminMasterRouter.post('/broadcast/:id/seen', markBroadcastSeenController);
+adminMasterRouter.post('/broadcasts/:id/seen', markBroadcastSeenController);
+adminMasterRouter.post('/notifications/:id/mark-seen', markBroadcastSeenController);
+adminMasterRouter.delete('/broadcast/:id', deleteBroadcastController);
+adminMasterRouter.delete('/broadcasts/:id', deleteBroadcastController);
+
 export default adminMasterRouter;
+
 
 
 

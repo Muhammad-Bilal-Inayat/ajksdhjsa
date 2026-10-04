@@ -6,6 +6,7 @@ import { TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastAdminEvent, broadcastFleetActivity } from '../routes/adminRoutes';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import { getFallbackUsers } from './userController';
+import { sendAdminAlertNewTenant, sendTenantWelcomeEmail } from '../services/emailService';
 import fs from 'fs';
 import path from 'path';
 
@@ -30,55 +31,6 @@ interface ActiveDeviceRecord {
 
 export const activeDevicesRegistry = new Map<string, ActiveDeviceRecord>();
 
-// Pre-populate default device registry
-activeDevicesRegistry.set('dev_01', {
-  id: 'dev_01',
-  tenantId: 'tenant_main_pharmacy',
-  storeName: 'Inventra Central Pharmacy',
-  userId: 'usr_primary_owner',
-  userName: 'Dr. Kashif Ahmed',
-  userRole: 'Primary Owner',
-  hwid: 'HWID-PK99-WIN11-SEC01',
-  deviceModel: 'Dell OptiPlex 7090 Counter #1',
-  os: 'Windows 11 Pro 64-bit',
-  ipAddress: '182.185.24.11',
-  status: 'ONLINE',
-  lastActive: new Date().toISOString(),
-  locationCity: 'Lahore'
-});
-
-activeDevicesRegistry.set('dev_02', {
-  id: 'dev_02',
-  tenantId: 'tenant_main_pharmacy',
-  storeName: 'Inventra Central Pharmacy',
-  userId: 'usr_cashier_bilal',
-  userName: 'Bilal Cashier',
-  userRole: 'Cashier Terminal',
-  hwid: 'HWID-PK99-POS02-TOUCH',
-  deviceModel: 'Posiflex Touch Terminal #2',
-  os: 'Windows 10 IoT',
-  ipAddress: '182.185.24.12',
-  status: 'ONLINE',
-  lastActive: new Date().toISOString(),
-  locationCity: 'Lahore'
-});
-
-activeDevicesRegistry.set('dev_03', {
-  id: 'dev_03',
-  tenantId: 'tenant_hassan_medicos',
-  storeName: 'Hassan Medicos',
-  userId: 'usr_pharmacist_ali',
-  userName: 'Hassan Ali',
-  userRole: 'Store Manager',
-  hwid: 'HWID-SD88-HP-LAPTOP',
-  deviceModel: 'HP ProBook 450 G8',
-  os: 'Windows 11 Home',
-  ipAddress: '39.40.112.95',
-  status: 'ONLINE',
-  lastActive: new Date().toISOString(),
-  locationCity: 'Sargodha'
-});
-
 /**
  * Controller: User & Staff Login
  */
@@ -98,31 +50,34 @@ export async function loginController(req: TenantRequest, res: Response): Promis
     }
 
     let authenticatedUser: any = null;
+    const requestedTenantId = (req.headers['x-tenant-id'] as string) || req.body.tenantId || '';
 
-    // 1. Direct SQLite Vault verification (0ms local latency)
+    // 1. Direct SQLite Vault verification (0ms local latency, strictly isolated per tenant)
     try {
       const master = getMasterVault();
       const allTenants: any[] = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
-      const candidateTenants = ['tenant_main_pharmacy', 'tenant_hassan_medicos', ...allTenants.map(t => t.tenant_id)];
+      const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map(t => t.tenant_id)));
 
-      for (const tId of candidateTenants) {
+      for (const tId of tenantList) {
         try {
           const vaultUsers = listTenantUsers(tId);
-          const matched = vaultUsers.find(u =>
-            (
-              u.emailOrPhone === inputEmailOrPhone ||
-              u.email === inputEmailOrPhone ||
-              u.phone === inputEmailOrPhone ||
-              u.username === inputEmailOrPhone ||
-              u.name === inputEmailOrPhone ||
-              (u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase()) ||
-              (u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase())
-            ) &&
-            (u.passcode === inputPasscode || u.passcode === '1234' || inputPasscode === '1234' || inputPasscode === '0000') &&
-            u.status === 'Active'
-          );
+          const matched = vaultUsers.find(u => {
+            const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || '').toString().toLowerCase().trim();
+            const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+            const identMatches = uIdent === inputIdent ||
+              (u.username && String(u.username).toLowerCase().trim() === inputIdent) ||
+              (u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent) ||
+              (u.email && String(u.email).toLowerCase().trim() === inputIdent) ||
+              (u.phone && String(u.phone).trim() === inputIdent);
+
+            const userPin = String(u.passcode || u.pin || '').trim();
+            const pinMatches = userPin === inputPasscode;
+
+            return identMatches && pinMatches && (u.status === 'Active' || u.status === 'Joined');
+          });
+
           if (matched) {
-            authenticatedUser = { ...matched, tenant_id: tId };
+            authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
             break;
           }
         } catch (vErr) {}
@@ -135,11 +90,11 @@ export async function loginController(req: TenantRequest, res: Response): Promis
         const pool = getMariaDbPool();
         const [rows]: any = await pool.query(
           `SELECT * FROM mbi_users 
-           WHERE (email_or_phone = ? OR name = ? OR username = ? OR email = ? OR phone = ? OR email_or_phone LIKE ?) 
-             AND (passcode = ? OR passcode = ?) 
+           WHERE (email_or_phone = ? OR name = ? OR username = ? OR email = ? OR phone = ?) 
+             AND (passcode = ?) 
              AND (status = 'Active' OR status = 'Joined' OR status IS NULL) 
            LIMIT 1;`,
-          [inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, `%${inputEmailOrPhone}%`, inputPasscode, '0000']
+          [inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputPasscode]
         );
 
         if (rows && rows.length > 0) {
@@ -150,25 +105,24 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       }
     }
 
-    // 2. Fallback in-memory & sync storage check
+    // 3. Fallback in-memory & sync storage check
     if (!authenticatedUser) {
       try {
-        const fallbackUsers = getFallbackUsers();
-        authenticatedUser = fallbackUsers.find((u: any) =>
-          (
-            u.emailOrPhone === inputEmailOrPhone ||
-            u.email === inputEmailOrPhone ||
-            u.phone === inputEmailOrPhone ||
-            u.username === inputEmailOrPhone ||
-            u.name === inputEmailOrPhone ||
-            (u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase()) ||
-            (u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase()) ||
-            (u.email && String(u.email).toLowerCase() === inputEmailOrPhone.toLowerCase()) ||
-            (u.name && String(u.name).toLowerCase() === inputEmailOrPhone.toLowerCase())
-          ) &&
-          (u.passcode === inputPasscode || u.pin === inputPasscode || inputPasscode === '1234' || inputPasscode === '0000' || !inputPasscode) &&
-          (u.status === 'Active' || u.status === 'Joined' || !u.status)
-        );
+        const fallbackUsers = getFallbackUsers(requestedTenantId || undefined);
+        authenticatedUser = fallbackUsers.find((u: any) => {
+          const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || '').toString().toLowerCase().trim();
+          const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+          const identMatches = uIdent === inputIdent ||
+            (u.username && String(u.username).toLowerCase().trim() === inputIdent) ||
+            (u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent) ||
+            (u.email && String(u.email).toLowerCase().trim() === inputIdent) ||
+            (u.phone && String(u.phone).trim() === inputIdent);
+
+          const userPin = String(u.passcode || u.pin || '').trim();
+          const pinMatches = userPin === inputPasscode;
+
+          return identMatches && pinMatches && (u.status === 'Active' || u.status === 'Joined' || !u.status);
+        });
       } catch (e) {}
     }
 
@@ -206,54 +160,10 @@ export async function loginController(req: TenantRequest, res: Response): Promis
             (u.email && String(u.email).toLowerCase() === inputEmailOrPhone.toLowerCase()) ||
             (u.name && String(u.name).toLowerCase() === inputEmailOrPhone.toLowerCase())
           ) &&
-          (u.passcode === inputPasscode || u.pin === inputPasscode || inputPasscode === '1234' || inputPasscode === '0000' || !inputPasscode) &&
+          (u.passcode === inputPasscode || u.pin === inputPasscode) &&
           (u.status === 'Active' || u.status === 'Joined' || !u.status)
         );
       } catch (e) {}
-    }
-
-    // 4. Default primary fallback accounts for testing, demonstrations, and offline resilience
-    if (!authenticatedUser) {
-      const lower = inputEmailOrPhone.toLowerCase();
-      if (
-        lower === 'owner' ||
-        lower === 'admin' ||
-        lower === 'admin@inventra.local' ||
-        lower === '0328-1302636' ||
-        lower === '03281302636' ||
-        lower === 'kashif' ||
-        lower === 'demo'
-      ) {
-        authenticatedUser = {
-          id: 'usr_primary_owner',
-          tenant_id: 'tenant_main_pharmacy',
-          name: 'Dr. Kashif Ahmed',
-          role: 'Owner',
-          is_primary_owner: 1,
-          status: 'Active',
-          passcode: '1234'
-        };
-      } else if (lower === 'cashier' || lower === 'bilal' || lower === 'bilal_pos' || lower === '0300-1234567') {
-        authenticatedUser = {
-          id: 'usr_cashier_bilal',
-          tenant_id: 'tenant_main_pharmacy',
-          name: 'Bilal Cashier',
-          role: 'Cashier',
-          is_primary_owner: 0,
-          status: 'Active',
-          passcode: '5566'
-        };
-      } else if (lower === 'hassan' || lower === '0336-4585863') {
-        authenticatedUser = {
-          id: 'usr_pharmacist_ali',
-          tenant_id: 'tenant_hassan_medicos',
-          name: 'Hassan Ali',
-          role: 'Owner',
-          is_primary_owner: 1,
-          status: 'Active',
-          passcode: '7788'
-        };
-      }
     }
 
     if (!authenticatedUser) {
@@ -815,6 +725,37 @@ export async function registerTrialController(req: TenantRequest, res: Response)
         }
       });
     } catch (sseErr) {}
+
+    // 5. Automated Background Email Dispatch (100% Free Gmail SMTP)
+    setImmediate(async () => {
+      try {
+        // Alert Super Admin (mbiinventra@gmail.com)
+        await sendAdminAlertNewTenant({
+          storeName: cleanStoreName,
+          ownerName: cleanOwnerName || cleanUsername,
+          username: cleanUsername,
+          phone: cleanPhone,
+          email: cleanEmail,
+          city: cleanCity,
+          plan: 'Basic (10-Day Free Trial)',
+          tenantId
+        });
+
+        // Welcome Email to Pharmacy Customer
+        if (cleanEmail && cleanEmail.includes('@')) {
+          await sendTenantWelcomeEmail({
+            toEmail: cleanEmail,
+            storeName: cleanStoreName,
+            ownerName: cleanOwnerName || cleanUsername,
+            username: cleanUsername,
+            pin: cleanPassword,
+            portalUrl: (req.headers.origin as string) || 'https://mbiinventra.com'
+          });
+        }
+      } catch (emailErr) {
+        console.warn('[AUTO EMAIL DISPATCH NOTICE]:', emailErr);
+      }
+    });
 
     res.json({
       success: true,

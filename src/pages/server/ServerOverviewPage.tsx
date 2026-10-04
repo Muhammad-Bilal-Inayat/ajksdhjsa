@@ -112,14 +112,15 @@ import { AiHumanSupportMasterHub } from '../../components/server/AiHumanSupportM
 import { UnifiedUserControlHub } from '../../components/server/UnifiedUserControlHub';
 import { MasterBroadcastCenterTab } from '../../components/admin/MasterBroadcastCenterTab';
 import { MasterMedicineSeederTab } from '../../components/admin/MasterMedicineSeederTab';
-import { CreditCard, BookOpen, Sparkles, ShieldAlert, AlertTriangle, Play, Terminal, Headphones, Bot, Megaphone, Pill } from 'lucide-react';
+import { EmailNotificationManagerPanel } from '../../components/server/EmailNotificationManagerPanel';
+import { CreditCard, BookOpen, Sparkles, ShieldAlert, AlertTriangle, Play, Terminal, Headphones, Bot, Megaphone, Pill, Mail } from 'lucide-react';
 
 export const ServerOverviewPage: React.FC = () => {
   const navigate = useNavigate();
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>('clients');
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'email_notifications' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>('clients');
 
   // Dedicated Universal Search Query (for Server & Master top search)
   const [topSearchQuery, setTopSearchQuery] = useState('');
@@ -1185,6 +1186,21 @@ export const ServerOverviewPage: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setActiveServerTab('email_notifications')}
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                activeServerTab === 'email_notifications'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md ring-2 ring-blue-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5 text-blue-400" />
+              <span>📧 Email &amp; Auto Alerts</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                GMAIL
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveServerTab('devices')}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeServerTab === 'devices'
@@ -1394,6 +1410,13 @@ export const ServerOverviewPage: React.FC = () => {
               <span>Documentation</span>
             </button>
           </div>
+
+      {/* RENDER TAB: 📧 AUTOMATED EMAIL & NOTIFICATION ENGINE */}
+      {activeServerTab === 'email_notifications' && (
+        <div className="w-full animate-in fade-in duration-150">
+          <EmailNotificationManagerPanel />
+        </div>
+      )}
 
       {/* RENDER TAB: 💊 14K+ MASTER MEDICINE ALLOCATION STUDIO */}
       {activeServerTab === 'medicines_studio' && (

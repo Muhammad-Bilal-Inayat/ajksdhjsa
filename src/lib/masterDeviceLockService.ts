@@ -307,13 +307,11 @@ export function emergencyAuthorizeDevice(
     cleanCode === validEmergencyCode || 
     cleanCode === DEFAULT_EMERGENCY_MASTER_CODE ||
     cleanCode === 'mbi786' ||
-    cleanCode === 'vip123' ||
-    cleanCode === 'admin123' ||
     cleanCode === '786';
 
   if (!isCodeValid) {
     logMasterAudit('Failed Emergency Device Bypass', 'SECURITY', `Attempted unauthorized emergency bypass.`);
-    return { success: false, message: 'Invalid Emergency Master Passphrase. Please enter your Master Key (e.g. mbi786 or admin123).' };
+    return { success: false, message: 'Invalid Emergency Master Passphrase. Please enter your Master Key (e.g. mbi786).' };
   }
 
   const devices = getWhitelistedDevices();

@@ -35,13 +35,47 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
     );
   };
 
+  const isTargetedToCurrentClient = (b: BroadcastRecord): boolean => {
+    if (!b || !b.id) return false;
+    if (isPermissionBroadcast(b)) return false;
+
+    const currentTenant = 
+      tenant?.id || 
+      business?.id || 
+      localStorage.getItem('mbi_active_business_id') || 
+      localStorage.getItem('mbi_active_tenant') || 
+      localStorage.getItem('mbi_tenant_id') || '';
+
+    const currentUserId = 
+      currentUser?.id || 
+      localStorage.getItem('mbi_current_user_id') || 
+      localStorage.getItem('mbi_user_id') || '';
+
+    if (b.targetType === 'store' && b.targetStoreId) {
+      if (currentTenant && b.targetStoreId !== currentTenant && b.targetStoreId !== 'all') {
+        return false;
+      }
+    }
+
+    if (b.targetType === 'user' && b.targetUserId) {
+      if (currentUserId && b.targetUserId !== currentUserId) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const loadBroadcasts = async () => {
     try {
-      const res = await fetch('/api/admin/broadcast/history');
+      let res = await fetch('/api/master/broadcast/history');
+      if (!res.ok) {
+        res = await fetch('/api/admin/broadcast/history');
+      }
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.broadcasts)) {
-          const validBroadcasts = data.broadcasts.filter((b: BroadcastRecord) => !isPermissionBroadcast(b));
+          const validBroadcasts = data.broadcasts.filter((b: BroadcastRecord) => isTargetedToCurrentClient(b));
           setBroadcasts(validBroadcasts);
           
           // Calculate unread set
@@ -241,6 +275,17 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                         {b.body.replace(/[*_#]/g, '')}
                       </p>
+
+                      {b.imageUrl && (
+                        <div className="mt-1 h-14 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950">
+                          <img 
+                            src={b.imageUrl} 
+                            alt="" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -253,22 +298,42 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
       {/* Selected Broadcast Reader Modal */}
       {selectedBroadcast && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            {selectedBroadcast.imageUrl && (
+              <div className="w-full h-40 bg-slate-950 relative overflow-hidden border-b border-slate-200 dark:border-slate-800">
+                <img 
+                  src={selectedBroadcast.imageUrl} 
+                  alt={selectedBroadcast.title} 
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedBroadcast(null)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-2">
                 <Megaphone className="w-4 h-4 text-blue-600" />
                 Fleet Announcement Archive
               </span>
-              <button
-                type="button"
-                onClick={() => setSelectedBroadcast(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              {!selectedBroadcast.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedBroadcast(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
-            <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            <div className="p-6 space-y-3 max-h-[50vh] overflow-y-auto custom-scrollbar">
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
                   selectedBroadcast.priority === 'critical_notice' || selectedBroadcast.type === 'urgent'

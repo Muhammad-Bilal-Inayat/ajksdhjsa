@@ -253,7 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Guest detection
   const isGuest = !currentUser || currentUser.isGuest || currentUser.role === 'Guest' || currentUser.email === 'guest@mbinventra.com';
   const isPrimaryAdmin = activeRole === 'Primary Admin';
-  const isMasterAdmin = isMasterAdminAuthenticated() || currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
+  const isMasterAdmin = isMasterAdminAuthenticated() || currentUser?.email === 'm.bilalinayat786@gmail.com';
 
   // Live Permission Version counter to guarantee instantaneous reactive updates
   const [permissionVersion, setPermissionVersion] = useState<number>(0);
@@ -697,7 +697,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const localUsers = await dbAppUsers.getAll();
       const map = new Map<string, AppUserRecord>();
       
-      const isMasterAdmin = currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
+      const isMasterAdmin = currentUser?.email === 'm.bilalinayat786@gmail.com';
 
       // Filter out blank or corrupt records AND strictly scope to current tenant
       const validLocalUsers = (localUsers || []).filter(lu => {
@@ -905,7 +905,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = async (uid: string, emailCandidate?: string) => {
     try {
-      const isMasterAdmin = emailCandidate === 'm.bilalinayat786@gmail.com' || emailCandidate === 'vip123@admin.com' || currentUser?.email === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'vip123@admin.com';
+      const isMasterAdmin = emailCandidate === 'm.bilalinayat786@gmail.com' || currentUser?.email === 'm.bilalinayat786@gmail.com';
 
       const storedUser = localStorage.getItem('mock_user_profile');
       let profile: User | null = null;
@@ -1227,8 +1227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Master Admin credentials check (Instant Local < 1ms)
     const isMasterAdmin = 
-      (cleanId === 'vip123@admin.com' || cleanId === 'm.bilalinayat786@gmail.com' || cleanId === 'admin' || cleanId === '03364585863' || cleanId === 'mbi786' || matchPhone('03364585863') || matchPhone('03281302636')) &&
-      (cleanPass === 'vip123' || cleanPass === 'admin123' || cleanPass === '0000' || cleanPass === 'mbi786');
+      (cleanId === 'm.bilalinayat786@gmail.com' || cleanId === '03364585863' || cleanId === 'mbi786' || matchPhone('03364585863')) &&
+      (cleanPass === 'mbi786' || cleanPass === '0000');
 
     if (isMasterAdmin) {
       authenticatedUserObj = {
@@ -1500,8 +1500,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // --- Strict 1-Device Auto-Detection & Hardware/IP Binding Check ---
     const isMasterRoot = 
       authenticatedUserObj.uid === 'admin-master' || 
-      authenticatedUserObj.email === 'm.bilalinayat786@gmail.com' ||
-      authenticatedUserObj.email === 'vip123@admin.com';
+      authenticatedUserObj.email === 'm.bilalinayat786@gmail.com';
 
     if (!isMasterRoot) {
       try {
@@ -1545,7 +1544,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: true, user: authenticatedUserObj };
   };
 
-  const login = async (identifier = 'm.bilalinayat786@gmail.com', pass = 'vip123') => {
+  const login = async (identifier = 'm.bilalinayat786@gmail.com', pass = 'mbi786') => {
     await authenticateAndSync(identifier, pass);
   };
 
@@ -1572,7 +1571,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const isMasterAdminEmail = 
         email === 'm.bilalinayat786@gmail.com' || 
-        email === 'vip123@admin.com' || 
         email === '03364585863';
 
       saveRecordToFirestore('users', user.uid, {
@@ -1695,7 +1693,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (orig.activeRole) localStorage.setItem('active_simulated_role', orig.activeRole);
     } else {
       // Default restore to Master Owner
-      const defaultUser = { uid: 'u1', email: 'vip123@admin.com', displayName: 'M Bilal Inayat (Admin)' };
+      const defaultUser = { uid: 'admin-master', email: 'm.bilalinayat786@gmail.com', displayName: 'M Bilal Inayat (Admin)' };
       setCurrentUser(defaultUser);
       fetchProfile(defaultUser.uid);
     }

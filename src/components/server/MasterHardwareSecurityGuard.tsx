@@ -253,7 +253,7 @@ export const MasterHardwareSecurityGuard: React.FC<MasterHardwareSecurityGuardPr
                 type={showEmergencySecret ? 'text' : 'password'}
                 required
                 autoFocus
-                placeholder="Enter Master Key (e.g. mbi786, vip123, admin123)..."
+                placeholder="Enter Master Key (e.g. mbi786)..."
                 value={emergencyPassphraseInput}
                 onChange={e => setEmergencyPassphraseInput(e.target.value)}
                 className="w-full pl-3.5 pr-10 py-3 bg-slate-950 border border-red-500/60 rounded-xl text-amber-300 font-mono text-xs focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all"
@@ -268,7 +268,7 @@ export const MasterHardwareSecurityGuard: React.FC<MasterHardwareSecurityGuardPr
               </button>
             </div>
             <div className="flex items-center justify-between mt-1 text-[11px] text-slate-400">
-              <span>Master Admin Key: <code className="text-amber-400 font-mono font-bold">mbi786</code> or <code className="text-amber-400 font-mono font-bold">vip123</code></span>
+              <span>Master Admin Key: <code className="text-amber-400 font-mono font-bold">mbi786</code></span>
               <button
                 type="button"
                 onClick={() => setEmergencyPassphraseInput('mbi786')}

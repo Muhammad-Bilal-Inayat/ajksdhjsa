@@ -338,7 +338,7 @@ export function checkRegistrationUniqueness(params: {
   } catch (e) {}
 
   // 4. Master Admin reserved check
-  const reservedUsernames = ['admin', 'master', 'root', 'mbi', 'vip123', 'owner'];
+  const reservedUsernames = ['admin', 'master', 'root', 'mbi', 'owner'];
   if (reservedUsernames.includes(cleanUsername)) {
     return {
       valid: false,
@@ -347,7 +347,7 @@ export function checkRegistrationUniqueness(params: {
     };
   }
 
-  const reservedEmails = ['vip123@admin.com', 'm.bilalinayat786@gmail.com', 'support@mbinventra.com'];
+  const reservedEmails = ['m.bilalinayat786@gmail.com', 'support@mbinventra.com'];
   if (reservedEmails.includes(cleanEmail)) {
     return {
       valid: false,

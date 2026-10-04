@@ -323,64 +323,7 @@ adminRouter.get('/tenants', async (req: Request, res: Response) => {
           };
         });
       } else {
-        tenants = [
-          {
-            id: 'tenant_main_pharmacy',
-            tenantId: 'tenant_main_pharmacy',
-            name: 'Inventra Central Pharmacy',
-            ownerName: 'Dr. Kashif Ahmed',
-            phone: '0328-1302636',
-            email: 'admin@inventra.local',
-            city: 'Lahore',
-            plan: 'Platinum',
-            planId: 'Platinum',
-            status: 'Active',
-            appVersion: APP_VERSION,
-            salesRevenue: 485000,
-            outstandingBalance: 0,
-            activeHwid: 'HWID-PK99-WIN11-SEC01',
-            boundHwids: ['HWID-PK99-WIN11-SEC01', 'HWID-PK99-POS02-TOUCH'],
-            totalStaffCount: 2,
-            onlineStaffCount: 2,
-            totalDeviceCount: 2,
-            onlineDeviceCount: 2,
-            isHardLocked: false,
-            trialExpiryDate: '2028-12-31',
-            paidLicenseActive: true,
-            licenseKey: 'MBI-PK99-PRO-2028',
-            features: {},
-            createdAt: new Date().toISOString(),
-            lastSyncAt: new Date().toISOString()
-          },
-          {
-            id: 'tenant_hassan_medicos',
-            tenantId: 'tenant_hassan_medicos',
-            name: 'Hassan Medicos',
-            ownerName: 'Hassan Ali',
-            phone: '0336-4585863',
-            email: 'hassan@medicos.pk',
-            city: 'Sargodha',
-            plan: 'Gold',
-            planId: 'Gold',
-            status: 'Active',
-            appVersion: APP_VERSION,
-            salesRevenue: 620000,
-            outstandingBalance: 12500,
-            activeHwid: 'HWID-SD88-HP-LAPTOP',
-            boundHwids: ['HWID-SD88-HP-LAPTOP'],
-            totalStaffCount: 1,
-            onlineStaffCount: 1,
-            totalDeviceCount: 1,
-            onlineDeviceCount: 1,
-            isHardLocked: false,
-            trialExpiryDate: '2027-06-30',
-            paidLicenseActive: true,
-            licenseKey: 'MBI-SD88-BIZ-2027',
-            features: {},
-            createdAt: new Date().toISOString(),
-            lastSyncAt: new Date().toISOString()
-          }
-        ];
+        tenants = [];
       }
     }
 
@@ -453,62 +396,7 @@ adminRouter.get('/tenants/:id/staff-and-devices', async (req: Request, res: Resp
       }
     }
 
-    // If no devices in memory, provide pre-configured devices
-    if (registeredDevices.length === 0) {
-      if (id === 'tenant_main_pharmacy') {
-        registeredDevices.push(
-          {
-            id: 'dev_01',
-            tenantId: id,
-            storeName: 'Inventra Central Pharmacy',
-            userId: 'usr_primary_owner',
-            userName: 'Dr. Kashif Ahmed',
-            userRole: 'Primary Owner',
-            hwid: 'HWID-PK99-WIN11-SEC01',
-            deviceModel: 'Dell OptiPlex 7090 Counter #1',
-            os: 'Windows 11 Pro 64-bit',
-            ipAddress: '182.185.24.11',
-            status: 'ONLINE',
-            lastActive: 'Just now',
-            locationCity: 'Lahore',
-            isBound: true
-          },
-          {
-            id: 'dev_02',
-            tenantId: id,
-            storeName: 'Inventra Central Pharmacy',
-            userId: 'usr_cashier_bilal',
-            userName: 'Bilal Cashier',
-            userRole: 'Cashier Terminal',
-            hwid: 'HWID-PK99-POS02-TOUCH',
-            deviceModel: 'Posiflex Touch Terminal #2',
-            os: 'Windows 10 IoT',
-            ipAddress: '182.185.24.12',
-            status: 'ONLINE',
-            lastActive: '3m ago',
-            locationCity: 'Lahore',
-            isBound: true
-          }
-        );
-      } else {
-        registeredDevices.push({
-          id: `dev_${id}_1`,
-          tenantId: id,
-          storeName: 'Pharmacy Store',
-          userId: 'usr_owner',
-          userName: 'Store Owner',
-          userRole: 'Owner / Manager',
-          hwid: `HWID-${id.slice(-4).toUpperCase()}-COUNTER1-POS`,
-          deviceModel: 'HP All-In-One POS Terminal',
-          os: 'Windows 11 Pro',
-          ipAddress: '39.40.112.95',
-          status: 'ONLINE',
-          lastActive: 'Just now',
-          locationCity: 'Pakistan',
-          isBound: true
-        });
-      }
-    }
+
 
     // 3. Fetch Tenant Meta
     let tenantInfo: any = null;

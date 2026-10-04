@@ -39,12 +39,16 @@ import { StealthShadowModule } from '../components/server/StealthShadowModule';
 import { ServerGlobalSearch } from '../components/server/ServerGlobalSearch';
 import { LanMultiTerminalHub } from '../components/server/LanMultiTerminalHub';
 import { Master2faSettingsModal } from '../components/admin/Master2faSettingsModal';
-import { ManualTenantBackupRestoreHub } from '../components/server/ManualTenantBackupRestoreHub';
 import { AiControlTowerHealingHub } from '../components/server/AiControlTowerHealingHub';
+import { EmailNotificationManagerPanel } from '../components/server/EmailNotificationManagerPanel';
+import { MasterBroadcastCenterTab } from '../components/admin/MasterBroadcastCenterTab';
+import { ManualTenantBackupRestoreHub } from '../components/server/ManualTenantBackupRestoreHub';
 import { verifyTotpToken } from '../services/totpService';
+import { Mail, Megaphone } from 'lucide-react';
 
 export type ServerTabKey = 
   | 'master_control'
+  | 'user_broadcasts'
   | 'lan_hub'
   | 'users_control'
   | 'ai_support'
@@ -68,7 +72,8 @@ export type ServerTabKey =
   | 'ai_forecasting'
   | 'ai_control_tower'
   | 'backup_vault'
-  | 'custom_domains';
+  | 'custom_domains'
+  | 'email_notifications';
 
 interface TabDefinition {
   id: ServerTabKey;
@@ -81,6 +86,7 @@ interface TabDefinition {
 const ALL_25_TABS: TabDefinition[] = [
   // 1. Core Fleet
   { id: 'master_control', label: 'Master Control', category: 'Core Fleet', icon: ShieldCheck, description: 'Granular 173-feature switchboard — toggle any user screen, menu, action or button on/off' },
+  { id: 'user_broadcasts', label: 'Universal Broadcast Popups', category: 'Core Fleet', icon: Megaphone, description: 'Push instant real-time popups with sound chime to all pharmacies, a targeted primary store, or specific staff' },
   { id: 'clients', label: 'Client Fleet & User Suite', category: 'Core Fleet', icon: Building2, description: 'Multi-company isolation, staff switchboard & live API keys' },
   { id: 'lan_hub', label: 'LAN Multi-PC & Broadcast Hub', category: 'Core Fleet', icon: Network, description: 'Connect counter laptops via LAN cable/switch & dispatch user popup announcements' },
   { id: 'whatsapp_leads', label: 'WhatsApp Trial Leads', category: 'Core Fleet', icon: Smartphone, description: 'Registration leads & 1-click WhatsApp dispatch' },
@@ -91,6 +97,7 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'devices', label: 'Device & Hardware Bindings', category: 'Security & Users', icon: Key, description: 'Hardware 1-device MAC/HWID whitelist & Laptop Transfer' },
   { id: 'security_audit', label: 'Security Audit Trail', category: 'Security & Users', icon: FileText, description: 'Suspicious logins, violation logs & IP blacklist' },
   { id: 'security_alerts', label: 'Threats & Brute-Force Alerts', category: 'Security & Users', icon: ShieldAlert, description: 'Real-time threat detection & intrusion prevention' },
+  { id: 'email_notifications', label: 'Email & Auto Alerts', category: 'Security & Users', icon: Mail, description: 'Gmail SMTP engine, automated alerts, registration emails & password reset dispatch' },
 
   // 3. System & Sync
   { id: 'sync_stream', label: 'Real-Time Activity & Sync Engine', category: 'System & Sync', icon: Activity, description: 'Live SSE telemetry stream, MariaDB central sync engine & company audit' },
@@ -504,6 +511,8 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
     switch (activeTab) {
       case 'master_control':
         return <MasterControlSection onNotify={handleNotify} />;
+      case 'user_broadcasts':
+        return <MasterBroadcastCenterTab isDarkMode={theme === 'dark'} />;
       case 'lan_hub':
         return <LanMultiTerminalHub onNotify={handleNotify} />;
       case 'users_control':
@@ -543,6 +552,8 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
         return <SiteCmsEditorPanel />;
       case 'security_alerts':
         return <SecurityAlertsWidget />;
+      case 'email_notifications':
+        return <EmailNotificationManagerPanel />;
       case 'printer_templates':
         return <MasterPrinterTemplatesPanel />;
       case 'developer_vault':

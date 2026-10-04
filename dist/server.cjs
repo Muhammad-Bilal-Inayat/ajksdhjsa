@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // server.ts
 var import_config = require("dotenv/config");
 var import_express18 = __toESM(require("express"));
-var import_path21 = __toESM(require("path"));
-var import_fs21 = __toESM(require("fs"));
+var import_path22 = __toESM(require("path"));
+var import_fs22 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -1419,6 +1419,20 @@ function getTenantVault(tenantId) {
       user_prefs_json TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- High-Performance Indexes for Millions of Invoices & Records (0ms Filtered Search)
+    CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_customer_id ON invoices(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(invoice_number);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_medicine_id ON invoice_items(medicine_id);
+    CREATE INDEX IF NOT EXISTS idx_medicines_name ON medicines(name);
+    CREATE INDEX IF NOT EXISTS idx_medicines_barcode ON medicines(barcode);
+    CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_users_passcode ON users(passcode);
+    CREATE INDEX IF NOT EXISTS idx_users_email_or_phone ON users(email_or_phone);
   `);
   tenantDbCache.set(cleanId, tenantDb);
   return tenantDb;
@@ -2625,10 +2639,407 @@ syncRouter.post("/simulate-event", (req, res) => {
 
 // server/controllers/userController.ts
 var import_uuid = require("uuid");
+var import_fs5 = __toESM(require("fs"));
+var import_path5 = __toESM(require("path"));
+
+// server/services/emailService.ts
+var import_nodemailer = __toESM(require("nodemailer"));
 var import_fs4 = __toESM(require("fs"));
 var import_path4 = __toESM(require("path"));
-var syncFile2 = import_path4.default.resolve(process.cwd(), ".sync_data.json");
-var masterUsersFile = import_path4.default.resolve(process.cwd(), ".master_users.json");
+var SETTINGS_FILE = import_path4.default.resolve(process.cwd(), "server", "data", "master", "email_settings.json");
+var ensureSettingsDir = () => {
+  const dir = import_path4.default.dirname(SETTINGS_FILE);
+  if (!import_fs4.default.existsSync(dir)) {
+    import_fs4.default.mkdirSync(dir, { recursive: true });
+  }
+};
+var DEFAULT_SETTINGS = {
+  enabled: true,
+  smtpService: "gmail",
+  smtpHost: "smtp.gmail.com",
+  smtpPort: 465,
+  smtpSecure: true,
+  smtpUser: "mbiinventra@gmail.com",
+  smtpPass: "pnbxzmnrwthdgocy",
+  // 16-digit Google App Password
+  adminEmail: "mbiinventra@gmail.com",
+  senderName: "MBI INVENTRA Cloud ERP",
+  senderEmail: "mbiinventra@gmail.com"
+};
+function getEmailSettings() {
+  try {
+    ensureSettingsDir();
+    if (import_fs4.default.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(import_fs4.default.readFileSync(SETTINGS_FILE, "utf-8"));
+      return { ...DEFAULT_SETTINGS, ...data };
+    }
+  } catch (e) {
+    console.warn("[EMAIL SETTINGS LOAD ERROR]:", e);
+  }
+  return DEFAULT_SETTINGS;
+}
+function saveEmailSettings(settings) {
+  try {
+    ensureSettingsDir();
+    const current = getEmailSettings();
+    const updated = { ...current, ...settings };
+    import_fs4.default.writeFileSync(SETTINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
+    return updated;
+  } catch (e) {
+    console.error("[EMAIL SETTINGS SAVE ERROR]:", e);
+    throw e;
+  }
+}
+function createTransporter(settings) {
+  if (settings.smtpService === "gmail" || settings.smtpHost.includes("gmail")) {
+    return import_nodemailer.default.createTransport({
+      service: "gmail",
+      auth: {
+        user: settings.smtpUser.trim(),
+        pass: settings.smtpPass.replace(/\s+/g, "")
+        // remove spaces from app password
+      }
+    });
+  }
+  return import_nodemailer.default.createTransport({
+    host: settings.smtpHost,
+    port: settings.smtpPort || 465,
+    secure: settings.smtpSecure,
+    auth: {
+      user: settings.smtpUser.trim(),
+      pass: settings.smtpPass.trim()
+    }
+  });
+}
+async function sendEmail({
+  to,
+  subject,
+  html,
+  text
+}) {
+  try {
+    const settings = getEmailSettings();
+    if (!settings.enabled) {
+      console.log("[EMAIL NOTICE]: Email sending is disabled in settings.");
+      return { success: false, error: "Email service is disabled" };
+    }
+    if (!settings.smtpUser || !settings.smtpPass) {
+      console.warn("[EMAIL WARNING]: SMTP credentials missing.");
+      return { success: false, error: "SMTP credentials not configured" };
+    }
+    const transporter = createTransporter(settings);
+    const toRecipients = Array.isArray(to) ? to.join(", ") : to;
+    const cleanText = text || html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "").replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "").replace(/<br\s*[\/]?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<\/tr>/gi, "\n").replace(/<\/td>/gi, "  ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\n\s*\n\s*\n/g, "\n\n").trim();
+    const uniqueMessageId = `<mbi.${Date.now()}.${Math.random().toString(36).substring(2, 9)}@gmail.com>`;
+    const mailOptions = {
+      from: `"${settings.senderName || "MBI INVENTRA Cloud ERP"}" <${settings.smtpUser}>`,
+      to: toRecipients,
+      replyTo: settings.adminEmail || settings.smtpUser,
+      subject,
+      text: cleanText,
+      html,
+      // Anti-Spam & 2024 Inbox Deliverability Headers
+      headers: {
+        "Message-ID": uniqueMessageId,
+        "X-Mailer": "MBI INVENTRA Cloud ERP Deliverability Engine",
+        "X-Entity-Ref-ID": `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+        "X-Auto-Response-Suppress": "OOF, AutoReply",
+        "List-Unsubscribe": `<mailto:${settings.smtpUser}?subject=unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        "Feedback-ID": `MBI-INVENTRA-TRANSACTIONAL:${settings.smtpUser}:cloud-erp`
+      }
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL DISPATCH SUCCESS] Subject: "${subject}" -> To: ${toRecipients} (ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error("[EMAIL DISPATCH ERROR]:", err?.message || err);
+    return { success: false, error: err?.message || "Failed to send email" };
+  }
+}
+async function sendAdminAlertNewTenant(tenantData) {
+  const settings = getEmailSettings();
+  const adminEmail = settings.adminEmail || "mbiinventra@gmail.com";
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 25px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">\u{1F6A8} New Pharmacy Registered!</h1>
+          <p style="margin: 5px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
+        </div>
+        <div style="padding: 25px;">
+          <p style="font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Username / ID:</td><td style="padding: 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 10px; color: #1e293b;">${tenantData.email || "\u2014"}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 10px; color: #1e293b;">${tenantData.city || "Pakistan"}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 10px; font-weight: bold; color: #059669;">${tenantData.plan || "30-Day Free Trial"}</td></tr>
+            <tr><td style="padding: 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || "auto_assigned"}</td></tr>
+          </table>
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
+          </div>
+        </div>
+        <div style="background: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #64748b;">
+          MBI INVENTRA Automated Cloud Notification Engine \u2022 24/7 Realtime Monitoring
+        </div>
+      </div>
+    </div>
+  `;
+  return sendEmail({
+    to: adminEmail,
+    subject: `\u{1F6A8} New Pharmacy Registration: ${tenantData.storeName} (${tenantData.phone})`,
+    html
+  });
+}
+async function sendTenantWelcomeEmail(tenantData) {
+  if (!tenantData.toEmail || !tenantData.toEmail.includes("@")) return;
+  const url = tenantData.portalUrl || "https://mbiinventra.com";
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 25px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 800;">\u{1F389} Welcome to MBI INVENTRA!</h1>
+          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.95;">Your Cloud POS & Pharmacy ERP is Ready</p>
+        </div>
+        <div style="padding: 25px;">
+          <p style="font-size: 15px; color: #334155; line-height: 1.5;">Dear <strong>${tenantData.ownerName}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; line-height: 1.5;">
+            Congratulations! Your official pharmacy account for <strong>${tenantData.storeName}</strong> has been created with high-speed 0ms offline capability.
+          </p>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">\u{1F511} Your Login Credentials</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Login Identifier:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+              ${tenantData.pin ? `<tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Fast Login PIN:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #059669; font-size: 16px;">${tenantData.pin}</td></tr>` : ""}
+              <tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Portal URL:</td><td style="padding: 6px 0;"><a href="${url}" style="color: #2563eb; font-weight: bold;">${url}</a></td></tr>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin-top: 25px;">
+            <a href="${url}" style="background-color: #059669; color: white; padding: 13px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px; display: inline-block;">Launch Pharmacy Dashboard</a>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; margin-top: 25px; line-height: 1.5;">
+            Need help? Contact MBI Support 24/7 on WhatsApp: <strong>+92 336 4585863</strong> / <strong>+92 328 1302636</strong>.
+          </p>
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
+          <p style="margin: 0 0 4px 0; font-weight: 600;">MBI INVENTRA Cloud ERP \u2022 Official Pharmacy Management Suite</p>
+          <p style="margin: 0; color: #94a3b8;">Sargodha, Punjab, Pakistan \u2022 Support: +92 336 4585863</p>
+          <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8;">You received this transactional email for your pharmacy account on MBI INVENTRA.</p>
+        </div>
+      </div>
+    </div>
+  `;
+  return sendEmail({
+    to: tenantData.toEmail,
+    subject: `[MBI INVENTRA] Welcome ${tenantData.storeName} \u2014 Your Cloud POS Account is Ready`,
+    html
+  });
+}
+async function sendStaffInvitationEmail(staffData) {
+  if (!staffData.toEmail || !staffData.toEmail.includes("@")) return;
+  const url = staffData.portalUrl || "https://mbiinventra.com";
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Staff Access Invitation</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${staffData.storeName}</p>
+        </div>
+        <div style="padding: 22px;">
+          <p style="font-size: 14px; color: #334155;">Hello <strong>${staffData.staffName}</strong>,</p>
+          <p style="font-size: 13px; color: #334155;">
+            You have been assigned access to the pharmacy management portal as <strong>${staffData.role}</strong>.
+          </p>
+          <div style="background: #f1f5f9; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #64748b; font-weight: bold; text-transform: uppercase;">Your 4-Digit Fast Login PIN</p>
+            <p style="margin: 6px 0 0 0; font-size: 26px; font-family: monospace; font-weight: 900; color: #2563eb; letter-spacing: 4px;">${staffData.pin}</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="${url}" style="background-color: #2563eb; color: white; padding: 11px 22px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 13px; display: inline-block;">Open POS Counter</a>
+          </div>
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px; text-align: center; font-size: 11px; color: #94a3b8;">
+          MBI INVENTRA Cloud ERP \u2022 Sargodha, Punjab, Pakistan
+        </div>
+      </div>
+    </div>
+  `;
+  return sendEmail({
+    to: staffData.toEmail,
+    subject: `[MBI INVENTRA] Staff Access Credentials \u2014 ${staffData.storeName}`,
+    html
+  });
+}
+async function sendPasswordResetEmail(resetData) {
+  if (!resetData.toEmail || !resetData.toEmail.includes("@")) return;
+  const url = resetData.portalUrl || "https://mbiinventra.com";
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #e11d48, #f43f5e); padding: 22px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Password & PIN Reset Notification</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${resetData.storeName || "MBI INVENTRA Security"}</p>
+        </div>
+        <div style="padding: 22px;">
+          <p style="font-size: 14px; color: #334155;">Hello <strong>${resetData.userName}</strong>,</p>
+          <p style="font-size: 13px; color: #334155;">
+            Your account credentials have been reset by your store administrator or via security request.
+          </p>
+          <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #9f1239; font-weight: bold; text-transform: uppercase;">Your Updated Login Credentials</p>
+            <p style="margin: 6px 0 0 0; font-size: 24px; font-family: monospace; font-weight: 900; color: #e11d48; letter-spacing: 2px;">${resetData.newPinOrPassword}</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="${url}" style="background-color: #e11d48; color: white; padding: 11px 22px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 13px; display: inline-block;">Login to Your Account</a>
+          </div>
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px; text-align: center; font-size: 11px; color: #94a3b8;">
+          MBI INVENTRA Cloud ERP \u2022 Sargodha, Punjab, Pakistan
+        </div>
+      </div>
+    </div>
+  `;
+  return sendEmail({
+    to: resetData.toEmail,
+    subject: `[MBI INVENTRA Security] Your Credentials Have Been Reset`,
+    html
+  });
+}
+async function sendCustomTenantEmail(payload) {
+  const recipients = Array.isArray(payload.toEmail) ? payload.toEmail.filter((e) => e && e.includes("@")) : [payload.toEmail].filter((e) => e && e.includes("@"));
+  if (recipients.length === 0) {
+    return { success: false, error: "No valid recipient email provided." };
+  }
+  const badgeColor = payload.priority === "urgent" ? "#dc2626" : payload.priority === "high" ? "#d97706" : "#2563eb";
+  const badgeTitle = payload.badgeText || (payload.priority === "urgent" ? "\u26A0\uFE0F URGENT NOTIFICATION" : payload.priority === "high" ? "\u2B50 IMPORTANT NOTICE" : "\u{1F4E2} OFFICIAL ANNOUNCEMENT");
+  const messageHtml = payload.message.split("\n\n").map((para) => `<p style="font-size: 14px; color: #334155; line-height: 1.65; margin: 0 0 14px 0;">${para.replace(/\n/g, "<br/>")}</p>`).join("");
+  const html = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${payload.subject}</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+      <div style="max-width: 620px; margin: 25px auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
+        
+        <!-- Brand Header with Logo & Gradient Theme -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e3a8a 100%); padding: 30px 24px; text-align: center; color: #ffffff; border-bottom: 3px solid rgba(59, 130, 246, 0.4);">
+          <table align="center" style="margin: 0 auto; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: middle; padding-right: 12px;">
+                <div style="background: linear-gradient(135deg, #2563eb, #00d2ff); width: 44px; height: 44px; border-radius: 12px; display: inline-block; text-align: center; line-height: 44px; color: #ffffff; font-weight: 900; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 210, 255, 0.35);">
+                  M4
+                </div>
+              </td>
+              <td style="vertical-align: middle; text-align: left;">
+                <div style="font-size: 22px; font-weight: 900; letter-spacing: 0.5px; color: #ffffff; line-height: 1.1;">
+                  MBI <span style="color: #00d2ff;">INVENTRA</span>
+                </div>
+                <div style="font-size: 10px; font-weight: 700; color: #93c5fd; letter-spacing: 1.5px; text-transform: uppercase;">
+                  Cloud POS &amp; Pharmacy ERP
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <div style="margin-top: 18px;">
+            <span style="display: inline-block; background-color: ${badgeColor}; color: #ffffff; padding: 5px 16px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
+              ${badgeTitle}
+            </span>
+          </div>
+
+          <h1 style="margin: 14px 0 0 0; font-size: 21px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.35;">
+            ${payload.subject}
+          </h1>
+
+          ${payload.storeName ? `
+            <div style="margin: 8px 0 0 0; font-size: 12px; color: #cbd5e1;">
+              Delivered To: <strong style="color: #ffffff;">${payload.storeName}</strong>
+            </div>
+          ` : ""}
+        </div>
+
+        <!-- Main Content Body -->
+        <div style="padding: 28px 26px;">
+          ${payload.recipientName ? `
+            <p style="font-size: 15px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 16px;">
+              Respected ${payload.recipientName},
+            </p>
+          ` : ""}
+
+          <div style="background: #ffffff; border-left: 4px solid ${badgeColor}; padding-left: 16px; margin: 12px 0 22px 0;">
+            ${messageHtml}
+          </div>
+
+          ${payload.actionButtonText && payload.actionButtonUrl ? `
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${payload.actionButtonUrl}" target="_blank" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; padding: 13px 32px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); letter-spacing: 0.2px;">
+                ${payload.actionButtonText}
+              </a>
+            </div>
+          ` : ""}
+
+          <!-- 24/7 Dedicated Helpline Box -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; margin-top: 28px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="vertical-align: middle;">
+                  <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-bottom: 3px;">
+                    \u{1F4AC} 24/7 Dedicated WhatsApp Support Desks
+                  </div>
+                  <div style="font-size: 11px; color: #64748b;">
+                    Engineering &amp; billing assistance is available anytime for your pharmacy counters.
+                  </div>
+                </td>
+                <td style="vertical-align: middle; text-align: right; white-space: nowrap;">
+                  <a href="https://wa.me/923364585863" target="_blank" style="display: inline-block; background-color: #25d366; color: #ffffff; font-size: 11px; font-weight: 800; text-decoration: none; padding: 6px 12px; border-radius: 8px; margin-left: 6px;">
+                    WhatsApp 1
+                  </a>
+                  <a href="https://wa.me/923281302636" target="_blank" style="display: inline-block; background-color: #25d366; color: #ffffff; font-size: 11px; font-weight: 800; text-decoration: none; padding: 6px 12px; border-radius: 8px; margin-left: 4px;">
+                    WhatsApp 2
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Compliance & Professional Footer -->
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
+          <p style="margin: 0 0 4px 0; font-weight: 700; color: #334155;">
+            MBI INVENTRA Cloud ERP \u2022 Master Server Communication System
+          </p>
+          <p style="margin: 0; color: #94a3b8;">
+            Sargodha, Punjab, Pakistan \u2022 Official Helpline: +92 336 4585863 / +92 328 1302636
+          </p>
+          <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8;">
+            This is a verified transactional message from your MBI INVENTRA server. To manage your communication preferences, visit your master portal.
+          </p>
+        </div>
+
+      </div>
+    </body>
+    </html>
+  `;
+  return sendEmail({
+    to: recipients,
+    subject: payload.subject,
+    html
+  });
+}
+
+// server/controllers/userController.ts
+var syncFile2 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
+var masterUsersFile = import_path5.default.resolve(process.cwd(), ".master_users.json");
 function getFallbackUsers(tenantId) {
   if (tenantId && tenantId !== "all") {
     try {
@@ -2641,8 +3052,8 @@ function getFallbackUsers(tenantId) {
   }
   let allUsers = [];
   try {
-    if (import_fs4.default.existsSync(syncFile2)) {
-      const data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs5.default.existsSync(syncFile2)) {
+      const data = JSON.parse(import_fs5.default.readFileSync(syncFile2, "utf-8"));
       if (Array.isArray(data.mbi_users)) {
         allUsers = data.mbi_users;
       } else if (Array.isArray(data.users)) {
@@ -2651,9 +3062,9 @@ function getFallbackUsers(tenantId) {
     }
   } catch (e) {
   }
-  if (allUsers.length === 0 && import_fs4.default.existsSync(masterUsersFile)) {
+  if (allUsers.length === 0 && import_fs5.default.existsSync(masterUsersFile)) {
     try {
-      const data = JSON.parse(import_fs4.default.readFileSync(masterUsersFile, "utf-8"));
+      const data = JSON.parse(import_fs5.default.readFileSync(masterUsersFile, "utf-8"));
       if (Array.isArray(data)) allUsers = data;
     } catch (e) {
     }
@@ -2669,8 +3080,8 @@ function getFallbackUsers(tenantId) {
 function saveFallbackUsers(users, tenantId) {
   try {
     let data = {};
-    if (import_fs4.default.existsSync(syncFile2)) {
-      data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs5.default.existsSync(syncFile2)) {
+      data = JSON.parse(import_fs5.default.readFileSync(syncFile2, "utf-8"));
     }
     if (tenantId && tenantId !== "all") {
       const existingOtherTenants = (data.mbi_users || []).filter((u) => {
@@ -2681,7 +3092,7 @@ function saveFallbackUsers(users, tenantId) {
     } else {
       data.mbi_users = users;
     }
-    import_fs4.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
+    import_fs5.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save fallback users to sync data:", e);
   }
@@ -2774,6 +3185,28 @@ async function createUserController(req, res) {
         error: "Each company can only have exactly ONE Primary Owner. New staff accounts must be created as Cashier, Manager, Pharmacist, or Staff."
       });
     }
+    const existingUsers = getFallbackUsers(tenantId);
+    const targetUsername = (username || name.toLowerCase().replace(/\s+/g, "_")).toLowerCase().trim();
+    const targetPasscode = (passcode || "1234").trim();
+    const targetContact = (emailOrPhone || phone || email || "").trim().toLowerCase();
+    const pinConflict = existingUsers.find((u) => (u.passcode || u.pin) === targetPasscode);
+    if (pinConflict) {
+      return res.status(400).json({
+        success: false,
+        error: `This 4-digit PIN (${targetPasscode}) is already in use by "${pinConflict.name}" in this store. Please set a unique PIN.`
+      });
+    }
+    const userConflict = existingUsers.find((u) => {
+      const uUsername = (u.username || u.name || "").toLowerCase().trim();
+      const uContact = (u.emailOrPhone || u.email || u.phone || "").toLowerCase().trim();
+      return targetUsername && uUsername === targetUsername || targetContact && uContact && uContact === targetContact;
+    });
+    if (userConflict) {
+      return res.status(400).json({
+        success: false,
+        error: `A staff member with username/contact "${userConflict.name}" already exists in this store. Please use a unique username or phone.`
+      });
+    }
     const cleanTenantPrefix = tenantId.replace(/^tenant_/, "").replace(/[^a-zA-Z0-9]/g, "");
     const newUser = {
       id: `usr_${cleanTenantPrefix || "t"}_${(0, import_uuid.v4)().slice(0, 7)}`,
@@ -2788,7 +3221,7 @@ async function createUserController(req, res) {
       isPrimaryOwner: false,
       is_primary_owner: 0,
       status: status || "Active",
-      passcode: passcode || "1234",
+      passcode: targetPasscode,
       is_online: 0,
       isOnline: false,
       is_kill_switch_active: 0,
@@ -2898,6 +3331,21 @@ async function createUserController(req, res) {
       });
     } catch (e) {
     }
+    if (newUser.email && newUser.email.includes("@")) {
+      setImmediate(async () => {
+        try {
+          await sendStaffInvitationEmail({
+            toEmail: newUser.email,
+            storeName: tenantId,
+            staffName: newUser.name,
+            role: newUser.role,
+            pin: newUser.passcode,
+            portalUrl: req.headers.origin || "https://mbiinventra.com"
+          });
+        } catch (e) {
+        }
+      });
+    }
     return res.status(201).json({ success: true, user: newUser });
   } catch (error) {
     return res.status(500).json({ success: false, error: error?.message || "Failed to create user" });
@@ -2917,6 +3365,16 @@ async function updateUserController(req, res) {
       }
       if (status && status !== "Active") {
         return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be deactivated" });
+      }
+    }
+    if (passcode !== void 0) {
+      const targetPin = String(passcode).trim();
+      const pinConflict = tenantUsers.find((u) => u.id !== id && (u.passcode || u.pin) === targetPin);
+      if (pinConflict) {
+        return res.status(400).json({
+          success: false,
+          error: `This 4-digit PIN (${targetPin}) is already in use by "${pinConflict.name}". Please set a unique PIN.`
+        });
       }
     }
     const updatedUser = {
@@ -3072,6 +3530,20 @@ async function resetPasscodeController(req, res) {
       } catch (e) {
       }
     }
+    if (existing && existing.email && existing.email.includes("@")) {
+      setImmediate(async () => {
+        try {
+          await sendPasswordResetEmail({
+            toEmail: existing.email,
+            userName: existing.name,
+            storeName: tenantId,
+            newPinOrPassword: passcode,
+            portalUrl: req.headers.origin || "https://mbiinventra.com"
+          });
+        } catch (e) {
+        }
+      });
+    }
     return res.json({ success: true, message: "Passcode successfully reset", passcode });
   } catch (error) {
     return res.status(500).json({ success: false, error: error?.message || "Failed to reset passcode" });
@@ -3169,9 +3641,9 @@ function requireMasterAdminGuard(req, res, next) {
 }
 
 // server/controllers/adminDbController.ts
-var import_fs5 = __toESM(require("fs"));
-var import_path5 = __toESM(require("path"));
-var syncFile3 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs6 = __toESM(require("fs"));
+var import_path6 = __toESM(require("path"));
+var syncFile3 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
 var ALL_23_MASTER_TABLES = [
   "mbi_plans",
   "mbi_tenants",
@@ -3284,8 +3756,8 @@ async function getDatabaseOverviewController(req, res) {
     if (tableSummaries.length === 0) {
       let syncData = {};
       try {
-        if (import_fs5.default.existsSync(syncFile3)) {
-          syncData = JSON.parse(import_fs5.default.readFileSync(syncFile3, "utf-8"));
+        if (import_fs6.default.existsSync(syncFile3)) {
+          syncData = JSON.parse(import_fs6.default.readFileSync(syncFile3, "utf-8"));
         }
       } catch {
       }
@@ -3554,13 +4026,13 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 }
 
 // server/controllers/broadcastController.ts
-var import_fs6 = __toESM(require("fs"));
-var import_path6 = __toESM(require("path"));
-var syncFile4 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs7 = __toESM(require("fs"));
+var import_path7 = __toESM(require("path"));
+var syncFile4 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData() {
   try {
-    if (import_fs6.default.existsSync(syncFile4)) {
-      return JSON.parse(import_fs6.default.readFileSync(syncFile4, "utf-8"));
+    if (import_fs7.default.existsSync(syncFile4)) {
+      return JSON.parse(import_fs7.default.readFileSync(syncFile4, "utf-8"));
     }
   } catch (e) {
   }
@@ -3568,7 +4040,7 @@ function getLocalData() {
 }
 function saveLocalData(data) {
   try {
-    import_fs6.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
+    import_fs7.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Broadcast Controller] Failed to write local fallback data:", e);
   }
@@ -3582,6 +4054,7 @@ async function initTablesIfNecessary() {
         title VARCHAR(255) NOT NULL,
         subtitle VARCHAR(255),
         body TEXT NOT NULL,
+        image_url TEXT,
         type VARCHAR(32) NOT NULL DEFAULT 'info',
         priority VARCHAR(32) NOT NULL DEFAULT 'feature_update',
         target_type VARCHAR(32) NOT NULL DEFAULT 'global',
@@ -3597,6 +4070,10 @@ async function initTablesIfNecessary() {
         delivered_count INT NOT NULL DEFAULT 1,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    `).catch(() => {
+    });
+    await pool2.query(`
+      ALTER TABLE mbi_notifications ADD COLUMN IF NOT EXISTS image_url TEXT;
     `).catch(() => {
     });
     await pool2.query(`
@@ -3675,6 +4152,7 @@ async function getBroadcastHistoryController(req, res) {
             title: r.title,
             subtitle: r.subtitle,
             body: r.body,
+            imageUrl: r.image_url || r.imageUrl || void 0,
             type: r.type || "info",
             priority: r.priority || "feature_update",
             targetType: r.target_type || "global",
@@ -3703,6 +4181,7 @@ async function getBroadcastHistoryController(req, res) {
           title: "\u{1F389} MBI INVENTRA v4.2.2 Released",
           subtitle: "High Performance POS & Offline Telemetry",
           body: "**What's New in this Release:**\n- \u26A1 **0.2s POS Engine**: Instant barcode detection & sub-second cash billing\n- \u{1F504} **Zero-Conflict Bulk Sync**: Reliable offline queue syncing for weak connections\n- \u{1F6E1}\uFE0F **Multi-Role Security**: Primary Admin exclusive backup & staff permissions\n\n*No app restart required. Enjoy seamless automated updates!*",
+          imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80",
           type: "success",
           priority: "feature_update",
           targetType: "global",
@@ -3755,6 +4234,7 @@ async function dispatchBroadcastController(req, res) {
       title,
       subtitle,
       body,
+      imageUrl,
       type = "info",
       priority = "feature_update",
       targetType = "global",
@@ -3781,6 +4261,7 @@ async function dispatchBroadcastController(req, res) {
       title: String(title).trim(),
       subtitle: subtitle ? String(subtitle).trim() : void 0,
       body: String(body).trim(),
+      imageUrl: imageUrl ? String(imageUrl).trim() : void 0,
       type: ["info", "success", "urgent"].includes(type) ? type : "info",
       priority: ["feature_update", "special_offer", "critical_notice", "info", "success", "urgent"].includes(priority) ? priority : "feature_update",
       targetType: ["global", "store", "user", "plan"].includes(targetType) ? targetType : "global",
@@ -3802,16 +4283,17 @@ async function dispatchBroadcastController(req, res) {
       const pool2 = getMariaDbPool();
       await pool2.query(
         `INSERT INTO mbi_notifications (
-          id, title, subtitle, body, type, priority, target_type, target_plan, 
+          id, title, subtitle, body, image_url, type, priority, target_type, target_plan, 
           target_store_id, target_store_name, target_user_id, target_user_name, 
           cta_label, cta_url, author, dispatched_at, delivered_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE title = VALUES(title);`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE title = VALUES(title), image_url = VALUES(image_url);`,
         [
           broadcastRecord.id,
           broadcastRecord.title,
           broadcastRecord.subtitle || null,
           broadcastRecord.body,
+          broadcastRecord.imageUrl || null,
           broadcastRecord.type,
           broadcastRecord.priority,
           broadcastRecord.targetType,
@@ -3993,6 +4475,7 @@ async function resendBroadcastController(req, res) {
             title: r.title,
             subtitle: r.subtitle,
             body: r.body,
+            imageUrl: r.image_url || r.imageUrl || void 0,
             type: r.type,
             priority: r.priority,
             targetType: r.target_type,
@@ -4062,8 +4545,8 @@ async function deleteBroadcastController(req, res) {
 }
 
 // server/controllers/adminMedicineController.ts
-var import_fs7 = __toESM(require("fs"));
-var import_path7 = __toESM(require("path"));
+var import_fs8 = __toESM(require("fs"));
+var import_path8 = __toESM(require("path"));
 
 // src/data/centralMedicinePresets.ts
 var POPULAR_PHARMA_SEEDS = [
@@ -4838,11 +5321,11 @@ function generateExpandedCentralMedicineCatalog() {
 var INITIAL_CENTRAL_MEDICINE_CATALOG = generateExpandedCentralMedicineCatalog();
 
 // server/controllers/adminMedicineController.ts
-var syncFile5 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile5 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData2() {
   try {
-    if (import_fs7.default.existsSync(syncFile5)) {
-      return JSON.parse(import_fs7.default.readFileSync(syncFile5, "utf-8"));
+    if (import_fs8.default.existsSync(syncFile5)) {
+      return JSON.parse(import_fs8.default.readFileSync(syncFile5, "utf-8"));
     }
   } catch (e) {
   }
@@ -4850,7 +5333,7 @@ function getLocalData2() {
 }
 function saveLocalData2(data) {
   try {
-    import_fs7.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
+    import_fs8.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Admin Medicine Controller] Save sync fallback failed:", e);
   }
@@ -5730,10 +6213,10 @@ async function getTenantMedicineStatsController(req, res) {
 }
 
 // server/routes/adminRoutes.ts
-var import_fs8 = __toESM(require("fs"));
-var import_path8 = __toESM(require("path"));
+var import_fs9 = __toESM(require("fs"));
+var import_path9 = __toESM(require("path"));
 var adminRouter = (0, import_express2.Router)();
-var syncFile6 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile6 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 var MASTER_PASSWORD2 = process.env.MASTER_PASSWORD || "Ami7788!@";
 var EMERGENCY_RECOVERY_KEY2 = process.env.EMERGENCY_RECOVERY_KEY || "03082003";
 var APP_VERSION = "v4.3.0";
@@ -5768,8 +6251,8 @@ data: ${JSON.stringify({
 }
 function getLocalFallbackData() {
   try {
-    if (import_fs8.default.existsSync(syncFile6)) {
-      return JSON.parse(import_fs8.default.readFileSync(syncFile6, "utf-8"));
+    if (import_fs9.default.existsSync(syncFile6)) {
+      return JSON.parse(import_fs9.default.readFileSync(syncFile6, "utf-8"));
     }
   } catch (e) {
   }
@@ -5777,7 +6260,7 @@ function getLocalFallbackData() {
 }
 function saveLocalFallbackData(data) {
   try {
-    import_fs8.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
+    import_fs9.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to write local fallback data:", e);
   }
@@ -5848,8 +6331,8 @@ adminRouter.get("/database/export/:tableName", exportTableDataController);
 adminRouter.get("/database/sql-dump", generateSqlDumpController);
 adminRouter.post("/database/sql-dump", generateSqlDumpController);
 adminRouter.get("/database/schema-download", (req, res) => {
-  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs8.default.existsSync(schemaPath)) {
+  const schemaPath = import_path9.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs9.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -5857,8 +6340,8 @@ adminRouter.get("/database/schema-download", (req, res) => {
   return res.status(404).send("Schema file not found");
 });
 adminRouter.get("/schema-download", (req, res) => {
-  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs8.default.existsSync(schemaPath)) {
+  const schemaPath = import_path9.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs9.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -5963,64 +6446,7 @@ adminRouter.get("/tenants", async (req, res) => {
           };
         });
       } else {
-        tenants = [
-          {
-            id: "tenant_main_pharmacy",
-            tenantId: "tenant_main_pharmacy",
-            name: "Inventra Central Pharmacy",
-            ownerName: "Dr. Kashif Ahmed",
-            phone: "0328-1302636",
-            email: "admin@inventra.local",
-            city: "Lahore",
-            plan: "Platinum",
-            planId: "Platinum",
-            status: "Active",
-            appVersion: APP_VERSION,
-            salesRevenue: 485e3,
-            outstandingBalance: 0,
-            activeHwid: "HWID-PK99-WIN11-SEC01",
-            boundHwids: ["HWID-PK99-WIN11-SEC01", "HWID-PK99-POS02-TOUCH"],
-            totalStaffCount: 2,
-            onlineStaffCount: 2,
-            totalDeviceCount: 2,
-            onlineDeviceCount: 2,
-            isHardLocked: false,
-            trialExpiryDate: "2028-12-31",
-            paidLicenseActive: true,
-            licenseKey: "MBI-PK99-PRO-2028",
-            features: {},
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            lastSyncAt: (/* @__PURE__ */ new Date()).toISOString()
-          },
-          {
-            id: "tenant_hassan_medicos",
-            tenantId: "tenant_hassan_medicos",
-            name: "Hassan Medicos",
-            ownerName: "Hassan Ali",
-            phone: "0336-4585863",
-            email: "hassan@medicos.pk",
-            city: "Sargodha",
-            plan: "Gold",
-            planId: "Gold",
-            status: "Active",
-            appVersion: APP_VERSION,
-            salesRevenue: 62e4,
-            outstandingBalance: 12500,
-            activeHwid: "HWID-SD88-HP-LAPTOP",
-            boundHwids: ["HWID-SD88-HP-LAPTOP"],
-            totalStaffCount: 1,
-            onlineStaffCount: 1,
-            totalDeviceCount: 1,
-            onlineDeviceCount: 1,
-            isHardLocked: false,
-            trialExpiryDate: "2027-06-30",
-            paidLicenseActive: true,
-            licenseKey: "MBI-SD88-BIZ-2027",
-            features: {},
-            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-            lastSyncAt: (/* @__PURE__ */ new Date()).toISOString()
-          }
-        ];
+        tenants = [];
       }
     }
     return res.json({
@@ -6075,61 +6501,6 @@ adminRouter.get("/tenants/:id/staff-and-devices", async (req, res) => {
     for (const dev of activeDevicesRegistry.values()) {
       if (dev.tenantId === id || id === "all") {
         registeredDevices.push(dev);
-      }
-    }
-    if (registeredDevices.length === 0) {
-      if (id === "tenant_main_pharmacy") {
-        registeredDevices.push(
-          {
-            id: "dev_01",
-            tenantId: id,
-            storeName: "Inventra Central Pharmacy",
-            userId: "usr_primary_owner",
-            userName: "Dr. Kashif Ahmed",
-            userRole: "Primary Owner",
-            hwid: "HWID-PK99-WIN11-SEC01",
-            deviceModel: "Dell OptiPlex 7090 Counter #1",
-            os: "Windows 11 Pro 64-bit",
-            ipAddress: "182.185.24.11",
-            status: "ONLINE",
-            lastActive: "Just now",
-            locationCity: "Lahore",
-            isBound: true
-          },
-          {
-            id: "dev_02",
-            tenantId: id,
-            storeName: "Inventra Central Pharmacy",
-            userId: "usr_cashier_bilal",
-            userName: "Bilal Cashier",
-            userRole: "Cashier Terminal",
-            hwid: "HWID-PK99-POS02-TOUCH",
-            deviceModel: "Posiflex Touch Terminal #2",
-            os: "Windows 10 IoT",
-            ipAddress: "182.185.24.12",
-            status: "ONLINE",
-            lastActive: "3m ago",
-            locationCity: "Lahore",
-            isBound: true
-          }
-        );
-      } else {
-        registeredDevices.push({
-          id: `dev_${id}_1`,
-          tenantId: id,
-          storeName: "Pharmacy Store",
-          userId: "usr_owner",
-          userName: "Store Owner",
-          userRole: "Owner / Manager",
-          hwid: `HWID-${id.slice(-4).toUpperCase()}-COUNTER1-POS`,
-          deviceModel: "HP All-In-One POS Terminal",
-          os: "Windows 11 Pro",
-          ipAddress: "39.40.112.95",
-          status: "ONLINE",
-          lastActive: "Just now",
-          locationCity: "Pakistan",
-          isBound: true
-        });
       }
     }
     let tenantInfo = null;
@@ -8024,55 +8395,10 @@ adminRouter.post("/licenses/action", async (req, res) => {
 });
 
 // server/controllers/authController.ts
-var import_fs9 = __toESM(require("fs"));
-var import_path9 = __toESM(require("path"));
-var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs10 = __toESM(require("fs"));
+var import_path10 = __toESM(require("path"));
+var syncFile7 = import_path10.default.resolve(process.cwd(), ".sync_data.json");
 var activeDevicesRegistry = /* @__PURE__ */ new Map();
-activeDevicesRegistry.set("dev_01", {
-  id: "dev_01",
-  tenantId: "tenant_main_pharmacy",
-  storeName: "Inventra Central Pharmacy",
-  userId: "usr_primary_owner",
-  userName: "Dr. Kashif Ahmed",
-  userRole: "Primary Owner",
-  hwid: "HWID-PK99-WIN11-SEC01",
-  deviceModel: "Dell OptiPlex 7090 Counter #1",
-  os: "Windows 11 Pro 64-bit",
-  ipAddress: "182.185.24.11",
-  status: "ONLINE",
-  lastActive: (/* @__PURE__ */ new Date()).toISOString(),
-  locationCity: "Lahore"
-});
-activeDevicesRegistry.set("dev_02", {
-  id: "dev_02",
-  tenantId: "tenant_main_pharmacy",
-  storeName: "Inventra Central Pharmacy",
-  userId: "usr_cashier_bilal",
-  userName: "Bilal Cashier",
-  userRole: "Cashier Terminal",
-  hwid: "HWID-PK99-POS02-TOUCH",
-  deviceModel: "Posiflex Touch Terminal #2",
-  os: "Windows 10 IoT",
-  ipAddress: "182.185.24.12",
-  status: "ONLINE",
-  lastActive: (/* @__PURE__ */ new Date()).toISOString(),
-  locationCity: "Lahore"
-});
-activeDevicesRegistry.set("dev_03", {
-  id: "dev_03",
-  tenantId: "tenant_hassan_medicos",
-  storeName: "Hassan Medicos",
-  userId: "usr_pharmacist_ali",
-  userName: "Hassan Ali",
-  userRole: "Store Manager",
-  hwid: "HWID-SD88-HP-LAPTOP",
-  deviceModel: "HP ProBook 450 G8",
-  os: "Windows 11 Home",
-  ipAddress: "39.40.112.95",
-  status: "ONLINE",
-  lastActive: (/* @__PURE__ */ new Date()).toISOString(),
-  locationCity: "Sargodha"
-});
 async function loginController(req, res) {
   try {
     const { email, phone, email_or_phone, passcode, password, pinCode, deviceId, hwid, deviceModel, os: os2, firmId } = req.body;
@@ -8087,18 +8413,24 @@ async function loginController(req, res) {
       return;
     }
     let authenticatedUser = null;
+    const requestedTenantId = req.headers["x-tenant-id"] || req.body.tenantId || "";
     try {
       const master = getMasterVault();
       const allTenants = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
-      const candidateTenants = ["tenant_main_pharmacy", "tenant_hassan_medicos", ...allTenants.map((t) => t.tenant_id)];
-      for (const tId of candidateTenants) {
+      const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map((t) => t.tenant_id)));
+      for (const tId of tenantList) {
         try {
           const vaultUsers = listTenantUsers(tId);
-          const matched = vaultUsers.find(
-            (u) => (u.emailOrPhone === inputEmailOrPhone || u.email === inputEmailOrPhone || u.phone === inputEmailOrPhone || u.username === inputEmailOrPhone || u.name === inputEmailOrPhone || u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase()) && (u.passcode === inputPasscode || u.passcode === "1234" || inputPasscode === "1234" || inputPasscode === "0000") && u.status === "Active"
-          );
+          const matched = vaultUsers.find((u) => {
+            const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || "").toString().toLowerCase().trim();
+            const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+            const identMatches = uIdent === inputIdent || u.username && String(u.username).toLowerCase().trim() === inputIdent || u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent || u.email && String(u.email).toLowerCase().trim() === inputIdent || u.phone && String(u.phone).trim() === inputIdent;
+            const userPin = String(u.passcode || u.pin || "").trim();
+            const pinMatches = userPin === inputPasscode;
+            return identMatches && pinMatches && (u.status === "Active" || u.status === "Joined");
+          });
           if (matched) {
-            authenticatedUser = { ...matched, tenant_id: tId };
+            authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
             break;
           }
         } catch (vErr) {
@@ -8111,11 +8443,11 @@ async function loginController(req, res) {
         const pool2 = getMariaDbPool();
         const [rows] = await pool2.query(
           `SELECT * FROM mbi_users 
-           WHERE (email_or_phone = ? OR name = ? OR username = ? OR email = ? OR phone = ? OR email_or_phone LIKE ?) 
-             AND (passcode = ? OR passcode = ?) 
+           WHERE (email_or_phone = ? OR name = ? OR username = ? OR email = ? OR phone = ?) 
+             AND (passcode = ?) 
              AND (status = 'Active' OR status = 'Joined' OR status IS NULL) 
            LIMIT 1;`,
-          [inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, `%${inputEmailOrPhone}%`, inputPasscode, "0000"]
+          [inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputEmailOrPhone, inputPasscode]
         );
         if (rows && rows.length > 0) {
           authenticatedUser = rows[0];
@@ -8125,16 +8457,21 @@ async function loginController(req, res) {
     }
     if (!authenticatedUser) {
       try {
-        const fallbackUsers = getFallbackUsers();
-        authenticatedUser = fallbackUsers.find(
-          (u) => (u.emailOrPhone === inputEmailOrPhone || u.email === inputEmailOrPhone || u.phone === inputEmailOrPhone || u.username === inputEmailOrPhone || u.name === inputEmailOrPhone || u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.email && String(u.email).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.name && String(u.name).toLowerCase() === inputEmailOrPhone.toLowerCase()) && (u.passcode === inputPasscode || u.pin === inputPasscode || inputPasscode === "1234" || inputPasscode === "0000" || !inputPasscode) && (u.status === "Active" || u.status === "Joined" || !u.status)
-        );
+        const fallbackUsers = getFallbackUsers(requestedTenantId || void 0);
+        authenticatedUser = fallbackUsers.find((u) => {
+          const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || "").toString().toLowerCase().trim();
+          const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+          const identMatches = uIdent === inputIdent || u.username && String(u.username).toLowerCase().trim() === inputIdent || u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent || u.email && String(u.email).toLowerCase().trim() === inputIdent || u.phone && String(u.phone).trim() === inputIdent;
+          const userPin = String(u.passcode || u.pin || "").trim();
+          const pinMatches = userPin === inputPasscode;
+          return identMatches && pinMatches && (u.status === "Active" || u.status === "Joined" || !u.status);
+        });
       } catch (e) {
       }
     }
-    if (!authenticatedUser && import_fs9.default.existsSync(syncFile7)) {
+    if (!authenticatedUser && import_fs10.default.existsSync(syncFile7)) {
       try {
-        const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
+        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile7, "utf-8"));
         const candidateLists = [
           ...syncData.mbi_users || [],
           ...syncData.appUsers || [],
@@ -8153,43 +8490,9 @@ async function loginController(req, res) {
           }))
         ];
         authenticatedUser = candidateLists.find(
-          (u) => (u.emailOrPhone === inputEmailOrPhone || u.email === inputEmailOrPhone || u.phone === inputEmailOrPhone || u.username === inputEmailOrPhone || u.name === inputEmailOrPhone || u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.email && String(u.email).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.name && String(u.name).toLowerCase() === inputEmailOrPhone.toLowerCase()) && (u.passcode === inputPasscode || u.pin === inputPasscode || inputPasscode === "1234" || inputPasscode === "0000" || !inputPasscode) && (u.status === "Active" || u.status === "Joined" || !u.status)
+          (u) => (u.emailOrPhone === inputEmailOrPhone || u.email === inputEmailOrPhone || u.phone === inputEmailOrPhone || u.username === inputEmailOrPhone || u.name === inputEmailOrPhone || u.emailOrPhone && String(u.emailOrPhone).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.username && String(u.username).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.email && String(u.email).toLowerCase() === inputEmailOrPhone.toLowerCase() || u.name && String(u.name).toLowerCase() === inputEmailOrPhone.toLowerCase()) && (u.passcode === inputPasscode || u.pin === inputPasscode) && (u.status === "Active" || u.status === "Joined" || !u.status)
         );
       } catch (e) {
-      }
-    }
-    if (!authenticatedUser) {
-      const lower = inputEmailOrPhone.toLowerCase();
-      if (lower === "owner" || lower === "admin" || lower === "admin@inventra.local" || lower === "0328-1302636" || lower === "03281302636" || lower === "kashif" || lower === "demo") {
-        authenticatedUser = {
-          id: "usr_primary_owner",
-          tenant_id: "tenant_main_pharmacy",
-          name: "Dr. Kashif Ahmed",
-          role: "Owner",
-          is_primary_owner: 1,
-          status: "Active",
-          passcode: "1234"
-        };
-      } else if (lower === "cashier" || lower === "bilal" || lower === "bilal_pos" || lower === "0300-1234567") {
-        authenticatedUser = {
-          id: "usr_cashier_bilal",
-          tenant_id: "tenant_main_pharmacy",
-          name: "Bilal Cashier",
-          role: "Cashier",
-          is_primary_owner: 0,
-          status: "Active",
-          passcode: "5566"
-        };
-      } else if (lower === "hassan" || lower === "0336-4585863") {
-        authenticatedUser = {
-          id: "usr_pharmacist_ali",
-          tenant_id: "tenant_hassan_medicos",
-          name: "Hassan Ali",
-          role: "Owner",
-          is_primary_owner: 1,
-          status: "Active",
-          passcode: "7788"
-        };
       }
     }
     if (!authenticatedUser) {
@@ -8605,8 +8908,8 @@ async function registerTrialController(req, res) {
     };
     try {
       let syncData = {};
-      if (import_fs9.default.existsSync(syncFile7)) {
-        const raw = import_fs9.default.readFileSync(syncFile7, "utf-8");
+      if (import_fs10.default.existsSync(syncFile7)) {
+        const raw = import_fs10.default.readFileSync(syncFile7, "utf-8");
         syncData = JSON.parse(raw);
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
@@ -8625,18 +8928,18 @@ async function registerTrialController(req, res) {
       syncData.appUsers.push(newUser);
       syncData.registration_leads.push(newLead);
       syncData.mbi_registration_leads.push(newLead);
-      import_fs9.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs10.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (fsErr) {
     }
     try {
-      const masterUsersFile2 = import_path9.default.resolve(process.cwd(), ".master_users.json");
+      const masterUsersFile2 = import_path10.default.resolve(process.cwd(), ".master_users.json");
       let masterUsers = [];
-      if (import_fs9.default.existsSync(masterUsersFile2)) {
-        masterUsers = JSON.parse(import_fs9.default.readFileSync(masterUsersFile2, "utf-8"));
+      if (import_fs10.default.existsSync(masterUsersFile2)) {
+        masterUsers = JSON.parse(import_fs10.default.readFileSync(masterUsersFile2, "utf-8"));
       }
       masterUsers = masterUsers.filter((u) => u.id !== userId);
       masterUsers.push(newUser);
-      import_fs9.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
+      import_fs10.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
     } catch (muErr) {
     }
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
@@ -8692,6 +8995,32 @@ async function registerTrialController(req, res) {
       });
     } catch (sseErr) {
     }
+    setImmediate(async () => {
+      try {
+        await sendAdminAlertNewTenant({
+          storeName: cleanStoreName,
+          ownerName: cleanOwnerName || cleanUsername,
+          username: cleanUsername,
+          phone: cleanPhone,
+          email: cleanEmail,
+          city: cleanCity,
+          plan: "Basic (10-Day Free Trial)",
+          tenantId
+        });
+        if (cleanEmail && cleanEmail.includes("@")) {
+          await sendTenantWelcomeEmail({
+            toEmail: cleanEmail,
+            storeName: cleanStoreName,
+            ownerName: cleanOwnerName || cleanUsername,
+            username: cleanUsername,
+            pin: cleanPassword,
+            portalUrl: req.headers.origin || "https://mbiinventra.com"
+          });
+        }
+      } catch (emailErr) {
+        console.warn("[AUTO EMAIL DISPATCH NOTICE]:", emailErr);
+      }
+    });
     res.json({
       success: true,
       message: "10-Day Free Trial registered successfully! Device #1 auto-bound as Primary Terminal.",
@@ -8912,8 +9241,8 @@ var import_express5 = require("express");
 
 // server/services/aiAssistantService.ts
 var import_genai = require("@google/genai");
-var import_fs10 = __toESM(require("fs"));
-var import_path10 = __toESM(require("path"));
+var import_fs11 = __toESM(require("fs"));
+var import_path11 = __toESM(require("path"));
 
 // server/controllers/aiDataQueryEngine.ts
 var PAKISTANI_MEDICINE_GENERICS = {
@@ -9002,11 +9331,11 @@ var INITIAL_KEYS = [
   "AQ.Ab8RN6L0k5gS_ygV9Vr4N0gNbSw99uvgMqZoYJp4_DYX-dMbWQ",
   "AQ.Ab8RN6IhctgzNIM2bMcMuF6jbSgye6yXsS9VAW5aJMCJJcOSqw"
 ];
-var CONFIG_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_config.json");
-var LEADS_FILE = import_path10.default.resolve(process.cwd(), ".ai_support_leads.json");
-var CLICKS_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
-var SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions.json");
-var ARCHIVED_SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions_archived.json");
+var CONFIG_FILE = import_path11.default.resolve(process.cwd(), ".ai_assistant_config.json");
+var LEADS_FILE = import_path11.default.resolve(process.cwd(), ".ai_support_leads.json");
+var CLICKS_FILE = import_path11.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
+var SESSIONS_FILE = import_path11.default.resolve(process.cwd(), ".ai_chat_sessions.json");
+var ARCHIVED_SESSIONS_FILE = import_path11.default.resolve(process.cwd(), ".ai_chat_sessions_archived.json");
 var keyHealthStats = {};
 function getOrInitKeyStat(key) {
   if (!keyHealthStats[key]) {
@@ -9026,8 +9355,8 @@ function deleteKeyStat(key) {
 }
 function loadSettings() {
   try {
-    if (import_fs10.default.existsSync(CONFIG_FILE)) {
-      const data = JSON.parse(import_fs10.default.readFileSync(CONFIG_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(import_fs11.default.readFileSync(CONFIG_FILE, "utf-8"));
       return {
         isAiEnabledGlobally: data.isAiEnabledGlobally ?? true,
         allowedPlans: data.allowedPlans ?? { basic: true, business: true, enterprise: true },
@@ -9053,15 +9382,15 @@ function saveSettings(settings) {
   try {
     const current = loadSettings();
     const updated = { ...current, ...settings };
-    import_fs10.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI settings config:", err);
   }
 }
 function loadLeads() {
   try {
-    if (import_fs10.default.existsSync(LEADS_FILE)) {
-      return JSON.parse(import_fs10.default.readFileSync(LEADS_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(LEADS_FILE)) {
+      return JSON.parse(import_fs11.default.readFileSync(LEADS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI leads:", err);
@@ -9070,7 +9399,7 @@ function loadLeads() {
 }
 function saveLeads(leads) {
   try {
-    import_fs10.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI leads:", err);
   }
@@ -9102,8 +9431,8 @@ function updateLeadStatus(id, status, notes) {
 }
 function loadClickEvents() {
   try {
-    if (import_fs10.default.existsSync(CLICKS_FILE)) {
-      return JSON.parse(import_fs10.default.readFileSync(CLICKS_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(CLICKS_FILE)) {
+      return JSON.parse(import_fs11.default.readFileSync(CLICKS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI click events:", err);
@@ -9113,7 +9442,7 @@ function loadClickEvents() {
 function saveClickEvents(events) {
   try {
     const capped = events.slice(0, 2e3);
-    import_fs10.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI click events:", err);
   }
@@ -9212,8 +9541,8 @@ var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
 var MAX_ACTIVE_SESSIONS = 20;
 function loadArchivedChatSessions() {
   try {
-    if (import_fs10.default.existsSync(ARCHIVED_SESSIONS_FILE)) {
-      return JSON.parse(import_fs10.default.readFileSync(ARCHIVED_SESSIONS_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(ARCHIVED_SESSIONS_FILE)) {
+      return JSON.parse(import_fs11.default.readFileSync(ARCHIVED_SESSIONS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading archived AI chat sessions:", err);
@@ -9222,7 +9551,7 @@ function loadArchivedChatSessions() {
 }
 function saveArchivedChatSessions(archived) {
   try {
-    import_fs10.default.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving archived AI chat sessions:", err);
   }
@@ -9261,8 +9590,8 @@ function autoArchiveSessions() {
 }
 function loadChatSessionsRaw() {
   try {
-    if (import_fs10.default.existsSync(SESSIONS_FILE)) {
-      return JSON.parse(import_fs10.default.readFileSync(SESSIONS_FILE, "utf-8"));
+    if (import_fs11.default.existsSync(SESSIONS_FILE)) {
+      return JSON.parse(import_fs11.default.readFileSync(SESSIONS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI chat sessions:", err);
@@ -9271,7 +9600,7 @@ function loadChatSessionsRaw() {
 }
 function saveChatSessionsRaw(sessions) {
   try {
-    import_fs10.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI chat sessions:", err);
   }
@@ -10309,10 +10638,10 @@ aiRouter.post("/keys/remove", (req, res) => {
 
 // server/routes/fleetRoutes.ts
 var import_express6 = __toESM(require("express"));
-var import_fs11 = __toESM(require("fs"));
-var import_path11 = __toESM(require("path"));
+var import_fs12 = __toESM(require("fs"));
+var import_path12 = __toESM(require("path"));
 var fleetRouter = import_express6.default.Router();
-var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile8 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
@@ -10454,12 +10783,12 @@ fleetRouter.get("/tenants", async (req, res) => {
           }
           try {
             let syncData = {};
-            if (import_fs11.default.existsSync(syncFile8)) {
-              syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+            if (import_fs12.default.existsSync(syncFile8)) {
+              syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
             }
             syncData.mbi_tenants = tenants;
             syncData.tenants = tenants;
-            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -10475,10 +10804,10 @@ fleetRouter.get("/tenants", async (req, res) => {
         console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-    if (import_fs11.default.existsSync(masterTenantsFile)) {
+    const masterTenantsFile = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+    if (import_fs12.default.existsSync(masterTenantsFile)) {
       try {
-        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+        const fileTenants = JSON.parse(import_fs12.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
         if (Array.isArray(fileTenants)) {
           for (const ft of fileTenants) {
             const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -10531,9 +10860,9 @@ fleetRouter.get("/tenants", async (req, res) => {
       } catch (e) {
       }
     }
-    if (import_fs11.default.existsSync(syncFile8)) {
+    if (import_fs12.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
         const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -10875,11 +11204,11 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       }
     }
     try {
-      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
       let localList = [];
-      if (import_fs11.default.existsSync(masterTenantsPath)) {
+      if (import_fs12.default.existsSync(masterTenantsPath)) {
         try {
-          localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -10889,7 +11218,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       } else {
         localList.push(tenantRecord);
       }
-      import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (e) {
     }
     broadcastGlobalEvent({
@@ -10928,15 +11257,15 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       }
     }
     try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs12.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.mbi_tenants)) {
           syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tenant_id && t.tenant_id !== tenant_id);
         }
         if (Array.isArray(syncData.tenants)) {
           syncData.tenants = syncData.tenants.filter((t) => t.id !== tenant_id && t.tenantId !== tenant_id);
         }
-        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11004,14 +11333,14 @@ fleetRouter.post("/tenants/status", async (req, res) => {
       }
     }
     try {
-      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsPath)) {
-        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
         if (idx >= 0) {
           list[idx].status = newStatus;
           list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11063,15 +11392,15 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       }
     }
     try {
-      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsPath)) {
-        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
         if (idx >= 0) {
           list[idx].api_key = newApiKey;
           list[idx].apiKey = newApiKey;
           list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11127,9 +11456,9 @@ fleetRouter.get("/leads", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (import_fs11.default.existsSync(syncFile8)) {
+    if (import_fs12.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
         const fallbackLeads = syncData.mbi_registration_leads || syncData.registration_leads || [];
         const existingIds = new Set(leads.map((l) => l.id));
         for (const fl of fallbackLeads) {
@@ -11313,9 +11642,9 @@ fleetRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id && usersMap.has(lu.id)) {
@@ -11378,11 +11707,11 @@ fleetRouter.post("/users/save", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
       let localList = [];
-      if (import_fs11.default.existsSync(usersJsonPath)) {
+      if (import_fs12.default.existsSync(usersJsonPath)) {
         try {
-          localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -11406,7 +11735,7 @@ fleetRouter.post("/users/save", async (req, res) => {
       } else {
         localList.push(userRecord);
       }
-      import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (fsErr) {
     }
     broadcastGlobalEvent({
@@ -11440,14 +11769,14 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.passcode = newPasscode;
           target.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11477,14 +11806,14 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.status = statusVal;
           target.isKillSwitchActive = Boolean(isKilled);
-          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11513,11 +11842,11 @@ fleetRouter.post("/users/delete", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        let localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        let localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         localList = localList.filter((u) => u.id !== userId);
-        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11567,9 +11896,9 @@ var handlePlanUpdate = async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(tenantsJsonPath)) {
-        const tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs12.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         const t = tenants.find((x) => x.id === targetTenantId || x.tenant_id === targetTenantId);
         if (t) {
           t.plan = plan;
@@ -11577,22 +11906,22 @@ var handlePlanUpdate = async (req, res) => {
           t.maxDevices = maxUsers;
           t.trialExpiryDate = expiryDate;
           t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
         }
       }
     } catch (e) {
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         users.forEach((u) => {
           if (u.installationId === targetTenantId || u.tenantId === targetTenantId || u.id === targetTenantId) {
             u.plan = plan;
             u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
           }
         });
-        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11635,7 +11964,7 @@ fleetRouter.post("/sync", async (req, res) => {
 });
 fleetRouter.get("/keys", async (req, res) => {
   try {
-    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
     const masterKey = {
       id: "key_master_live_01",
@@ -11691,7 +12020,7 @@ fleetRouter.get("/keys", async (req, res) => {
             });
           }
           try {
-            import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+            import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -11707,9 +12036,9 @@ fleetRouter.get("/keys", async (req, res) => {
         console.warn("[Fleet Keys MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    if (import_fs11.default.existsSync(keysJsonPath)) {
+    if (import_fs12.default.existsSync(keysJsonPath)) {
       try {
-        const fileKeys = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        const fileKeys = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
         if (Array.isArray(fileKeys) && fileKeys.length > 0) {
           keysList = fileKeys;
         }
@@ -11717,9 +12046,9 @@ fleetRouter.get("/keys", async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(tenantsJsonPath)) {
-        const diskTenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(tenantsJsonPath)) {
+        const diskTenants = JSON.parse(import_fs12.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         if (Array.isArray(diskTenants)) {
           for (const dt of diskTenants) {
             if (!dt) continue;
@@ -11776,9 +12105,9 @@ fleetRouter.get("/licenses", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (licenses.length === 0 && import_fs11.default.existsSync(syncFile8)) {
+    if (licenses.length === 0 && import_fs12.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
         licenses = syncData.client_licenses || syncData.mbi_licenses || [];
       } catch (e) {
       }
@@ -11845,16 +12174,16 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       lastUsed: "Never",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs11.default.existsSync(keysJsonPath)) {
+    if (import_fs12.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
     keysList = [newKey, ...keysList.filter((k) => k.id !== newKey.id)];
-    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -11885,11 +12214,11 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
       res.status(400).json({ success: false, error: "keyId is required" });
       return;
     }
-    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs11.default.existsSync(keysJsonPath)) {
+    if (import_fs12.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
@@ -11900,7 +12229,7 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
     }
     targetKey.status = status || (targetKey.status === "Active" ? "Revoked" : "Active");
     targetKey.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     broadcastGlobalEvent({
       type: "FLEET_API_KEY_STATUS_CHANGED",
       payload: { keyId, status: targetKey.status }
@@ -11923,11 +12252,11 @@ fleetRouter.post("/keys/verify", async (req, res) => {
       res.status(401).json({ success: false, valid: false, error: "Missing API key in Authorization header or body" });
       return;
     }
-    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs11.default.existsSync(keysJsonPath)) {
+    if (import_fs12.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
@@ -11961,7 +12290,7 @@ fleetRouter.post("/keys/verify", async (req, res) => {
     }
     found.lastUsed = (/* @__PURE__ */ new Date()).toISOString();
     try {
-      import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+      import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -12004,16 +12333,16 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs11.default.existsSync(usersJsonPath)) {
-        const usersList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(usersJsonPath)) {
+        const usersList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         usersList.forEach((u) => {
           if (u.tenant_id === tenantId || u.tenantId === tenantId || u.id?.startsWith(`usr_${tenantId}`)) {
             u.status = newUserStatus;
             u.isKillSwitchActive = isLocking;
           }
         });
-        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -12161,10 +12490,10 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
-    if (import_fs11.default.existsSync(permFilePath)) {
+    const permFilePath = import_path12.default.resolve(process.cwd(), ".master_permissions.json");
+    if (import_fs12.default.existsSync(permFilePath)) {
       try {
-        const store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
+        const store = JSON.parse(import_fs12.default.readFileSync(permFilePath, "utf-8") || "{}");
         const key = `${tenantId || "all"}_${userId}`;
         const record = store[key] || store[`${tenantId}_${tenantId}`] || store[tenantId] || store[userId];
         if (record && record.profile) {
@@ -12248,11 +12577,11 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       }
     }
     try {
-      const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
+      const permFilePath = import_path12.default.resolve(process.cwd(), ".master_permissions.json");
       let store = {};
-      if (import_fs11.default.existsSync(permFilePath)) {
+      if (import_fs12.default.existsSync(permFilePath)) {
         try {
-          store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
+          store = JSON.parse(import_fs12.default.readFileSync(permFilePath, "utf-8") || "{}");
         } catch (e) {
         }
       }
@@ -12266,7 +12595,7 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       };
       store[`${cleanTenantId}_${cleanUserId}`] = record;
       store[cleanUserId] = record;
-      import_fs11.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
+      import_fs12.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
     } catch (fsErr) {
     }
     const parsedProf = typeof profile === "string" ? JSON.parse(profile) : profile;
@@ -12407,8 +12736,8 @@ fleetRouter.post("/tenants/status", async (req, res) => {
       }
     }
     try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs12.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.tenants)) {
           const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.status = newStatus;
@@ -12417,14 +12746,14 @@ fleetRouter.post("/tenants/status", async (req, res) => {
           const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.status = newStatus;
         }
-        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
     try {
-      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           localList.forEach((t) => {
             if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
@@ -12432,7 +12761,7 @@ fleetRouter.post("/tenants/status", async (req, res) => {
               t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
             }
           });
-          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -12487,8 +12816,8 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       }
     }
     try {
-      if (import_fs11.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs12.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.tenants)) {
           const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.api_key = apiKey;
@@ -12497,14 +12826,14 @@ fleetRouter.post("/keys/generate", async (req, res) => {
           const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.api_key = apiKey;
         }
-        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
     try {
-      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs11.default.existsSync(masterTenantsPath)) {
-        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs12.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           localList.forEach((t) => {
             if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
@@ -12513,7 +12842,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
               t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
             }
           });
-          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -12570,8 +12899,8 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));
 var import_os = __toESM(require("os"));
-var import_fs12 = __toESM(require("fs"));
-var import_path12 = __toESM(require("path"));
+var import_fs13 = __toESM(require("fs"));
+var import_path13 = __toESM(require("path"));
 var adminMasterRouter = import_express7.default.Router();
 var MASTER_PIN = process.env.MASTER_PANEL_PIN || "Ami7788!@";
 adminMasterRouter.post("/verify-pin", async (req, res) => {
@@ -12682,9 +13011,9 @@ adminMasterRouter.get("/search", async (req, res) => {
     } catch (dbErr) {
     }
     try {
-      const masterUsersPath = import_path12.default.join(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(masterUsersPath)) {
-        const localUsers = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path13.default.join(process.cwd(), ".master_users.json");
+      if (import_fs13.default.existsSync(masterUsersPath)) {
+        const localUsers = JSON.parse(import_fs13.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localUsers)) {
           for (const u of localUsers) {
             const match = u.name && u.name.toLowerCase().includes(qLower) || u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower) || u.storeName && u.storeName.toLowerCase().includes(qLower) || u.boundHwid && u.boundHwid.toLowerCase().includes(qLower);
@@ -12893,9 +13222,9 @@ adminMasterRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const masterUsersPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(masterUsersPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path13.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs13.default.existsSync(masterUsersPath)) {
+        const localList = JSON.parse(import_fs13.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id && !usersMap.has(lu.id)) {
@@ -13518,9 +13847,9 @@ adminMasterRouter.get("/lan/status", async (req, res) => {
     } catch (e) {
     }
     try {
-      const syncPath = import_path12.default.join(process.cwd(), ".sync_data.json");
-      if (import_fs12.default.existsSync(syncPath)) {
-        const sData = JSON.parse(import_fs12.default.readFileSync(syncPath, "utf8") || "{}");
+      const syncPath = import_path13.default.join(process.cwd(), ".sync_data.json");
+      if (import_fs13.default.existsSync(syncPath)) {
+        const sData = JSON.parse(import_fs13.default.readFileSync(syncPath, "utf8") || "{}");
         const list = [...sData.mbi_tenants || [], ...sData.tenants || [], ...sData.registration_leads || [], ...sData.mbi_registration_leads || []];
         for (const item of list) {
           const tid = item.id || item.tenantId || item.tenant_id;
@@ -13621,17 +13950,17 @@ adminMasterRouter.post("/lan/broadcast", async (req, res) => {
       expiresAt: new Date(Date.now() + 864e5 * 7).toISOString()
     };
     try {
-      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
+      const bcastHistoryPath = import_path13.default.join(process.cwd(), ".broadcast_history.json");
       let history = [];
-      if (import_fs12.default.existsSync(bcastHistoryPath)) {
+      if (import_fs13.default.existsSync(bcastHistoryPath)) {
         try {
-          history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+          history = JSON.parse(import_fs13.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
         } catch (e) {
         }
       }
       history.unshift(broadcastRecord);
       if (history.length > 50) history = history.slice(0, 50);
-      import_fs12.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
+      import_fs13.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
     } catch (fsErr) {
     }
     if (targetTenantId && targetTenantId !== "all") {
@@ -13674,9 +14003,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
     const userId = req.query.userId || "all";
     let history = [];
     try {
-      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
-      if (import_fs12.default.existsSync(bcastHistoryPath)) {
-        history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+      const bcastHistoryPath = import_path13.default.join(process.cwd(), ".broadcast_history.json");
+      if (import_fs13.default.existsSync(bcastHistoryPath)) {
+        history = JSON.parse(import_fs13.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
       }
     } catch (e) {
     }
@@ -13698,9 +14027,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
 });
 adminMasterRouter.get("/print-config", async (req, res) => {
   try {
-    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
-    if (import_fs12.default.existsSync(configPath)) {
-      const data = JSON.parse(import_fs12.default.readFileSync(configPath, "utf8") || "{}");
+    const configPath = import_path13.default.join(process.cwd(), ".master_print_config.json");
+    if (import_fs13.default.existsSync(configPath)) {
+      const data = JSON.parse(import_fs13.default.readFileSync(configPath, "utf8") || "{}");
       res.json({ success: true, config: data });
       return;
     }
@@ -13739,8 +14068,8 @@ adminMasterRouter.post("/print-config", async (req, res) => {
   try {
     const config = req.body || {};
     config.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
-    import_fs12.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    const configPath = import_path13.default.join(process.cwd(), ".master_print_config.json");
+    import_fs13.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     try {
       broadcastGlobalEvent({
         type: "PRINT_CONFIG_UPDATED",
@@ -13762,13 +14091,262 @@ adminMasterRouter.post("/print-config", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Failed to save print config" });
   }
 });
+adminMasterRouter.get("/email/settings", async (req, res) => {
+  try {
+    const settings = getEmailSettings();
+    const maskedSettings = {
+      ...settings,
+      smtpPassMasked: settings.smtpPass ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" + settings.smtpPass.slice(-4) : ""
+    };
+    res.json({ success: true, settings: maskedSettings });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to fetch email settings" });
+  }
+});
+adminMasterRouter.post("/email/settings", async (req, res) => {
+  try {
+    const { adminEmail, smtpUser, smtpPass, senderName, senderEmail, enabled } = req.body;
+    const updatePayload = {};
+    if (adminEmail !== void 0) updatePayload.adminEmail = adminEmail.trim();
+    if (smtpUser !== void 0) updatePayload.smtpUser = smtpUser.trim();
+    if (smtpPass !== void 0 && smtpPass.trim() && !smtpPass.startsWith("\u2022\u2022\u2022")) {
+      updatePayload.smtpPass = smtpPass.trim();
+    }
+    if (senderName !== void 0) updatePayload.senderName = senderName.trim();
+    if (senderEmail !== void 0) updatePayload.senderEmail = senderEmail.trim();
+    if (enabled !== void 0) updatePayload.enabled = Boolean(enabled);
+    const saved = saveEmailSettings(updatePayload);
+    res.json({
+      success: true,
+      message: "Email & Notification settings saved successfully!",
+      settings: saved
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to save email settings" });
+  }
+});
+adminMasterRouter.post("/email/test", async (req, res) => {
+  try {
+    const { targetEmail } = req.body;
+    const settings = getEmailSettings();
+    const recipient = targetEmail || settings.adminEmail || "mbiinventra@gmail.com";
+    const testHtml = `
+      <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+        <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 800;">\u2705 Test Email Successful!</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">MBI INVENTRA Automated Email Engine</p>
+          </div>
+          <div style="padding: 22px;">
+            <p style="font-size: 14px; color: #334155; line-height: 1.5;">
+              This test confirms that your <strong>Gmail SMTP Relay</strong> is active and connected 100% automatically.
+            </p>
+            <div style="background: #f1f5f9; border-radius: 10px; padding: 12px; margin: 15px 0; font-size: 12px; font-family: monospace;">
+              <p style="margin: 3px 0;"><strong>Timestamp:</strong> ${(/* @__PURE__ */ new Date()).toLocaleString()}</p>
+              <p style="margin: 3px 0;"><strong>Sender:</strong> ${settings.smtpUser}</p>
+              <p style="margin: 3px 0;"><strong>Recipient:</strong> ${recipient}</p>
+              <p style="margin: 3px 0;"><strong>Status:</strong> LIVE_OPERATIONAL</p>
+            </div>
+            <p style="font-size: 12px; color: #64748b; margin: 0;">
+              All future registrations, cashier invitations, and password resets will be delivered automatically.
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+    const result = await sendEmail({
+      to: recipient,
+      subject: `\u2705 MBI INVENTRA - Live Email Test (${(/* @__PURE__ */ new Date()).toLocaleTimeString()})`,
+      html: testHtml
+    });
+    if (result.success) {
+      res.json({
+        success: true,
+        message: `Test email sent successfully to ${recipient}!`,
+        messageId: result.messageId
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || "Failed to dispatch test email. Please check your App Password."
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Email test execution failed" });
+  }
+});
+adminMasterRouter.post("/email/broadcast-tenant", async (req, res) => {
+  try {
+    const {
+      targetType,
+      // 'tenant' | 'all' | 'custom'
+      tenantId,
+      customEmail,
+      subject,
+      message,
+      priority,
+      badgeText,
+      actionButtonText,
+      actionButtonUrl
+    } = req.body;
+    if (!subject || !subject.trim()) {
+      res.status(400).json({ success: false, error: "Email subject is required." });
+      return;
+    }
+    if (!message || !message.trim()) {
+      res.status(400).json({ success: false, error: "Email message content is required." });
+      return;
+    }
+    let recipients = [];
+    if (targetType === "custom" || !tenantId && customEmail) {
+      if (!customEmail || !customEmail.includes("@")) {
+        res.status(400).json({ success: false, error: "Valid custom recipient email is required." });
+        return;
+      }
+      recipients.push({ email: customEmail.trim(), storeName: "Direct Client" });
+    } else if (targetType === "tenant" && tenantId && tenantId !== "all") {
+      let found = false;
+      const cleanId = String(tenantId).trim();
+      if (await isMariaDbAvailable()) {
+        try {
+          const pool2 = getMariaDbPool();
+          const [rows] = await pool2.query(
+            `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
+            [cleanId, cleanId]
+          );
+          if (Array.isArray(rows) && rows.length > 0 && rows[0].owner_email) {
+            recipients.push({
+              email: rows[0].owner_email.trim(),
+              name: rows[0].owner_name,
+              storeName: rows[0].name
+            });
+            found = true;
+          }
+        } catch (dbErr) {
+        }
+      }
+      if (!found) {
+        try {
+          const masterDb = getMasterVault();
+          const row = masterDb.prepare("SELECT * FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1").get(cleanId, cleanId);
+          if (row && row.owner_email) {
+            recipients.push({
+              email: row.owner_email.trim(),
+              name: row.owner_name,
+              storeName: row.name
+            });
+            found = true;
+          }
+        } catch (sqliteErr) {
+        }
+      }
+      if (!found && customEmail && customEmail.includes("@")) {
+        recipients.push({ email: customEmail.trim(), storeName: cleanId });
+      } else if (!found) {
+        res.status(404).json({ success: false, error: `Tenant ${cleanId} does not have a registered email address.` });
+        return;
+      }
+    } else if (targetType === "all" || tenantId === "all") {
+      const emailMap = /* @__PURE__ */ new Map();
+      try {
+        const masterDb = getMasterVault();
+        const rows = masterDb.prepare("SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE status != 'Wiped'").all();
+        for (const r of rows) {
+          if (r.owner_email && r.owner_email.includes("@")) {
+            emailMap.set(r.owner_email.toLowerCase().trim(), {
+              email: r.owner_email.trim(),
+              name: r.owner_name,
+              storeName: r.name
+            });
+          }
+        }
+      } catch (err) {
+      }
+      if (await isMariaDbAvailable()) {
+        try {
+          const pool2 = getMariaDbPool();
+          const [rows] = await pool2.query(
+            `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE status != 'Wiped';`
+          );
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              if (r.owner_email && r.owner_email.includes("@")) {
+                emailMap.set(r.owner_email.toLowerCase().trim(), {
+                  email: r.owner_email.trim(),
+                  name: r.owner_name,
+                  storeName: r.name
+                });
+              }
+            }
+          }
+        } catch (err) {
+        }
+      }
+      recipients = Array.from(emailMap.values());
+      if (recipients.length === 0) {
+        res.status(400).json({ success: false, error: "No active tenants with registered email addresses found." });
+        return;
+      }
+    }
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+    for (const rec of recipients) {
+      try {
+        const result = await sendCustomTenantEmail({
+          toEmail: rec.email,
+          storeName: rec.storeName,
+          recipientName: rec.name,
+          subject: subject.trim(),
+          message: message.trim(),
+          priority: priority || "normal",
+          badgeText: badgeText?.trim(),
+          actionButtonText: actionButtonText?.trim(),
+          actionButtonUrl: actionButtonUrl?.trim()
+        });
+        if (result.success) {
+          successCount++;
+        } else {
+          failCount++;
+          if (result.error) errors.push(`${rec.email}: ${result.error}`);
+        }
+      } catch (err) {
+        failCount++;
+        errors.push(`${rec.email}: ${err?.message || "Error"}`);
+      }
+    }
+    res.json({
+      success: successCount > 0,
+      dispatchedCount: successCount,
+      failedCount: failCount,
+      totalTargets: recipients.length,
+      recipients: recipients.map((r) => r.email),
+      errors: errors.length > 0 ? errors : void 0,
+      message: `Custom email dispatched successfully to ${successCount} recipient(s)!`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to dispatch custom tenant email." });
+  }
+});
+adminMasterRouter.get("/broadcast/history", getBroadcastHistoryController);
+adminMasterRouter.get("/broadcasts/history", getBroadcastHistoryController);
+adminMasterRouter.get("/broadcasts/:id/receipts", getBroadcastReceiptsController);
+adminMasterRouter.post("/broadcast", dispatchBroadcastController);
+adminMasterRouter.post("/broadcasts", dispatchBroadcastController);
+adminMasterRouter.post("/broadcast/:id/resend", resendBroadcastController);
+adminMasterRouter.post("/broadcasts/:id/resend", resendBroadcastController);
+adminMasterRouter.post("/broadcast/:id/seen", markBroadcastSeenController);
+adminMasterRouter.post("/broadcasts/:id/seen", markBroadcastSeenController);
+adminMasterRouter.post("/notifications/:id/mark-seen", markBroadcastSeenController);
+adminMasterRouter.delete("/broadcast/:id", deleteBroadcastController);
+adminMasterRouter.delete("/broadcasts/:id", deleteBroadcastController);
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));
-var import_fs13 = __toESM(require("fs"));
-var import_path13 = __toESM(require("path"));
+var import_fs14 = __toESM(require("fs"));
+var import_path14 = __toESM(require("path"));
 var blogRouter = import_express8.default.Router();
-var BLOGS_FILE = import_path13.default.resolve(process.cwd(), ".blogs_store.json");
+var BLOGS_FILE = import_path14.default.resolve(process.cwd(), ".blogs_store.json");
 var SEED_BLOGS = [
   {
     id: "blog-inventra-expiry-conquest",
@@ -13931,8 +14509,8 @@ Experience the speed and security of MBI INVENTRA 4 with full feature access and
 ];
 function loadBlogs() {
   try {
-    if (import_fs13.default.existsSync(BLOGS_FILE)) {
-      const data = JSON.parse(import_fs13.default.readFileSync(BLOGS_FILE, "utf-8"));
+    if (import_fs14.default.existsSync(BLOGS_FILE)) {
+      const data = JSON.parse(import_fs14.default.readFileSync(BLOGS_FILE, "utf-8"));
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (err) {
@@ -13943,7 +14521,7 @@ function loadBlogs() {
 }
 function saveBlogs(blogs) {
   try {
-    import_fs13.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
+    import_fs14.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving blogs store:", err);
   }
@@ -14083,10 +14661,10 @@ versionRouter.get("/", (req, res) => {
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
-var import_fs14 = __toESM(require("fs"));
-var import_path14 = __toESM(require("path"));
+var import_fs15 = __toESM(require("fs"));
+var import_path15 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
-var syncFile9 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile9 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
 licenseRouter.post("/register-trial", async (req, res) => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
@@ -14139,8 +14717,8 @@ licenseRouter.post("/register-trial", async (req, res) => {
     }
     try {
       let syncData = {};
-      if (import_fs14.default.existsSync(syncFile9)) {
-        syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs15.default.existsSync(syncFile9)) {
+        syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
@@ -14161,7 +14739,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
       };
       syncData.mbi_licenses.push(licObj);
       syncData.client_licenses.push(licObj);
-      import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs15.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -14220,9 +14798,9 @@ licenseRouter.post("/verify-device", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (!licenseFound && import_fs14.default.existsSync(syncFile9)) {
+    if (!licenseFound && import_fs15.default.existsSync(syncFile9)) {
       try {
-        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
+        const syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant || l.clientName === activeTenant);
         if (found) {
@@ -14423,8 +15001,8 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
       }
     }
     try {
-      if (import_fs14.default.existsSync(syncFile9)) {
-        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs15.default.existsSync(syncFile9)) {
+        const syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant);
         if (found) {
@@ -14432,7 +15010,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!existingBound.includes(clientHwid)) {
             existingBound.push(clientHwid);
             found.boundHardwareIds = existingBound;
-            import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs15.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
           }
         }
       }
@@ -14643,14 +15221,14 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
-var import_fs15 = __toESM(require("fs"));
-var import_path15 = __toESM(require("path"));
+var import_fs16 = __toESM(require("fs"));
+var import_path16 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
-var syncFile10 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile10 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalSyncData() {
   try {
-    if (import_fs15.default.existsSync(syncFile10)) {
-      return JSON.parse(import_fs15.default.readFileSync(syncFile10, "utf-8"));
+    if (import_fs16.default.existsSync(syncFile10)) {
+      return JSON.parse(import_fs16.default.readFileSync(syncFile10, "utf-8"));
     }
   } catch (e) {
   }
@@ -14658,7 +15236,7 @@ function getLocalSyncData() {
 }
 function saveLocalSyncData(data) {
   try {
-    import_fs15.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
+    import_fs16.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save sync file:", e);
   }
@@ -14977,14 +15555,14 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
-var import_fs16 = __toESM(require("fs"));
-var import_path16 = __toESM(require("path"));
-var syncFile11 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs17 = __toESM(require("fs"));
+var import_path17 = __toESM(require("path"));
+var syncFile11 = import_path17.default.resolve(process.cwd(), ".sync_data.json");
 function getFallbackAuditLogs(tenantId) {
   let logs = [];
   try {
-    if (import_fs16.default.existsSync(syncFile11)) {
-      const fileData = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs17.default.existsSync(syncFile11)) {
+      const fileData = JSON.parse(import_fs17.default.readFileSync(syncFile11, "utf-8"));
       if (Array.isArray(fileData.mbi_audit_logs)) {
         logs = fileData.mbi_audit_logs;
       }
@@ -14999,8 +15577,8 @@ function getFallbackAuditLogs(tenantId) {
 function saveFallbackAuditLog(log) {
   try {
     let data = {};
-    if (import_fs16.default.existsSync(syncFile11)) {
-      data = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs17.default.existsSync(syncFile11)) {
+      data = JSON.parse(import_fs17.default.readFileSync(syncFile11, "utf-8"));
     }
     if (!Array.isArray(data.mbi_audit_logs)) {
       data.mbi_audit_logs = [];
@@ -15009,7 +15587,7 @@ function saveFallbackAuditLog(log) {
     if (data.mbi_audit_logs.length > 5e3) {
       data.mbi_audit_logs = data.mbi_audit_logs.slice(0, 5e3);
     }
-    import_fs16.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
+    import_fs17.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
   } catch (e) {
     console.warn("[Audit Log Local Fallback Save Warning]:", e);
   }
@@ -15543,20 +16121,20 @@ async function sendWhatsAppCloudMessage(recipientPhone, messageText, customApiKe
 }
 
 // server/routes/whatsappRoutes.ts
-var import_fs18 = __toESM(require("fs"));
-var import_path18 = __toESM(require("path"));
+var import_fs19 = __toESM(require("fs"));
+var import_path19 = __toESM(require("path"));
 
 // server/services/baileysService.ts
 var import_baileys = __toESM(require("@whiskeysockets/baileys"));
 var import_pino = __toESM(require("pino"));
-var import_fs17 = __toESM(require("fs"));
-var import_path17 = __toESM(require("path"));
+var import_fs18 = __toESM(require("fs"));
+var import_path18 = __toESM(require("path"));
 var tenantSockets = /* @__PURE__ */ new Map();
 var tenantStates = /* @__PURE__ */ new Map();
-var SESSIONS_BASE_DIR = import_path17.default.resolve(process.cwd(), ".whatsapp_sessions");
-if (!import_fs17.default.existsSync(SESSIONS_BASE_DIR)) {
+var SESSIONS_BASE_DIR = import_path18.default.resolve(process.cwd(), ".whatsapp_sessions");
+if (!import_fs18.default.existsSync(SESSIONS_BASE_DIR)) {
   try {
-    import_fs17.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
+    import_fs18.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
   } catch {
   }
 }
@@ -15564,8 +16142,8 @@ function getTenantState(tenantId) {
   if (tenantStates.has(tenantId)) {
     return tenantStates.get(tenantId);
   }
-  const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
-  const isLinked = import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"));
+  const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
+  const isLinked = import_fs18.default.existsSync(import_path18.default.join(sessionDir, "creds.json"));
   const state = {
     tenantId,
     status: isLinked ? "CONNECTED" : "DISCONNECTED",
@@ -15588,7 +16166,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
     if (!phone || phone.length < 10) {
       return { success: false, error: "Invalid phone number format. Please enter a valid number (e.g. 03001234567 or 923001234567)." };
     }
-    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+    const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
     if (tenantSockets.has(tenantId)) {
       try {
         const oldSock = tenantSockets.get(tenantId);
@@ -15597,13 +16175,13 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
       }
       tenantSockets.delete(tenantId);
     }
-    if (import_fs17.default.existsSync(sessionDir)) {
+    if (import_fs18.default.existsSync(sessionDir)) {
       try {
-        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
-    import_fs17.default.mkdirSync(sessionDir, { recursive: true });
+    import_fs18.default.mkdirSync(sessionDir, { recursive: true });
     async function startSocket() {
       const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
       const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
@@ -15639,7 +16217,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
               updatedAt: (/* @__PURE__ */ new Date()).toISOString()
             });
             try {
-              import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
+              import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
             } catch {
             }
           }
@@ -15706,8 +16284,8 @@ async function sendWhatsAppMessage(tenantId, rawPhone, message) {
     const jid = `${phone}@s.whatsapp.net`;
     let sock = tenantSockets.get(tenantId);
     if (!sock) {
-      const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
-      if (import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"))) {
+      const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
+      if (import_fs18.default.existsSync(import_path18.default.join(sessionDir, "creds.json"))) {
         const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
         const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
         sock = (0, import_baileys.default)({
@@ -15741,10 +16319,10 @@ async function disconnectWhatsApp(tenantId) {
       }
       tenantSockets.delete(tenantId);
     }
-    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
-    if (import_fs17.default.existsSync(sessionDir)) {
+    const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
+    if (import_fs18.default.existsSync(sessionDir)) {
       try {
-        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
@@ -15761,12 +16339,12 @@ async function disconnectWhatsApp(tenantId) {
 
 // server/routes/whatsappRoutes.ts
 var whatsappRouter = (0, import_express15.Router)();
-var whatsappHistoryFile = import_path18.default.resolve(process.cwd(), ".whatsapp_history.json");
-var whatsappAgentConfigFile = import_path18.default.resolve(process.cwd(), ".whatsapp_agent_config.json");
+var whatsappHistoryFile = import_path19.default.resolve(process.cwd(), ".whatsapp_history.json");
+var whatsappAgentConfigFile = import_path19.default.resolve(process.cwd(), ".whatsapp_agent_config.json");
 function getWhatsAppAgentConfig() {
   try {
-    if (import_fs18.default.existsSync(whatsappAgentConfigFile)) {
-      const saved = JSON.parse(import_fs18.default.readFileSync(whatsappAgentConfigFile, "utf8"));
+    if (import_fs19.default.existsSync(whatsappAgentConfigFile)) {
+      const saved = JSON.parse(import_fs19.default.readFileSync(whatsappAgentConfigFile, "utf8"));
       return { ...MASTER_WHATSAPP_CONFIG, ...saved };
     }
   } catch {
@@ -15776,8 +16354,8 @@ function getWhatsAppAgentConfig() {
 function logWhatsAppDispatch(log) {
   try {
     let history = [];
-    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
-      history = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+    if (import_fs19.default.existsSync(whatsappHistoryFile)) {
+      history = JSON.parse(import_fs19.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
     }
     history.unshift({
       id: `wa_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -15785,7 +16363,7 @@ function logWhatsAppDispatch(log) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
     if (history.length > 500) history = history.slice(0, 500);
-    import_fs18.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
+    import_fs19.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
   } catch {
   }
 }
@@ -15989,7 +16567,7 @@ whatsappRouter.post("/agent/config", (req, res) => {
       apiKey: apiKey || current.apiKey,
       isAgentActive: isAgentActive !== void 0 ? Boolean(isAgentActive) : current.isAgentActive
     };
-    import_fs18.default.writeFileSync(whatsappAgentConfigFile, JSON.stringify(updated, null, 2), "utf8");
+    import_fs19.default.writeFileSync(whatsappAgentConfigFile, JSON.stringify(updated, null, 2), "utf8");
     res.json({
       success: true,
       message: "WhatsApp Agent configuration and API Key updated successfully",
@@ -16071,9 +16649,9 @@ whatsappRouter.get("/history/:tenantId", (req, res) => {
   try {
     const { tenantId } = req.params;
     let history = [];
-    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
+    if (import_fs19.default.existsSync(whatsappHistoryFile)) {
       try {
-        const all = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+        const all = JSON.parse(import_fs19.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
         history = all.filter((h) => h.tenantId === tenantId || tenantId === "all");
       } catch {
       }
@@ -16130,10 +16708,10 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
 
 // server/routes/cmsRoutes.ts
 var import_express16 = __toESM(require("express"));
-var import_fs19 = __toESM(require("fs"));
-var import_path19 = __toESM(require("path"));
+var import_fs20 = __toESM(require("fs"));
+var import_path20 = __toESM(require("path"));
 var cmsRouter = import_express16.default.Router();
-var TESTIMONIALS_FILE = import_path19.default.resolve(process.cwd(), ".testimonials_store.json");
+var TESTIMONIALS_FILE = import_path20.default.resolve(process.cwd(), ".testimonials_store.json");
 var SEED_TESTIMONIALS = [
   {
     id: "test-1",
@@ -16204,11 +16782,11 @@ var SEED_TESTIMONIALS = [
 ];
 function loadTestimonialsFromDisk() {
   try {
-    if (!import_fs19.default.existsSync(TESTIMONIALS_FILE)) {
-      import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
+    if (!import_fs20.default.existsSync(TESTIMONIALS_FILE)) {
+      import_fs20.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
       return SEED_TESTIMONIALS;
     }
-    const raw = import_fs19.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
+    const raw = import_fs20.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
@@ -16221,20 +16799,20 @@ function loadTestimonialsFromDisk() {
 }
 function saveTestimonialsToDisk(items) {
   try {
-    import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
+    import_fs20.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write testimonials file:", err);
     return false;
   }
 }
-var CMS_CONFIG_FILE = import_path19.default.resolve(process.cwd(), ".site_cms_store.json");
+var CMS_CONFIG_FILE = import_path20.default.resolve(process.cwd(), ".site_cms_store.json");
 function loadCmsConfigFromDisk() {
   try {
-    if (!import_fs19.default.existsSync(CMS_CONFIG_FILE)) {
+    if (!import_fs20.default.existsSync(CMS_CONFIG_FILE)) {
       return null;
     }
-    const raw = import_fs19.default.readFileSync(CMS_CONFIG_FILE, "utf-8");
+    const raw = import_fs20.default.readFileSync(CMS_CONFIG_FILE, "utf-8");
     return JSON.parse(raw);
   } catch (err) {
     console.error("[CMS Server] Failed to read CMS config file:", err);
@@ -16243,7 +16821,7 @@ function loadCmsConfigFromDisk() {
 }
 function saveCmsConfigToDisk(config) {
   try {
-    import_fs19.default.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+    import_fs20.default.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write CMS config file:", err);
@@ -16363,29 +16941,29 @@ cmsRouter.delete("/testimonials/:id", (req, res) => {
 
 // server/routes/backupRoutes.ts
 var import_express17 = __toESM(require("express"));
-var import_fs20 = __toESM(require("fs"));
-var import_path20 = __toESM(require("path"));
+var import_fs21 = __toESM(require("fs"));
+var import_path21 = __toESM(require("path"));
 var backupRouter = import_express17.default.Router();
-var BACKUP_DIR = import_path20.default.join(process.cwd(), ".server_backups_vault");
-if (!import_fs20.default.existsSync(BACKUP_DIR)) {
+var BACKUP_DIR = import_path21.default.join(process.cwd(), ".server_backups_vault");
+if (!import_fs21.default.existsSync(BACKUP_DIR)) {
   try {
-    import_fs20.default.mkdirSync(BACKUP_DIR, { recursive: true });
+    import_fs21.default.mkdirSync(BACKUP_DIR, { recursive: true });
   } catch (e) {
     console.error("[Backup Vault] Failed to create backup dir:", e);
   }
 }
 backupRouter.get("/backups", (req, res) => {
   try {
-    if (!import_fs20.default.existsSync(BACKUP_DIR)) {
+    if (!import_fs21.default.existsSync(BACKUP_DIR)) {
       return res.json({ success: true, backups: [] });
     }
-    const files = import_fs20.default.readdirSync(BACKUP_DIR);
+    const files = import_fs21.default.readdirSync(BACKUP_DIR);
     const backups = files.filter((f) => f.endsWith(".json") || f.endsWith(".enc") || f.endsWith(".mbibackup")).map((file) => {
-      const filePath = import_path20.default.join(BACKUP_DIR, file);
-      const stats = import_fs20.default.statSync(filePath);
+      const filePath = import_path21.default.join(BACKUP_DIR, file);
+      const stats = import_fs21.default.statSync(filePath);
       let metadata = {};
       try {
-        const content = import_fs20.default.readFileSync(filePath, "utf-8");
+        const content = import_fs21.default.readFileSync(filePath, "utf-8");
         const parsed = JSON.parse(content);
         metadata = {
           tenantId: parsed.tenantId || "tenant_default",
@@ -16418,8 +16996,8 @@ backupRouter.post("/backup/push", (req, res) => {
     const safeTenant = (installationId || "tenant_main").replace(/[^a-zA-Z0-9_-]/g, "_");
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/[:T]/g, "-");
     const filename = `vault-${safeTenant}-${timestamp}.mbibackup`;
-    const filePath = import_path20.default.join(BACKUP_DIR, filename);
-    import_fs20.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
+    const filePath = import_path21.default.join(BACKUP_DIR, filename);
+    import_fs21.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
     res.json({
       success: true,
       filename,
@@ -16433,14 +17011,14 @@ backupRouter.post("/backup/push", (req, res) => {
 backupRouter.get("/backup/download/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path20.default.basename(filename);
-    const filePath = import_path20.default.join(BACKUP_DIR, safeFilename);
-    if (!import_fs20.default.existsSync(filePath)) {
+    const safeFilename = import_path21.default.basename(filename);
+    const filePath = import_path21.default.join(BACKUP_DIR, safeFilename);
+    if (!import_fs21.default.existsSync(filePath)) {
       return res.status(404).json({ success: false, message: "Backup file not found" });
     }
     res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
     res.setHeader("Content-Type", "application/octet-stream");
-    import_fs20.default.createReadStream(filePath).pipe(res);
+    import_fs21.default.createReadStream(filePath).pipe(res);
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -16448,10 +17026,10 @@ backupRouter.get("/backup/download/:filename", (req, res) => {
 backupRouter.delete("/backup/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    const safeFilename = import_path20.default.basename(filename);
-    const filePath = import_path20.default.join(BACKUP_DIR, safeFilename);
-    if (import_fs20.default.existsSync(filePath)) {
-      import_fs20.default.unlinkSync(filePath);
+    const safeFilename = import_path21.default.basename(filename);
+    const filePath = import_path21.default.join(BACKUP_DIR, safeFilename);
+    if (import_fs21.default.existsSync(filePath)) {
+      import_fs21.default.unlinkSync(filePath);
       return res.json({ success: true, message: `Backup file ${safeFilename} deleted from vault` });
     }
     res.status(404).json({ success: false, message: "File not found" });
@@ -16496,7 +17074,7 @@ async function startServer() {
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
-  const syncFile12 = import_path21.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile12 = import_path22.default.resolve(process.cwd(), ".sync_data.json");
   initializeMariaDbSchema().catch((err) => {
     console.log("[MARIADB BOOT INFO] Automatic MariaDB initialization:", err?.message || "Ready");
   });
@@ -16516,6 +17094,7 @@ async function startServer() {
   app.use("/api/ai", aiRouter);
   app.use("/api/fleet", fleetRouter);
   app.use("/api/master", adminMasterRouter);
+  app.use("/api/admin/master", adminMasterRouter);
   app.use("/api/support", adminMasterRouter);
   app.use("/api/blogs", blogRouter);
   app.use("/api/version", versionRouter);
@@ -16588,8 +17167,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path21.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs21.default.existsSync(ddlPath)) {
+    const ddlPath = import_path22.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs22.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -16661,8 +17240,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs21.default.existsSync(syncFile12)) {
-        memorySyncData = JSON.parse(import_fs21.default.readFileSync(syncFile12, "utf-8"));
+      if (import_fs22.default.existsSync(syncFile12)) {
+        memorySyncData = JSON.parse(import_fs22.default.readFileSync(syncFile12, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -16678,8 +17257,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile12}.tmp`;
-      import_fs21.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs21.default.renameSync(tmpFile, syncFile12);
+      import_fs22.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs22.default.renameSync(tmpFile, syncFile12);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile12 }, "/api/sync/flush");
@@ -16769,8 +17348,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs21.default.existsSync(syncFile12)) {
-        const stat = import_fs21.default.statSync(syncFile12);
+      if (import_fs22.default.existsSync(syncFile12)) {
+        const stat = import_fs22.default.statSync(syncFile12);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -17544,29 +18123,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path21.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path21.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path21.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path21.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path21.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path21.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path21.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path21.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path21.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path21.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path21.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path21.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path21.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs21.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path22.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path22.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path22.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path22.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path22.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path22.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path22.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path22.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path22.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path22.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path22.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path22.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path22.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs22.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs21.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs22.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs21.default.existsSync(filePath)) {
-        return JSON.parse(import_fs21.default.readFileSync(filePath, "utf-8"));
+      if (import_fs22.default.existsSync(filePath)) {
+        return JSON.parse(import_fs22.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -17574,7 +18153,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs21.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs22.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -17592,7 +18171,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs21.default.existsSync(masterConfigFile)) {
+    if (!import_fs22.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -17927,7 +18506,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path21.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path22.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -18716,14 +19295,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs21.default.readdirSync(masterBackupsDir);
+      let files = import_fs22.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs21.default.readFileSync(import_path21.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs22.default.readFileSync(import_path22.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -18747,9 +19326,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs21.default.existsSync(masterLicensesFile)) {
+      if (import_fs22.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs21.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs22.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -18797,9 +19376,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs21.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs22.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs21.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs22.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -18815,7 +19394,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs21.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs22.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -18833,7 +19412,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path21.default.join(masterBackupsDir, fileName);
+      const filePath = import_path22.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -18853,15 +19432,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs21.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs22.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs21.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs22.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs21.default.statSync(import_path21.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs22.default.statSync(import_path22.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs21.default.unlinkSync(import_path21.default.join(masterBackupsDir, oldFile.name));
+              import_fs22.default.unlinkSync(import_path22.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -18916,11 +19495,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path21.default.join(masterBackupsDir, fileName);
-      if (!import_fs21.default.existsSync(filePath)) {
+      const filePath = import_path22.default.join(masterBackupsDir, fileName);
+      if (!import_fs22.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs21.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs22.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -18932,9 +19511,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path21.default.join(masterBackupsDir, fileName);
-      if (import_fs21.default.existsSync(filePath)) {
-        import_fs21.default.unlinkSync(filePath);
+      const filePath = import_path22.default.join(masterBackupsDir, fileName);
+      if (import_fs22.default.existsSync(filePath)) {
+        import_fs22.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -18946,14 +19525,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs21.default.readdirSync(masterBackupsDir);
+      let files = import_fs22.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs21.default.readFileSync(import_path21.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs22.default.readFileSync(import_path22.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -19002,13 +19581,13 @@ async function startServer() {
       });
     }
   });
-  const distPath = import_path21.default.join(process.cwd(), "dist");
-  const hasDist = import_fs21.default.existsSync(import_path21.default.join(distPath, "index.html"));
+  const distPath = import_path22.default.join(process.cwd(), "dist");
+  const hasDist = import_fs22.default.existsSync(import_path22.default.join(distPath, "index.html"));
   if (hasDist && process.env.FORCE_VITE_DEV !== "true") {
-    const indexPath = import_path21.default.join(distPath, "index.html");
+    const indexPath = import_path22.default.join(distPath, "index.html");
     let indexHtml = "";
     try {
-      indexHtml = import_fs21.default.readFileSync(indexPath, "utf-8");
+      indexHtml = import_fs22.default.readFileSync(indexPath, "utf-8");
     } catch {
     }
     app.use(import_express18.default.static(distPath, {
@@ -19021,7 +19600,7 @@ async function startServer() {
         }
       }
     }));
-    app.use(import_express18.default.static(import_path21.default.join(process.cwd(), "public"), {
+    app.use(import_express18.default.static(import_path22.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
     app.get("*", (req, res) => {

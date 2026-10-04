@@ -37,131 +37,14 @@ interface StoreAiTranscript {
   messages: ChatMessage[];
 }
 
-const INITIAL_SUPPORT_QUEUE: UrgentSupportLead[] = [
-  {
-    id: 'lead_01',
-    storeName: 'Hassan Medicos',
-    city: 'Sargodha',
-    ownerName: 'Hassan Ali',
-    phone: '03281302636',
-    problemSummary: 'Need help importing distributor Excel purchase invoice with batch & expiry column mapping.',
-    urgency: 'CRITICAL',
-    status: 'OPEN',
-    timestamp: '5 mins ago'
-  },
-  {
-    id: 'lead_02',
-    storeName: 'Al-Shifa Medicine Hub',
-    city: 'Rawalpindi',
-    ownerName: 'Usman Farooq',
-    phone: '03005551234',
-    problemSummary: 'Thermal printer 80mm ESC/POS Urdu font character alignment troubleshooting.',
-    urgency: 'HIGH',
-    status: 'IN_PROGRESS',
-    timestamp: '22 mins ago'
-  },
-  {
-    id: 'lead_03',
-    storeName: 'Inventra Central Pharmacy',
-    city: 'Lahore',
-    ownerName: 'Dr. Kashif Ahmed',
-    phone: '03219876543',
-    problemSummary: 'Guidance on multi-terminal FEFO godown stock transfers and cashier shift handover.',
-    urgency: 'MEDIUM',
-    status: 'RESOLVED',
-    timestamp: '1 hour ago'
-  }
-];
+const INITIAL_SUPPORT_QUEUE: UrgentSupportLead[] = [];
 
-const STORE_TRANSCRIPTS: StoreAiTranscript[] = [
-  {
-    tenantId: 'tenant_hassan_medicos',
-    storeName: 'Hassan Medicos',
-    city: 'Sargodha',
-    ownerName: 'Hassan Ali',
-    totalQueries: 38,
-    lastActive: 'Just now',
-    messages: [
-      {
-        id: 'msg_1',
-        sender: 'user',
-        text: 'What is the generic formula and available pack sizes for Augmentin 625mg?',
-        timestamp: '10:14 AM',
-        intent: 'GENERIC_MEDICINE_LOOKUP'
-      },
-      {
-        id: 'msg_2',
-        sender: 'ai',
-        text: 'Augmentin 625mg contains **Co-Amoxiclav (Amoxicillin 500mg + Clavulanic Acid 125mg)**. Standard pack size: 1x14 Tablets (GSK). Recommended storage: Below 25°C in a dry place.',
-        timestamp: '10:14 AM'
-      },
-      {
-        id: 'msg_3',
-        sender: 'user',
-        text: 'Show me batches of Panadol CF expiring in the next 60 days.',
-        timestamp: '10:18 AM',
-        intent: 'FEFO_INVENTORY_QUERY'
-      },
-      {
-        id: 'msg_4',
-        sender: 'ai',
-        text: 'Found 2 batches expiring soon:\n1. **Batch #PN-992** - 42 Packs (Exp: Nov 2026, Shelf B-4)\n2. **Batch #PN-881** - 18 Packs (Exp: Dec 2026, Counter Rack #1)\n\nPriority recommendation: Sell Batch #PN-992 first to prevent expiry write-off.',
-        timestamp: '10:18 AM'
-      }
-    ]
-  },
-  {
-    tenantId: 'tenant_main_pharmacy',
-    storeName: 'Inventra Central Pharmacy',
-    city: 'Lahore',
-    ownerName: 'Dr. Kashif Ahmed',
-    totalQueries: 142,
-    lastActive: '12 mins ago',
-    messages: [
-      {
-        id: 'msg_21',
-        sender: 'user',
-        text: 'What is the keyboard shortcut to hold and recall POS bills?',
-        timestamp: '09:45 AM',
-        intent: 'POS_SHORTCUT'
-      },
-      {
-        id: 'msg_22',
-        sender: 'ai',
-        text: 'Use **F6** to park/hold the current active invoice and **F7** to open the pending cart recall list. Press **F1** at any time for quick cash checkout.',
-        timestamp: '09:45 AM'
-      }
-    ]
-  },
-  {
-    tenantId: 'tenant_alshifa_med',
-    storeName: 'Al-Shifa Medicine Hub',
-    city: 'Rawalpindi',
-    ownerName: 'Usman Farooq',
-    totalQueries: 64,
-    lastActive: '45 mins ago',
-    messages: [
-      {
-        id: 'msg_31',
-        sender: 'user',
-        text: 'How do I generate the FBR POS sales summary for yesterday?',
-        timestamp: '08:30 AM',
-        intent: 'TAX_REPORTS'
-      },
-      {
-        id: 'msg_32',
-        sender: 'ai',
-        text: 'Navigate to **Reports > Sales & Invoices > Tax Summary**, select date range Yesterday, and click **Export FBR Annex-C CSV**.',
-        timestamp: '08:30 AM'
-      }
-    ]
-  }
-];
+const STORE_TRANSCRIPTS: StoreAiTranscript[] = [];
 
 export const AiSupportTelemetryTab: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'transcripts' | 'analytics'>('queue');
   const [supportQueue, setSupportQueue] = useState<UrgentSupportLead[]>(INITIAL_SUPPORT_QUEUE);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('tenant_hassan_medicos');
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const activeTranscript = STORE_TRANSCRIPTS.find(t => t.tenantId === selectedTenantId) || STORE_TRANSCRIPTS[0];

@@ -234,8 +234,6 @@ function RoleAccessGuard({ children }: { children: React.ReactNode }) {
   // Check if user account is explicitly waiting for admin approval in Firestore or is Master Admin / Shadow / Tenant Inspection
   const isMasterUser = 
     currentUser?.email === 'm.bilalinayat786@gmail.com' || 
-    currentUser?.email === 'vip123@admin.com' || 
-    currentUser?.uid === 'u1' || 
     currentUser?.uid === 'admin-master' ||
     Boolean(getActiveImpersonation()) ||
     isMasterAdminAuthenticated() ||

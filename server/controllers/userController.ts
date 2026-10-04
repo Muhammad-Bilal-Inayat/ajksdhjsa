@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import { broadcastFleetActivity } from '../routes/adminRoutes';
+import { sendStaffInvitationEmail, sendPasswordResetEmail } from '../services/emailService';
 
 const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
@@ -192,6 +193,33 @@ export async function createUserController(req: Request, res: Response) {
       });
     }
 
+    const existingUsers = getFallbackUsers(tenantId);
+    const targetUsername = (username || name.toLowerCase().replace(/\s+/g, '_')).toLowerCase().trim();
+    const targetPasscode = (passcode || '1234').trim();
+    const targetContact = (emailOrPhone || phone || email || '').trim().toLowerCase();
+
+    // Check PIN collision strictly within the same tenant
+    const pinConflict = existingUsers.find(u => (u.passcode || u.pin) === targetPasscode);
+    if (pinConflict) {
+      return res.status(400).json({
+        success: false,
+        error: `This 4-digit PIN (${targetPasscode}) is already in use by "${pinConflict.name}" in this store. Please set a unique PIN.`
+      });
+    }
+
+    // Check Username/Contact collision strictly within the same tenant
+    const userConflict = existingUsers.find(u => {
+      const uUsername = (u.username || u.name || '').toLowerCase().trim();
+      const uContact = (u.emailOrPhone || u.email || u.phone || '').toLowerCase().trim();
+      return (targetUsername && uUsername === targetUsername) || (targetContact && uContact && uContact === targetContact);
+    });
+    if (userConflict) {
+      return res.status(400).json({
+        success: false,
+        error: `A staff member with username/contact "${userConflict.name}" already exists in this store. Please use a unique username or phone.`
+      });
+    }
+
     const cleanTenantPrefix = tenantId.replace(/^tenant_/, '').replace(/[^a-zA-Z0-9]/g, '');
     const newUser = {
       id: `usr_${cleanTenantPrefix || 't'}_${uuidv4().slice(0, 7)}`,
@@ -206,7 +234,7 @@ export async function createUserController(req: Request, res: Response) {
       isPrimaryOwner: false,
       is_primary_owner: 0,
       status: status || 'Active',
-      passcode: passcode || '1234',
+      passcode: targetPasscode,
       is_online: 0,
       isOnline: false,
       is_kill_switch_active: 0,
@@ -328,6 +356,22 @@ export async function createUserController(req: Request, res: Response) {
       });
     } catch (e) {}
 
+    // Automated Staff Invitation Email Dispatch
+    if (newUser.email && newUser.email.includes('@')) {
+      setImmediate(async () => {
+        try {
+          await sendStaffInvitationEmail({
+            toEmail: newUser.email,
+            storeName: tenantId,
+            staffName: newUser.name,
+            role: newUser.role,
+            pin: newUser.passcode,
+            portalUrl: (req.headers.origin as string) || 'https://mbiinventra.com'
+          });
+        } catch (e) {}
+      });
+    }
+
     return res.status(201).json({ success: true, user: newUser });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message || 'Failed to create user' });
@@ -353,6 +397,17 @@ export async function updateUserController(req: Request, res: Response) {
       }
       if (status && status !== 'Active') {
         return res.status(403).json({ success: false, error: 'Primary Store Owner account cannot be deactivated' });
+      }
+    }
+
+    if (passcode !== undefined) {
+      const targetPin = String(passcode).trim();
+      const pinConflict = tenantUsers.find(u => u.id !== id && (u.passcode || u.pin) === targetPin);
+      if (pinConflict) {
+        return res.status(400).json({
+          success: false,
+          error: `This 4-digit PIN (${targetPin}) is already in use by "${pinConflict.name}". Please set a unique PIN.`
+        });
       }
     }
 
@@ -529,6 +584,20 @@ export async function resetPasscodeController(req: Request, res: Response) {
           payload: { action: 'PASSCODE_RESET', tenantId, userId: id, timestamp: new Date().toISOString() }
         });
       } catch (e) {}
+    }
+
+    if (existing && existing.email && existing.email.includes('@')) {
+      setImmediate(async () => {
+        try {
+          await sendPasswordResetEmail({
+            toEmail: existing.email,
+            userName: existing.name,
+            storeName: tenantId,
+            newPinOrPassword: passcode,
+            portalUrl: (req.headers.origin as string) || 'https://mbiinventra.com'
+          });
+        } catch (e) {}
+      });
     }
 
     return res.json({ success: true, message: 'Passcode successfully reset', passcode });

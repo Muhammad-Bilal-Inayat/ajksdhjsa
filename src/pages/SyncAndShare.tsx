@@ -210,11 +210,7 @@ export const SyncAndShare: React.FC = () => {
       const localTenantUsers = (rawLocalUsers || []).filter(u => {
         if (!u || !u.id) return false;
         const uTenant = u.tenantId || (u as any).tenant_id;
-        if (uTenant) {
-          return uTenant === currentTenantId;
-        }
-        // If un-tagged, only allow if current tenant is default
-        return currentTenantId === 'tenant_main_pharmacy' || currentTenantId === 'tenant-demo-01';
+        return uTenant === currentTenantId;
       });
 
       // 3. Merge server and local records strictly for this tenant with deduplication
@@ -372,6 +368,19 @@ export const SyncAndShare: React.FC = () => {
       return;
     }
 
+    const targetPin = (formData.passcode || '').trim();
+    if (targetPin.length < 4) {
+      showToast('⚠️ Login PIN must be at least 4 digits.');
+      return;
+    }
+
+    // Enforce unique PIN within current company
+    const pinConflict = users.find(u => (u.passcode || (u as any).pin) === targetPin);
+    if (pinConflict) {
+      showToast(`⚠️ PIN "${targetPin}" is already used by "${pinConflict.name}". Please assign a unique PIN.`);
+      return;
+    }
+
     const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
     let assignedId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
@@ -382,15 +391,19 @@ export const SyncAndShare: React.FC = () => {
         email: formData.emailOrPhone.includes('@') ? formData.emailOrPhone.trim() : undefined,
         phone: !formData.emailOrPhone.includes('@') ? formData.emailOrPhone.trim() : undefined,
         role: formData.role as any,
-        passcode: formData.passcode.trim(),
-        pin: formData.passcode.trim(),
+        passcode: targetPin,
+        pin: targetPin,
         notes: formData.notes.trim()
       }, currentTenantId);
       if (serverCreated && serverCreated.id) {
         assignedId = serverCreated.id;
       }
-    } catch (apiErr) {
+    } catch (apiErr: any) {
       console.warn('Backend server user creation notice:', apiErr);
+      if (apiErr?.message && apiErr.message.includes('PIN')) {
+        showToast(`⚠️ ${apiErr.message}`);
+        return;
+      }
     }
 
     const newUser: AppUserRecord = {
@@ -398,7 +411,7 @@ export const SyncAndShare: React.FC = () => {
       name: formData.name.trim(),
       emailOrPhone: formData.emailOrPhone.trim(),
       role: formData.role,
-      passcode: formData.passcode.trim(),
+      passcode: targetPin,
       status: 'Joined',
       notes: formData.notes.trim(),
       tenantId: currentTenantId,
@@ -408,13 +421,6 @@ export const SyncAndShare: React.FC = () => {
     };
 
     await dbAppUsers.save(newUser);
-    saveMasterActiveUser({
-      ...newUser,
-      tenantId: currentTenantId,
-      storeName: business?.name || tenant?.name || 'MBI INVENTRA',
-      lastSyncTime: new Date().toISOString(),
-      isOnline: navigator.onLine
-    } as any);
 
     await firebaseSyncManager.queueRecord('appUsers', newUser.id, { ...newUser, tenantId: currentTenantId }, 'set');
 
@@ -440,6 +446,19 @@ export const SyncAndShare: React.FC = () => {
     e.preventDefault();
     if (!selectedUser || !formData.name.trim()) return;
 
+    const targetPin = (formData.passcode || '').trim();
+    if (targetPin.length < 4) {
+      showToast('⚠️ Login PIN must be at least 4 digits.');
+      return;
+    }
+
+    // Enforce unique PIN within current company
+    const pinConflict = users.find(u => u.id !== selectedUser.id && (u.passcode || (u as any).pin) === targetPin);
+    if (pinConflict) {
+      showToast(`⚠️ PIN "${targetPin}" is already used by "${pinConflict.name}". Please assign a unique PIN.`);
+      return;
+    }
+
     const isTargetPrimary = isPrimaryUser(selectedUser);
     if (!isTargetPrimary && formData.role === 'Primary Admin') {
       showToast('❌ Cannot promote sub-user to Primary Admin.');
@@ -452,20 +471,22 @@ export const SyncAndShare: React.FC = () => {
       name: formData.name.trim(),
       emailOrPhone: formData.emailOrPhone.trim(),
       role: isTargetPrimary ? 'Primary Admin' : formData.role,
-      passcode: formData.passcode.trim(),
+      passcode: targetPin,
       notes: formData.notes.trim(),
       tenantId: selectedUser.tenantId || currentTenantId,
       updatedAt: new Date().toISOString()
     };
 
     await dbAppUsers.save(updatedUser);
-    saveMasterActiveUser({
-      ...updatedUser,
-      tenantId: updatedUser.tenantId,
-      storeName: business?.name || tenant?.name || 'MBI INVENTRA',
-      lastSyncTime: new Date().toISOString(),
-      isOnline: navigator.onLine
-    } as any);
+    if (activeUser?.id === updatedUser.id) {
+      saveMasterActiveUser({
+        ...updatedUser,
+        tenantId: updatedUser.tenantId,
+        storeName: business?.name || tenant?.name || 'MBI INVENTRA',
+        lastSyncTime: new Date().toISOString(),
+        isOnline: navigator.onLine
+      } as any);
+    }
 
     try {
       await userService.updateUser(updatedUser.id, {

@@ -71,6 +71,7 @@ async function startServer() {
   app.use('/api/ai', aiRouter);
   app.use('/api/fleet', fleetRouter);
   app.use('/api/master', adminMasterRouter);
+  app.use('/api/admin/master', adminMasterRouter);
   app.use('/api/support', adminMasterRouter);
   app.use('/api/blogs', blogRouter);
   app.use('/api/version', versionRouter);

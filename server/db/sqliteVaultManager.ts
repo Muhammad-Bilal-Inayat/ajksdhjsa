@@ -309,6 +309,20 @@ export function getTenantVault(tenantId: string): DatabaseSync {
       user_prefs_json TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- High-Performance Indexes for Millions of Invoices & Records (0ms Filtered Search)
+    CREATE INDEX IF NOT EXISTS idx_invoices_created_at ON invoices(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_customer_id ON invoices(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(invoice_number);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice_id);
+    CREATE INDEX IF NOT EXISTS idx_invoice_items_medicine_id ON invoice_items(medicine_id);
+    CREATE INDEX IF NOT EXISTS idx_medicines_name ON medicines(name);
+    CREATE INDEX IF NOT EXISTS idx_medicines_barcode ON medicines(barcode);
+    CREATE INDEX IF NOT EXISTS idx_parties_name ON parties(name);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE INDEX IF NOT EXISTS idx_users_passcode ON users(passcode);
+    CREATE INDEX IF NOT EXISTS idx_users_email_or_phone ON users(email_or_phone);
   `);
 
   tenantDbCache.set(cleanId, tenantDb);

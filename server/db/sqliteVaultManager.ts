@@ -299,6 +299,16 @@ export function getTenantVault(tenantId: string): DatabaseSync {
       timestamp TEXT NOT NULL DEFAULT (datetime('now')),
       is_synced INTEGER NOT NULL DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_user_settings (
+      scope_key TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      firm_id TEXT,
+      settings_json TEXT NOT NULL,
+      user_prefs_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   tenantDbCache.set(cleanId, tenantDb);

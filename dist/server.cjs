@@ -1409,6 +1409,16 @@ function getTenantVault(tenantId) {
       timestamp TEXT NOT NULL DEFAULT (datetime('now')),
       is_synced INTEGER NOT NULL DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_user_settings (
+      scope_key TEXT PRIMARY KEY,
+      tenant_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      firm_id TEXT,
+      settings_json TEXT NOT NULL,
+      user_prefs_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   tenantDbCache.set(cleanId, tenantDb);
   return tenantDb;
@@ -8781,6 +8791,43 @@ tenantRouter.get("/features", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Failed to retrieve tenant features" });
   }
 });
+tenantRouter.get("/sync-operation", async (req, res) => {
+  try {
+    const tenantId = req.tenantId || req.user?.tenantId || "tenant_main";
+    const scope = String(req.query.scope || "").trim();
+    if (!scope) {
+      res.json({ success: true, settings: null, userPreferences: null });
+      return;
+    }
+    const tenantVault = getTenantVault(tenantId);
+    const row = tenantVault.prepare(
+      "SELECT settings_json, user_prefs_json, updated_at FROM mbi_user_settings WHERE scope_key = ? LIMIT 1;"
+    ).get(scope);
+    if (row) {
+      let settings = null;
+      let userPreferences = null;
+      try {
+        if (row.settings_json) settings = JSON.parse(row.settings_json);
+      } catch {
+      }
+      try {
+        if (row.user_prefs_json) userPreferences = JSON.parse(row.user_prefs_json);
+      } catch {
+      }
+      res.json({
+        success: true,
+        scope,
+        settings,
+        userPreferences,
+        updatedAt: row.updated_at
+      });
+      return;
+    }
+    res.json({ success: true, scope, settings: null, userPreferences: null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to read user settings" });
+  }
+});
 tenantRouter.post("/sync-operation", async (req, res) => {
   try {
     const { operationId, entityType, entityId, operationType, payload, timestamp } = req.body;
@@ -8791,7 +8838,27 @@ tenantRouter.post("/sync-operation", async (req, res) => {
       });
       return;
     }
-    const tenantId = req.tenantId || "tenant_main";
+    const tenantId = req.tenantId || req.user?.tenantId || "tenant_main";
+    if (entityType === "userSettings" && payload) {
+      try {
+        const tenantVault = getTenantVault(tenantId);
+        const scopeKey = String(entityId || payload.scopeKey || payload.id || `${tenantId}_${req.user?.id || "default"}_firm-1`);
+        const settingsJson = JSON.stringify(payload.settings || {});
+        const prefsJson = JSON.stringify(payload.userPreferences || {});
+        const userId = String(payload.userId || req.user?.id || "user_1");
+        const firmId = String(payload.firmId || "firm-1");
+        tenantVault.prepare(`
+          INSERT INTO mbi_user_settings (scope_key, tenant_id, user_id, firm_id, settings_json, user_prefs_json, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(scope_key) DO UPDATE SET
+            settings_json = excluded.settings_json,
+            user_prefs_json = excluded.user_prefs_json,
+            updated_at = datetime('now');
+        `).run(scopeKey, tenantId, userId, firmId, settingsJson, prefsJson);
+      } catch (vaultErr) {
+        console.warn("[TenantVault Settings Persist Warning]:", vaultErr);
+      }
+    }
     if (payload && entityType) {
       await syncRecordToMariaDb2(entityType, payload, tenantId);
     }

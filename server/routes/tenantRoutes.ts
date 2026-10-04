@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 import { requireAuth, resolveTenant, TenantRequest } from '../middleware/tenantMiddleware';
 import { getMariaDbPool } from '../db/mariaClient';
-import { getMasterVault } from '../db/sqliteVaultManager';
+import { getMasterVault, getTenantVault } from '../db/sqliteVaultManager';
 import { syncRecordToMariaDb } from '../controllers/syncController';
 
 export const tenantRouter = express.Router();
@@ -75,6 +75,51 @@ tenantRouter.get('/features', async (req: TenantRequest, res: Response): Promise
 });
 
 /**
+ * GET /api/tenant/sync-operation
+ * Retrieves persistent user settings & UI preferences for a specific scope from Tenant SQLite Vault
+ */
+tenantRouter.get('/sync-operation', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.tenantId || req.user?.tenantId || 'tenant_main';
+    const scope = String(req.query.scope || '').trim();
+
+    if (!scope) {
+      res.json({ success: true, settings: null, userPreferences: null });
+      return;
+    }
+
+    const tenantVault = getTenantVault(tenantId);
+    const row: any = tenantVault.prepare(
+      'SELECT settings_json, user_prefs_json, updated_at FROM mbi_user_settings WHERE scope_key = ? LIMIT 1;'
+    ).get(scope);
+
+    if (row) {
+      let settings = null;
+      let userPreferences = null;
+      try {
+        if (row.settings_json) settings = JSON.parse(row.settings_json);
+      } catch {}
+      try {
+        if (row.user_prefs_json) userPreferences = JSON.parse(row.user_prefs_json);
+      } catch {}
+
+      res.json({
+        success: true,
+        scope,
+        settings,
+        userPreferences,
+        updatedAt: row.updated_at
+      });
+      return;
+    }
+
+    res.json({ success: true, scope, settings: null, userPreferences: null });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to read user settings' });
+  }
+});
+
+/**
  * POST /api/tenant/sync-operation
  * Processes an atomic synchronization operation with deterministic deduplication & direct SQLite Vault write
  */
@@ -90,9 +135,32 @@ tenantRouter.post('/sync-operation', async (req: TenantRequest, res: Response): 
       return;
     }
 
-    const tenantId = req.tenantId || 'tenant_main';
+    const tenantId = req.tenantId || req.user?.tenantId || 'tenant_main';
 
-    // Persist payload directly into Tenant SQLite Vault
+    // Handle userSettings persistence directly in Tenant SQLite Vault
+    if (entityType === 'userSettings' && payload) {
+      try {
+        const tenantVault = getTenantVault(tenantId);
+        const scopeKey = String(entityId || payload.scopeKey || payload.id || `${tenantId}_${req.user?.id || 'default'}_firm-1`);
+        const settingsJson = JSON.stringify(payload.settings || {});
+        const prefsJson = JSON.stringify(payload.userPreferences || {});
+        const userId = String(payload.userId || req.user?.id || 'user_1');
+        const firmId = String(payload.firmId || 'firm-1');
+
+        tenantVault.prepare(`
+          INSERT INTO mbi_user_settings (scope_key, tenant_id, user_id, firm_id, settings_json, user_prefs_json, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(scope_key) DO UPDATE SET
+            settings_json = excluded.settings_json,
+            user_prefs_json = excluded.user_prefs_json,
+            updated_at = datetime('now');
+        `).run(scopeKey, tenantId, userId, firmId, settingsJson, prefsJson);
+      } catch (vaultErr) {
+        console.warn('[TenantVault Settings Persist Warning]:', vaultErr);
+      }
+    }
+
+    // Persist payload directly into Tenant SQLite Vault & MariaDB
     if (payload && entityType) {
       await syncRecordToMariaDb(entityType, payload, tenantId);
     }

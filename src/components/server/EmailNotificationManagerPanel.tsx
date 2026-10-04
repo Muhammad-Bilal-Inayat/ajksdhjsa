@@ -194,7 +194,7 @@ export const EmailNotificationManagerPanel: React.FC = () => {
       setPriority('high');
       setBadgeText('⚠️ SERVER MAINTENANCE');
       setCustomBody(
-        `Dear Valued Partner,\n\nPlease be informed that our core cloud servers will undergo scheduled infrastructure maintenance on Sunday at 02:00 AM PKT.\n\nYour local POS counters will continue running with 100% 0ms offline capability. Once cloud sync resumes, all offline transactions will automatically synchronize to MariaDB.\n\nThank you for choosing MBI INVENTRA.`
+        `Dear Valued Partner,\n\nPlease be informed that our core cloud servers will undergo scheduled infrastructure maintenance on Sunday at 02:00 AM PKT.\n\nYour local POS counters will continue running with 100% 0ms offline capability. Once cloud sync resumes, all offline transactions will automatically synchronize to SQLite Vault.\n\nThank you for choosing MBI INVENTRA.`
       );
       setActionBtnText('Check System Status');
       setActionBtnUrl('https://mbiinventra.com/server');

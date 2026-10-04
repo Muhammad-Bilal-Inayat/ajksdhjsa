@@ -122,7 +122,7 @@ export const SyncDiagnosticStatusCard: React.FC<SyncDiagnosticStatusCardProps> =
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Real-time telemetry monitoring for Node.js Express server &amp; MariaDB database connection.
+              Real-time telemetry monitoring for Node.js Express server &amp; SQLite Vault Engine.
             </p>
           </div>
         </div>
@@ -185,15 +185,15 @@ export const SyncDiagnosticStatusCard: React.FC<SyncDiagnosticStatusCardProps> =
         {/* Metric 4: Database Engine Connection */}
         <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
           <div className="flex items-center justify-between text-slate-400 text-xs font-semibold mb-1">
-            <span>MariaDB Database</span>
+            <span>SQLite Vault Engine</span>
             <Server className="w-3.5 h-3.5 text-emerald-400" />
           </div>
           <p className="text-sm font-black font-mono text-emerald-400 mt-1 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{serverDetails?.database?.database || 'mbi72dn'}</span>
+            <span>{serverDetails?.database?.database || 'master_hub.sqlite'}</span>
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5">
-            {serverDetails?.database?.engine || 'MariaDB 10.x / 11.x'}
+            {serverDetails?.database?.engine || 'SQLite Vault WAL Engine'}
           </p>
         </div>
       </div>

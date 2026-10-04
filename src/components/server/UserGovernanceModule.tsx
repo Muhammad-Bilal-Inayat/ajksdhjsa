@@ -97,7 +97,7 @@ export function UserGovernanceModule() {
             <span>Master User Governance & Kill Switch ({users.length})</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Staff accounts across all tenant stores in MariaDB <code className="text-indigo-600 font-mono">mbi_users</code>
+            Staff accounts across all tenant stores in SQLite Master Vault <code className="text-indigo-600 font-mono">mbi_users</code>
           </p>
         </div>
 

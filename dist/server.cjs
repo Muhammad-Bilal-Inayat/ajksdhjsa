@@ -23,9 +23,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // server.ts
 var import_config = require("dotenv/config");
-var import_express18 = __toESM(require("express"));
-var import_path22 = __toESM(require("path"));
-var import_fs22 = __toESM(require("fs"));
+var import_express17 = __toESM(require("express"));
+var import_path20 = __toESM(require("path"));
+var import_fs20 = __toESM(require("fs"));
 
 // server/routes/authRoutes.ts
 var import_express3 = __toESM(require("express"));
@@ -93,1069 +93,71 @@ function sanitizeSchemaName(tenantId) {
 }
 
 // server/db/mariaClient.ts
-var import_promise = __toESM(require("mysql2/promise"));
-var import_fs = __toESM(require("fs"));
-var import_path = __toESM(require("path"));
-function getDbConfig() {
-  let host = process.env.DB_HOST || process.env.MARIADB_HOST || "localhost";
-  let port = Number(process.env.DB_PORT || process.env.MARIADB_PORT || 3306);
-  let user = process.env.DB_USER || process.env.MARIADB_USER || "root";
-  let password = process.env.DB_PASS || process.env.DB_PASSWORD || process.env.MARIADB_PASSWORD || "";
-  let database = process.env.DB_NAME || process.env.MARIADB_DATABASE || "mbi72dn";
-  const dbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.MARIADB_URL;
-  if (dbUrl && (!process.env.DB_PASS && !process.env.DB_USER)) {
-    try {
-      const normalizedUrl = dbUrl.startsWith("mariadb://") ? dbUrl.replace("mariadb://", "mysql://") : dbUrl;
-      const parsed = new URL(normalizedUrl);
-      if (parsed.hostname) host = parsed.hostname;
-      if (parsed.port) port = Number(parsed.port);
-      if (parsed.username) user = decodeURIComponent(parsed.username);
-      if (parsed.password) password = decodeURIComponent(parsed.password);
-      if (parsed.pathname && parsed.pathname.length > 1) {
-        database = decodeURIComponent(parsed.pathname.slice(1));
-      }
-    } catch (e) {
+function isMariaDbConnected() {
+  return false;
+}
+async function isMariaDbAvailable2() {
+  return false;
+}
+var dummyPool = {
+  query: async () => [[]],
+  execute: async () => [[]],
+  getConnection: async () => ({
+    release: () => {
+    },
+    query: async () => [[]],
+    execute: async () => [[]],
+    beginTransaction: async () => {
+    },
+    commit: async () => {
+    },
+    rollback: async () => {
     }
+  }),
+  end: async () => {
+  },
+  on: () => {
   }
-  if (host.includes(":")) {
-    const parts = host.split(":");
-    host = parts[0];
-    if (parts[1] && !isNaN(Number(parts[1]))) {
-      port = Number(parts[1]);
-    }
-  }
+};
+function getMariaDbPool() {
+  return dummyPool;
+}
+async function testMariaDbConnection2() {
   return {
-    host,
-    port,
-    user,
-    password,
-    database,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    success: true,
+    connected: false,
+    message: "System running on 100% Tenant-Isolated Native SQLite Vault Engine (WAL Mode). MariaDB is disabled."
   };
 }
-var pool = null;
-var isConnected = false;
-var lastPingTime = 0;
-var lastCheckTime = 0;
-var lastError = null;
-function isMariaDbConnected() {
-  return isConnected;
+async function syncRecordToMariaDb2(_entityType, _payload, _tenantId) {
+  return true;
 }
-function getMariaDbPool() {
-  if (!pool) {
-    try {
-      const config = getDbConfig();
-      pool = import_promise.default.createPool({
-        ...config,
-        charset: "utf8mb4",
-        dateStrings: true,
-        connectTimeout: 800,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 1e4,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-      });
-      const rawPool = pool.pool || pool;
-      if (rawPool && typeof rawPool.on === "function") {
-        rawPool.on("error", (err) => {
-          lastError = err?.message;
-          isConnected = false;
-          console.warn("[MARIADB POOL RECONNECT WARN]:", err?.message || "Transient connection drop");
-          if (err?.code === "PROTOCOL_CONNECTION_LOST" || err?.code === "ECONNRESET" || err?.fatal) {
-            pool = null;
-          }
-        });
-      }
-    } catch (err) {
-      lastError = err?.message;
-      pool = null;
-    }
-  }
-  return pool;
+async function getMariaDbTableStats2() {
+  return {
+    isConnected: false,
+    tables: []
+  };
 }
-if (typeof setInterval !== "undefined") {
-  setInterval(async () => {
-    try {
-      if (pool) {
-        const conn = await pool.getConnection();
-        await conn.ping();
-        conn.release();
-        isConnected = true;
-      }
-    } catch {
-    }
-  }, 3e4);
+async function saveAiChatLogToMariaDb(_log) {
 }
-async function testMariaDbConnection() {
-  const start = Date.now();
-  const config = getDbConfig();
-  lastCheckTime = Date.now();
-  try {
-    const currentPool = getMariaDbPool();
-    if (!currentPool) {
-      isConnected = false;
-      return {
-        connected: false,
-        database: config.database,
-        host: config.host,
-        port: config.port,
-        pingMs: -1,
-        error: "Database pool unavailable"
-      };
-    }
-    const conn = await currentPool.getConnection();
-    await conn.ping();
-    conn.release();
-    isConnected = true;
-    lastPingTime = Date.now();
-    lastError = null;
-    return {
-      connected: true,
-      database: config.database,
-      host: config.host,
-      port: config.port,
-      pingMs: Date.now() - start
-    };
-  } catch (err) {
-    isConnected = false;
-    lastError = err?.message;
-    return {
-      connected: false,
-      database: config.database,
-      host: config.host,
-      port: config.port,
-      pingMs: -1,
-      error: err?.message || "Connection refused or database service not running"
-    };
-  }
-}
-async function isMariaDbAvailable() {
-  if (process.env.USE_MARIADB !== "true" && process.env.ENABLE_MARIADB !== "true") {
-    return false;
-  }
-  const now = Date.now();
-  if (isConnected && now - lastPingTime < 3e4) {
-    return true;
-  }
-  if (!isConnected && now - lastCheckTime < 6e4) {
-    return false;
-  }
-  try {
-    const status = await testMariaDbConnection();
-    return status.connected;
-  } catch {
-    isConnected = false;
-    return false;
-  }
-}
-async function initializeMariaDbSchema() {
-  try {
-    const isAvailable = await isMariaDbAvailable();
-    if (!isAvailable) {
-      return false;
-    }
-    const ddlPath = import_path.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (!import_fs.default.existsSync(ddlPath)) return false;
-    let rawSql = import_fs.default.readFileSync(ddlPath, "utf-8");
-    const cleanSql = rawSql.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").map((line) => line.trim()).filter((line) => !line.startsWith("--") && !line.startsWith("#")).join("\n");
-    const statements = cleanSql.split(";").map((s) => s.trim()).filter((s) => s.length > 5);
-    const currentPool = getMariaDbPool();
-    for (const stmt of statements) {
-      try {
-        await currentPool.query(stmt);
-      } catch (err) {
-      }
-    }
-    const multiTenantMigrations = [
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name VARCHAR(255) AFTER email;",
-      "ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT 'cashier';",
-      "ALTER TABLE mbi_tenants ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER ntn_number;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER license_key;",
-      "ALTER TABLE mbi_users ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER passcode;",
-      "ALTER TABLE mbi_devices ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER hardware_fingerprint;",
-      "ALTER TABLE mbi_settings ADD COLUMN IF NOT EXISTS api_key VARCHAR(255) AFTER tenant_id;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) AFTER id;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS pharmacy_name VARCHAR(255) AFTER tenant_id;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS plan_tier VARCHAR(64) DEFAULT 'Gold Business';",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_users INT DEFAULT 5;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_branches INT DEFAULT 5;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS max_terminals INT DEFAULT 5;",
-      "ALTER TABLE mbi_licenses ADD COLUMN IF NOT EXISTS bound_hardware_ids JSON;",
-      "ALTER TABLE medicines ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "ALTER TABLE purchases ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "ALTER TABLE parties ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64);",
-      "CREATE INDEX IF NOT EXISTS idx_tenant_users ON users (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_license_tenant ON mbi_licenses (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_tenant_api_key ON mbi_tenants (api_key);",
-      "CREATE INDEX IF NOT EXISTS idx_license_api_key ON mbi_licenses (api_key);",
-      "CREATE INDEX IF NOT EXISTS idx_med_tenant ON medicines (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_sales_tenant ON sales (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_purchases_tenant ON purchases (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_parties_tenant ON parties (tenant_id);",
-      "CREATE INDEX IF NOT EXISTS idx_expenses_tenant ON expenses (tenant_id);"
-    ];
-    for (const mig of multiTenantMigrations) {
-      try {
-        await currentPool.query(mig);
-      } catch (e) {
-      }
-    }
-    await seedMariaDbDefaults(currentPool);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-async function seedMariaDbDefaults(currentPool) {
-  try {
-    const isAvailable = await isMariaDbAvailable();
-    if (!isAvailable) return;
-    const p = currentPool || getMariaDbPool();
-    await p.query(`
-      INSERT INTO mbi_plans 
-      (id, name, plan_type, monthly_price, annual_price, max_users, max_branches, is_active, features)
-      VALUES 
-      ('basic', 'MBI Silver (Basic Retail)', 'basic', 1999, 19990, 2, 1, 1, '{"offlineBilling":true,"thermalReceipts":true,"khataLedger":true,"fefoTracking":false}'),
-      ('business', 'MBI Gold (Business Wholesale)', 'business', 3999, 39990, 5, 3, 1, '{"offlineBilling":true,"thermalReceipts":true,"khataLedger":true,"fefoTracking":true,"cloudSync":true,"whatsappReminders":true}'),
-      ('enterprise', 'MBI Platinum (Enterprise Fleet)', 'enterprise', 6999, 69990, 15, 10, 1, '{"offlineBilling":true,"thermalReceipts":true,"khataLedger":true,"fefoTracking":true,"cloudSync":true,"whatsappReminders":true,"onlineStore":true,"stockTransfers":true,"auditTrail":true}')
-      ON DUPLICATE KEY UPDATE 
-      name = VALUES(name),
-      monthly_price = VALUES(monthly_price),
-      annual_price = VALUES(annual_price),
-      max_users = VALUES(max_users),
-      max_branches = VALUES(max_branches),
-      is_active = VALUES(is_active),
-      features = VALUES(features)
-    `);
-    await p.query(`
-      INSERT INTO mbi_print_templates
-      (id, tenant_id, template_id, template_name, page_size, config_json, is_default)
-      VALUES
-      ('tpl_thermal_default', 'default', 'THERMAL_MBI_STANDARD', 'MBI Standard Thermal POS Receipt', 'thermal_80mm', '{"storeName":true,"logo":true,"urduFooter":true,"batchInfo":true,"fldQr":true}', 1),
-      ('tpl_a4_classic', 'default', 'A4_CLASSIC_TAX', 'Classic Tax Banner A4', 'a4', '{"storeName":true,"logo":true,"drugLicense":true,"signatureBlock":true}', 1)
-      ON DUPLICATE KEY UPDATE
-      template_name = VALUES(template_name),
-      page_size = VALUES(page_size),
-      config_json = VALUES(config_json),
-      is_default = VALUES(is_default)
-    `);
-    try {
-      await p.query("UPDATE mbi_tenants SET tenant_id = id WHERE tenant_id IS NULL OR tenant_id = '';");
-      await p.query("UPDATE mbi_tenants SET organization_id = id WHERE organization_id IS NULL OR organization_id = '';");
-      const [duplicateRows] = await p.query(`
-        SELECT LOWER(TRIM(name)) as clean_name, COUNT(*) as count 
-        FROM mbi_tenants 
-        GROUP BY LOWER(TRIM(name)) 
-        HAVING count > 1;
-      `);
-      if (Array.isArray(duplicateRows) && duplicateRows.length > 0) {
-        for (const dup of duplicateRows) {
-          const [allDupTenants] = await p.query(
-            "SELECT * FROM mbi_tenants WHERE LOWER(TRIM(name)) = ? ORDER BY (owner_phone IS NOT NULL AND owner_phone != '') DESC, (owner_name IS NOT NULL AND owner_name != 'Store Admin') DESC, created_at DESC;",
-            [dup.clean_name]
-          );
-          if (Array.isArray(allDupTenants) && allDupTenants.length > 1) {
-            const canonical = allDupTenants[0];
-            const duplicateIds = allDupTenants.slice(1).map((t) => t.id);
-            for (const dupId of duplicateIds) {
-              const canonTid = canonical.tenant_id || canonical.id;
-              await p.query("UPDATE IGNORE mbi_users SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
-              });
-              await p.query("UPDATE IGNORE mbi_licenses SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
-              });
-              await p.query("UPDATE IGNORE mbi_invoices SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
-              });
-              await p.query("UPDATE IGNORE mbi_medicines SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
-              });
-              await p.query("UPDATE IGNORE mbi_settings SET tenant_id = ? WHERE tenant_id = ?;", [canonTid, dupId]).catch(() => {
-              });
-              await p.query("DELETE FROM mbi_tenants WHERE id = ?;", [dupId]).catch(() => {
-              });
-            }
-          }
-        }
-      }
-      await p.query("UPDATE mbi_licenses SET tenant_id = (SELECT id FROM mbi_tenants WHERE mbi_tenants.id = mbi_licenses.tenant_id OR mbi_tenants.name = mbi_licenses.client_name LIMIT 1) WHERE tenant_id IS NULL OR tenant_id = '';");
-      await p.query("UPDATE mbi_users u JOIN mbi_tenants t ON (u.email_or_phone = t.owner_phone OR u.phone = t.owner_phone OR u.email = t.owner_email OR u.tenant_id = t.id) SET u.tenant_id = t.id WHERE u.tenant_id IS NULL OR u.tenant_id = '';");
-      await p.query("DELETE FROM medicines WHERE tenant_id IN ('global', 'local-business-id') OR id LIKE 'med-%' OR id = '0ccade3c-14cb-481e-acac-69994329e154' OR tenant_id IS NULL OR tenant_id = '';").catch(() => {
-      });
-      await p.query("DELETE FROM mbi_medicines WHERE tenant_id IN ('global', 'local-business-id') OR id LIKE 'med-%' OR id = '0ccade3c-14cb-481e-acac-69994329e154' OR tenant_id IS NULL OR tenant_id = '';").catch(() => {
-      });
-      await p.query(`
-        DELETE FROM mbi_users 
-        WHERE id NOT IN ('admin-master', 'u1', 'usr_mbi_admin') 
-        AND (
-          id LIKE 'usr_shadow_%' OR 
-          id LIKE 'shadow_%' OR 
-          name IN ('sjdfhjsdf', 'LKFJDSFJ', 'aaaaaa', 'skdjfslkdj', 'bbb', 'jahskjahdkj', 'new test 1', 'M KAMRAM', 'sam', 'Dr Hassan', 'Dr. Bilal', 'Hanzala', 'Fgdfg (Primary Admin)', 'Sdfsdfsdf (Primary Admin)', 'Aaaaaa (Primary Admin)', 'M RIZWAN', 'muhammadsulaimanrazahameedi', 'Store Owner') OR 
-          username IN ('sjdfhjsdf', 'aaaaaa', 'skdjfslkdj', 'bbb', 'jahskjahdkj', 'fgdfg', 'sdfsdfsdf')
-        );
-      `).catch(() => {
-      });
-    } catch (repairErr) {
-    }
-  } catch (err) {
-  }
-}
-async function getMariaDbTableStats() {
-  const stats = {};
-  const tables = [
-    "mbi_plans",
-    "mbi_tenants",
-    "mbi_users",
-    "mbi_registration_leads",
-    "mbi_licenses",
-    "mbi_medicines",
-    "mbi_inventory_batches",
-    "mbi_invoices",
-    "mbi_invoice_items",
-    "mbi_purchases",
-    "mbi_parties",
-    "mbi_party_transactions",
-    "mbi_cashier_shifts",
-    "mbi_print_templates",
-    "mbi_audit_logs",
-    "mbi_expenses",
-    "mbi_checkout_orders",
-    "mbi_settings",
-    "mbi_stock_transfers",
-    "mbi_prescriptions",
-    "mbi_supplier_returns",
-    "mbi_promotional_coupons",
-    "mbi_notifications",
-    "mbi_ai_chat_history"
-  ];
-  try {
-    const isAvailable = await isMariaDbAvailable();
-    if (!isAvailable) return stats;
-    const currentPool = getMariaDbPool();
-    for (const table of tables) {
-      try {
-        const [rows] = await currentPool.query(`SELECT COUNT(*) as count FROM ${table}`);
-        if (rows && rows[0]) {
-          stats[table] = Number(rows[0].count || 0);
-        }
-      } catch (e) {
-        stats[table] = 0;
-      }
-    }
-  } catch (err) {
-  }
-  return stats;
-}
-async function syncRecordToMariaDb(collectionName, record) {
-  if (!record || !record.id) return false;
-  const isAvailable = await isMariaDbAvailable();
-  if (!isAvailable) return false;
-  try {
-    const currentPool = getMariaDbPool();
-    if (collectionName === "invoices") {
-      const tenantId = record.tenantId || record.tenant_id || "default";
-      const deviceId = record.deviceId || record.device_id || "device-1";
-      const invoiceNumber = record.invoiceNumber || record.invoice_number || `INV-${record.id.slice(0, 6)}`;
-      const idempotencyKey = record.idempotencyKey || record.idempotency_key || `${tenantId}_${deviceId}_${record.id}`;
-      const sql = `
-        INSERT INTO mbi_invoices 
-        (id, tenant_id, device_id, invoice_number, idempotency_key, customer_name, customer_phone, date, sub_total, discount_amount, tax_amount, grand_total, received_amount, balance_due, payment_method, cashier_name, is_voided)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        customer_name = VALUES(customer_name),
-        grand_total = VALUES(grand_total),
-        received_amount = VALUES(received_amount),
-        balance_due = VALUES(balance_due),
-        payment_method = VALUES(payment_method),
-        is_voided = VALUES(is_voided),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        tenantId,
-        deviceId,
-        invoiceNumber,
-        idempotencyKey,
-        record.customerName || record.billingName || "Walk-in Customer",
-        record.customerPhone || null,
-        record.date ? record.date.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " "),
-        Number(record.subTotal || record.grandTotal || 0),
-        Number(record.discountAmount || 0),
-        Number(record.taxAmount || 0),
-        Number(record.grandTotal || record.totalAmount || 0),
-        Number(record.receivedAmount || record.grandTotal || 0),
-        Number(record.balanceDue || 0),
-        record.paymentMethod || record.paymentType || "Cash",
-        record.cashierName || record.createdByName || "Cashier",
-        record.isVoided ? 1 : 0
-      ]);
-      if (Array.isArray(record.items)) {
-        for (const item of record.items) {
-          const itemId = item.id || `${record.id}_${item.medicineId || item.batchId || Math.random().toString(36).substring(2, 7)}`;
-          const itemSql = `
-            INSERT INTO mbi_invoice_items 
-            (id, invoice_id, tenant_id, medicine_id, medicine_name, batch_number, expiry_date, quantity, unit, selling_price, purchase_price, total)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-            quantity = VALUES(quantity),
-            selling_price = VALUES(selling_price),
-            total = VALUES(total)
-          `;
-          await currentPool.execute(itemSql, [
-            itemId,
-            record.id,
-            tenantId,
-            item.medicineId || item.medicine_id || null,
-            item.name || item.medicineName || "Medicine",
-            item.batchNumber || item.batch_number || null,
-            item.expiryDate ? item.expiryDate.slice(0, 10) : null,
-            Number(item.quantity || 1),
-            item.unit || "Pcs",
-            Number(item.sellingPrice || item.pricePerUnit || item.price || 0),
-            Number(item.purchasePrice || item.purchaseRate || item.costPrice || 0),
-            Number(item.total || 0)
-          ]);
-          const soldQuantity = Number(item.quantity || 0);
-          if (soldQuantity > 0 && !record.isVoided) {
-            try {
-              if (item.batchId) {
-                await currentPool.execute(
-                  `UPDATE mbi_inventory_batches SET current_stock_quantity = GREATEST(0, current_stock_quantity - ?) WHERE id = ? AND tenant_id = ?`,
-                  [soldQuantity, item.batchId, tenantId]
-                );
-              } else if (item.batchNumber && (item.medicineId || item.name)) {
-                await currentPool.execute(
-                  `UPDATE mbi_inventory_batches SET current_stock_quantity = GREATEST(0, current_stock_quantity - ?) WHERE tenant_id = ? AND batch_number = ?`,
-                  [soldQuantity, tenantId, item.batchNumber]
-                );
-              }
-            } catch (deductErr) {
-            }
-          }
-        }
-      }
-      return true;
-    }
-    if (collectionName === "medicines") {
-      const sql = `
-        INSERT INTO mbi_medicines
-        (id, tenant_id, name, generic_salt, company, category, dosage_form, strength, barcode, min_stock_level, pack_size)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        generic_salt = VALUES(generic_salt),
-        company = VALUES(company),
-        category = VALUES(category),
-        dosage_form = VALUES(dosage_form),
-        barcode = VALUES(barcode),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "global",
-        record.name || "Medicine Name",
-        record.genericSalt || record.genericFormula || record.genericName || record.salt || null,
-        record.company || record.manufacturer || null,
-        record.category || "General Medicine",
-        record.dosageForm || record.unit || record.form || "Tablet",
-        record.strength || null,
-        record.barcode || null,
-        Number(record.minStockLevel || record.lowStockThreshold || 5),
-        Number(record.packSize || 1)
-      ]);
-      if (record.batchNumber || record.quantity !== void 0 || record.sellingPrice !== void 0) {
-        const batchSql = `
-          INSERT INTO mbi_inventory_batches
-          (id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-          batch_number = VALUES(batch_number),
-          expiry_date = VALUES(expiry_date),
-          purchase_rate = VALUES(purchase_rate),
-          mrp_selling_price = VALUES(mrp_selling_price),
-          current_stock_quantity = VALUES(current_stock_quantity),
-          godown_location = VALUES(godown_location),
-          updated_at = CURRENT_TIMESTAMP
-        `;
-        await currentPool.execute(batchSql, [
-          `batch_${record.id}`,
-          record.tenantId || "global",
-          record.id,
-          record.batchNumber || "BATCH001",
-          record.expiryDate ? record.expiryDate.slice(0, 10) : "2028-12-31",
-          Number(record.purchasePrice || record.purchaseRate || record.costPrice || 0),
-          Number(record.sellingPrice || record.mrpSellingPrice || record.salePrice || 0),
-          Number(record.quantity || record.stock || record.currentStockQuantity || 0),
-          record.rackLocation || record.shelfLocation || record.godownLocation || "Main Store"
-        ]);
-      }
-      return true;
-    }
-    if (collectionName === "purchaseOrders" || collectionName === "purchases") {
-      const sql = `
-        INSERT INTO mbi_purchases
-        (id, tenant_id, purchase_number, supplier_id, supplier_name, bill_date, total_amount, paid_amount, balance_due, payment_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        supplier_name = VALUES(supplier_name),
-        total_amount = VALUES(total_amount),
-        paid_amount = VALUES(paid_amount),
-        balance_due = VALUES(balance_due),
-        payment_mode = VALUES(payment_mode),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.orderNumber || record.purchaseNumber || record.invoiceNumber || `PO-${record.id.slice(0, 6)}`,
-        record.supplierId || "sup_default",
-        record.supplierName || "General Supplier",
-        record.date ? record.date.slice(0, 10) : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-        Number(record.grandTotal || record.totalAmount || record.total || 0),
-        Number(record.paidAmount || 0),
-        Number(record.balanceDue || 0),
-        record.paymentMethod || record.paymentMode || "Cash"
-      ]);
-      return true;
-    }
-    if (collectionName === "batches" || collectionName === "inventory" || collectionName === "inventory_batches") {
-      const sql = `
-        INSERT INTO mbi_inventory_batches
-        (id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, supplier_id, godown_location)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        batch_number = VALUES(batch_number),
-        expiry_date = VALUES(expiry_date),
-        purchase_rate = VALUES(purchase_rate),
-        mrp_selling_price = VALUES(mrp_selling_price),
-        current_stock_quantity = VALUES(current_stock_quantity),
-        godown_location = VALUES(godown_location),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.medicineId || record.medId || "global_med",
-        record.batchNumber || record.batchNo || "BATCH001",
-        record.expiryDate ? record.expiryDate.slice(0, 10) : "2028-12-31",
-        Number(record.purchaseRate || record.purchasePrice || record.costPrice || 0),
-        Number(record.mrpSellingPrice || record.sellingPrice || record.salePrice || 0),
-        Number(record.currentStockQuantity || record.stock || record.quantity || 0),
-        record.supplierId || null,
-        record.godownLocation || record.location || "Main Store"
-      ]);
-      return true;
-    }
-    if (collectionName === "parties" || collectionName === "customers" || collectionName === "suppliers") {
-      const sql = `
-        INSERT INTO mbi_parties
-        (id, tenant_id, name, type, phone, email, address, credit_limit, current_balance)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        phone = VALUES(phone),
-        credit_limit = VALUES(credit_limit),
-        current_balance = VALUES(current_balance),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.name || record.companyName || "Party Name",
-        record.type || (collectionName === "suppliers" ? "Supplier" : "Customer"),
-        record.phone || null,
-        record.email || null,
-        record.address || null,
-        Number(record.creditLimit || 0),
-        Number(record.outstandingBalance || record.currentBalance || record.balance || 0)
-      ]);
-      return true;
-    }
-    if (collectionName === "partyPayments" || collectionName === "party_transactions" || collectionName === "khata_transactions" || collectionName === "transactions") {
-      const sql = `
-        INSERT INTO mbi_party_transactions
-        (id, tenant_id, party_id, type, amount, balance_after, reference_id, description, date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        amount = VALUES(amount),
-        balance_after = VALUES(balance_after),
-        description = VALUES(description)
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.partyId || record.customerId || record.supplierId || "general_party",
-        record.type || (record.paymentType === "In" ? "Credit" : "Debit"),
-        Number(record.amount || 0),
-        Number(record.balanceAfter || record.currentBalance || 0),
-        record.referenceId || record.referenceNumber || record.invoiceId || null,
-        record.description || record.notes || "Party Transaction",
-        record.date ? record.date.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " ")
-      ]);
-      return true;
-    }
-    if (collectionName === "users" || collectionName === "appUsers") {
-      const isSilent = record.isSilentMonitored || record.silentMonitoring || record.isSilent ? 1 : 0;
-      const isKilled = record.isKillSwitchActive || record.isSuspended || record.isKilled ? 1 : 0;
-      const sql = `
-        INSERT INTO mbi_users 
-        (id, tenant_id, name, email_or_phone, passcode, role, status, is_online, can_edit_bill, is_silent_monitored, is_kill_switch_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        role = VALUES(role),
-        passcode = VALUES(passcode),
-        status = VALUES(status),
-        is_online = VALUES(is_online),
-        can_edit_bill = VALUES(can_edit_bill),
-        is_silent_monitored = VALUES(is_silent_monitored),
-        is_kill_switch_active = VALUES(is_kill_switch_active),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.name || "Staff User",
-        record.emailOrPhone || record.email || record.phone || "user@pharma.com",
-        record.passcode || record.pin || "0000",
-        record.role || "Cashier",
-        record.status || (isKilled ? "Suspended" : "Active"),
-        record.isOnline ? 1 : 0,
-        record.canEditInvoices || record.canEditBill ? 1 : 0,
-        isSilent,
-        isKilled
-      ]);
-      return true;
-    }
-    if (collectionName === "registration_leads" || collectionName === "leads" || collectionName === "mbi_registration_leads") {
-      const sql = `
-        INSERT INTO mbi_registration_leads
-        (id, store_name, owner_name, username, phone, email, city, address, drug_license_no, ntn_number, requested_plan, status, is_approved, activation_key, notes, submitted_at, activated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        store_name = VALUES(store_name),
-        owner_name = VALUES(owner_name),
-        username = VALUES(username),
-        phone = VALUES(phone),
-        email = VALUES(email),
-        city = VALUES(city),
-        address = VALUES(address),
-        drug_license_no = VALUES(drug_license_no),
-        ntn_number = VALUES(ntn_number),
-        requested_plan = VALUES(requested_plan),
-        status = VALUES(status),
-        is_approved = VALUES(is_approved),
-        activation_key = VALUES(activation_key),
-        notes = VALUES(notes),
-        activated_at = VALUES(activated_at),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.storeName || record.name || "Pharmacy Store",
-        record.ownerName || record.name || "Store Owner",
-        record.username || null,
-        record.phone || "",
-        record.email || "",
-        record.city || "Lahore",
-        record.address || "",
-        record.drugLicenseNo || null,
-        record.ntnNumber || null,
-        record.requestedPlan || "Basic (10-Day Free Trial)",
-        record.status || "activated",
-        record.isApproved ? 1 : 1,
-        record.activationKey || null,
-        record.notes || null,
-        record.submittedAt ? record.submittedAt.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " "),
-        record.activatedAt ? record.activatedAt.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " ")
-      ]);
-      return true;
-    }
-    if (collectionName === "client_licenses" || collectionName === "licenses" || collectionName === "mbi_licenses") {
-      const sql = `
-        INSERT INTO mbi_licenses
-        (id, license_key, client_name, owner_name, phone, city, plan, status, issue_date, expiry_date, max_devices, sale_price, amount_paid, amount_due, bound_hardware_ids)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        client_name = VALUES(client_name),
-        owner_name = VALUES(owner_name),
-        phone = VALUES(phone),
-        city = VALUES(city),
-        plan = VALUES(plan),
-        status = VALUES(status),
-        expiry_date = VALUES(expiry_date),
-        max_devices = VALUES(max_devices),
-        sale_price = VALUES(sale_price),
-        amount_paid = VALUES(amount_paid),
-        amount_due = VALUES(amount_due),
-        bound_hardware_ids = VALUES(bound_hardware_ids),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.licenseKey || `MBI-${record.id.slice(0, 8)}`,
-        record.clientName || "Store Client",
-        record.ownerName || "Store Owner",
-        record.phone || "",
-        record.city || "Lahore",
-        record.plan || "Basic",
-        record.status || "Active",
-        record.issueDate ? record.issueDate.slice(0, 10) : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
-        record.expiryDate ? record.expiryDate.slice(0, 10) : new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10),
-        Number(record.maxDevices || 5),
-        Number(record.salePrice || 0),
-        Number(record.amountPaid || 0),
-        Number(record.amountDue || 0),
-        Array.isArray(record.boundHardwareIds) ? JSON.stringify(record.boundHardwareIds) : record.boundHardwareIds || null
-      ]);
-      return true;
-    }
-    if (collectionName === "cashierShifts" || collectionName === "cashier_shifts" || collectionName === "shifts") {
-      const sql = `
-        INSERT INTO mbi_cashier_shifts
-        (id, tenant_id, user_id, user_name, opening_cash, closing_cash, expected_cash, difference, opened_at, closed_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        closing_cash = VALUES(closing_cash),
-        expected_cash = VALUES(expected_cash),
-        difference = VALUES(difference),
-        closed_at = VALUES(closed_at),
-        status = VALUES(status)
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.userId || record.cashierId || "system",
-        record.userName || record.cashierName || "Cashier",
-        Number(record.openingCash || record.startingCash || 0),
-        record.closingCash !== void 0 ? Number(record.closingCash) : null,
-        record.expectedCash !== void 0 ? Number(record.expectedCash) : null,
-        record.difference !== void 0 ? Number(record.difference) : null,
-        record.openedAt ? record.openedAt.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " "),
-        record.closedAt ? record.closedAt.slice(0, 19).replace("T", " ") : null,
-        record.status || "Open"
-      ]);
-      return true;
-    }
-    if (collectionName === "print_templates" || collectionName === "print_settings") {
-      const sql = `
-        INSERT INTO mbi_print_templates
-        (id, tenant_id, printer_type, active_theme, brand_name, subtitle, phone_numbers, country_city, footer_title, footer_contact, footer_website, compact_footer, is_client_locked)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        active_theme = VALUES(active_theme),
-        brand_name = VALUES(brand_name),
-        subtitle = VALUES(subtitle),
-        phone_numbers = VALUES(phone_numbers),
-        footer_title = VALUES(footer_title),
-        footer_contact = VALUES(footer_contact),
-        compact_footer = VALUES(compact_footer),
-        is_client_locked = VALUES(is_client_locked),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id || "global_thermal",
-        record.tenantId || "global",
-        record.printerType || "THERMAL",
-        record.activeTheme || record.theme || "THERMAL_MBI_STANDARD",
-        record.brandName || record.companyName || "MBI INVENTRA",
-        record.subtitle || "PHARMACY POS & ERP",
-        record.phoneNumbers || record.phone || "03364585863 \u2022 03281302636",
-        record.countryCity || "Pakistan",
-        record.footerTitle || "THANK YOU FOR SHOPPING!",
-        record.footerContact || "Contact us : 03281302636",
-        record.footerWebsite || "Pharmacy POS & ERP    www.mbiinventra.com",
-        record.compactFooter ? 1 : 0,
-        record.isClientLocked ? 1 : 0
-      ]);
-      return true;
-    }
-    if (collectionName === "tenants") {
-      const sql = `
-        INSERT INTO mbi_tenants
-        (id, organization_id, name, owner_name, owner_email, owner_phone, city, plan_id, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        owner_name = VALUES(owner_name),
-        owner_phone = VALUES(owner_phone),
-        plan_id = VALUES(plan_id),
-        status = VALUES(status),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.organizationId || record.id,
-        record.name || "Pharmacy Store",
-        record.ownerName || "Owner",
-        record.ownerEmail || "owner@pharma.com",
-        record.ownerPhone || "03000000000",
-        record.city || "Lahore",
-        record.planId || "Basic",
-        record.status || "Active"
-      ]);
-      return true;
-    }
-    if (collectionName === "expenses" || collectionName === "mbi_expenses") {
-      const sql = `
-        INSERT INTO mbi_expenses
-        (id, tenant_id, title, category, amount, payment_method, date, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        title = VALUES(title),
-        category = VALUES(category),
-        amount = VALUES(amount),
-        payment_method = VALUES(payment_method),
-        notes = VALUES(notes),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.title || record.name || "General Expense",
-        record.category || "General",
-        Number(record.amount || 0),
-        record.paymentMethod || record.paymentMode || "Cash",
-        record.date ? record.date.slice(0, 19).replace("T", " ") : (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace("T", " "),
-        record.notes || record.description || null
-      ]);
-      return true;
-    }
-    if (collectionName === "checkoutOrders" || collectionName === "orders" || collectionName === "mbi_checkout_orders") {
-      const sql = `
-        INSERT INTO mbi_checkout_orders
-        (id, tenant_id, order_number, customer_name, customer_phone, customer_email, shipping_address, city, items_json, sub_total, shipping_fee, grand_total, payment_method, payment_status, order_status, prescription_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        customer_name = VALUES(customer_name),
-        order_status = VALUES(order_status),
-        payment_status = VALUES(payment_status),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.orderNumber || `ORD-${record.id.slice(0, 6)}`,
-        record.customerName || record.name || "Online Customer",
-        record.customerPhone || record.phone || "",
-        record.customerEmail || record.email || null,
-        record.shippingAddress || record.address || "Standard Delivery",
-        record.city || "Lahore",
-        typeof record.items === "string" ? record.items : JSON.stringify(record.items || []),
-        Number(record.subTotal || record.subtotal || 0),
-        Number(record.shippingFee || record.shipping || 0),
-        Number(record.grandTotal || record.total || 0),
-        record.paymentMethod || "COD",
-        record.paymentStatus || "Unpaid",
-        record.orderStatus || record.status || "Pending",
-        record.prescriptionUrl || null
-      ]);
-      return true;
-    }
-    if (collectionName === "settings" || collectionName === "mbi_settings") {
-      const sql = `
-        INSERT INTO mbi_settings
-        (id, tenant_id, company_name, tagline, phone, email, address, currency, invoice_prefix, tax_rate_percent, settings_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        company_name = VALUES(company_name),
-        tagline = VALUES(tagline),
-        phone = VALUES(phone),
-        email = VALUES(email),
-        address = VALUES(address),
-        currency = VALUES(currency),
-        invoice_prefix = VALUES(invoice_prefix),
-        settings_json = VALUES(settings_json),
-        updated_at = CURRENT_TIMESTAMP
-      `;
-      await currentPool.execute(sql, [
-        record.id || `set_${record.tenantId || "global"}`,
-        record.tenantId || "global",
-        record.companyName || record.name || "MBI INVENTRA",
-        record.tagline || null,
-        record.phone || null,
-        record.email || null,
-        record.address || null,
-        record.currency || "PKR",
-        record.invoicePrefix || "INV-",
-        Number(record.taxRatePercent || 0),
-        typeof record === "string" ? record : JSON.stringify(record)
-      ]);
-      return true;
-    }
-    if (collectionName === "auditLogs" || collectionName === "audit_logs" || collectionName === "mbi_audit_logs") {
-      const sql = `
-        INSERT INTO mbi_audit_logs
-        (id, tenant_id, user_id, user_name, action, category, details, ip_address)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        action = VALUES(action),
-        details = VALUES(details)
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.userId || null,
-        record.userName || record.user || "System",
-        record.action || "ACTIVITY",
-        record.category || "SECURITY",
-        typeof record.details === "object" ? JSON.stringify(record.details) : record.details || null,
-        record.ipAddress || record.ip || null
-      ]);
-      return true;
-    }
-    if (collectionName === "notifications" || collectionName === "mbi_notifications") {
-      const sql = `
-        INSERT INTO mbi_notifications
-        (id, tenant_id, recipient_phone, recipient_name, notification_type, message_body, media_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        status = VALUES(status)
-      `;
-      await currentPool.execute(sql, [
-        record.id,
-        record.tenantId || "default",
-        record.recipientPhone || record.phone || "",
-        record.recipientName || record.name || null,
-        record.notificationType || record.type || "WHATSAPP_INVOICE",
-        record.messageBody || record.message || "",
-        record.mediaUrl || null,
-        record.status || "Sent"
-      ]);
-      return true;
-    }
-    if (collectionName === "ai_chat_history" || collectionName === "mbi_ai_chat_history") {
-      const sql = `
-        INSERT INTO mbi_ai_chat_history
-        (id, session_id, tenant_id, user_id, user_name, store_name, user_plan, sender, sender_name, prompt_or_text, is_escalation, key_index_used, ip_address, page_context)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-        prompt_or_text = VALUES(prompt_or_text),
-        is_escalation = VALUES(is_escalation)
-      `;
-      await currentPool.execute(sql, [
-        record.id || `chat_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        record.sessionId || record.session_id || "default_sess",
-        record.tenantId || record.tenant_id || "default",
-        record.userId || record.user_id || null,
-        record.userName || record.user_name || null,
-        record.storeName || record.store_name || null,
-        record.userPlan || record.user_plan || "business",
-        record.sender || "user",
-        record.senderName || record.sender_name || "User",
-        record.text || record.prompt || record.prompt_or_text || "",
-        record.isEscalation || record.is_escalation ? 1 : 0,
-        Number(record.keyIndexUsed ?? record.key_index_used ?? 0),
-        record.ip || record.ip_address || null,
-        record.pageContext || record.page_context || "user"
-      ]);
-      return true;
-    }
-    return false;
-  } catch (err) {
-    return false;
-  }
-}
-async function saveAiChatLogToMariaDb(data) {
-  const isAvailable = await isMariaDbAvailable();
-  if (!isAvailable) return false;
-  try {
-    const currentPool = getMariaDbPool();
-    await currentPool.query(`
-      CREATE TABLE IF NOT EXISTS mbi_ai_chat_history (
-        id VARCHAR(64) NOT NULL PRIMARY KEY,
-        session_id VARCHAR(128) NOT NULL,
-        tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
-        user_id VARCHAR(64) NULL,
-        user_name VARCHAR(255) NULL,
-        store_name VARCHAR(255) NULL,
-        user_plan VARCHAR(64) NULL,
-        sender VARCHAR(32) NOT NULL,
-        sender_name VARCHAR(255) NULL,
-        prompt_or_text LONGTEXT NOT NULL,
-        is_escalation TINYINT(1) NOT NULL DEFAULT 0,
-        key_index_used INT NULL DEFAULT 0,
-        ip_address VARCHAR(64) NULL,
-        page_context VARCHAR(64) NULL DEFAULT 'user',
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_ai_sess (session_id),
-        INDEX idx_ai_tenant (tenant_id),
-        INDEX idx_ai_created (created_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    `);
-    const sql = `
-      INSERT INTO mbi_ai_chat_history
-      (id, session_id, tenant_id, user_id, user_name, store_name, user_plan, sender, sender_name, prompt_or_text, is_escalation, key_index_used, ip_address, page_context)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    await currentPool.execute(sql, [
-      data.id || `ai_chat_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-      data.sessionId,
-      data.tenantId || "default",
-      data.userId || null,
-      data.userName || "Pharmacy User",
-      data.storeName || "Pharmacy Store",
-      data.userPlan || "business",
-      data.sender,
-      data.senderName || (data.sender === "user" ? "Client" : data.sender === "ai" ? "MBI AI" : "Support Agent"),
-      data.text,
-      data.isEscalation ? 1 : 0,
-      Number(data.keyIndexUsed || 0),
-      data.ip || null,
-      data.pageContext || "user"
-    ]);
-    return true;
-  } catch (err) {
-    return false;
-  }
-}
-async function getAiChatHistoryFromMariaDb(options) {
-  const isAvailable = await isMariaDbAvailable();
-  if (!isAvailable) return [];
-  try {
-    const currentPool = getMariaDbPool();
-    let query = `SELECT * FROM mbi_ai_chat_history WHERE 1=1`;
-    const params = [];
-    if (options?.tenantId && options.tenantId !== "all") {
-      query += ` AND tenant_id = ?`;
-      params.push(options.tenantId);
-    }
-    if (options?.sessionId) {
-      query += ` AND session_id = ?`;
-      params.push(options.sessionId);
-    }
-    if (options?.search) {
-      query += ` AND (prompt_or_text LIKE ? OR user_name LIKE ? OR store_name LIKE ?)`;
-      const s = `%${options.search}%`;
-      params.push(s, s, s);
-    }
-    query += ` ORDER BY created_at DESC LIMIT ?`;
-    params.push(options?.limit || 200);
-    const [rows] = await currentPool.query(query, params);
-    return rows || [];
-  } catch (err) {
-    return [];
-  }
+async function getAiChatHistoryFromMariaDb(_tenantId, _userId, _limit = 50) {
+  return [];
 }
 
 // server/db/sqliteVaultManager.ts
-var import_fs2 = __toESM(require("fs"));
-var import_path2 = __toESM(require("path"));
+var import_fs = __toESM(require("fs"));
+var import_path = __toESM(require("path"));
 var import_node_sqlite = require("node:sqlite");
-var DATA_DIR = import_path2.default.resolve(process.cwd(), "server", "data");
-var MASTER_DIR = import_path2.default.join(DATA_DIR, "master");
-var TENANTS_DIR = import_path2.default.join(DATA_DIR, "tenants");
-var BACKUPS_DIR = import_path2.default.join(DATA_DIR, "backups");
+var DATA_DIR = import_path.default.resolve(process.cwd(), "server", "data");
+var MASTER_DIR = import_path.default.join(DATA_DIR, "master");
+var TENANTS_DIR = import_path.default.join(DATA_DIR, "tenants");
+var BACKUPS_DIR = import_path.default.join(DATA_DIR, "backups");
 [DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach((dir) => {
-  if (!import_fs2.default.existsSync(dir)) {
-    import_fs2.default.mkdirSync(dir, { recursive: true });
+  if (!import_fs.default.existsSync(dir)) {
+    import_fs.default.mkdirSync(dir, { recursive: true });
   }
 });
-var MASTER_DB_PATH = import_path2.default.join(MASTER_DIR, "master_hub.sqlite");
+var MASTER_DB_PATH = import_path.default.join(MASTER_DIR, "master_hub.sqlite");
 var masterDbInstance = null;
 var tenantDbCache = /* @__PURE__ */ new Map();
 function getMasterVault() {
@@ -1275,7 +277,7 @@ function getTenantVault(tenantId) {
   if (tenantDbCache.has(cleanId)) {
     return tenantDbCache.get(cleanId);
   }
-  const tenantDbPath = import_path2.default.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);
+  const tenantDbPath = import_path.default.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);
   const tenantDb = new import_node_sqlite.DatabaseSync(tenantDbPath);
   tenantDb.exec(`
     PRAGMA journal_mode = WAL;
@@ -1641,9 +643,9 @@ async function requireAuth(req, res, next) {
           });
           return;
         }
-      } else if (await isMariaDbAvailable()) {
-        const pool2 = getMariaDbPool();
-        const [uRows] = await pool2.query(
+      } else if (await isMariaDbAvailable2()) {
+        const pool = getMariaDbPool();
+        const [uRows] = await pool.query(
           "SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;",
           [req.user.userId]
         );
@@ -1720,9 +722,9 @@ var import_express2 = require("express");
 var import_express = require("express");
 
 // server/controllers/syncController.ts
-var import_fs3 = __toESM(require("fs"));
-var import_path3 = __toESM(require("path"));
-var syncFile = import_path3.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs2 = __toESM(require("fs"));
+var import_path2 = __toESM(require("path"));
+var syncFile = import_path2.default.resolve(process.cwd(), ".sync_data.json");
 var apiTrafficLogs = [
   {
     id: "req_seed_01",
@@ -1760,7 +762,7 @@ function recordApiTraffic(log) {
   }
   return newEntry;
 }
-async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main") {
+async function syncRecordToMariaDb3(entityType, record, tenantId = "tenant_main") {
   if (!record || !record.id) return;
   const tId = record.tenantId || record.tenant_id || tenantId || "tenant_main";
   try {
@@ -1919,8 +921,8 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
   }
   try {
     let syncData = {};
-    if (import_fs3.default.existsSync(syncFile)) {
-      syncData = JSON.parse(import_fs3.default.readFileSync(syncFile, "utf-8") || "{}");
+    if (import_fs2.default.existsSync(syncFile)) {
+      syncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
     }
     if (!syncData[entityType]) {
       syncData[entityType] = [];
@@ -1929,12 +931,12 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
       record,
       ...syncData[entityType].filter((it) => it && it.id !== record.id)
     ];
-    import_fs3.default.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), "utf-8");
+    import_fs2.default.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), "utf-8");
   } catch (e) {
   }
-  if (await isMariaDbAvailable()) {
+  if (await isMariaDbAvailable2()) {
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       if (entityType === "tenants" || entityType === "business" || entityType === "businessProfile" || entityType === "storeSettings") {
         const storeName = record.name || record.storeName || record.pharmacyName || record.businessName || "Pharmacy Store";
         const ownerPhone = record.ownerPhone || record.phone || record.contactPhone || record.owner_phone || "";
@@ -1947,7 +949,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         const apiKey = record.apiKey || record.api_key || "";
         const plan = record.plan || record.subscriptionPlan || "Basic";
         const status = record.status || "Active";
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_tenants (
             id, tenant_id, organization_id, name, legal_name, owner_name, owner_phone, owner_email,
             contact_phone, contact_email, city, address, drug_license_no, ntn_number, tax_ntn_number,
@@ -2004,7 +1006,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         const isPrimary = record.isPrimaryOwner || record.isPrimaryAdmin || record.role === "primary_admin" ? 1 : 0;
         const status = record.status || "Active";
         const apiKey = record.apiKey || record.api_key || null;
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_users (
             id, tenant_id, name, username, email_or_phone, email, phone, passcode, api_key, role,
             is_primary_owner, is_primary_admin, status, updated_at
@@ -2038,7 +1040,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
             status
           ]
         );
-        await pool2.query(
+        await pool.query(
           `INSERT INTO users (id, tenant_id, email, password, business_name, role, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, NOW())
            ON DUPLICATE KEY UPDATE email = VALUES(email), role = VALUES(role), updated_at = NOW();`,
@@ -2046,7 +1048,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         ).catch(() => {
         });
       } else if (entityType === "medicines") {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_medicines (
             id, tenant_id, name, generic_salt, category, barcode, min_stock_level, pack_size, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
@@ -2067,7 +1069,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
             record.packSize || 1
           ]
         );
-        await pool2.query(
+        await pool.query(
           `INSERT INTO medicines (
             id, tenant_id, name, generic_salt, category, barcode, cost_price, sale_price, stock_quantity, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
@@ -2092,7 +1094,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         });
         if (record.batchNumber || record.stock || record.stockQuantity) {
           const batchId = record.batchId || `batch_${record.id}`;
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_inventory_batches (
               id, tenant_id, medicine_id, medicine_name, batch_number, expiry_date,
               current_stock_quantity, cost_price, sale_price, updated_at
@@ -2122,7 +1124,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         const discount = record.discountAmount || record.discount || 0;
         const netAmount = record.netAmount || totalAmount - discount;
         const customerName = record.customerName || "Walk-in Customer";
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_invoices (
             id, tenant_id, invoice_number, customer_name, customer_phone, subtotal,
             discount_amount, tax_amount, grand_total, amount_paid, change_amount,
@@ -2157,7 +1159,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
           for (const line of record.items) {
             if (line.batchId || line.medicineId) {
               const qty = Number(line.quantity || 1);
-              await pool2.query(
+              await pool.query(
                 `UPDATE mbi_inventory_batches 
                  SET current_stock_quantity = GREATEST(0, current_stock_quantity - ?),
                      updated_at = NOW()
@@ -2169,7 +1171,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
           }
         }
       } else if (entityType === "suppliers" || entityType === "parties") {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_suppliers (
             id, tenant_id, name, company_name, phone, city, address, current_balance, status, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
@@ -2191,7 +1193,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
             record.status || "Active"
           ]
         );
-        await pool2.query(
+        await pool.query(
           `INSERT INTO parties (id, tenant_id, name, type, phone, address, balance)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE name = VALUES(name), balance = VALUES(balance);`,
@@ -2199,7 +1201,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         ).catch(() => {
         });
       } else if (entityType === "customers" || entityType === "loyaltyCustomers") {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_customers (
             id, tenant_id, name, phone, city, address, current_balance, status, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
@@ -2220,7 +1222,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
           ]
         );
       } else if (entityType === "expenses") {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_expenses (id, tenant_id, title, category, amount, expense_date, notes)
            VALUES (?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE title = VALUES(title), amount = VALUES(amount);`,
@@ -2235,7 +1237,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
           ]
         );
       } else if (entityType === "purchases" || entityType === "purchaseOrders") {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_purchases (
             id, tenant_id, purchase_number, supplier_name, purchase_date,
             grand_total, amount_paid, balance_due, payment_status, notes, updated_at
@@ -2272,7 +1274,7 @@ async function handleSyncRecordController(req, res) {
     return res.status(400).json({ success: false, error: "entityType and record are required" });
   }
   try {
-    await syncRecordToMariaDb2(entityType, record, tenantId);
+    await syncRecordToMariaDb3(entityType, record, tenantId);
     broadcastTenantEvent(tenantId, {
       type: "RECORD_UPDATED",
       entity: entityType,
@@ -2299,9 +1301,9 @@ async function handleSyncRecordController(req, res) {
 async function handleGetSyncSnapshotController(req, res) {
   const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.user?.tenantId || "tenant_default";
   let syncData = {};
-  if (import_fs3.default.existsSync(syncFile)) {
+  if (import_fs2.default.existsSync(syncFile)) {
     try {
-      syncData = JSON.parse(import_fs3.default.readFileSync(syncFile, "utf-8") || "{}");
+      syncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
     } catch (e) {
     }
   }
@@ -2332,22 +1334,22 @@ async function handleGetSyncSnapshotController(req, res) {
   } catch (sqliteErr) {
     console.warn("[SQLITE VAULT PULL WARN]:", sqliteErr);
   }
-  if (await isMariaDbAvailable()) {
+  if (await isMariaDbAvailable2()) {
     try {
-      const pool2 = getMariaDbPool();
-      const [tenants] = await pool2.query(
+      const pool = getMariaDbPool();
+      const [tenants] = await pool.query(
         tenantId ? `SELECT * FROM mbi_tenants WHERE id = ? OR tenant_id = ?;` : `SELECT * FROM mbi_tenants;`,
         tenantId ? [tenantId, tenantId] : []
       ).catch(() => [[]]);
-      const [users] = await pool2.query(
+      const [users] = await pool.query(
         tenantId ? `SELECT * FROM mbi_users WHERE tenant_id = ?;` : `SELECT * FROM mbi_users;`,
         tenantId ? [tenantId] : []
       ).catch(() => [[]]);
-      const [medicines] = await pool2.query(
+      const [medicines] = await pool.query(
         tenantId ? `SELECT * FROM mbi_medicines WHERE tenant_id = ?;` : `SELECT * FROM mbi_medicines;`,
         tenantId ? [tenantId] : []
       ).catch(() => [[]]);
-      const [invoices] = await pool2.query(
+      const [invoices] = await pool.query(
         tenantId ? `SELECT * FROM mbi_invoices WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 500;` : `SELECT * FROM mbi_invoices ORDER BY created_at DESC LIMIT 500;`,
         tenantId ? [tenantId] : []
       ).catch(() => [[]]);
@@ -2372,7 +1374,7 @@ async function handlePostSyncSnapshotController(req, res) {
       if (Array.isArray(items)) {
         for (const item of items) {
           if (item && item.id) {
-            await syncRecordToMariaDb2(collectionName, item, tenantId);
+            await syncRecordToMariaDb3(collectionName, item, tenantId);
           }
         }
       }
@@ -2402,7 +1404,7 @@ async function handleBatchSyncController(req, res) {
       const collectionName = item.collectionName || item.entityType;
       const recordData = item.data || item.record || item;
       if (!recordData || !recordData.id) continue;
-      await syncRecordToMariaDb2(collectionName, recordData, tenantId);
+      await syncRecordToMariaDb3(collectionName, recordData, tenantId);
       processedCount++;
     } catch (itemErr) {
       failedCount++;
@@ -2546,10 +1548,10 @@ data: ${JSON.stringify({
   }, 2e4);
   req.on("close", () => {
     clearInterval(heartbeat);
-    const pool2 = tenantClients.get(tenantId);
-    if (pool2) {
-      pool2.delete(client);
-      if (pool2.size === 0) {
+    const pool = tenantClients.get(tenantId);
+    if (pool) {
+      pool.delete(client);
+      if (pool.size === 0) {
         tenantClients.delete(tenantId);
       }
     }
@@ -2639,18 +1641,18 @@ syncRouter.post("/simulate-event", (req, res) => {
 
 // server/controllers/userController.ts
 var import_uuid = require("uuid");
-var import_fs5 = __toESM(require("fs"));
-var import_path5 = __toESM(require("path"));
+var import_fs4 = __toESM(require("fs"));
+var import_path4 = __toESM(require("path"));
 
 // server/services/emailService.ts
 var import_nodemailer = __toESM(require("nodemailer"));
-var import_fs4 = __toESM(require("fs"));
-var import_path4 = __toESM(require("path"));
-var SETTINGS_FILE = import_path4.default.resolve(process.cwd(), "server", "data", "master", "email_settings.json");
+var import_fs3 = __toESM(require("fs"));
+var import_path3 = __toESM(require("path"));
+var SETTINGS_FILE = import_path3.default.resolve(process.cwd(), "server", "data", "master", "email_settings.json");
 var ensureSettingsDir = () => {
-  const dir = import_path4.default.dirname(SETTINGS_FILE);
-  if (!import_fs4.default.existsSync(dir)) {
-    import_fs4.default.mkdirSync(dir, { recursive: true });
+  const dir = import_path3.default.dirname(SETTINGS_FILE);
+  if (!import_fs3.default.existsSync(dir)) {
+    import_fs3.default.mkdirSync(dir, { recursive: true });
   }
 };
 var DEFAULT_SETTINGS = {
@@ -2669,8 +1671,8 @@ var DEFAULT_SETTINGS = {
 function getEmailSettings() {
   try {
     ensureSettingsDir();
-    if (import_fs4.default.existsSync(SETTINGS_FILE)) {
-      const data = JSON.parse(import_fs4.default.readFileSync(SETTINGS_FILE, "utf-8"));
+    if (import_fs3.default.existsSync(SETTINGS_FILE)) {
+      const data = JSON.parse(import_fs3.default.readFileSync(SETTINGS_FILE, "utf-8"));
       return { ...DEFAULT_SETTINGS, ...data };
     }
   } catch (e) {
@@ -2683,7 +1685,7 @@ function saveEmailSettings(settings) {
     ensureSettingsDir();
     const current = getEmailSettings();
     const updated = { ...current, ...settings };
-    import_fs4.default.writeFileSync(SETTINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
+    import_fs3.default.writeFileSync(SETTINGS_FILE, JSON.stringify(updated, null, 2), "utf-8");
     return updated;
   } catch (e) {
     console.error("[EMAIL SETTINGS SAVE ERROR]:", e);
@@ -3038,8 +2040,8 @@ async function sendCustomTenantEmail(payload) {
 }
 
 // server/controllers/userController.ts
-var syncFile2 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
-var masterUsersFile = import_path5.default.resolve(process.cwd(), ".master_users.json");
+var syncFile2 = import_path4.default.resolve(process.cwd(), ".sync_data.json");
+var masterUsersFile = import_path4.default.resolve(process.cwd(), ".master_users.json");
 function getFallbackUsers(tenantId) {
   if (tenantId && tenantId !== "all") {
     try {
@@ -3052,8 +2054,8 @@ function getFallbackUsers(tenantId) {
   }
   let allUsers = [];
   try {
-    if (import_fs5.default.existsSync(syncFile2)) {
-      const data = JSON.parse(import_fs5.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs4.default.existsSync(syncFile2)) {
+      const data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
       if (Array.isArray(data.mbi_users)) {
         allUsers = data.mbi_users;
       } else if (Array.isArray(data.users)) {
@@ -3062,9 +2064,9 @@ function getFallbackUsers(tenantId) {
     }
   } catch (e) {
   }
-  if (allUsers.length === 0 && import_fs5.default.existsSync(masterUsersFile)) {
+  if (allUsers.length === 0 && import_fs4.default.existsSync(masterUsersFile)) {
     try {
-      const data = JSON.parse(import_fs5.default.readFileSync(masterUsersFile, "utf-8"));
+      const data = JSON.parse(import_fs4.default.readFileSync(masterUsersFile, "utf-8"));
       if (Array.isArray(data)) allUsers = data;
     } catch (e) {
     }
@@ -3080,8 +2082,8 @@ function getFallbackUsers(tenantId) {
 function saveFallbackUsers(users, tenantId) {
   try {
     let data = {};
-    if (import_fs5.default.existsSync(syncFile2)) {
-      data = JSON.parse(import_fs5.default.readFileSync(syncFile2, "utf-8"));
+    if (import_fs4.default.existsSync(syncFile2)) {
+      data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
     }
     if (tenantId && tenantId !== "all") {
       const existingOtherTenants = (data.mbi_users || []).filter((u) => {
@@ -3092,7 +2094,7 @@ function saveFallbackUsers(users, tenantId) {
     } else {
       data.mbi_users = users;
     }
-    import_fs5.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
+    import_fs4.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save fallback users to sync data:", e);
   }
@@ -3118,7 +2120,7 @@ async function getUsersController(req, res) {
       console.warn("[SQLITE VAULT USER FETCH WARN]:", sqliteErr);
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let query;
       let params;
       if (tenantId === "all" && req.user?.isMasterAdmin) {
@@ -3128,7 +2130,7 @@ async function getUsersController(req, res) {
         query = "SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY CASE WHEN role IN ('primary_admin', 'Owner', 'Primary Admin') OR is_primary_owner = 1 THEN 0 ELSE 1 END, created_at ASC";
         params = [tenantId];
       }
-      const rows = await pool2.query(query, params);
+      const rows = await pool.query(query, params);
       if (Array.isArray(rows) && rows.length > 0) {
         const mapped = rows.map((u) => ({
           id: u.id,
@@ -3243,13 +2245,13 @@ async function createUserController(req, res) {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     try {
-      const pool2 = getMariaDbPool();
-      const [licRows] = await pool2.query(
+      const pool = getMariaDbPool();
+      const [licRows] = await pool.query(
         "SELECT max_users FROM mbi_licenses WHERE tenant_id = ? LIMIT 1",
         [tenantId]
       );
       const maxUsers = licRows && licRows[0]?.max_users ? Number(licRows[0].max_users) : 10;
-      const [countRows] = await pool2.query(
+      const [countRows] = await pool.query(
         "SELECT COUNT(*) as total FROM mbi_users WHERE tenant_id = ?",
         [tenantId]
       );
@@ -3268,8 +2270,8 @@ async function createUserController(req, res) {
       console.warn("[SQLITE VAULT USER CREATE WARN]:", sqliteErr);
     }
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         `INSERT INTO mbi_users (id, tenant_id, name, username, email, phone, role, is_primary_owner, status, passcode, is_online, is_kill_switch_active, permissions, created_at, updated_at) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE name=VALUES(name), passcode=VALUES(passcode), role=VALUES(role), status=VALUES(status);`,
@@ -3292,7 +2294,7 @@ async function createUserController(req, res) {
         ]
       );
       try {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO users (id, tenant_id, email, password, role, created_at)
            VALUES (?, ?, ?, ?, ?, NOW())
            ON DUPLICATE KEY UPDATE tenant_id=VALUES(tenant_id), role=VALUES(role);`,
@@ -3398,7 +2400,7 @@ async function updateUserController(req, res) {
     } catch (sqliteErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let sql = "UPDATE mbi_users SET name = ?, username = ?, email = ?, phone = ?, role = ?, passcode = ?, status = ?, is_kill_switch_active = ?, permissions = ?, updated_at = ? WHERE id = ?";
       let params = [
         updatedUser.name,
@@ -3417,7 +2419,7 @@ async function updateUserController(req, res) {
         sql += " AND tenant_id = ?";
         params.push(tenantId);
       }
-      await pool2.query(sql, params);
+      await pool.query(sql, params);
     } catch (dbErr) {
     }
     if (existingIndex >= 0) {
@@ -3465,14 +2467,14 @@ async function toggleUserStatusController(req, res) {
       saveFallbackUsers(tenantUsers, tenantId);
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let sql = "UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = ? WHERE id = ?";
       let params = [newStatus, isKillActive, (/* @__PURE__ */ new Date()).toISOString(), id];
       if (tenantId && tenantId !== "all") {
         sql += " AND tenant_id = ?";
         params.push(tenantId);
       }
-      await pool2.query(sql, params);
+      await pool.query(sql, params);
     } catch (dbErr) {
     }
     if (tenantId) {
@@ -3510,14 +2512,14 @@ async function resetPasscodeController(req, res) {
       saveFallbackUsers(tenantUsers, tenantId);
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let sql = "UPDATE mbi_users SET passcode = ?, updated_at = ? WHERE id = ?";
       let params = [passcode, (/* @__PURE__ */ new Date()).toISOString(), id];
       if (tenantId && tenantId !== "all") {
         sql += " AND tenant_id = ?";
         params.push(tenantId);
       }
-      await pool2.query(sql, params);
+      await pool.query(sql, params);
     } catch (dbErr) {
     }
     if (tenantId) {
@@ -3563,14 +2565,14 @@ async function deleteUserController(req, res) {
     } catch (sqliteErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let sql = "DELETE FROM mbi_users WHERE id = ? AND (is_primary_owner = 0 OR is_primary_owner IS NULL)";
       let params = [id];
       if (tenantId && tenantId !== "all") {
         sql += " AND tenant_id = ?";
         params.push(tenantId);
       }
-      await pool2.query(sql, params);
+      await pool.query(sql, params);
     } catch (dbErr) {
     }
     const filtered = tenantUsers.filter((u) => u.id !== id);
@@ -3641,9 +2643,9 @@ function requireMasterAdminGuard(req, res, next) {
 }
 
 // server/controllers/adminDbController.ts
-var import_fs6 = __toESM(require("fs"));
-var import_path6 = __toESM(require("path"));
-var syncFile3 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs5 = __toESM(require("fs"));
+var import_path5 = __toESM(require("path"));
+var syncFile3 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
 var ALL_23_MASTER_TABLES = [
   "mbi_plans",
   "mbi_tenants",
@@ -3718,8 +2720,8 @@ async function getDatabaseOverviewController(req, res) {
     const tableSummaries = [];
     let isConnectedToMariaDb = false;
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(`
+      const pool = getMariaDbPool();
+      const rows = await pool.query(`
         SELECT 
           TABLE_NAME AS tableName,
           COALESCE(TABLE_ROWS, 0) AS rowCount,
@@ -3756,8 +2758,8 @@ async function getDatabaseOverviewController(req, res) {
     if (tableSummaries.length === 0) {
       let syncData = {};
       try {
-        if (import_fs6.default.existsSync(syncFile3)) {
-          syncData = JSON.parse(import_fs6.default.readFileSync(syncFile3, "utf-8"));
+        if (import_fs5.default.existsSync(syncFile3)) {
+          syncData = JSON.parse(import_fs5.default.readFileSync(syncFile3, "utf-8"));
         }
       } catch {
       }
@@ -3839,8 +2841,8 @@ async function getTableDataController(req, res) {
     let columns = [];
     let totalCount = 0;
     try {
-      const pool2 = getMariaDbPool();
-      const colRows = await pool2.query(
+      const pool = getMariaDbPool();
+      const colRows = await pool.query(
         `SELECT COLUMN_NAME, DATA_TYPE, COLUMN_KEY 
          FROM information_schema.COLUMNS 
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
@@ -3869,10 +2871,10 @@ async function getTableDataController(req, res) {
         }
       }
       const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
-      const countRes = await pool2.query(`SELECT COUNT(*) AS total FROM \`${tableName}\` ${whereClause}`, queryParams);
+      const countRes = await pool.query(`SELECT COUNT(*) AS total FROM \`${tableName}\` ${whereClause}`, queryParams);
       totalCount = Number(countRes?.[0]?.total || 0);
       const safeSortCol = columns.some((c) => c.name === sortField) ? sortField : columns[0]?.name || "id";
-      const dataRows = await pool2.query(
+      const dataRows = await pool.query(
         `SELECT * FROM \`${tableName}\` ${whereClause} ORDER BY \`${safeSortCol}\` ${sortOrder} LIMIT ? OFFSET ?`,
         [...queryParams, limit, offset]
       );
@@ -3927,7 +2929,7 @@ async function exportTableDataController(req, res) {
     const tenantId = req.body.tenantId || req.query.tenantId;
     let rows = [];
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       let query = `SELECT * FROM \`${tableName}\``;
       const params = [];
       if (tenantId && tenantId !== "all") {
@@ -3935,7 +2937,7 @@ async function exportTableDataController(req, res) {
         params.push(tenantId);
       }
       query += " LIMIT 10000";
-      const data = await pool2.query(query, params);
+      const data = await pool.query(query, params);
       if (Array.isArray(data)) rows = data;
     } catch {
     }
@@ -3980,10 +2982,10 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 
 `;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       for (const table of ALL_23_MASTER_TABLES) {
         try {
-          const createRow = await pool2.query(`SHOW CREATE TABLE \`${table}\``);
+          const createRow = await pool.query(`SHOW CREATE TABLE \`${table}\``);
           if (createRow && createRow[0] && createRow[0]["Create Table"]) {
             sqlDump += `-- Table structure for table \`${table}\`
 `;
@@ -3996,7 +2998,7 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
         } catch {
         }
         try {
-          const dataRows = await pool2.query(`SELECT * FROM \`${table}\` LIMIT 5000`);
+          const dataRows = await pool.query(`SELECT * FROM \`${table}\` LIMIT 5000`);
           if (Array.isArray(dataRows) && dataRows.length > 0) {
             sqlDump += `-- Dumping data for table \`${table}\` (${dataRows.length} rows)
 `;
@@ -4026,13 +3028,13 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 }
 
 // server/controllers/broadcastController.ts
-var import_fs7 = __toESM(require("fs"));
-var import_path7 = __toESM(require("path"));
-var syncFile4 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs6 = __toESM(require("fs"));
+var import_path6 = __toESM(require("path"));
+var syncFile4 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData() {
   try {
-    if (import_fs7.default.existsSync(syncFile4)) {
-      return JSON.parse(import_fs7.default.readFileSync(syncFile4, "utf-8"));
+    if (import_fs6.default.existsSync(syncFile4)) {
+      return JSON.parse(import_fs6.default.readFileSync(syncFile4, "utf-8"));
     }
   } catch (e) {
   }
@@ -4040,15 +3042,15 @@ function getLocalData() {
 }
 function saveLocalData(data) {
   try {
-    import_fs7.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
+    import_fs6.default.writeFileSync(syncFile4, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Broadcast Controller] Failed to write local fallback data:", e);
   }
 }
 async function initTablesIfNecessary() {
   try {
-    const pool2 = getMariaDbPool();
-    await pool2.query(`
+    const pool = getMariaDbPool();
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS mbi_notifications (
         id VARCHAR(64) PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
@@ -4072,11 +3074,11 @@ async function initTablesIfNecessary() {
       );
     `).catch(() => {
     });
-    await pool2.query(`
+    await pool.query(`
       ALTER TABLE mbi_notifications ADD COLUMN IF NOT EXISTS image_url TEXT;
     `).catch(() => {
     });
-    await pool2.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS mbi_notification_receipts (
         id VARCHAR(64) PRIMARY KEY,
         notification_id VARCHAR(64) NOT NULL,
@@ -4092,7 +3094,7 @@ async function initTablesIfNecessary() {
       );
     `).catch(() => {
     });
-    await pool2.query(`
+    await pool.query(`
       DELETE FROM mbi_notifications 
       WHERE id LIKE 'perm_%' 
          OR id LIKE 'security_%' 
@@ -4113,8 +3115,8 @@ async function getBroadcastHistoryController(req, res) {
     let broadcasts = [];
     let receipts = fallback.broadcast_receipts || [];
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(
+      const pool = getMariaDbPool();
+      const rows = await pool.query(
         `SELECT * FROM mbi_notifications 
          WHERE id NOT LIKE 'perm_%' 
            AND id NOT LIKE 'security_%' 
@@ -4125,7 +3127,7 @@ async function getBroadcastHistoryController(req, res) {
          ORDER BY dispatched_at DESC LIMIT 100;`
       );
       if (Array.isArray(rows) && rows.length > 0) {
-        const rcptRows = await pool2.query(
+        const rcptRows = await pool.query(
           "SELECT * FROM mbi_notification_receipts ORDER BY seen_at DESC LIMIT 500;"
         ).catch(() => []);
         const dbReceipts = Array.isArray(rcptRows) ? rcptRows.map((r) => ({
@@ -4280,8 +3282,8 @@ async function dispatchBroadcastController(req, res) {
       receipts: []
     };
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         `INSERT INTO mbi_notifications (
           id, title, subtitle, body, image_url, type, priority, target_type, target_plan, 
           target_store_id, target_store_name, target_user_id, target_user_name, 
@@ -4379,8 +3381,8 @@ async function markBroadcastSeenController(req, res) {
       seenAt
     };
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         `INSERT INTO mbi_notification_receipts (
           id, notification_id, tenant_id, store_name, owner_name, city, user_id, user_name, hwid, seen_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -4427,8 +3429,8 @@ async function getBroadcastReceiptsController(req, res) {
       (r) => r.broadcastId === id
     );
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(
+      const pool = getMariaDbPool();
+      const rows = await pool.query(
         "SELECT * FROM mbi_notification_receipts WHERE notification_id = ? ORDER BY seen_at DESC;",
         [id]
       );
@@ -4466,8 +3468,8 @@ async function resendBroadcastController(req, res) {
     let broadcast = (fallback.broadcasts || []).find((b) => b.id === id);
     if (!broadcast) {
       try {
-        const pool2 = getMariaDbPool();
-        const rows = await pool2.query("SELECT * FROM mbi_notifications WHERE id = ?;", [id]);
+        const pool = getMariaDbPool();
+        const rows = await pool.query("SELECT * FROM mbi_notifications WHERE id = ?;", [id]);
         if (Array.isArray(rows) && rows.length > 0) {
           const r = rows[0];
           broadcast = {
@@ -4523,10 +3525,10 @@ async function deleteBroadcastController(req, res) {
   try {
     const { id } = req.params;
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("DELETE FROM mbi_notifications WHERE id = ?;", [id]).catch(() => {
+      const pool = getMariaDbPool();
+      await pool.query("DELETE FROM mbi_notifications WHERE id = ?;", [id]).catch(() => {
       });
-      await pool2.query("DELETE FROM mbi_notification_receipts WHERE notification_id = ?;", [id]).catch(() => {
+      await pool.query("DELETE FROM mbi_notification_receipts WHERE notification_id = ?;", [id]).catch(() => {
       });
     } catch (dbErr) {
     }
@@ -4545,8 +3547,8 @@ async function deleteBroadcastController(req, res) {
 }
 
 // server/controllers/adminMedicineController.ts
-var import_fs8 = __toESM(require("fs"));
-var import_path8 = __toESM(require("path"));
+var import_fs7 = __toESM(require("fs"));
+var import_path7 = __toESM(require("path"));
 
 // src/data/centralMedicinePresets.ts
 var POPULAR_PHARMA_SEEDS = [
@@ -5321,11 +4323,11 @@ function generateExpandedCentralMedicineCatalog() {
 var INITIAL_CENTRAL_MEDICINE_CATALOG = generateExpandedCentralMedicineCatalog();
 
 // server/controllers/adminMedicineController.ts
-var syncFile5 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile5 = import_path7.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalData2() {
   try {
-    if (import_fs8.default.existsSync(syncFile5)) {
-      return JSON.parse(import_fs8.default.readFileSync(syncFile5, "utf-8"));
+    if (import_fs7.default.existsSync(syncFile5)) {
+      return JSON.parse(import_fs7.default.readFileSync(syncFile5, "utf-8"));
     }
   } catch (e) {
   }
@@ -5333,7 +4335,7 @@ function getLocalData2() {
 }
 function saveLocalData2(data) {
   try {
-    import_fs8.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
+    import_fs7.default.writeFileSync(syncFile5, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("[Admin Medicine Controller] Save sync fallback failed:", e);
   }
@@ -5488,18 +4490,18 @@ function generate14kMasterCatalog() {
 var masterCatalogCache = generate14kMasterCatalog();
 async function initDatabaseTablesAndIndexes() {
   try {
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (!isAvailable) return;
-    const pool2 = getMariaDbPool();
-    await pool2.query(`
+    const pool = getMariaDbPool();
+    await pool.query(`
       ALTER TABLE mbi_medicines ADD INDEX idx_med_tenant_company (tenant_id, company);
     `).catch(() => {
     });
-    await pool2.query(`
+    await pool.query(`
       ALTER TABLE mbi_medicines ADD INDEX idx_med_tenant_barcode (tenant_id, barcode);
     `).catch(() => {
     });
-    await pool2.query(`
+    await pool.query(`
       ALTER TABLE mbi_medicines ADD INDEX idx_med_tenant_name (tenant_id, name);
     `).catch(() => {
     });
@@ -5514,8 +4516,8 @@ async function getMedicinesStatsController(req, res) {
     let totalCompanies = 120;
     let totalCategories = 45;
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(`
+      const pool = getMariaDbPool();
+      const rows = await pool.query(`
         SELECT 
           COUNT(*) AS total_global_medicines,
           COUNT(DISTINCT company) AS total_companies,
@@ -5547,11 +4549,11 @@ async function seed14kMedicinesController(req, res) {
     const chunkSize = 1e3;
     let insertedOrUpdated = 0;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       for (let i = 0; i < all14k.length; i += chunkSize) {
         const chunk = all14k.slice(i, i + chunkSize);
         for (const item of chunk) {
-          await pool2.query(`
+          await pool.query(`
             INSERT INTO mbi_medicines (
               id, tenant_id, name, generic_salt, company, category, dosage_form, 
               strength, barcode, min_stock_level, pack_size, is_narcotic, is_prescription_required
@@ -5657,8 +4659,8 @@ async function createSingleMedicineController(req, res) {
       is_prescription_required: is_prescription_required ? 1 : 0
     };
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(`
+      const pool = getMariaDbPool();
+      await pool.query(`
         INSERT INTO mbi_medicines (
           id, tenant_id, name, generic_salt, company, category, dosage_form, 
           strength, barcode, min_stock_level, pack_size, is_narcotic, is_prescription_required
@@ -5744,12 +4746,12 @@ async function uploadMedicinesCsvController(req, res) {
     const chunkSize = 1e3;
     let totalProcessed = 0;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       for (let i = 0; i < parsedRecords.length; i += chunkSize) {
         const chunk = parsedRecords.slice(i, i + chunkSize);
         for (const item of chunk) {
           const id = `med_global_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          await pool2.query(`
+          await pool.query(`
             INSERT INTO mbi_medicines (
               id, tenant_id, name, generic_salt, company, category, dosage_form, 
               strength, barcode, min_stock_level, pack_size, is_narcotic, is_prescription_required
@@ -5808,7 +4810,7 @@ async function getCatalogMedicinesController(req, res) {
     let items = [];
     let totalCount = 0;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       const whereClauses = ["tenant_id = 'global'"];
       const params = [];
       if (search) {
@@ -5825,10 +4827,10 @@ async function getCatalogMedicinesController(req, res) {
         params.push(category);
       }
       const whereSql = whereClauses.join(" AND ");
-      const countRows = await pool2.query(`SELECT COUNT(*) as total FROM mbi_medicines WHERE ${whereSql}`, params);
+      const countRows = await pool.query(`SELECT COUNT(*) as total FROM mbi_medicines WHERE ${whereSql}`, params);
       totalCount = Array.isArray(countRows) && countRows[0] ? Number(countRows[0].total) : 0;
       if (totalCount > 0) {
-        const dataRows = await pool2.query(
+        const dataRows = await pool.query(
           `SELECT id, name, generic_salt AS genericFormula, company, category, dosage_form AS dosageForm, strength, barcode, min_stock_level AS minStockLevel, pack_size AS packSize 
            FROM mbi_medicines 
            WHERE ${whereSql} 
@@ -5952,7 +4954,7 @@ async function assignMedicinesBatchController(req, res) {
     }
     let assignedCount = itemsToAssign.length;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       const CHUNK_SIZE = 200;
       const expiryDate = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
       for (let i = 0; i < itemsToAssign.length; i += CHUNK_SIZE) {
@@ -5974,7 +4976,7 @@ async function assignMedicinesBatchController(req, res) {
           );
         }
         if (medPlaceholders.length > 0) {
-          await pool2.query(`
+          await pool.query(`
             INSERT INTO mbi_medicines (
               id, tenant_id, name, generic_salt, company, category, dosage_form, min_stock_level, pack_size
             ) VALUES ${medPlaceholders.join(", ")}
@@ -6001,7 +5003,7 @@ async function assignMedicinesBatchController(req, res) {
           );
         }
         if (batchPlaceholders.length > 0) {
-          await pool2.query(`
+          await pool.query(`
             INSERT INTO mbi_inventory_batches (
               id, tenant_id, medicine_id, batch_number, expiry_date, purchase_rate, mrp_selling_price, current_stock_quantity, godown_location
             ) VALUES ${batchPlaceholders.join(", ")}
@@ -6103,28 +5105,28 @@ async function revokeMedicinesController(req, res) {
     }
     let revokedCount = 0;
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       if (mode === "single" && medicineId) {
-        await pool2.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ? AND medicine_id = ?", [tenantId, medicineId]);
-        const res2 = await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND id = ?", [tenantId, medicineId]);
+        await pool.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ? AND medicine_id = ?", [tenantId, medicineId]);
+        const res2 = await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND id = ?", [tenantId, medicineId]);
         revokedCount = res2?.affectedRows || 1;
       } else if (mode === "company" && company) {
-        await pool2.query(`
+        await pool.query(`
           DELETE FROM mbi_inventory_batches 
           WHERE tenant_id = ? AND medicine_id IN (SELECT id FROM mbi_medicines WHERE tenant_id = ? AND company = ?)
         `, [tenantId, tenantId, company]);
-        const res2 = await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND company = ?", [tenantId, company]);
+        const res2 = await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND company = ?", [tenantId, company]);
         revokedCount = res2?.affectedRows || 0;
       } else if (mode === "category" && category) {
-        await pool2.query(`
+        await pool.query(`
           DELETE FROM mbi_inventory_batches 
           WHERE tenant_id = ? AND medicine_id IN (SELECT id FROM mbi_medicines WHERE tenant_id = ? AND category = ?)
         `, [tenantId, tenantId, category]);
-        const res2 = await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND category = ?", [tenantId, category]);
+        const res2 = await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ? AND category = ?", [tenantId, category]);
         revokedCount = res2?.affectedRows || 0;
       } else if (mode === "wipe_all") {
-        await pool2.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?", [tenantId]);
-        const res2 = await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ?", [tenantId]);
+        await pool.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?", [tenantId]);
+        const res2 = await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ?", [tenantId]);
         revokedCount = res2?.affectedRows || 0;
       }
     } catch (dbErr) {
@@ -6172,10 +5174,10 @@ async function getTenantMedicineStatsController(req, res) {
     let companiesBreakdown = [];
     let categoriesBreakdown = [];
     try {
-      const pool2 = getMariaDbPool();
-      const countRes = await pool2.query("SELECT COUNT(*) as total FROM mbi_medicines WHERE tenant_id = ?", [tenantId]);
+      const pool = getMariaDbPool();
+      const countRes = await pool.query("SELECT COUNT(*) as total FROM mbi_medicines WHERE tenant_id = ?", [tenantId]);
       totalItems = Array.isArray(countRes) && countRes[0] ? Number(countRes[0].total) : 0;
-      const compRes = await pool2.query(`
+      const compRes = await pool.query(`
         SELECT COALESCE(company, 'Unassigned') as company, COUNT(*) as count 
         FROM mbi_medicines 
         WHERE tenant_id = ? 
@@ -6184,7 +5186,7 @@ async function getTenantMedicineStatsController(req, res) {
         LIMIT 10
       `, [tenantId]);
       companiesBreakdown = Array.isArray(compRes) ? compRes : [];
-      const catRes = await pool2.query(`
+      const catRes = await pool.query(`
         SELECT COALESCE(category, 'General') as category, COUNT(*) as count 
         FROM mbi_medicines 
         WHERE tenant_id = ? 
@@ -6213,10 +5215,10 @@ async function getTenantMedicineStatsController(req, res) {
 }
 
 // server/routes/adminRoutes.ts
-var import_fs9 = __toESM(require("fs"));
-var import_path9 = __toESM(require("path"));
+var import_fs8 = __toESM(require("fs"));
+var import_path8 = __toESM(require("path"));
 var adminRouter = (0, import_express2.Router)();
-var syncFile6 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile6 = import_path8.default.resolve(process.cwd(), ".sync_data.json");
 var MASTER_PASSWORD2 = process.env.MASTER_PASSWORD || "Ami7788!@";
 var EMERGENCY_RECOVERY_KEY2 = process.env.EMERGENCY_RECOVERY_KEY || "03082003";
 var APP_VERSION = "v4.3.0";
@@ -6251,8 +5253,8 @@ data: ${JSON.stringify({
 }
 function getLocalFallbackData() {
   try {
-    if (import_fs9.default.existsSync(syncFile6)) {
-      return JSON.parse(import_fs9.default.readFileSync(syncFile6, "utf-8"));
+    if (import_fs8.default.existsSync(syncFile6)) {
+      return JSON.parse(import_fs8.default.readFileSync(syncFile6, "utf-8"));
     }
   } catch (e) {
   }
@@ -6260,7 +5262,7 @@ function getLocalFallbackData() {
 }
 function saveLocalFallbackData(data) {
   try {
-    import_fs9.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
+    import_fs8.default.writeFileSync(syncFile6, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to write local fallback data:", e);
   }
@@ -6331,8 +5333,8 @@ adminRouter.get("/database/export/:tableName", exportTableDataController);
 adminRouter.get("/database/sql-dump", generateSqlDumpController);
 adminRouter.post("/database/sql-dump", generateSqlDumpController);
 adminRouter.get("/database/schema-download", (req, res) => {
-  const schemaPath = import_path9.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs9.default.existsSync(schemaPath)) {
+  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs8.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -6340,8 +5342,8 @@ adminRouter.get("/database/schema-download", (req, res) => {
   return res.status(404).send("Schema file not found");
 });
 adminRouter.get("/schema-download", (req, res) => {
-  const schemaPath = import_path9.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
-  if (import_fs9.default.existsSync(schemaPath)) {
+  const schemaPath = import_path8.default.resolve(process.cwd(), "server/db/mbi_inventra_master_schema.sql");
+  if (import_fs8.default.existsSync(schemaPath)) {
     res.setHeader("Content-Type", "application/sql");
     res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_master_schema.sql"');
     return res.sendFile(schemaPath);
@@ -6352,8 +5354,8 @@ adminRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(`
+      const pool = getMariaDbPool();
+      const rows = await pool.query(`
         SELECT 
           t.id AS tenant_id,
           t.name AS store_name,
@@ -6465,8 +5467,8 @@ adminRouter.get("/tenants/:id/staff-and-devices", async (req, res) => {
     const { id } = req.params;
     let staffList = [];
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(
+      const pool = getMariaDbPool();
+      const rows = await pool.query(
         "SELECT * FROM mbi_users WHERE tenant_id = ? ORDER BY is_primary_owner DESC, created_at ASC",
         [id]
       );
@@ -6505,8 +5507,8 @@ adminRouter.get("/tenants/:id/staff-and-devices", async (req, res) => {
     }
     let tenantInfo = null;
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query("SELECT * FROM mbi_tenants WHERE id = ?", [id]);
+      const pool = getMariaDbPool();
+      const rows = await pool.query("SELECT * FROM mbi_tenants WHERE id = ?", [id]);
       if (Array.isArray(rows) && rows.length > 0) {
         tenantInfo = rows[0];
       }
@@ -6539,8 +5541,8 @@ adminRouter.post("/tenants/:id/plan", async (req, res) => {
     } catch (sqErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         "UPDATE mbi_tenants SET plan = ?, subscription_plan = ?, plan_id = ?, updated_at = ? WHERE id = ?",
         [targetPlan, targetPlan, targetPlan, (/* @__PURE__ */ new Date()).toISOString(), id]
       );
@@ -6592,8 +5594,8 @@ var handleSaveTenantFeatures = async (req, res) => {
     }
     const featuresJson = JSON.stringify(features);
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(`
+      const pool = getMariaDbPool();
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS mbi_settings (
           id VARCHAR(255) PRIMARY KEY,
           tenant_id VARCHAR(255) NOT NULL,
@@ -6604,13 +5606,13 @@ var handleSaveTenantFeatures = async (req, res) => {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
       const settingId = `set_${id}_granular_features_matrix`;
-      await pool2.query(`
+      await pool.query(`
         INSERT INTO mbi_settings (id, tenant_id, setting_key, setting_value, updated_at)
         VALUES (?, ?, 'granular_features_matrix', ?, NOW())
         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW();
       `, [settingId, id, featuresJson]);
       try {
-        await pool2.query(
+        await pool.query(
           "UPDATE mbi_tenants SET features_json = ?, updated_at = NOW() WHERE id = ?",
           [featuresJson, id]
         );
@@ -6677,8 +5679,8 @@ adminRouter.post("/tenants/:id/storage-limit", async (req, res) => {
     const { storageLimitMb } = req.body;
     const limit = Number(storageLimitMb || 5e3);
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         "UPDATE mbi_tenants SET storage_limit_mb = ?, updated_at = ? WHERE id = ?",
         [limit, (/* @__PURE__ */ new Date()).toISOString(), id]
       );
@@ -6738,12 +5740,12 @@ adminRouter.post("/tenants/:id/extend-license", async (req, res) => {
     else if (typeof customDays === "number") daysToAdd = customDays;
     const newExpiry = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         'UPDATE mbi_tenants SET trial_expiry_date = ?, trial_expires_at = ?, status = "Active", updated_at = ? WHERE id = ?',
         [newExpiry, newExpiry, (/* @__PURE__ */ new Date()).toISOString(), id]
       );
-      await pool2.query(
+      await pool.query(
         'UPDATE mbi_licenses SET expiry_date = ?, status = "ACTIVE", updated_at = ? WHERE client_name = ? OR tenant_id = ?',
         [newExpiry, (/* @__PURE__ */ new Date()).toISOString(), id, id]
       );
@@ -6789,11 +5791,11 @@ adminRouter.post("/tenants/:id/extend-license", async (req, res) => {
 });
 async function handleGetDeviceBindings(req, res) {
   try {
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     const bindings = [];
     let dbLicenses = [];
     try {
-      const [rows] = await pool2.query(
+      const [rows] = await pool.query(
         `SELECT id, tenant_id, license_key, client_name, owner_name, plan, status, max_devices, bound_hardware_ids, updated_at 
          FROM mbi_licenses ORDER BY updated_at DESC;`
       );
@@ -6879,10 +5881,10 @@ async function handleDeviceMasterAction(req, res) {
     const cleanHwid = (hwid || deviceId || "").trim().toUpperCase();
     const cleanKey = (licenseKey || "").trim().toUpperCase();
     const cleanTenant = (tenantId || "").trim();
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     let licenseRecord = null;
     try {
-      const [rows] = await pool2.query(
+      const [rows] = await pool.query(
         `SELECT * FROM mbi_licenses 
          WHERE UPPER(license_key) = ? OR tenant_id = ? OR id = ? OR bound_hardware_ids LIKE ? 
          ORDER BY created_at DESC LIMIT 1`,
@@ -6921,7 +5923,7 @@ async function handleDeviceMasterAction(req, res) {
         }
         if (licenseRecord?.id) {
           try {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses 
                SET bound_hardware_ids = ?, max_devices = ?, status = 'Active', updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?`,
@@ -6937,7 +5939,7 @@ async function handleDeviceMasterAction(req, res) {
         boundList = boundList.filter((id) => id.toUpperCase() !== cleanHwid);
         if (licenseRecord?.id) {
           try {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses 
                SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?`,
@@ -6953,7 +5955,7 @@ async function handleDeviceMasterAction(req, res) {
         currentMaxDevices += 1;
         if (licenseRecord?.id) {
           try {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses 
                SET max_devices = ?, updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?`,
@@ -6969,7 +5971,7 @@ async function handleDeviceMasterAction(req, res) {
         boundList = boundList.filter((id) => id.toUpperCase() !== cleanHwid);
         if (licenseRecord?.id) {
           try {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses 
                SET bound_hardware_ids = ?, status = 'Active', updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?`,
@@ -7059,8 +6061,8 @@ adminRouter.get("/tenants/:id/private-panel-config", async (req, res) => {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query(
+      const pool = getMariaDbPool();
+      const rows = await pool.query(
         'SELECT settings_json FROM mbi_settings WHERE tenant_id = ? OR tenant_id = "default"',
         [id]
       );
@@ -7094,8 +6096,8 @@ adminRouter.put("/tenants/:id/private-panel-config", async (req, res) => {
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         `INSERT INTO mbi_settings (id, tenant_id, settings_json, updated_at) 
          VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE settings_json = JSON_SET(COALESCE(settings_json, '{}'), '$.privatePanelConfig', ?), updated_at = ?`,
@@ -7156,8 +6158,8 @@ adminRouter.post("/tenants/:tenantId/staff/:userId/toggle-status", async (req, r
     const { status } = req.body;
     const newStatus = status || "Active";
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_users SET status = ?, updated_at = ? WHERE id = ?", [
+      const pool = getMariaDbPool();
+      await pool.query("UPDATE mbi_users SET status = ?, updated_at = ? WHERE id = ?", [
         newStatus,
         (/* @__PURE__ */ new Date()).toISOString(),
         userId
@@ -7188,8 +6190,8 @@ adminRouter.post("/tenants/:tenantId/staff/:userId/reset-passcode", async (req, 
     const { passcode } = req.body;
     const newPasscode = passcode || "1234";
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_users SET passcode = ?, updated_at = NOW() WHERE id = ?", [
+      const pool = getMariaDbPool();
+      await pool.query("UPDATE mbi_users SET passcode = ?, updated_at = NOW() WHERE id = ?", [
         newPasscode,
         userId
       ]);
@@ -7220,12 +6222,12 @@ adminRouter.post("/users/update-credentials", async (req, res) => {
     }
     const newPasscode = (passcode || password || "1234").toString().trim();
     const newPassword = (password || passcode || "1234").toString().trim();
-    const isDb = await isMariaDbAvailable();
+    const isDb = await isMariaDbAvailable2();
     if (isDb) {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       try {
         if (userId) {
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_users 
              SET passcode = ?, 
                  email = COALESCE(?, email), 
@@ -7234,7 +6236,7 @@ adminRouter.post("/users/update-credentials", async (req, res) => {
              WHERE id = ? OR (tenant_id = ? AND role = 'Owner');`,
             [newPasscode, email || null, role || null, userId, tenantId || ""]
           );
-          await pool2.query(
+          await pool.query(
             `UPDATE users 
              SET password = ?, 
                  email = COALESCE(?, email), 
@@ -7244,7 +6246,7 @@ adminRouter.post("/users/update-credentials", async (req, res) => {
             [newPassword, email || null, role || null, userId, tenantId || ""]
           );
         } else if (tenantId) {
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_users 
              SET passcode = ?, 
                  email = COALESCE(?, email), 
@@ -7253,7 +6255,7 @@ adminRouter.post("/users/update-credentials", async (req, res) => {
              WHERE tenant_id = ? AND (role = 'Owner' OR is_primary_owner = 1);`,
             [newPasscode, email || null, role || null, tenantId]
           );
-          await pool2.query(
+          await pool.query(
             `UPDATE users 
              SET password = ?, 
                  email = COALESCE(?, email), 
@@ -7299,8 +6301,8 @@ adminRouter.post("/tenants/:tenantId/staff/:userId/kill-switch", async (req, res
     const { killSwitch } = req.body;
     const isKillActive = Boolean(killSwitch);
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = ? WHERE id = ?", [
+      const pool = getMariaDbPool();
+      await pool.query("UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = ? WHERE id = ?", [
         isKillActive ? 1 : 0,
         isKillActive ? "Suspended" : "Active",
         (/* @__PURE__ */ new Date()).toISOString(),
@@ -7372,8 +6374,8 @@ adminRouter.post("/tenants/:tenantId/devices/transfer-slot", async (req, res) =>
       return res.status(400).json({ success: false, error: "New HWID is required for slot transfer" });
     }
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         "UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = ? WHERE client_name = ? OR tenant_id = ?",
         [JSON.stringify([newHwid]), (/* @__PURE__ */ new Date()).toISOString(), tenantId, tenantId]
       );
@@ -7419,13 +6421,13 @@ adminRouter.post("/tenants/:id/features", async (req, res) => {
   }
   const featuresJson = JSON.stringify(features);
   try {
-    const pool2 = getMariaDbPool();
-    await pool2.query("UPDATE mbi_tenants SET features_json = ?, updated_at = ? WHERE id = ?", [
+    const pool = getMariaDbPool();
+    await pool.query("UPDATE mbi_tenants SET features_json = ?, updated_at = ? WHERE id = ?", [
       featuresJson,
       (/* @__PURE__ */ new Date()).toISOString(),
       id
     ]);
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_settings (id, tenant_id, category, settings_json, updated_at)
        VALUES (?, ?, '173_feature_matrix', ?, ?)
        ON DUPLICATE KEY UPDATE settings_json = VALUES(settings_json), updated_at = VALUES(updated_at)`,
@@ -7471,13 +6473,13 @@ adminRouter.put("/tenants/:id/features", async (req, res) => {
     }
     const featuresJson = JSON.stringify(features);
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_tenants SET features_json = ?, updated_at = ? WHERE id = ?", [
+      const pool = getMariaDbPool();
+      await pool.query("UPDATE mbi_tenants SET features_json = ?, updated_at = ? WHERE id = ?", [
         featuresJson,
         (/* @__PURE__ */ new Date()).toISOString(),
         id
       ]);
-      await pool2.query(
+      await pool.query(
         `INSERT INTO mbi_settings (id, tenant_id, category, settings_json, updated_at)
          VALUES (?, ?, '173_feature_matrix', ?, ?)
          ON DUPLICATE KEY UPDATE settings_json = VALUES(settings_json), updated_at = VALUES(updated_at)`,
@@ -7529,8 +6531,8 @@ adminRouter.post("/tenants/:id/lock", async (req, res) => {
     } catch (sqErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = ? WHERE id = ?", [
+      const pool = getMariaDbPool();
+      await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = ? WHERE id = ?", [
         newStatus,
         (/* @__PURE__ */ new Date()).toISOString(),
         id
@@ -7567,8 +6569,8 @@ adminRouter.post("/impersonate/:tenantId", async (req, res) => {
     const { tenantId } = req.params;
     let storeName = "Target Pharmacy Store";
     try {
-      const pool2 = getMariaDbPool();
-      const rows = await pool2.query("SELECT id, name FROM mbi_tenants WHERE id = ?", [tenantId]);
+      const pool = getMariaDbPool();
+      const rows = await pool.query("SELECT id, name FROM mbi_tenants WHERE id = ?", [tenantId]);
       if (Array.isArray(rows) && rows.length > 0) {
         storeName = rows[0].name;
       }
@@ -7928,10 +6930,10 @@ adminRouter.post("/impersonate/:id", (req, res) => {
 adminRouter.get("/licenses", async (req, res) => {
   try {
     let licenses = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(`
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(`
           SELECT 
             l.id,
             l.tenant_id,
@@ -8027,16 +7029,16 @@ adminRouter.post("/licenses/create", async (req, res) => {
     const licenseKey = `MBI-${cleanTier.substring(0, 2).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const now = /* @__PURE__ */ new Date();
     const expiryDate = years >= 99 ? "2099-12-31" : new Date(now.getTime() + years * 365 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(`
+        const pool = getMariaDbPool();
+        await pool.query(`
           INSERT INTO mbi_licenses (
             id, tenant_id, license_key, client_name, owner_name, phone, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', CURRENT_DATE, ?, ?, '[]')
           ON DUPLICATE KEY UPDATE status = 'Active', expiry_date = VALUES(expiry_date);
         `, [licenseId, tenantId, licenseKey, cleanPharmacyName, cleanOwnerName, cleanOwnerContact, cleanTier, expiryDate, terminals]);
-        await pool2.query(`
+        await pool.query(`
           INSERT INTO mbi_tenants (
             id, tenant_id, name, owner_name, owner_phone, plan, plan_id, status
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active')
@@ -8093,19 +7095,19 @@ adminRouter.post("/licenses/action", async (req, res) => {
     return res.status(400).json({ success: false, error: "action is required" });
   }
   try {
-    const isDb = await isMariaDbAvailable();
-    const pool2 = isDb ? getMariaDbPool() : null;
+    const isDb = await isMariaDbAvailable2();
+    const pool = isDb ? getMariaDbPool() : null;
     if (action === "extend_days") {
       const targetExpiry = expiryDate ? expiryDate : days === "lifetime" || Number(days) >= 3e4 ? "2099-12-31" : new Date(Date.now() + (Number(days) || 30) * 864e5).toISOString().split("T")[0];
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`
+          await pool.query(`
             UPDATE mbi_licenses 
             SET expiry_date = ?, status = 'Active', updated_at = NOW()
             WHERE license_key = ? OR tenant_id = ? OR client_name = ?
           `, [targetExpiry, licenseKey, tenantId || licenseKey, licenseKey]);
           if (tenantId || licenseKey) {
-            await pool2.query(`
+            await pool.query(`
               UPDATE mbi_tenants 
               SET trial_expiry_date = ?, trial_expires_at = ?, status = 'Active', updated_at = NOW()
               WHERE id = ? OR tenant_id = ? OR name = ?
@@ -8207,9 +7209,9 @@ adminRouter.post("/licenses/action", async (req, res) => {
       } catch (sqErr) {
         console.warn("[SQLite Update Plan Suite Error]", sqErr);
       }
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`
+          await pool.query(`
             UPDATE mbi_tenants 
             SET plan = ?, plan_id = ?, status = ?, trial_expiry_date = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
                 max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
@@ -8236,13 +7238,13 @@ adminRouter.post("/licenses/action", async (req, res) => {
             targetName,
             targetName
           ]);
-          await pool2.query(`
+          await pool.query(`
             UPDATE mbi_licenses 
             SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = NOW()
             WHERE license_key = ? OR tenant_id = ?
           `, [cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic2, targetTid2]);
           if (cleanStatus === "Suspended" || cleanStatus === "Active") {
-            await pool2.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid2]);
+            await pool.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid2]);
           }
         } catch (dbErr) {
           console.warn("[DB Update Plan Suite Error]", dbErr);
@@ -8294,11 +7296,11 @@ adminRouter.post("/licenses/action", async (req, res) => {
         }
       } catch (sqErr) {
       }
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`UPDATE mbi_licenses SET status = 'Suspended', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
-          await pool2.query(`UPDATE mbi_tenants SET status = 'Suspended', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
-          await pool2.query(`UPDATE mbi_users SET status = 'Suspended', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
+          await pool.query(`UPDATE mbi_licenses SET status = 'Suspended', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
+          await pool.query(`UPDATE mbi_tenants SET status = 'Suspended', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
+          await pool.query(`UPDATE mbi_users SET status = 'Suspended', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
         } catch (dbErr) {
         }
       }
@@ -8326,11 +7328,11 @@ adminRouter.post("/licenses/action", async (req, res) => {
         }
       } catch (sqErr) {
       }
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`UPDATE mbi_licenses SET status = 'Active', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
-          await pool2.query(`UPDATE mbi_tenants SET status = 'Active', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
-          await pool2.query(`UPDATE mbi_users SET status = 'Active', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
+          await pool.query(`UPDATE mbi_licenses SET status = 'Active', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
+          await pool.query(`UPDATE mbi_tenants SET status = 'Active', updated_at = NOW() WHERE id = ? OR tenant_id = ?`, [targetTid, targetTid]);
+          await pool.query(`UPDATE mbi_users SET status = 'Active', updated_at = NOW() WHERE tenant_id = ?`, [targetTid]);
         } catch (dbErr) {
         }
       }
@@ -8354,9 +7356,9 @@ adminRouter.post("/licenses/action", async (req, res) => {
         masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(targetTid);
       } catch (sqErr) {
       }
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`UPDATE mbi_licenses SET bound_hardware_ids = '[]', bound_hwid = NULL, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
+          await pool.query(`UPDATE mbi_licenses SET bound_hardware_ids = '[]', bound_hwid = NULL, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?`, [targetLic, targetTid]);
         } catch (dbErr) {
         }
       }
@@ -8373,9 +7375,9 @@ adminRouter.post("/licenses/action", async (req, res) => {
       return res.json({ success: true, message: "Hardware fingerprint cleared. New PC can now bind." });
     }
     if (action === "grant_terminal_slot") {
-      if (pool2) {
+      if (pool) {
         try {
-          await pool2.query(`UPDATE mbi_licenses SET max_devices = COALESCE(max_devices, 1) + 1, updated_at = NOW() WHERE license_key = ?`, [licenseKey]);
+          await pool.query(`UPDATE mbi_licenses SET max_devices = COALESCE(max_devices, 1) + 1, updated_at = NOW() WHERE license_key = ?`, [licenseKey]);
         } catch (dbErr) {
         }
       }
@@ -8395,9 +7397,9 @@ adminRouter.post("/licenses/action", async (req, res) => {
 });
 
 // server/controllers/authController.ts
-var import_fs10 = __toESM(require("fs"));
-var import_path10 = __toESM(require("path"));
-var syncFile7 = import_path10.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs9 = __toESM(require("fs"));
+var import_path9 = __toESM(require("path"));
+var syncFile7 = import_path9.default.resolve(process.cwd(), ".sync_data.json");
 var activeDevicesRegistry = /* @__PURE__ */ new Map();
 async function loginController(req, res) {
   try {
@@ -8438,10 +7440,10 @@ async function loginController(req, res) {
       }
     } catch (sqliteErr) {
     }
-    if (!authenticatedUser && await isMariaDbAvailable()) {
+    if (!authenticatedUser && await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT * FROM mbi_users 
            WHERE (email_or_phone = ? OR name = ? OR username = ? OR email = ? OR phone = ?) 
              AND (passcode = ?) 
@@ -8469,9 +7471,9 @@ async function loginController(req, res) {
       } catch (e) {
       }
     }
-    if (!authenticatedUser && import_fs10.default.existsSync(syncFile7)) {
+    if (!authenticatedUser && import_fs9.default.existsSync(syncFile7)) {
       try {
-        const syncData = JSON.parse(import_fs10.default.readFileSync(syncFile7, "utf-8"));
+        const syncData = JSON.parse(import_fs9.default.readFileSync(syncFile7, "utf-8"));
         const candidateLists = [
           ...syncData.mbi_users || [],
           ...syncData.appUsers || [],
@@ -8504,10 +7506,10 @@ async function loginController(req, res) {
       return;
     }
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || "tenant_main_pharmacy";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [tenantRows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [tenantRows] = await pool.query(
           `SELECT status, is_active FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
           [tenantId, tenantId]
         );
@@ -8550,14 +7552,14 @@ async function loginController(req, res) {
     if (isMariaDbConnected()) {
       setImmediate(async () => {
         try {
-          const pool2 = getMariaDbPool();
-          pool2.execute(
+          const pool = getMariaDbPool();
+          pool.execute(
             "UPDATE mbi_users SET is_online = 1, last_login_at = CURRENT_TIMESTAMP WHERE id = ?;",
             [authenticatedUser.id]
           ).catch(() => {
           });
           if (clientHwid) {
-            pool2.query(
+            pool.query(
               `UPDATE mbi_licenses 
                SET bound_hwid = ?,
                    bound_hardware_ids = ?,
@@ -8566,7 +7568,7 @@ async function loginController(req, res) {
               [clientHwid, JSON.stringify([clientHwid]), tenantId, tenantId, tenantId]
             ).catch(() => {
             });
-            pool2.query(
+            pool.query(
               `UPDATE mbi_users 
                SET bound_hwid = ?, updated_at = CURRENT_TIMESTAMP 
                WHERE id = ?;`,
@@ -8734,9 +7736,9 @@ async function registerTrialController(req, res) {
     if (isMariaDbConnected()) {
       setImmediate(async () => {
         try {
-          const pool2 = getMariaDbPool();
+          const pool = getMariaDbPool();
           try {
-            await pool2.query(
+            await pool.query(
               `INSERT INTO mbi_licenses (
                  id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
                  issue_date, expiry_date, max_devices, bound_hwid, bound_hardware_ids
@@ -8753,7 +7755,7 @@ async function registerTrialController(req, res) {
               [licenseId, tenantId, generatedKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, clientHwid, JSON.stringify([clientHwid])]
             );
           } catch {
-            await pool2.query(
+            await pool.query(
               `INSERT INTO mbi_licenses (
                  id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, 
                  issue_date, expiry_date, max_devices, bound_hardware_ids
@@ -8770,7 +7772,7 @@ async function registerTrialController(req, res) {
             ).catch(() => {
             });
           }
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_tenants (
                id, tenant_id, organization_id, name, city, owner_name, owner_email, owner_phone, contact_phone, contact_email, 
                plan, plan_id, status, subscription_plan, subscription_status, storage_limit_mb, trial_expires_at, is_active, created_at, updated_at
@@ -8793,7 +7795,7 @@ async function registerTrialController(req, res) {
           ).catch((err) => {
             console.warn("[REGISTER TENANT DB NOTICE]:", err?.message);
           });
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_users (
                id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, is_online, status, is_kill_switch_active, created_at, updated_at
              ) VALUES (
@@ -8811,7 +7813,7 @@ async function registerTrialController(req, res) {
             console.warn("[REGISTER USER DB NOTICE]:", err?.message);
           });
           const leadId = `lead_${Date.now()}`;
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_registration_leads (
                id, store_name, owner_name, username, phone, email, city, requested_plan, status, is_approved, activation_key, submitted_at, activated_at
              ) VALUES (
@@ -8826,7 +7828,7 @@ async function registerTrialController(req, res) {
           ).catch(() => {
           });
           const deviceId2 = `dev_${userId}_${clientHwid.slice(-6)}`;
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_devices (
                id, tenant_id, user_id, device_name, device_type, platform, browser_info, os, hwid, installation_id, authorization_key, status, first_authorized_at, last_seen_at
              ) VALUES (
@@ -8908,8 +7910,8 @@ async function registerTrialController(req, res) {
     };
     try {
       let syncData = {};
-      if (import_fs10.default.existsSync(syncFile7)) {
-        const raw = import_fs10.default.readFileSync(syncFile7, "utf-8");
+      if (import_fs9.default.existsSync(syncFile7)) {
+        const raw = import_fs9.default.readFileSync(syncFile7, "utf-8");
         syncData = JSON.parse(raw);
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
@@ -8928,18 +7930,18 @@ async function registerTrialController(req, res) {
       syncData.appUsers.push(newUser);
       syncData.registration_leads.push(newLead);
       syncData.mbi_registration_leads.push(newLead);
-      import_fs10.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs9.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (fsErr) {
     }
     try {
-      const masterUsersFile2 = import_path10.default.resolve(process.cwd(), ".master_users.json");
+      const masterUsersFile2 = import_path9.default.resolve(process.cwd(), ".master_users.json");
       let masterUsers = [];
-      if (import_fs10.default.existsSync(masterUsersFile2)) {
-        masterUsers = JSON.parse(import_fs10.default.readFileSync(masterUsersFile2, "utf-8"));
+      if (import_fs9.default.existsSync(masterUsersFile2)) {
+        masterUsers = JSON.parse(import_fs9.default.readFileSync(masterUsersFile2, "utf-8"));
       }
       masterUsers = masterUsers.filter((u) => u.id !== userId);
       masterUsers.push(newUser);
-      import_fs10.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
+      import_fs9.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
     } catch (muErr) {
     }
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
@@ -9096,8 +8098,8 @@ tenantRouter.get("/features", async (req, res) => {
     } catch (sqliteErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
-      const [settingsRows] = await pool2.query(
+      const pool = getMariaDbPool();
+      const [settingsRows] = await pool.query(
         'SELECT setting_value FROM mbi_settings WHERE tenant_id = ? AND setting_key = "granular_features_matrix" LIMIT 1;',
         [tenantId]
       );
@@ -9189,7 +8191,7 @@ tenantRouter.post("/sync-operation", async (req, res) => {
       }
     }
     if (payload && entityType) {
-      await syncRecordToMariaDb2(entityType, payload, tenantId);
+      await syncRecordToMariaDb3(entityType, payload, tenantId);
     }
     res.json({
       success: true,
@@ -9216,7 +8218,7 @@ tenantRouter.post("/sync-batch", async (req, res) => {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     for (const op of operations) {
       if (op && op.entityType && (op.payload || op.data)) {
-        await syncRecordToMariaDb2(op.entityType, op.payload || op.data, String(tenantId));
+        await syncRecordToMariaDb3(op.entityType, op.payload || op.data, String(tenantId));
       }
     }
     const results = operations.map((op) => ({
@@ -9241,8 +8243,8 @@ var import_express5 = require("express");
 
 // server/services/aiAssistantService.ts
 var import_genai = require("@google/genai");
-var import_fs11 = __toESM(require("fs"));
-var import_path11 = __toESM(require("path"));
+var import_fs10 = __toESM(require("fs"));
+var import_path10 = __toESM(require("path"));
 
 // server/controllers/aiDataQueryEngine.ts
 var PAKISTANI_MEDICINE_GENERICS = {
@@ -9331,11 +8333,11 @@ var INITIAL_KEYS = [
   "AQ.Ab8RN6L0k5gS_ygV9Vr4N0gNbSw99uvgMqZoYJp4_DYX-dMbWQ",
   "AQ.Ab8RN6IhctgzNIM2bMcMuF6jbSgye6yXsS9VAW5aJMCJJcOSqw"
 ];
-var CONFIG_FILE = import_path11.default.resolve(process.cwd(), ".ai_assistant_config.json");
-var LEADS_FILE = import_path11.default.resolve(process.cwd(), ".ai_support_leads.json");
-var CLICKS_FILE = import_path11.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
-var SESSIONS_FILE = import_path11.default.resolve(process.cwd(), ".ai_chat_sessions.json");
-var ARCHIVED_SESSIONS_FILE = import_path11.default.resolve(process.cwd(), ".ai_chat_sessions_archived.json");
+var CONFIG_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_config.json");
+var LEADS_FILE = import_path10.default.resolve(process.cwd(), ".ai_support_leads.json");
+var CLICKS_FILE = import_path10.default.resolve(process.cwd(), ".ai_assistant_telemetry.json");
+var SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions.json");
+var ARCHIVED_SESSIONS_FILE = import_path10.default.resolve(process.cwd(), ".ai_chat_sessions_archived.json");
 var keyHealthStats = {};
 function getOrInitKeyStat(key) {
   if (!keyHealthStats[key]) {
@@ -9355,8 +8357,8 @@ function deleteKeyStat(key) {
 }
 function loadSettings() {
   try {
-    if (import_fs11.default.existsSync(CONFIG_FILE)) {
-      const data = JSON.parse(import_fs11.default.readFileSync(CONFIG_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(import_fs10.default.readFileSync(CONFIG_FILE, "utf-8"));
       return {
         isAiEnabledGlobally: data.isAiEnabledGlobally ?? true,
         allowedPlans: data.allowedPlans ?? { basic: true, business: true, enterprise: true },
@@ -9382,15 +8384,15 @@ function saveSettings(settings) {
   try {
     const current = loadSettings();
     const updated = { ...current, ...settings };
-    import_fs11.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI settings config:", err);
   }
 }
 function loadLeads() {
   try {
-    if (import_fs11.default.existsSync(LEADS_FILE)) {
-      return JSON.parse(import_fs11.default.readFileSync(LEADS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(LEADS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(LEADS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI leads:", err);
@@ -9399,7 +8401,7 @@ function loadLeads() {
 }
 function saveLeads(leads) {
   try {
-    import_fs11.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI leads:", err);
   }
@@ -9431,8 +8433,8 @@ function updateLeadStatus(id, status, notes) {
 }
 function loadClickEvents() {
   try {
-    if (import_fs11.default.existsSync(CLICKS_FILE)) {
-      return JSON.parse(import_fs11.default.readFileSync(CLICKS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(CLICKS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(CLICKS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI click events:", err);
@@ -9442,7 +8444,7 @@ function loadClickEvents() {
 function saveClickEvents(events) {
   try {
     const capped = events.slice(0, 2e3);
-    import_fs11.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(CLICKS_FILE, JSON.stringify(capped, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI click events:", err);
   }
@@ -9459,7 +8461,7 @@ function recordClickEvent(event) {
   if (newEvent.sessionId) {
     incrementSessionClicks(newEvent.sessionId);
   }
-  syncRecordToMariaDb("auditLogs", {
+  syncRecordToMariaDb2("auditLogs", {
     id: newEvent.id,
     tenantId: newEvent.tenantId || "default",
     userId: newEvent.userId || null,
@@ -9541,8 +8543,8 @@ var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
 var MAX_ACTIVE_SESSIONS = 20;
 function loadArchivedChatSessions() {
   try {
-    if (import_fs11.default.existsSync(ARCHIVED_SESSIONS_FILE)) {
-      return JSON.parse(import_fs11.default.readFileSync(ARCHIVED_SESSIONS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(ARCHIVED_SESSIONS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(ARCHIVED_SESSIONS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading archived AI chat sessions:", err);
@@ -9551,7 +8553,7 @@ function loadArchivedChatSessions() {
 }
 function saveArchivedChatSessions(archived) {
   try {
-    import_fs11.default.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(ARCHIVED_SESSIONS_FILE, JSON.stringify(archived, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving archived AI chat sessions:", err);
   }
@@ -9590,8 +8592,8 @@ function autoArchiveSessions() {
 }
 function loadChatSessionsRaw() {
   try {
-    if (import_fs11.default.existsSync(SESSIONS_FILE)) {
-      return JSON.parse(import_fs11.default.readFileSync(SESSIONS_FILE, "utf-8"));
+    if (import_fs10.default.existsSync(SESSIONS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(SESSIONS_FILE, "utf-8"));
     }
   } catch (err) {
     console.error("Error reading AI chat sessions:", err);
@@ -9600,7 +8602,7 @@ function loadChatSessionsRaw() {
 }
 function saveChatSessionsRaw(sessions) {
   try {
-    import_fs11.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
+    import_fs10.default.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving AI chat sessions:", err);
   }
@@ -10234,16 +9236,16 @@ Agar kisi specific feature ya generic medicine ke baray mein janna chahein to za
 }
 function getAiConfigStatus() {
   const settings = loadSettings();
-  const pool2 = getKeyPool();
-  const keyHealthMetrics = pool2.map((k) => getOrInitKeyStat(k));
+  const pool = getKeyPool();
+  const keyHealthMetrics = pool.map((k) => getOrInitKeyStat(k));
   return {
     isAiEnabledGlobally: settings.isAiEnabledGlobally,
     allowedPlans: settings.allowedPlans,
     homePageEnabled: settings.homePageEnabled,
     autoGreeting: settings.autoGreeting,
     humanSupportNumber: settings.humanSupportNumber,
-    keyCount: pool2.length,
-    activeKeyIndex: currentKeyIndex % pool2.length,
+    keyCount: pool.length,
+    activeKeyIndex: currentKeyIndex % pool.length,
     keyHealthMetrics
   };
 }
@@ -10638,10 +9640,10 @@ aiRouter.post("/keys/remove", (req, res) => {
 
 // server/routes/fleetRoutes.ts
 var import_express6 = __toESM(require("express"));
-var import_fs12 = __toESM(require("fs"));
-var import_path12 = __toESM(require("path"));
+var import_fs11 = __toESM(require("fs"));
+var import_path11 = __toESM(require("path"));
 var fleetRouter = import_express6.default.Router();
-var syncFile8 = import_path12.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile8 = import_path11.default.resolve(process.cwd(), ".sync_data.json");
 fleetRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
@@ -10711,10 +9713,10 @@ fleetRouter.get("/tenants", async (req, res) => {
       }
     } catch (sqliteErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const rows = await pool2.query(
+        const pool = getMariaDbPool();
+        const rows = await pool.query(
           `SELECT t.*, 
             (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id) as user_count,
             (SELECT COUNT(*) FROM mbi_invoices i WHERE i.tenant_id = t.id OR i.tenant_id = t.tenant_id) as invoice_count,
@@ -10731,7 +9733,7 @@ fleetRouter.get("/tenants", async (req, res) => {
             if (!apiKey || apiKey.trim() === "") {
               apiKey = `mbi_live_sec_${(tid || "001").replace(/[^a-zA-Z0-9]/g, "")}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
               try {
-                await pool2.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
+                await pool.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
                 t.api_key = apiKey;
               } catch (e) {
               }
@@ -10783,12 +9785,12 @@ fleetRouter.get("/tenants", async (req, res) => {
           }
           try {
             let syncData = {};
-            if (import_fs12.default.existsSync(syncFile8)) {
-              syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
+            if (import_fs11.default.existsSync(syncFile8)) {
+              syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
             }
             syncData.mbi_tenants = tenants;
             syncData.tenants = tenants;
-            import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -10804,10 +9806,10 @@ fleetRouter.get("/tenants", async (req, res) => {
         console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    const masterTenantsFile = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-    if (import_fs12.default.existsSync(masterTenantsFile)) {
+    const masterTenantsFile = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+    if (import_fs11.default.existsSync(masterTenantsFile)) {
       try {
-        const fileTenants = JSON.parse(import_fs12.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
+        const fileTenants = JSON.parse(import_fs11.default.readFileSync(masterTenantsFile, "utf-8") || "[]");
         if (Array.isArray(fileTenants)) {
           for (const ft of fileTenants) {
             const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -10860,9 +9862,9 @@ fleetRouter.get("/tenants", async (req, res) => {
       } catch (e) {
       }
     }
-    if (import_fs12.default.existsSync(syncFile8)) {
+    if (import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const fallbackTenants = syncData.mbi_tenants || syncData.tenants || [];
         for (const ft of fallbackTenants) {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
@@ -11129,10 +10131,10 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       }
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const existingRows = await pool2.query(
+        const pool = getMariaDbPool();
+        const existingRows = await pool.query(
           "SELECT id, tenant_id FROM mbi_tenants WHERE (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ? AND tenant_id != ?) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ? AND id != ? AND tenant_id != ?) LIMIT 1;",
           [name || "", cleanId, cleanTenantId, owner_phone || ownerPhone || phone || "", cleanId, cleanTenantId]
         );
@@ -11142,7 +10144,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
           finalId = existingRows[0].id;
           finalTenantId = existingRows[0].tenant_id || existingRows[0].id;
         }
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expiry_date, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
@@ -11182,7 +10184,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
           ]
         );
         try {
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = VALUES(status), updated_at = CURRENT_TIMESTAMP;`,
@@ -11191,7 +10193,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
         } catch (licErr) {
         }
         try {
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
              VALUES (?, ?, ?, ?, ?, '1234', 'Owner', 1, 1, 'Active', CURRENT_TIMESTAMP)
              ON DUPLICATE KEY UPDATE name = VALUES(name), role = 'Owner', status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
@@ -11204,11 +10206,11 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       }
     }
     try {
-      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
       let localList = [];
-      if (import_fs12.default.existsSync(masterTenantsPath)) {
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
         try {
-          localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -11218,7 +10220,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       } else {
         localList.push(tenantRecord);
       }
-      import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (e) {
     }
     broadcastGlobalEvent({
@@ -11242,30 +10244,30 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
-        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_user_access_profiles WHERE tenant_id = ?;", [tenant_id]);
+        const pool = getMariaDbPool();
+        await pool.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+        await pool.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_user_access_profiles WHERE tenant_id = ?;", [tenant_id]);
       } catch (dbErr) {
         console.warn("[Tenant Delete MariaDB Error]:", dbErr);
       }
     }
     try {
-      if (import_fs12.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.mbi_tenants)) {
           syncData.mbi_tenants = syncData.mbi_tenants.filter((t) => t.id !== tenant_id && t.tenant_id !== tenant_id);
         }
         if (Array.isArray(syncData.tenants)) {
           syncData.tenants = syncData.tenants.filter((t) => t.id !== tenant_id && t.tenantId !== tenant_id);
         }
-        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11285,14 +10287,14 @@ fleetRouter.delete("/tenants/:id", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
-        await pool2.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
-        await pool2.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
+        const pool = getMariaDbPool();
+        await pool.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
+        await pool.query("DELETE FROM mbi_users WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_licenses WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
+        await pool.query("DELETE FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
       } catch (dbErr) {
       }
     }
@@ -11323,24 +10325,24 @@ fleetRouter.post("/tenants/status", async (req, res) => {
       `).run(newStatus, tid, tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
-        await pool2.query("UPDATE mbi_licenses SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
-        await pool2.query("UPDATE mbi_users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [newStatus, tid]);
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
+        await pool.query("UPDATE mbi_licenses SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
+        await pool.query("UPDATE mbi_users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [newStatus, tid]);
       } catch (dbErr) {
       }
     }
     try {
-      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(masterTenantsPath)) {
-        const list = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
         if (idx >= 0) {
           list[idx].status = newStatus;
           list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11379,28 +10381,28 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       `).run(newApiKey, tid, tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("UPDATE mbi_tenants SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newApiKey, tid, tid]);
-        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [tid]);
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newApiKey, tid, tid]);
+        await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [tid]);
         try {
-          await pool2.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tid]);
+          await pool.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tid]);
         } catch (e) {
         }
       } catch (dbErr) {
       }
     }
     try {
-      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(masterTenantsPath)) {
-        const list = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
         if (idx >= 0) {
           list[idx].api_key = newApiKey;
           list[idx].apiKey = newApiKey;
           list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11422,18 +10424,18 @@ fleetRouter.post("/keys/generate", async (req, res) => {
 fleetRouter.post("/keys/reset-hwid", async (req, res) => {
   try {
     const { tenantId, licenseKey } = req.body;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
+        const pool = getMariaDbPool();
         if (tenantId) {
-          await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE tenant_id = ?;", [tenantId]);
+          await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE tenant_id = ?;", [tenantId]);
           try {
-            await pool2.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tenantId]);
+            await pool.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tenantId]);
           } catch (e) {
           }
         }
         if (licenseKey) {
-          await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE license_key = ?;", [licenseKey]);
+          await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE license_key = ?;", [licenseKey]);
         }
       } catch (e) {
       }
@@ -11446,19 +10448,19 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
 fleetRouter.get("/leads", async (req, res) => {
   try {
     let leads = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const rows = await pool2.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
+        const pool = getMariaDbPool();
+        const rows = await pool.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
         if (Array.isArray(rows)) {
           leads = rows;
         }
       } catch (dbErr) {
       }
     }
-    if (import_fs12.default.existsSync(syncFile8)) {
+    if (import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8"));
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8"));
         const fallbackLeads = syncData.mbi_registration_leads || syncData.registration_leads || [];
         const existingIds = new Set(leads.map((l) => l.id));
         for (const fl of fallbackLeads) {
@@ -11478,8 +10480,8 @@ fleetRouter.get("/leads", async (req, res) => {
 fleetRouter.post("/leads/approve", async (req, res) => {
   try {
     const { leadId, serialKey, plan } = req.body;
-    const pool2 = getMariaDbPool();
-    const leadRows = await pool2.query("SELECT * FROM mbi_registration_leads WHERE id = ? LIMIT 1;", [leadId]);
+    const pool = getMariaDbPool();
+    const leadRows = await pool.query("SELECT * FROM mbi_registration_leads WHERE id = ? LIMIT 1;", [leadId]);
     if (!leadRows || leadRows.length === 0) {
       res.status(404).json({ success: false, error: "Lead not found" });
       return;
@@ -11487,7 +10489,7 @@ fleetRouter.post("/leads/approve", async (req, res) => {
     const lead = leadRows[0];
     const tenantId = `tenant_${lead.phone.replace(/[^0-9]/g, "") || Date.now()}`;
     const cleanPlan = plan || lead.selected_plan || "Business";
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)
        ON DUPLICATE KEY UPDATE status = 'Active', plan = VALUES(plan);`,
@@ -11506,7 +10508,7 @@ fleetRouter.post("/leads/approve", async (req, res) => {
       ]
     );
     const userId = `usr_${Date.now()}`;
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, passcode, role, status, is_primary_admin, is_kill_switch_active)
        VALUES (?, ?, ?, ?, ?, ?, 'Primary Admin', 'Active', 1, 0)
        ON DUPLICATE KEY UPDATE passcode = VALUES(passcode), status = 'Active';`,
@@ -11520,13 +10522,13 @@ fleetRouter.post("/leads/approve", async (req, res) => {
       ]
     );
     const key = serialKey || `MBI-PRO-${Date.now().toString().slice(-6)}`;
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at)
        VALUES (?, ?, ?, ?, 'Active', 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY))
        ON DUPLICATE KEY UPDATE status = 'Active';`,
       [`lic_${Date.now()}`, tenantId, key, cleanPlan]
     );
-    await pool2.query("UPDATE mbi_registration_leads SET status = 'Approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?;", [leadId]);
+    await pool.query("UPDATE mbi_registration_leads SET status = 'Approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?;", [leadId]);
     res.json({
       success: true,
       message: `Store ${lead.store_name} successfully approved and provisioned!`,
@@ -11544,15 +10546,15 @@ fleetRouter.post("/licenses/extend", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     const expiry = newExpiryDate || new Date(Date.now() + daysToAdd * 864e5).toISOString().slice(0, 10);
-    await pool2.query(
+    await pool.query(
       `UPDATE mbi_licenses 
        SET expires_at = ?, status = 'Active', updated_at = CURRENT_TIMESTAMP 
        WHERE tenant_id = ? OR id = ?;`,
       [expiry, tenantId, tenantId]
     );
-    await pool2.query(
+    await pool.query(
       `UPDATE mbi_tenants 
        SET status = 'Active', updated_at = CURRENT_TIMESTAMP 
        WHERE tenant_id = ? OR id = ?;`,
@@ -11572,8 +10574,8 @@ fleetRouter.post("/tenants/register", async (req, res) => {
     const { storeName, ownerName, phone, email, city, plan, password } = req.body;
     const cleanTenantId = `tenant_${(phone || Date.now().toString()).replace(/[^0-9]/g, "")}`;
     const cleanPlan = plan || "Basic";
-    const pool2 = getMariaDbPool();
-    await pool2.query(
+    const pool = getMariaDbPool();
+    await pool.query(
       `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, plan, status, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', CURRENT_TIMESTAMP)
        ON DUPLICATE KEY UPDATE 
@@ -11597,7 +10599,7 @@ fleetRouter.post("/tenants/register", async (req, res) => {
       ]
     );
     const licenseKey = `MBI-TR-${Date.now().toString(36).slice(-4).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at)
        VALUES (?, ?, ?, ?, 'Active', 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 10 DAY))
        ON DUPLICATE KEY UPDATE status = 'Active';`,
@@ -11616,10 +10618,10 @@ fleetRouter.post("/tenants/register", async (req, res) => {
 fleetRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const rows = await pool2.query(
+        const pool = getMariaDbPool();
+        const rows = await pool.query(
           `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone as emailOrPhone, 
                   u.role, u.status, u.is_kill_switch_active as isKillSwitchActive, 
                   u.is_silent_monitored as isSilentMonitored, u.bound_hwid as boundHwid, 
@@ -11642,9 +10644,9 @@ fleetRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id && usersMap.has(lu.id)) {
@@ -11676,10 +10678,10 @@ fleetRouter.post("/users/save", async (req, res) => {
     const cleanId = id || `u_${Date.now()}`;
     const cleanTenantId = tenantId || "tenant_main";
     const cleanRole = role || "Cashier";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, role, status, bound_hwid, passcode_hash, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
@@ -11707,11 +10709,11 @@ fleetRouter.post("/users/save", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
       let localList = [];
-      if (import_fs12.default.existsSync(usersJsonPath)) {
+      if (import_fs11.default.existsSync(usersJsonPath)) {
         try {
-          localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+          localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         } catch (e) {
         }
       }
@@ -11735,7 +10737,7 @@ fleetRouter.post("/users/save", async (req, res) => {
       } else {
         localList.push(userRecord);
       }
-      import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
     } catch (fsErr) {
     }
     broadcastGlobalEvent({
@@ -11758,10 +10760,10 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       res.status(400).json({ success: false, error: "userId and newPasscode are required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           "UPDATE mbi_users SET passcode_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
           [newPasscode, userId]
         );
@@ -11769,14 +10771,14 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.passcode = newPasscode;
           target.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11795,10 +10797,10 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
     const { userId, isKilled } = req.body;
     const flag = isKilled ? 1 : 0;
     const statusVal = isKilled ? "Suspended" : "Active";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           "UPDATE mbi_users SET is_kill_switch_active = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
           [flag, statusVal, userId]
         );
@@ -11806,14 +10808,14 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         const target = localList.find((u) => u.id === userId);
         if (target) {
           target.status = statusVal;
           target.isKillSwitchActive = Boolean(isKilled);
-          import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -11834,19 +10836,19 @@ fleetRouter.post("/users/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "userId is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
+        const pool = getMariaDbPool();
+        await pool.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
       } catch (dbErr) {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        let localList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        let localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         localList = localList.filter((u) => u.id !== userId);
-        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11883,10 +10885,10 @@ var handlePlanUpdate = async (req, res) => {
       `).run(plan, maxUsers, expiryDate, `lic_${targetTenantId}`, targetTenantId);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `UPDATE mbi_tenants 
            SET plan = ?, subscription_plan = ?, max_devices = ?, trial_expiry_date = ?, updated_at = NOW() 
            WHERE id = ? OR tenant_id = ?;`,
@@ -11896,9 +10898,9 @@ var handlePlanUpdate = async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(tenantsJsonPath)) {
-        const tenants = JSON.parse(import_fs12.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        const tenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         const t = tenants.find((x) => x.id === targetTenantId || x.tenant_id === targetTenantId);
         if (t) {
           t.plan = plan;
@@ -11906,22 +10908,22 @@ var handlePlanUpdate = async (req, res) => {
           t.maxDevices = maxUsers;
           t.trialExpiryDate = expiryDate;
           t.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-          import_fs12.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(tenantsJsonPath, JSON.stringify(tenants, null, 2), "utf-8");
         }
       }
     } catch (e) {
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        const users = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const users = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         users.forEach((u) => {
           if (u.installationId === targetTenantId || u.tenantId === targetTenantId || u.id === targetTenantId) {
             u.plan = plan;
             u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
           }
         });
-        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(users, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -11964,7 +10966,7 @@ fleetRouter.post("/sync", async (req, res) => {
 });
 fleetRouter.get("/keys", async (req, res) => {
   try {
-    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
     const masterKey = {
       id: "key_master_live_01",
@@ -11982,10 +10984,10 @@ fleetRouter.get("/keys", async (req, res) => {
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     keysList.push(masterKey);
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const tenants = await pool2.query(
+        const pool = getMariaDbPool();
+        const tenants = await pool.query(
           `SELECT id, tenant_id, name, owner_name, api_key, plan, status, created_at, updated_at FROM mbi_tenants ORDER BY created_at DESC;`
         );
         if (Array.isArray(tenants)) {
@@ -11996,7 +10998,7 @@ fleetRouter.get("/keys", async (req, res) => {
             if (!apiKey || apiKey.trim() === "") {
               apiKey = `mbi_live_sec_${(tid || "001").replace(/[^a-zA-Z0-9]/g, "")}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
               try {
-                await pool2.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
+                await pool.query("UPDATE mbi_tenants SET api_key = ? WHERE id = ?;", [apiKey, t.id]);
                 t.api_key = apiKey;
               } catch (e) {
               }
@@ -12020,7 +11022,7 @@ fleetRouter.get("/keys", async (req, res) => {
             });
           }
           try {
-            import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+            import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
           } catch (e) {
           }
           res.json({
@@ -12036,9 +11038,9 @@ fleetRouter.get("/keys", async (req, res) => {
         console.warn("[Fleet Keys MariaDB Error - Using disk fallback]:", dbErr);
       }
     }
-    if (import_fs12.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        const fileKeys = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        const fileKeys = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
         if (Array.isArray(fileKeys) && fileKeys.length > 0) {
           keysList = fileKeys;
         }
@@ -12046,9 +11048,9 @@ fleetRouter.get("/keys", async (req, res) => {
       }
     }
     try {
-      const tenantsJsonPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(tenantsJsonPath)) {
-        const diskTenants = JSON.parse(import_fs12.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
+      const tenantsJsonPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(tenantsJsonPath)) {
+        const diskTenants = JSON.parse(import_fs11.default.readFileSync(tenantsJsonPath, "utf-8") || "[]");
         if (Array.isArray(diskTenants)) {
           for (const dt of diskTenants) {
             if (!dt) continue;
@@ -12090,10 +11092,10 @@ fleetRouter.get("/keys", async (req, res) => {
 fleetRouter.get("/licenses", async (req, res) => {
   try {
     let licenses = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const rows = await pool2.query(
+        const pool = getMariaDbPool();
+        const rows = await pool.query(
           `SELECT l.*, t.name as tenant_name, t.owner_name, t.owner_phone, t.city, t.status as tenant_status
            FROM mbi_licenses l
            LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id)
@@ -12105,9 +11107,9 @@ fleetRouter.get("/licenses", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (licenses.length === 0 && import_fs12.default.existsSync(syncFile8)) {
+    if (licenses.length === 0 && import_fs11.default.existsSync(syncFile8)) {
       try {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         licenses = syncData.client_licenses || syncData.mbi_licenses || [];
       } catch (e) {
       }
@@ -12126,10 +11128,10 @@ fleetRouter.post("/licenses/save", async (req, res) => {
     const cleanPlan = plan || "Pharmacy Pro";
     const cleanStatus = status || "Active";
     const cleanExpires = expires_at || new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
@@ -12174,20 +11176,20 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       lastUsed: "Never",
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs12.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
     keysList = [newKey, ...keysList.filter((k) => k.id !== newKey.id)];
-    import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
-    if (await isMariaDbAvailable()) {
+    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?;`,
           [newKey.apiKey, cleanTenantId, cleanTenantId]
         );
@@ -12214,11 +11216,11 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
       res.status(400).json({ success: false, error: "keyId is required" });
       return;
     }
-    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs12.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
@@ -12229,7 +11231,7 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
     }
     targetKey.status = status || (targetKey.status === "Active" ? "Revoked" : "Active");
     targetKey.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+    import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     broadcastGlobalEvent({
       type: "FLEET_API_KEY_STATUS_CHANGED",
       payload: { keyId, status: targetKey.status }
@@ -12252,19 +11254,19 @@ fleetRouter.post("/keys/verify", async (req, res) => {
       res.status(401).json({ success: false, valid: false, error: "Missing API key in Authorization header or body" });
       return;
     }
-    const keysJsonPath = import_path12.default.resolve(process.cwd(), ".fleet_api_keys.json");
+    const keysJsonPath = import_path11.default.resolve(process.cwd(), ".fleet_api_keys.json");
     let keysList = [];
-    if (import_fs12.default.existsSync(keysJsonPath)) {
+    if (import_fs11.default.existsSync(keysJsonPath)) {
       try {
-        keysList = JSON.parse(import_fs12.default.readFileSync(keysJsonPath, "utf-8") || "[]");
+        keysList = JSON.parse(import_fs11.default.readFileSync(keysJsonPath, "utf-8") || "[]");
       } catch (e) {
       }
     }
     let found = keysList.find((k) => k.apiKey === apiKey);
-    if (!found && await isMariaDbAvailable()) {
+    if (!found && await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const tenantRows = await pool2.query(
+        const pool = getMariaDbPool();
+        const tenantRows = await pool.query(
           `SELECT id, tenant_id, name, status FROM mbi_tenants WHERE api_key = ? LIMIT 1;`,
           [apiKey]
         );
@@ -12290,7 +11292,7 @@ fleetRouter.post("/keys/verify", async (req, res) => {
     }
     found.lastUsed = (/* @__PURE__ */ new Date()).toISOString();
     try {
-      import_fs12.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -12317,14 +11319,14 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
     const newTenantStatus = isLocking ? "Suspended" : "Active";
     const newUserStatus = isLocking ? "Suspended" : "Active";
     const killSwitchVal = isLocking ? 1 : 0;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? OR tenant_id = ?;`,
           [newTenantStatus, tenantId, tenantId]
         );
-        await pool2.query(
+        await pool.query(
           `UPDATE mbi_users SET status = ?, is_kill_switch_active = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;`,
           [newUserStatus, killSwitchVal, tenantId]
         );
@@ -12333,16 +11335,16 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
       }
     }
     try {
-      const usersJsonPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs12.default.existsSync(usersJsonPath)) {
-        const usersList = JSON.parse(import_fs12.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const usersList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
         usersList.forEach((u) => {
           if (u.tenant_id === tenantId || u.tenantId === tenantId || u.id?.startsWith(`usr_${tenantId}`)) {
             u.status = newUserStatus;
             u.isKillSwitchActive = isLocking;
           }
         });
-        import_fs12.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(usersList, null, 2), "utf-8");
       }
     } catch (e) {
     }
@@ -12365,9 +11367,9 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error executing cascading lock" });
   }
 });
-async function ensurePermissionsTable(pool2) {
+async function ensurePermissionsTable(pool) {
   try {
-    await pool2.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS mbi_user_access_profiles (
         id VARCHAR(255) NOT NULL,
         tenant_id VARCHAR(128) NOT NULL,
@@ -12417,11 +11419,11 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       }
     } catch (sqliteErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await ensurePermissionsTable(pool2);
-        const rows = await pool2.query(
+        const pool = getMariaDbPool();
+        await ensurePermissionsTable(pool);
+        const rows = await pool.query(
           `SELECT profile_json, effective_json, updated_at, updated_by 
            FROM mbi_user_access_profiles 
            WHERE user_id = ? OR tenant_id = ? OR id = ? OR id = ? OR id LIKE ? OR user_id LIKE ?
@@ -12444,7 +11446,7 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
           return;
         }
         if (tenantId) {
-          const tenantRows = await pool2.query(
+          const tenantRows = await pool.query(
             `SELECT features_json, updated_at FROM mbi_tenants WHERE (id = ? OR tenant_id = ?) AND features_json IS NOT NULL LIMIT 1;`,
             [tenantId, tenantId]
           );
@@ -12466,7 +11468,7 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
             }
           }
         }
-        const userRows = await pool2.query(
+        const userRows = await pool.query(
           `SELECT permissions, updated_at FROM mbi_users WHERE (id = ? OR username = ? OR tenant_id = ?) AND permissions IS NOT NULL LIMIT 1;`,
           [userId, userId, tenantId]
         );
@@ -12490,10 +11492,10 @@ fleetRouter.get("/permissions/:userId", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    const permFilePath = import_path12.default.resolve(process.cwd(), ".master_permissions.json");
-    if (import_fs12.default.existsSync(permFilePath)) {
+    const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
+    if (import_fs11.default.existsSync(permFilePath)) {
       try {
-        const store = JSON.parse(import_fs12.default.readFileSync(permFilePath, "utf-8") || "{}");
+        const store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
         const key = `${tenantId || "all"}_${userId}`;
         const record = store[key] || store[`${tenantId}_${tenantId}`] || store[tenantId] || store[userId];
         if (record && record.profile) {
@@ -12546,11 +11548,11 @@ fleetRouter.post("/permissions/save", async (req, res) => {
     } catch (sqliteErr) {
       console.warn("[SQLite Vault permissions save warning]:", sqliteErr);
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await ensurePermissionsTable(pool2);
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await ensurePermissionsTable(pool);
+        await pool.query(
           `INSERT INTO mbi_user_access_profiles (id, tenant_id, user_id, profile_json, effective_json, updated_by, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE 
@@ -12560,13 +11562,13 @@ fleetRouter.post("/permissions/save", async (req, res) => {
              updated_at = CURRENT_TIMESTAMP;`,
           [docId, cleanTenantId, cleanUserId, profileJson, effectiveJson, adminUser]
         );
-        await pool2.query(
+        await pool.query(
           `UPDATE mbi_users 
            SET permissions = ?, updated_at = CURRENT_TIMESTAMP 
            WHERE (id = ? OR username = ? OR tenant_id = ?);`,
           [profileJson, cleanUserId, cleanUserId, cleanTenantId]
         );
-        await pool2.query(
+        await pool.query(
           `UPDATE mbi_tenants 
            SET features_json = ?, updated_at = CURRENT_TIMESTAMP 
            WHERE id = ? OR tenant_id = ?;`,
@@ -12577,11 +11579,11 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       }
     }
     try {
-      const permFilePath = import_path12.default.resolve(process.cwd(), ".master_permissions.json");
+      const permFilePath = import_path11.default.resolve(process.cwd(), ".master_permissions.json");
       let store = {};
-      if (import_fs12.default.existsSync(permFilePath)) {
+      if (import_fs11.default.existsSync(permFilePath)) {
         try {
-          store = JSON.parse(import_fs12.default.readFileSync(permFilePath, "utf-8") || "{}");
+          store = JSON.parse(import_fs11.default.readFileSync(permFilePath, "utf-8") || "{}");
         } catch (e) {
         }
       }
@@ -12595,7 +11597,7 @@ fleetRouter.post("/permissions/save", async (req, res) => {
       };
       store[`${cleanTenantId}_${cleanUserId}`] = record;
       store[cleanUserId] = record;
-      import_fs12.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
+      import_fs11.default.writeFileSync(permFilePath, JSON.stringify(store, null, 2), "utf-8");
     } catch (fsErr) {
     }
     const parsedProf = typeof profile === "string" ? JSON.parse(profile) : profile;
@@ -12725,19 +11727,19 @@ fleetRouter.post("/tenants/status", async (req, res) => {
     } catch (sqErr) {
       console.warn("[SQLite Lock Status Update Error]", sqErr);
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [newStatus, tenantId, tenantId]);
-        await pool2.query("UPDATE mbi_licenses SET status = ?, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [newStatus, targetLic, tenantId]);
-        await pool2.query("UPDATE mbi_users SET status = ?, updated_at = NOW() WHERE tenant_id = ?", [newStatus, tenantId]);
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [newStatus, tenantId, tenantId]);
+        await pool.query("UPDATE mbi_licenses SET status = ?, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [newStatus, targetLic, tenantId]);
+        await pool.query("UPDATE mbi_users SET status = ?, updated_at = NOW() WHERE tenant_id = ?", [newStatus, tenantId]);
       } catch (dbErr) {
         console.warn("[MariaDB Lock Status Update Error]", dbErr);
       }
     }
     try {
-      if (import_fs12.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.tenants)) {
           const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.status = newStatus;
@@ -12746,14 +11748,14 @@ fleetRouter.post("/tenants/status", async (req, res) => {
           const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.status = newStatus;
         }
-        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
     try {
-      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(masterTenantsPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           localList.forEach((t) => {
             if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
@@ -12761,7 +11763,7 @@ fleetRouter.post("/tenants/status", async (req, res) => {
               t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
             }
           });
-          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -12806,18 +11808,18 @@ fleetRouter.post("/keys/generate", async (req, res) => {
     } catch (sqErr) {
       console.warn("[SQLite Key Regen Error]", sqErr);
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [apiKey, tenantId, tenantId]);
-        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tenantId]);
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [apiKey, tenantId, tenantId]);
+        await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tenantId]);
       } catch (dbErr) {
         console.warn("[MariaDB Key Regen Error]", dbErr);
       }
     }
     try {
-      if (import_fs12.default.existsSync(syncFile8)) {
-        const syncData = JSON.parse(import_fs12.default.readFileSync(syncFile8, "utf-8") || "{}");
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
         if (Array.isArray(syncData.tenants)) {
           const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.api_key = apiKey;
@@ -12826,14 +11828,14 @@ fleetRouter.post("/keys/generate", async (req, res) => {
           const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
           if (t) t.api_key = apiKey;
         }
-        import_fs12.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
       }
     } catch (e) {
     }
     try {
-      const masterTenantsPath = import_path12.default.resolve(process.cwd(), ".master_tenants.json");
-      if (import_fs12.default.existsSync(masterTenantsPath)) {
-        const localList = JSON.parse(import_fs12.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
         if (Array.isArray(localList)) {
           localList.forEach((t) => {
             if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
@@ -12842,7 +11844,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
               t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
             }
           });
-          import_fs12.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
         }
       }
     } catch (e) {
@@ -12876,10 +11878,10 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
       masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tid]);
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tid]);
       } catch (dbErr) {
       }
     }
@@ -12899,8 +11901,8 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));
 var import_os = __toESM(require("os"));
-var import_fs13 = __toESM(require("fs"));
-var import_path13 = __toESM(require("path"));
+var import_fs12 = __toESM(require("fs"));
+var import_path12 = __toESM(require("path"));
 var adminMasterRouter = import_express7.default.Router();
 var MASTER_PIN = process.env.MASTER_PANEL_PIN || "Ami7788!@";
 adminMasterRouter.post("/verify-pin", async (req, res) => {
@@ -12960,9 +11962,9 @@ adminMasterRouter.get("/search", async (req, res) => {
     } catch (e) {
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       try {
-        const [tenantRows] = await pool2.query(
+        const [tenantRows] = await pool.query(
           `SELECT id, tenant_id, name, owner_name, owner_phone, city, drug_license_no, ntn_number, plan, status 
            FROM mbi_tenants 
            WHERE name LIKE ? OR owner_name LIKE ? OR owner_phone LIKE ? OR city LIKE ? OR drug_license_no LIKE ? OR ntn_number LIKE ? OR tenant_id LIKE ? 
@@ -12973,7 +11975,7 @@ adminMasterRouter.get("/search", async (req, res) => {
       } catch (e) {
       }
       try {
-        const [licenseRows] = await pool2.query(
+        const [licenseRows] = await pool.query(
           `SELECT l.id, l.tenant_id, l.license_key, l.bound_hwid, l.plan, l.status, l.expires_at, t.name as tenant_name 
            FROM mbi_licenses l
            LEFT JOIN mbi_tenants t ON (l.tenant_id = t.id OR l.tenant_id = t.tenant_id)
@@ -12985,7 +11987,7 @@ adminMasterRouter.get("/search", async (req, res) => {
       } catch (e) {
       }
       try {
-        const [userRows] = await pool2.query(
+        const [userRows] = await pool.query(
           `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone, u.role, u.status, u.is_kill_switch_active, t.name as tenant_name 
            FROM mbi_users u
            LEFT JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
@@ -12997,7 +11999,7 @@ adminMasterRouter.get("/search", async (req, res) => {
       } catch (e) {
       }
       try {
-        const [logRows] = await pool2.query(
+        const [logRows] = await pool.query(
           `SELECT id, tenant_id, action, details, ip_address, created_at 
            FROM mbi_audit_logs 
            WHERE action LIKE ? OR details LIKE ? OR ip_address LIKE ? 
@@ -13011,9 +12013,9 @@ adminMasterRouter.get("/search", async (req, res) => {
     } catch (dbErr) {
     }
     try {
-      const masterUsersPath = import_path13.default.join(process.cwd(), ".master_users.json");
-      if (import_fs13.default.existsSync(masterUsersPath)) {
-        const localUsers = JSON.parse(import_fs13.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path12.default.join(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(masterUsersPath)) {
+        const localUsers = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localUsers)) {
           for (const u of localUsers) {
             const match = u.name && u.name.toLowerCase().includes(qLower) || u.emailOrPhone && u.emailOrPhone.toLowerCase().includes(qLower) || u.storeName && u.storeName.toLowerCase().includes(qLower) || u.boundHwid && u.boundHwid.toLowerCase().includes(qLower);
@@ -13083,14 +12085,14 @@ adminMasterRouter.post("/license/reset-hwid", async (req, res) => {
     } catch (sqliteErr) {
     }
     try {
-      const pool2 = getMariaDbPool();
+      const pool = getMariaDbPool();
       if (license_key) {
-        await pool2.query(
+        await pool.query(
           'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE license_key = ?;',
           [license_key]
         );
       } else {
-        await pool2.query(
+        await pool.query(
           'UPDATE mbi_licenses SET bound_hwid = NULL, status = "Active", updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;',
           [tenant_id]
         );
@@ -13099,9 +12101,9 @@ adminMasterRouter.post("/license/reset-hwid", async (req, res) => {
     }
     const target = license_key || tenant_id;
     try {
-      if (await isMariaDbAvailable()) {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+      if (await isMariaDbAvailable2()) {
+        const pool = getMariaDbPool();
+        await pool.query(
           "INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);",
           [
             `audit_${Date.now()}`,
@@ -13125,13 +12127,13 @@ adminMasterRouter.post("/license/reset-hwid", async (req, res) => {
 });
 adminMasterRouter.post("/backup/midnight-cron", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    const [tenants] = await pool2.query('SELECT tenant_id, name FROM mbi_tenants WHERE status = "Active";');
+    const pool = getMariaDbPool();
+    const [tenants] = await pool.query('SELECT tenant_id, name FROM mbi_tenants WHERE status = "Active";');
     const snapshots = [];
     for (const t of tenants) {
-      const [invCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_invoices WHERE tenant_id = ?;", [t.tenant_id]);
-      const [medCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_medicines WHERE tenant_id = ?;", [t.tenant_id]);
-      const [partyCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_parties WHERE tenant_id = ?;", [t.tenant_id]);
+      const [invCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_invoices WHERE tenant_id = ?;", [t.tenant_id]);
+      const [medCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_medicines WHERE tenant_id = ?;", [t.tenant_id]);
+      const [partyCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_parties WHERE tenant_id = ?;", [t.tenant_id]);
       const total = (invCount[0]?.c || 0) + (medCount[0]?.c || 0) + (partyCount[0]?.c || 0);
       snapshots.push({
         tenantId: t.tenant_id,
@@ -13140,7 +12142,7 @@ adminMasterRouter.post("/backup/midnight-cron", async (req, res) => {
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       });
     }
-    await pool2.query(
+    await pool.query(
       "INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);",
       [
         `cron_snap_${Date.now()}`,
@@ -13169,12 +12171,12 @@ adminMasterRouter.post("/backup/restore-latest", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    const [tRows] = await pool2.query("SELECT name FROM mbi_tenants WHERE tenant_id = ? LIMIT 1;", [tenant_id]);
+    const pool = getMariaDbPool();
+    const [tRows] = await pool.query("SELECT name FROM mbi_tenants WHERE tenant_id = ? LIMIT 1;", [tenant_id]);
     const name = tRows[0]?.name || tenant_id;
-    const [medCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
-    const [invCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
-    const [partyCount] = await pool2.query("SELECT COUNT(*) as c FROM mbi_parties WHERE tenant_id = ?;", [tenant_id]);
+    const [medCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_medicines WHERE tenant_id = ?;", [tenant_id]);
+    const [invCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_invoices WHERE tenant_id = ?;", [tenant_id]);
+    const [partyCount] = await pool.query("SELECT COUNT(*) as c FROM mbi_parties WHERE tenant_id = ?;", [tenant_id]);
     res.json({
       success: true,
       tenant_id,
@@ -13193,10 +12195,10 @@ adminMasterRouter.post("/backup/restore-latest", async (req, res) => {
 adminMasterRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT u.id, u.tenant_id, u.name, u.username, u.email_or_phone, u.email, u.phone, 
                   u.passcode, u.role, u.status, u.is_kill_switch_active, u.is_online, 
                   u.last_login_at, u.created_at,
@@ -13222,9 +12224,9 @@ adminMasterRouter.get("/users", async (req, res) => {
       }
     }
     try {
-      const masterUsersPath = import_path13.default.resolve(process.cwd(), ".master_users.json");
-      if (import_fs13.default.existsSync(masterUsersPath)) {
-        const localList = JSON.parse(import_fs13.default.readFileSync(masterUsersPath, "utf8") || "[]");
+      const masterUsersPath = import_path12.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs12.default.existsSync(masterUsersPath)) {
+        const localList = JSON.parse(import_fs12.default.readFileSync(masterUsersPath, "utf8") || "[]");
         if (Array.isArray(localList)) {
           for (const lu of localList) {
             if (lu && lu.id && !usersMap.has(lu.id)) {
@@ -13263,10 +12265,10 @@ adminMasterRouter.get("/users", async (req, res) => {
 adminMasterRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT t.*, 
             COALESCE(t.tenant_id, t.id) as tenant_id,
             (SELECT COUNT(*) FROM mbi_users u WHERE u.tenant_id = t.id OR u.tenant_id = t.tenant_id OR u.tenant_id = t.organization_id) as user_count,
@@ -13297,8 +12299,8 @@ adminMasterRouter.post("/users/kill-switch", async (req, res) => {
       return;
     }
     const state = isKillSwitchActive ? 1 : 0;
-    const pool2 = getMariaDbPool();
-    await pool2.query(
+    const pool = getMariaDbPool();
+    await pool.query(
       "UPDATE mbi_users SET is_kill_switch_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
       [state, userId]
     );
@@ -13319,8 +12321,8 @@ adminMasterRouter.post("/users/update", async (req, res) => {
       res.status(400).json({ success: false, error: "User ID is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    await pool2.query(
+    const pool = getMariaDbPool();
+    await pool.query(
       `UPDATE mbi_users 
        SET name = COALESCE(?, name),
            passcode = COALESCE(?, passcode),
@@ -13337,8 +12339,8 @@ adminMasterRouter.post("/users/update", async (req, res) => {
 });
 adminMasterRouter.get("/licenses", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    const [licenses] = await pool2.query(
+    const pool = getMariaDbPool();
+    const [licenses] = await pool.query(
       `SELECT l.*, COALESCE(t.name, l.client_name, 'Pharmacy Store') as tenant_name, t.city, t.owner_phone 
        FROM mbi_licenses l
        LEFT JOIN mbi_tenants t ON (l.tenant_id = t.tenant_id OR l.tenant_id = t.id OR l.tenant_id = t.organization_id)
@@ -13364,8 +12366,8 @@ adminMasterRouter.post("/licenses/generate", async (req, res) => {
     const serial = `MBI-${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const days = parseInt(validityDays || "365", 10);
     const terminals = parseInt(maxTerminals || "5", 10);
-    const pool2 = getMariaDbPool();
-    await pool2.query(
+    const pool = getMariaDbPool();
+    await pool.query(
       `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, bound_hwid, expires_at)
        VALUES (?, ?, ?, ?, 'Active', ?, ?, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL ? DAY));`,
       [`lic_${Date.now()}`, tenantId, serial, plan || "Business", terminals, boundHwid || null, days]
@@ -13387,10 +12389,10 @@ adminMasterRouter.post("/impersonate", async (req, res) => {
       res.status(400).json({ success: false, error: "target_tenant_id is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    const [tRows] = await pool2.query("SELECT * FROM mbi_tenants WHERE tenant_id = ? OR id = ? LIMIT 1;", [effectiveTenantId, effectiveTenantId]);
+    const pool = getMariaDbPool();
+    const [tRows] = await pool.query("SELECT * FROM mbi_tenants WHERE tenant_id = ? OR id = ? LIMIT 1;", [effectiveTenantId, effectiveTenantId]);
     const tenantObj = tRows?.[0] || { name: "Client Store", tenant_id: effectiveTenantId };
-    const [uRows] = await pool2.query(
+    const [uRows] = await pool.query(
       "SELECT * FROM mbi_users WHERE tenant_id = ? AND role LIKE '%Admin%' LIMIT 1;",
       [effectiveTenantId]
     );
@@ -13434,8 +12436,8 @@ adminMasterRouter.post("/sync-global-medicines", async (req, res) => {
       res.status(400).json({ success: false, error: "target_tenant_id is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    const [globalMeds] = await pool2.query(
+    const pool = getMariaDbPool();
+    const [globalMeds] = await pool.query(
       "SELECT * FROM mbi_medicines WHERE tenant_id = 'global' OR tenant_id = 'tenant-demo-01' LIMIT 5000;"
     );
     if (!globalMeds || globalMeds.length === 0) {
@@ -13449,7 +12451,7 @@ adminMasterRouter.post("/sync-global-medicines", async (req, res) => {
     let inserted = 0;
     for (const med of globalMeds) {
       const newId = `med_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const [insertRes] = await pool2.query(
+      const [insertRes] = await pool.query(
         `INSERT INTO mbi_medicines (
           id, tenant_id, name, generic_name, category, dosage_form, strength, manufacturer,
           barcode, item_code, purchase_price, sale_price, mrp, pack_size, min_stock, rack_location,
@@ -13503,11 +12505,11 @@ adminMasterRouter.post("/tenants/delete-wipe", async (req, res) => {
       res.status(400).json({ success: false, error: "target_tenant_id is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     if (action === "suspend") {
-      await pool2.query("UPDATE mbi_tenants SET status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("UPDATE mbi_users SET is_kill_switch_active = 1, status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("UPDATE mbi_licenses SET status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("UPDATE mbi_tenants SET status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("UPDATE mbi_users SET is_kill_switch_active = 1, status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("UPDATE mbi_licenses SET status = 'Suspended', updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [target_tenant_id]);
       res.json({
         success: true,
         action: "suspend",
@@ -13516,12 +12518,12 @@ adminMasterRouter.post("/tenants/delete-wipe", async (req, res) => {
       return;
     }
     if (action === "wipe_data") {
-      await pool2.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("DELETE FROM mbi_invoice_items WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("DELETE FROM mbi_parties WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("DELETE FROM mbi_party_transactions WHERE tenant_id = ?;", [target_tenant_id]);
-      await pool2.query("DELETE FROM mbi_expenses WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_invoices WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_invoice_items WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_inventory_batches WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_parties WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_party_transactions WHERE tenant_id = ?;", [target_tenant_id]);
+      await pool.query("DELETE FROM mbi_expenses WHERE tenant_id = ?;", [target_tenant_id]);
       res.json({
         success: true,
         action: "wipe_data",
@@ -13544,7 +12546,7 @@ adminMasterRouter.post("/tenants/delete-wipe", async (req, res) => {
       ];
       for (const tbl of tables) {
         try {
-          await pool2.query(`DELETE FROM ${tbl} WHERE tenant_id = ?;`, [target_tenant_id]);
+          await pool.query(`DELETE FROM ${tbl} WHERE tenant_id = ?;`, [target_tenant_id]);
         } catch (tblErr) {
         }
       }
@@ -13562,8 +12564,8 @@ adminMasterRouter.post("/tenants/delete-wipe", async (req, res) => {
 });
 adminMasterRouter.get("/database/diagnostics", async (req, res) => {
   try {
-    const connStatus = await testMariaDbConnection();
-    const tableStats = await getMariaDbTableStats();
+    const connStatus = await testMariaDbConnection2();
+    const tableStats = await getMariaDbTableStats2();
     res.json({
       success: true,
       database: "mbi72dn",
@@ -13585,8 +12587,8 @@ adminMasterRouter.post("/change-password", async (req, res) => {
       res.status(400).json({ success: false, error: "New password must be at least 6 characters long" });
       return;
     }
-    const pool2 = getMariaDbPool();
-    await pool2.query("UPDATE mbi_users SET passcode = ?, updated_at = CURRENT_TIMESTAMP WHERE role = 'Super Admin' OR id = 'usr_admin_01';", [newPin]);
+    const pool = getMariaDbPool();
+    await pool.query("UPDATE mbi_users SET passcode = ?, updated_at = CURRENT_TIMESTAMP WHERE role = 'Super Admin' OR id = 'usr_admin_01';", [newPin]);
     res.json({ success: true, message: "Master Passcode successfully updated across MariaDB." });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error updating master password" });
@@ -13594,8 +12596,8 @@ adminMasterRouter.post("/change-password", async (req, res) => {
 });
 adminMasterRouter.post("/emergency-lock", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    await pool2.query("UPDATE mbi_users SET is_kill_switch_active = 1 WHERE role != 'Super Admin';");
+    const pool = getMariaDbPool();
+    await pool.query("UPDATE mbi_users SET is_kill_switch_active = 1 WHERE role != 'Super Admin';");
     res.json({ success: true, message: "EMERGENCY LOCKDOWN: All cashier & staff accounts locked." });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error activating emergency lock" });
@@ -13614,8 +12616,8 @@ adminMasterRouter.post("/force-sync", async (req, res) => {
 });
 adminMasterRouter.get("/backup/export-sql", async (req, res) => {
   try {
-    const pool2 = getMariaDbPool();
-    const [tables] = await pool2.query("SHOW TABLES;");
+    const pool = getMariaDbPool();
+    const [tables] = await pool.query("SHOW TABLES;");
     const tableNames = tables.map((t) => Object.values(t)[0]);
     let dump = `-- MBI INVENTRA 4 \u2014 Master Database SQL Dump
 -- Database: mbi72dn
@@ -13623,7 +12625,7 @@ adminMasterRouter.get("/backup/export-sql", async (req, res) => {
 
 `;
     for (const tbl of tableNames) {
-      const [rows] = await pool2.query(`SELECT * FROM ${tbl} LIMIT 500;`);
+      const [rows] = await pool.query(`SELECT * FROM ${tbl} LIMIT 500;`);
       dump += `-- Table: ${tbl} (${rows.length} rows)
 `;
       if (rows.length > 0) {
@@ -13647,8 +12649,8 @@ adminMasterRouter.get("/backup/export-sql", async (req, res) => {
 adminMasterRouter.get("/tenants/feature-overrides/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
-    const pool2 = getMariaDbPool();
-    const [rows] = await pool2.query(
+    const pool = getMariaDbPool();
+    const [rows] = await pool.query(
       'SELECT data FROM mbi_settings WHERE tenant_id = ? AND `key` = "feature_overrides" LIMIT 1;',
       [tenantId]
     );
@@ -13671,9 +12673,9 @@ adminMasterRouter.post("/tenants/feature-overrides", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     const dataJson = JSON.stringify(overrides || {});
-    await pool2.query(
+    await pool.query(
       `INSERT INTO mbi_settings (id, tenant_id, \`key\`, data, updated_at)
        VALUES (?, ?, 'feature_overrides', ?, CURRENT_TIMESTAMP)
        ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = CURRENT_TIMESTAMP;`,
@@ -13704,9 +12706,9 @@ var handleCreateSupportTicket = async (req, res) => {
       return;
     }
     const ticketId = `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     try {
-      await pool2.query(
+      await pool.query(
         `INSERT INTO mbi_registration_leads (
           id, store_name, owner_name, phone, email, city, address, requested_plan, status, is_approved, notes, submitted_at
         ) VALUES (?, ?, ?, ?, ?, 'Sargodha', 'Web Client', ?, 'pending', 1, ?, CURRENT_TIMESTAMP);`,
@@ -13724,7 +12726,7 @@ var handleCreateSupportTicket = async (req, res) => {
       console.warn("[Support Ticket MariaDB Notice]", dbErr?.message);
     }
     try {
-      await pool2.query(
+      await pool.query(
         `INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address)
          VALUES (?, ?, 'mbi_ai_drawer', 'HUMAN_SUPPORT_TICKET_CREATED', ?, ?);`,
         [
@@ -13761,9 +12763,9 @@ adminMasterRouter.post("/support/create-ticket", handleCreateSupportTicket);
 adminMasterRouter.post("/create-ticket", handleCreateSupportTicket);
 var handleGetSupportTickets = async (req, res) => {
   try {
-    if (await isMariaDbAvailable()) {
-      const pool2 = getMariaDbPool();
-      const [tickets] = await pool2.query(
+    if (await isMariaDbAvailable2()) {
+      const pool = getMariaDbPool();
+      const [tickets] = await pool.query(
         `SELECT id, store_name, owner_name, phone, email, city, requested_plan, status, notes, submitted_at, updated_at
          FROM mbi_registration_leads 
          ORDER BY submitted_at DESC
@@ -13787,8 +12789,8 @@ var handleUpdateSupportTicketStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, notes } = req.body;
-    const pool2 = getMariaDbPool();
-    await pool2.query(
+    const pool = getMariaDbPool();
+    await pool.query(
       `UPDATE mbi_registration_leads 
        SET status = COALESCE(?, status),
            notes = CASE WHEN ? IS NOT NULL THEN CONCAT(COALESCE(notes, ''), ' | ', ?) ELSE notes END,
@@ -13839,17 +12841,17 @@ adminMasterRouter.get("/lan/status", async (req, res) => {
     }
     let companies = [];
     try {
-      const pool2 = getMariaDbPool();
-      const [rows] = await pool2.query(`SELECT id, tenant_id, name, city, plan, status FROM mbi_tenants LIMIT 50`);
+      const pool = getMariaDbPool();
+      const [rows] = await pool.query(`SELECT id, tenant_id, name, city, plan, status FROM mbi_tenants LIMIT 50`);
       if (Array.isArray(rows) && rows.length > 0) {
         companies = rows;
       }
     } catch (e) {
     }
     try {
-      const syncPath = import_path13.default.join(process.cwd(), ".sync_data.json");
-      if (import_fs13.default.existsSync(syncPath)) {
-        const sData = JSON.parse(import_fs13.default.readFileSync(syncPath, "utf8") || "{}");
+      const syncPath = import_path12.default.join(process.cwd(), ".sync_data.json");
+      if (import_fs12.default.existsSync(syncPath)) {
+        const sData = JSON.parse(import_fs12.default.readFileSync(syncPath, "utf8") || "{}");
         const list = [...sData.mbi_tenants || [], ...sData.tenants || [], ...sData.registration_leads || [], ...sData.mbi_registration_leads || []];
         for (const item of list) {
           const tid = item.id || item.tenantId || item.tenant_id;
@@ -13950,17 +12952,17 @@ adminMasterRouter.post("/lan/broadcast", async (req, res) => {
       expiresAt: new Date(Date.now() + 864e5 * 7).toISOString()
     };
     try {
-      const bcastHistoryPath = import_path13.default.join(process.cwd(), ".broadcast_history.json");
+      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
       let history = [];
-      if (import_fs13.default.existsSync(bcastHistoryPath)) {
+      if (import_fs12.default.existsSync(bcastHistoryPath)) {
         try {
-          history = JSON.parse(import_fs13.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+          history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
         } catch (e) {
         }
       }
       history.unshift(broadcastRecord);
       if (history.length > 50) history = history.slice(0, 50);
-      import_fs13.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
+      import_fs12.default.writeFileSync(bcastHistoryPath, JSON.stringify(history, null, 2), "utf8");
     } catch (fsErr) {
     }
     if (targetTenantId && targetTenantId !== "all") {
@@ -13975,8 +12977,8 @@ adminMasterRouter.post("/lan/broadcast", async (req, res) => {
       });
     }
     try {
-      const pool2 = getMariaDbPool();
-      await pool2.query(
+      const pool = getMariaDbPool();
+      await pool.query(
         `INSERT INTO mbi_audit_logs (tenant_id, action, details, ip_address, created_at)
          VALUES (?, ?, ?, ?, NOW());`,
         [
@@ -14003,9 +13005,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
     const userId = req.query.userId || "all";
     let history = [];
     try {
-      const bcastHistoryPath = import_path13.default.join(process.cwd(), ".broadcast_history.json");
-      if (import_fs13.default.existsSync(bcastHistoryPath)) {
-        history = JSON.parse(import_fs13.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
+      const bcastHistoryPath = import_path12.default.join(process.cwd(), ".broadcast_history.json");
+      if (import_fs12.default.existsSync(bcastHistoryPath)) {
+        history = JSON.parse(import_fs12.default.readFileSync(bcastHistoryPath, "utf8") || "[]");
       }
     } catch (e) {
     }
@@ -14027,9 +13029,9 @@ adminMasterRouter.get("/lan/active-broadcasts", async (req, res) => {
 });
 adminMasterRouter.get("/print-config", async (req, res) => {
   try {
-    const configPath = import_path13.default.join(process.cwd(), ".master_print_config.json");
-    if (import_fs13.default.existsSync(configPath)) {
-      const data = JSON.parse(import_fs13.default.readFileSync(configPath, "utf8") || "{}");
+    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
+    if (import_fs12.default.existsSync(configPath)) {
+      const data = JSON.parse(import_fs12.default.readFileSync(configPath, "utf8") || "{}");
       res.json({ success: true, config: data });
       return;
     }
@@ -14068,8 +13070,8 @@ adminMasterRouter.post("/print-config", async (req, res) => {
   try {
     const config = req.body || {};
     config.lastUpdated = (/* @__PURE__ */ new Date()).toISOString();
-    const configPath = import_path13.default.join(process.cwd(), ".master_print_config.json");
-    import_fs13.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+    const configPath = import_path12.default.join(process.cwd(), ".master_print_config.json");
+    import_fs12.default.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
     try {
       broadcastGlobalEvent({
         type: "PRINT_CONFIG_UPDATED",
@@ -14207,10 +13209,10 @@ adminMasterRouter.post("/email/broadcast-tenant", async (req, res) => {
     } else if (targetType === "tenant" && tenantId && tenantId !== "all") {
       let found = false;
       const cleanId = String(tenantId).trim();
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
-          const pool2 = getMariaDbPool();
-          const [rows] = await pool2.query(
+          const pool = getMariaDbPool();
+          const [rows] = await pool.query(
             `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
             [cleanId, cleanId]
           );
@@ -14262,10 +13264,10 @@ adminMasterRouter.post("/email/broadcast-tenant", async (req, res) => {
         }
       } catch (err) {
       }
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
-          const pool2 = getMariaDbPool();
-          const [rows] = await pool2.query(
+          const pool = getMariaDbPool();
+          const [rows] = await pool.query(
             `SELECT id, tenant_id, name, owner_name, owner_email FROM mbi_tenants WHERE status != 'Wiped';`
           );
           if (Array.isArray(rows)) {
@@ -14343,10 +13345,10 @@ adminMasterRouter.delete("/broadcasts/:id", deleteBroadcastController);
 
 // server/routes/blogRoutes.ts
 var import_express8 = __toESM(require("express"));
-var import_fs14 = __toESM(require("fs"));
-var import_path14 = __toESM(require("path"));
+var import_fs13 = __toESM(require("fs"));
+var import_path13 = __toESM(require("path"));
 var blogRouter = import_express8.default.Router();
-var BLOGS_FILE = import_path14.default.resolve(process.cwd(), ".blogs_store.json");
+var BLOGS_FILE = import_path13.default.resolve(process.cwd(), ".blogs_store.json");
 var SEED_BLOGS = [
   {
     id: "blog-inventra-expiry-conquest",
@@ -14509,8 +13511,8 @@ Experience the speed and security of MBI INVENTRA 4 with full feature access and
 ];
 function loadBlogs() {
   try {
-    if (import_fs14.default.existsSync(BLOGS_FILE)) {
-      const data = JSON.parse(import_fs14.default.readFileSync(BLOGS_FILE, "utf-8"));
+    if (import_fs13.default.existsSync(BLOGS_FILE)) {
+      const data = JSON.parse(import_fs13.default.readFileSync(BLOGS_FILE, "utf-8"));
       if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (err) {
@@ -14521,7 +13523,7 @@ function loadBlogs() {
 }
 function saveBlogs(blogs) {
   try {
-    import_fs14.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
+    import_fs13.default.writeFileSync(BLOGS_FILE, JSON.stringify(blogs, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving blogs store:", err);
   }
@@ -14661,10 +13663,10 @@ versionRouter.get("/", (req, res) => {
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
-var import_fs15 = __toESM(require("fs"));
-var import_path15 = __toESM(require("path"));
+var import_fs14 = __toESM(require("fs"));
+var import_path14 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
-var syncFile9 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile9 = import_path14.default.resolve(process.cwd(), ".sync_data.json");
 licenseRouter.post("/register-trial", async (req, res) => {
   try {
     const { storeName, ownerName, phone, email, city, tenantId: incomingTenantId, hwid, deviceId } = req.body;
@@ -14683,10 +13685,10 @@ licenseRouter.post("/register-trial", async (req, res) => {
     const trialEndsAt = trialEndsAtDate.toISOString();
     const licenseId = `lic_trial_${Date.now()}`;
     const licenseKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_licenses 
            (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids, sale_price, amount_paid, amount_due)
            VALUES (?, ?, ?, ?, ?, ?, 'Basic', 'Active', ?, ?, 10, ?, 0, 0, 0)
@@ -14699,7 +13701,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
           [licenseId, tenantId, licenseKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, issueDate, expiryDate, boundHwids]
         ).catch(() => {
         });
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_tenants 
            (id, organization_id, name, owner_name, owner_email, owner_phone, city, plan_id, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, 'Basic', 'Active')
@@ -14717,8 +13719,8 @@ licenseRouter.post("/register-trial", async (req, res) => {
     }
     try {
       let syncData = {};
-      if (import_fs15.default.existsSync(syncFile9)) {
-        syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs14.default.existsSync(syncFile9)) {
+        syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
       }
       if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
       if (!syncData.client_licenses) syncData.client_licenses = [];
@@ -14739,7 +13741,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
       };
       syncData.mbi_licenses.push(licObj);
       syncData.client_licenses.push(licObj);
-      import_fs15.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+      import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
     } catch (e) {
     }
     res.json({
@@ -14770,10 +13772,10 @@ licenseRouter.post("/verify-device", async (req, res) => {
     let maxDevices = 10;
     let licenseFound = false;
     let licenseRecordId = "";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT id, tenant_id, license_key, max_devices, bound_hardware_ids, status 
            FROM mbi_licenses 
            WHERE tenant_id = ? OR id = ? OR client_name = ? 
@@ -14798,9 +13800,9 @@ licenseRouter.post("/verify-device", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    if (!licenseFound && import_fs15.default.existsSync(syncFile9)) {
+    if (!licenseFound && import_fs14.default.existsSync(syncFile9)) {
       try {
-        const syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
+        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant || l.clientName === activeTenant);
         if (found) {
@@ -14815,18 +13817,18 @@ licenseRouter.post("/verify-device", async (req, res) => {
     boundHardwareIds = Array.from(new Set(boundHardwareIds.map((h) => String(h).trim().toUpperCase()).filter(Boolean)));
     if (boundHardwareIds.length === 0) {
       boundHardwareIds = [clientHwid];
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
-          const pool2 = getMariaDbPool();
+          const pool = getMariaDbPool();
           if (licenseRecordId) {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
               [JSON.stringify(boundHardwareIds), licenseRecordId]
             );
           } else {
             const newLicId = `lic_${Date.now()}`;
             const newLicKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-            await pool2.query(
+            await pool.query(
               `INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids)
                VALUES (?, ?, ?, 'Pharmacy Store', 'Owner', 'Basic', 'Active', CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?)
                ON DUPLICATE KEY UPDATE bound_hardware_ids = VALUES(bound_hardware_ids);`,
@@ -14863,11 +13865,11 @@ licenseRouter.post("/verify-device", async (req, res) => {
     }
     if (boundHardwareIds.length < maxDevices) {
       boundHardwareIds.push(clientHwid);
-      if (await isMariaDbAvailable()) {
+      if (await isMariaDbAvailable2()) {
         try {
-          const pool2 = getMariaDbPool();
+          const pool = getMariaDbPool();
           if (licenseRecordId) {
-            await pool2.query(
+            await pool.query(
               `UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
               [JSON.stringify(boundHardwareIds), licenseRecordId]
             );
@@ -14914,10 +13916,10 @@ licenseRouter.post("/bind-device", async (req, res) => {
     const clientHwid = (hwid || "HWID-DEVICE-1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT id, bound_hardware_ids FROM mbi_licenses WHERE tenant_id = ? OR id = ? LIMIT 1;`,
           [activeTenant, activeTenant]
         );
@@ -14937,7 +13939,7 @@ licenseRouter.post("/bind-device", async (req, res) => {
           } else if (!boundHardwareIds.includes(clientHwid)) {
             boundHardwareIds.push(clientHwid);
           }
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
             [JSON.stringify(boundHardwareIds), rows[0].id]
           );
@@ -14961,10 +13963,10 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
     const clientHwid = (hwid || deviceId || "HWID-DEV1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT id, bound_hardware_ids FROM mbi_licenses WHERE tenant_id = ? OR id = ? LIMIT 1;`,
           [activeTenant, activeTenant]
         );
@@ -14982,7 +13984,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!boundHardwareIds.includes(clientHwid)) {
             boundHardwareIds.push(clientHwid);
           }
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_licenses SET bound_hardware_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;`,
             [JSON.stringify(boundHardwareIds), rows[0].id]
           );
@@ -14990,7 +13992,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           const newLicId = `lic_${Date.now()}`;
           const newLicKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
           boundHardwareIds = [clientHwid];
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids)
              VALUES (?, ?, ?, 'Pharmacy Store', 'Owner', 'Basic', 'Active', CURRENT_DATE, DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), 10, ?)
              ON DUPLICATE KEY UPDATE bound_hardware_ids = VALUES(bound_hardware_ids);`,
@@ -15001,8 +14003,8 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
       }
     }
     try {
-      if (import_fs15.default.existsSync(syncFile9)) {
-        const syncData = JSON.parse(import_fs15.default.readFileSync(syncFile9, "utf-8"));
+      if (import_fs14.default.existsSync(syncFile9)) {
+        const syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
         const list = syncData.mbi_licenses || syncData.client_licenses || [];
         const found = list.find((l) => l.tenantId === activeTenant || l.id === activeTenant);
         if (found) {
@@ -15010,7 +14012,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
           if (!existingBound.includes(clientHwid)) {
             existingBound.push(clientHwid);
             found.boundHardwareIds = existingBound;
-            import_fs15.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+            import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
           }
         }
       }
@@ -15041,10 +14043,10 @@ licenseRouter.get("/bound-devices", async (req, res) => {
     let licenseKey = "";
     let plan = "Basic";
     let status = "Active";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT * FROM mbi_licenses WHERE tenant_id = ? OR id = ? ORDER BY created_at DESC LIMIT 1;`,
           [tenantId, tenantId]
         );
@@ -15092,10 +14094,10 @@ licenseRouter.post("/validate-key", async (req, res) => {
     }
     let isDbMatched = false;
     let matchedLicense = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT * FROM mbi_licenses WHERE UPPER(license_key) = ? LIMIT 1;`,
           [cleanKey]
         );
@@ -15138,10 +14140,10 @@ licenseRouter.post("/validate-key", async (req, res) => {
     const now = /* @__PURE__ */ new Date();
     const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
     const planId = planTier === "Platinum" ? "Premium" : planTier === "Gold" ? "Business" : "Basic";
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_licenses 
            (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, issue_date, expiry_date, max_devices, bound_hardware_ids)
            VALUES (?, ?, ?, 'Store Owner', '', '', 'Lahore', ?, 'Active', CURRENT_DATE, ?, 10, ?)
@@ -15155,7 +14157,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
         ).catch(() => {
         });
         if (tenantId) {
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_tenants 
              SET status = 'Active', plan_id = ?, updated_at = CURRENT_TIMESTAMP 
              WHERE id = ? OR tenant_id = ?;`,
@@ -15185,10 +14187,10 @@ licenseRouter.get("/status", async (req, res) => {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
     let dbTenant = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           `SELECT * FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;`,
           [tenantId, tenantId]
         );
@@ -15221,14 +14223,14 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
-var import_fs16 = __toESM(require("fs"));
-var import_path16 = __toESM(require("path"));
+var import_fs15 = __toESM(require("fs"));
+var import_path15 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
-var syncFile10 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
+var syncFile10 = import_path15.default.resolve(process.cwd(), ".sync_data.json");
 function getLocalSyncData() {
   try {
-    if (import_fs16.default.existsSync(syncFile10)) {
-      return JSON.parse(import_fs16.default.readFileSync(syncFile10, "utf-8"));
+    if (import_fs15.default.existsSync(syncFile10)) {
+      return JSON.parse(import_fs15.default.readFileSync(syncFile10, "utf-8"));
     }
   } catch (e) {
   }
@@ -15236,7 +14238,7 @@ function getLocalSyncData() {
 }
 function saveLocalSyncData(data) {
   try {
-    import_fs16.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
+    import_fs15.default.writeFileSync(syncFile10, JSON.stringify(data, null, 2), "utf-8");
   } catch (e) {
     console.warn("Failed to save sync file:", e);
   }
@@ -15289,11 +14291,11 @@ checkoutRouter.post("/orders", async (req, res) => {
       notes: notes || "",
       status: "pending"
     };
-    const pool2 = getMariaDbPool();
+    const pool = getMariaDbPool();
     let dbSuccess = false;
-    if (pool2) {
+    if (pool) {
       try {
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_registration_leads (
             id, store_name, owner_name, username, phone, email, city, 
             requested_plan, status, notes, submitted_at
@@ -15314,14 +14316,14 @@ checkoutRouter.post("/orders", async (req, res) => {
             `Trx: ${orderRecord.trxId} | Method: ${orderRecord.paymentMethod} | Amount: PKR ${orderRecord.amountRupees}`
           ]
         );
-        const [existingTenantRows] = await pool2.query(
+        const [existingTenantRows] = await pool.query(
           "SELECT id, tenant_id FROM mbi_tenants WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR (owner_phone IS NOT NULL AND owner_phone != '' AND owner_phone = ?) LIMIT 1;",
           [orderRecord.businessName, orderRecord.whatsapp]
         );
         let effectiveTenantId = tenantId;
         if (Array.isArray(existingTenantRows) && existingTenantRows.length > 0) {
           effectiveTenantId = existingTenantRows[0].tenant_id || existingTenantRows[0].id;
-          await pool2.query(
+          await pool.query(
             `UPDATE mbi_tenants SET 
               tenant_id = COALESCE(tenant_id, id, ?),
               organization_id = COALESCE(organization_id, id, ?),
@@ -15342,7 +14344,7 @@ checkoutRouter.post("/orders", async (req, res) => {
             ]
           );
         } else {
-          await pool2.query(
+          await pool.query(
             `INSERT INTO mbi_tenants (
               id, tenant_id, organization_id, name, owner_name, owner_phone, phone, email, owner_email, city, plan, status, trial_ends_at, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Basic (10-Day Free Trial)', 'Active', DATE_ADD(NOW(), INTERVAL 10 DAY), NOW(), NOW())
@@ -15361,7 +14363,7 @@ checkoutRouter.post("/orders", async (req, res) => {
             ]
           );
         }
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_users (
             id, tenant_id, name, username, phone, email, email_or_phone, passcode, role, status, is_primary_admin, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Primary Admin', 'Active', 1, NOW())
@@ -15461,22 +14463,22 @@ checkoutRouter.post("/orders/:orderId/verify", async (req, res) => {
     orders[orderIndex] = order;
     syncData.checkoutOrders = orders;
     saveLocalSyncData(syncData);
-    const pool2 = getMariaDbPool();
-    if (pool2) {
+    const pool = getMariaDbPool();
+    if (pool) {
       try {
-        await pool2.query(
+        await pool.query(
           `UPDATE mbi_registration_leads 
            SET status = 'approved', is_approved = 1, activation_key = ?, activated_at = NOW() 
            WHERE id = ? OR phone = ?;`,
           [generatedLicenseKey, order.id, order.whatsapp]
         );
-        await pool2.query(
+        await pool.query(
           `UPDATE mbi_tenants 
            SET plan = ?, status = 'Active', trial_ends_at = ? 
            WHERE phone = ? OR name = ?;`,
           [order.planName, expiryDate.slice(0, 19).replace("T", " "), order.whatsapp, order.businessName]
         );
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_licenses (
             id, tenant_id, license_key, plan_type, status, expires_at, created_at
           ) VALUES (?, ?, ?, ?, 'Active', ?, NOW())
@@ -15555,14 +14557,14 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
-var import_fs17 = __toESM(require("fs"));
-var import_path17 = __toESM(require("path"));
-var syncFile11 = import_path17.default.resolve(process.cwd(), ".sync_data.json");
+var import_fs16 = __toESM(require("fs"));
+var import_path16 = __toESM(require("path"));
+var syncFile11 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
 function getFallbackAuditLogs(tenantId) {
   let logs = [];
   try {
-    if (import_fs17.default.existsSync(syncFile11)) {
-      const fileData = JSON.parse(import_fs17.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs16.default.existsSync(syncFile11)) {
+      const fileData = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
       if (Array.isArray(fileData.mbi_audit_logs)) {
         logs = fileData.mbi_audit_logs;
       }
@@ -15577,8 +14579,8 @@ function getFallbackAuditLogs(tenantId) {
 function saveFallbackAuditLog(log) {
   try {
     let data = {};
-    if (import_fs17.default.existsSync(syncFile11)) {
-      data = JSON.parse(import_fs17.default.readFileSync(syncFile11, "utf-8"));
+    if (import_fs16.default.existsSync(syncFile11)) {
+      data = JSON.parse(import_fs16.default.readFileSync(syncFile11, "utf-8"));
     }
     if (!Array.isArray(data.mbi_audit_logs)) {
       data.mbi_audit_logs = [];
@@ -15587,7 +14589,7 @@ function saveFallbackAuditLog(log) {
     if (data.mbi_audit_logs.length > 5e3) {
       data.mbi_audit_logs = data.mbi_audit_logs.slice(0, 5e3);
     }
-    import_fs17.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
+    import_fs16.default.writeFileSync(syncFile11, JSON.stringify(data, null, 2));
   } catch (e) {
     console.warn("[Audit Log Local Fallback Save Warning]:", e);
   }
@@ -15597,11 +14599,11 @@ async function getAuditLogs(req, res) {
     const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || "tenant_main_pharmacy";
     const { module: moduleFilter, staff, dateRange, startDate, endDate, search, limit = "200" } = req.query;
     const maxRows = Math.min(Number(limit) || 200, 1e3);
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     let records = [];
     if (isAvailable) {
       try {
-        const pool2 = getMariaDbPool();
+        const pool = getMariaDbPool();
         let sql = `SELECT * FROM mbi_audit_logs WHERE (tenant_id = ? OR tenant_id = 'default' OR tenant_id = 'tenant_main_pharmacy')`;
         const params = [tenantId];
         if (moduleFilter && moduleFilter !== "ALL" && moduleFilter !== "All Modules") {
@@ -15619,7 +14621,7 @@ async function getAuditLogs(req, res) {
         }
         sql += ` ORDER BY created_at DESC LIMIT ?`;
         params.push(maxRows);
-        const [rows] = await pool2.query(sql, params);
+        const [rows] = await pool.query(sql, params);
         if (Array.isArray(rows)) {
           records = rows.map((r) => ({
             id: r.id,
@@ -15707,11 +14709,11 @@ async function createAuditLog(req, res) {
       ip_address: req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
       created_at: timestamp ? new Date(timestamp).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
     };
-    const isAvailable = await isMariaDbAvailable();
+    const isAvailable = await isMariaDbAvailable2();
     if (isAvailable) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_audit_logs 
           (id, tenant_id, user_id, user_name, action, category, details, ip_address, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -15776,7 +14778,7 @@ var import_uuid2 = require("uuid");
 async function getPurchases(req, res) {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (!isOnline) {
       return res.json({
         success: true,
@@ -15785,8 +14787,8 @@ async function getPurchases(req, res) {
         message: "Database in local offline sync mode"
       });
     }
-    const pool2 = getMariaDbPool();
-    const [rows] = await pool2.execute(
+    const pool = getMariaDbPool();
+    const [rows] = await pool.execute(
       `SELECT * FROM mbi_purchases WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 100`,
       [tenantId]
     );
@@ -15803,17 +14805,17 @@ async function getPurchases(req, res) {
 async function getPurchaseById(req, res) {
   try {
     const { id } = req.params;
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (!isOnline) {
       return res.status(404).json({ success: false, message: "Database offline" });
     }
-    const pool2 = getMariaDbPool();
-    const [purchases] = await pool2.execute(`SELECT * FROM mbi_purchases WHERE id = ? LIMIT 1`, [id]);
+    const pool = getMariaDbPool();
+    const [purchases] = await pool.execute(`SELECT * FROM mbi_purchases WHERE id = ? LIMIT 1`, [id]);
     if (!purchases || purchases.length === 0) {
       return res.status(404).json({ success: false, message: "Purchase bill not found" });
     }
     const purchase = purchases[0];
-    const [batches] = await pool2.execute(
+    const [batches] = await pool.execute(
       `SELECT * FROM mbi_inventory_batches WHERE purchase_bill_id = ? OR id LIKE ?`,
       [id, `%${id}%`]
     );
@@ -15845,10 +14847,10 @@ async function createPurchaseOrder(req, res) {
     const items = Array.isArray(purchaseData.items) ? purchaseData.items : [];
     const userId = purchaseData.userId || req.body.userId || "admin";
     const userName = purchaseData.cashierName || purchaseData.userName || "Admin / Operator";
-    const isOnline = await isMariaDbAvailable();
+    const isOnline = await isMariaDbAvailable2();
     if (isOnline) {
-      const pool2 = getMariaDbPool();
-      const connection = await pool2.getConnection();
+      const pool = getMariaDbPool();
+      const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
         const purchaseSql = `
@@ -16015,7 +15017,7 @@ async function createPurchaseOrder(req, res) {
         throw dbErr;
       }
     } else {
-      await syncRecordToMariaDb("purchaseOrders", {
+      await syncRecordToMariaDb2("purchaseOrders", {
         ...purchaseData,
         id: purchaseId,
         tenantId,
@@ -16121,20 +15123,20 @@ async function sendWhatsAppCloudMessage(recipientPhone, messageText, customApiKe
 }
 
 // server/routes/whatsappRoutes.ts
-var import_fs19 = __toESM(require("fs"));
-var import_path19 = __toESM(require("path"));
+var import_fs18 = __toESM(require("fs"));
+var import_path18 = __toESM(require("path"));
 
 // server/services/baileysService.ts
 var import_baileys = __toESM(require("@whiskeysockets/baileys"));
 var import_pino = __toESM(require("pino"));
-var import_fs18 = __toESM(require("fs"));
-var import_path18 = __toESM(require("path"));
+var import_fs17 = __toESM(require("fs"));
+var import_path17 = __toESM(require("path"));
 var tenantSockets = /* @__PURE__ */ new Map();
 var tenantStates = /* @__PURE__ */ new Map();
-var SESSIONS_BASE_DIR = import_path18.default.resolve(process.cwd(), ".whatsapp_sessions");
-if (!import_fs18.default.existsSync(SESSIONS_BASE_DIR)) {
+var SESSIONS_BASE_DIR = import_path17.default.resolve(process.cwd(), ".whatsapp_sessions");
+if (!import_fs17.default.existsSync(SESSIONS_BASE_DIR)) {
   try {
-    import_fs18.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
+    import_fs17.default.mkdirSync(SESSIONS_BASE_DIR, { recursive: true });
   } catch {
   }
 }
@@ -16142,8 +15144,8 @@ function getTenantState(tenantId) {
   if (tenantStates.has(tenantId)) {
     return tenantStates.get(tenantId);
   }
-  const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
-  const isLinked = import_fs18.default.existsSync(import_path18.default.join(sessionDir, "creds.json"));
+  const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+  const isLinked = import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"));
   const state = {
     tenantId,
     status: isLinked ? "CONNECTED" : "DISCONNECTED",
@@ -16166,7 +15168,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
     if (!phone || phone.length < 10) {
       return { success: false, error: "Invalid phone number format. Please enter a valid number (e.g. 03001234567 or 923001234567)." };
     }
-    const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
+    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
     if (tenantSockets.has(tenantId)) {
       try {
         const oldSock = tenantSockets.get(tenantId);
@@ -16175,13 +15177,13 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
       }
       tenantSockets.delete(tenantId);
     }
-    if (import_fs18.default.existsSync(sessionDir)) {
+    if (import_fs17.default.existsSync(sessionDir)) {
       try {
-        import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
-    import_fs18.default.mkdirSync(sessionDir, { recursive: true });
+    import_fs17.default.mkdirSync(sessionDir, { recursive: true });
     async function startSocket() {
       const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
       const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
@@ -16217,7 +15219,7 @@ async function requestWhatsAppPairing(tenantId, rawPhoneNumber) {
               updatedAt: (/* @__PURE__ */ new Date()).toISOString()
             });
             try {
-              import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
+              import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
             } catch {
             }
           }
@@ -16284,8 +15286,8 @@ async function sendWhatsAppMessage(tenantId, rawPhone, message) {
     const jid = `${phone}@s.whatsapp.net`;
     let sock = tenantSockets.get(tenantId);
     if (!sock) {
-      const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
-      if (import_fs18.default.existsSync(import_path18.default.join(sessionDir, "creds.json"))) {
+      const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+      if (import_fs17.default.existsSync(import_path17.default.join(sessionDir, "creds.json"))) {
         const { state, saveCreds } = await (0, import_baileys.useMultiFileAuthState)(sessionDir);
         const { version } = await (0, import_baileys.fetchLatestBaileysVersion)();
         sock = (0, import_baileys.default)({
@@ -16319,10 +15321,10 @@ async function disconnectWhatsApp(tenantId) {
       }
       tenantSockets.delete(tenantId);
     }
-    const sessionDir = import_path18.default.join(SESSIONS_BASE_DIR, tenantId);
-    if (import_fs18.default.existsSync(sessionDir)) {
+    const sessionDir = import_path17.default.join(SESSIONS_BASE_DIR, tenantId);
+    if (import_fs17.default.existsSync(sessionDir)) {
       try {
-        import_fs18.default.rmSync(sessionDir, { recursive: true, force: true });
+        import_fs17.default.rmSync(sessionDir, { recursive: true, force: true });
       } catch {
       }
     }
@@ -16339,12 +15341,12 @@ async function disconnectWhatsApp(tenantId) {
 
 // server/routes/whatsappRoutes.ts
 var whatsappRouter = (0, import_express15.Router)();
-var whatsappHistoryFile = import_path19.default.resolve(process.cwd(), ".whatsapp_history.json");
-var whatsappAgentConfigFile = import_path19.default.resolve(process.cwd(), ".whatsapp_agent_config.json");
+var whatsappHistoryFile = import_path18.default.resolve(process.cwd(), ".whatsapp_history.json");
+var whatsappAgentConfigFile = import_path18.default.resolve(process.cwd(), ".whatsapp_agent_config.json");
 function getWhatsAppAgentConfig() {
   try {
-    if (import_fs19.default.existsSync(whatsappAgentConfigFile)) {
-      const saved = JSON.parse(import_fs19.default.readFileSync(whatsappAgentConfigFile, "utf8"));
+    if (import_fs18.default.existsSync(whatsappAgentConfigFile)) {
+      const saved = JSON.parse(import_fs18.default.readFileSync(whatsappAgentConfigFile, "utf8"));
       return { ...MASTER_WHATSAPP_CONFIG, ...saved };
     }
   } catch {
@@ -16354,8 +15356,8 @@ function getWhatsAppAgentConfig() {
 function logWhatsAppDispatch(log) {
   try {
     let history = [];
-    if (import_fs19.default.existsSync(whatsappHistoryFile)) {
-      history = JSON.parse(import_fs19.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
+      history = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
     }
     history.unshift({
       id: `wa_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -16363,7 +15365,7 @@ function logWhatsAppDispatch(log) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
     if (history.length > 500) history = history.slice(0, 500);
-    import_fs19.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
+    import_fs18.default.writeFileSync(whatsappHistoryFile, JSON.stringify(history, null, 2), "utf8");
   } catch {
   }
 }
@@ -16371,10 +15373,10 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
     let config = null;
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           'SELECT data FROM mbi_settings WHERE tenant_id = ? AND `key` = "whatsapp_config" LIMIT 1;',
           [tenantId]
         );
@@ -16458,10 +15460,10 @@ whatsappRouter.post("/settings", async (req, res) => {
       customKhataTemplate: customKhataTemplate || "",
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_settings (id, tenant_id, \`key\`, data, updated_at)
            VALUES (?, ?, 'whatsapp_config', ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = CURRENT_TIMESTAMP;`,
@@ -16526,10 +15528,10 @@ whatsappRouter.post("/disconnect/:tenantId", async (req, res) => {
     const { tenantId } = req.params;
     const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
     await disconnectWhatsApp(cleanTenantId);
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `UPDATE mbi_settings SET data = JSON_SET(COALESCE(data, '{}'), '$.isLinked', false, '$.connectedNumber', '')
            WHERE tenant_id = ? AND \`key\` = "whatsapp_config";`,
           [cleanTenantId]
@@ -16567,7 +15569,7 @@ whatsappRouter.post("/agent/config", (req, res) => {
       apiKey: apiKey || current.apiKey,
       isAgentActive: isAgentActive !== void 0 ? Boolean(isAgentActive) : current.isAgentActive
     };
-    import_fs19.default.writeFileSync(whatsappAgentConfigFile, JSON.stringify(updated, null, 2), "utf8");
+    import_fs18.default.writeFileSync(whatsappAgentConfigFile, JSON.stringify(updated, null, 2), "utf8");
     res.json({
       success: true,
       message: "WhatsApp Agent configuration and API Key updated successfully",
@@ -16618,10 +15620,10 @@ whatsappRouter.post("/send", async (req, res) => {
       deliveryMode,
       note: deliveryNote
     });
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        await pool2.query(
+        const pool = getMariaDbPool();
+        await pool.query(
           `INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address)
            VALUES (?, ?, 'whatsapp_agent', 'WHATSAPP_BILL_AUTO_SENT', ?, ?);`,
           [
@@ -16649,9 +15651,9 @@ whatsappRouter.get("/history/:tenantId", (req, res) => {
   try {
     const { tenantId } = req.params;
     let history = [];
-    if (import_fs19.default.existsSync(whatsappHistoryFile)) {
+    if (import_fs18.default.existsSync(whatsappHistoryFile)) {
       try {
-        const all = JSON.parse(import_fs19.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
+        const all = JSON.parse(import_fs18.default.readFileSync(whatsappHistoryFile, "utf8") || "[]");
         history = all.filter((h) => h.tenantId === tenantId || tenantId === "all");
       } catch {
       }
@@ -16673,10 +15675,10 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    if (await isMariaDbAvailable()) {
+    if (await isMariaDbAvailable2()) {
       try {
-        const pool2 = getMariaDbPool();
-        const [rows] = await pool2.query(
+        const pool = getMariaDbPool();
+        const [rows] = await pool.query(
           'SELECT data FROM mbi_settings WHERE tenant_id = ? AND `key` = "whatsapp_config" LIMIT 1;',
           [tenantId]
         );
@@ -16686,7 +15688,7 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
         }
         config.autoGatewayOverride = !!enabled;
         config.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-        await pool2.query(
+        await pool.query(
           `INSERT INTO mbi_settings (id, tenant_id, \`key\`, data, updated_at)
            VALUES (?, ?, 'whatsapp_config', ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = CURRENT_TIMESTAMP;`,
@@ -16708,10 +15710,10 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
 
 // server/routes/cmsRoutes.ts
 var import_express16 = __toESM(require("express"));
-var import_fs20 = __toESM(require("fs"));
-var import_path20 = __toESM(require("path"));
+var import_fs19 = __toESM(require("fs"));
+var import_path19 = __toESM(require("path"));
 var cmsRouter = import_express16.default.Router();
-var TESTIMONIALS_FILE = import_path20.default.resolve(process.cwd(), ".testimonials_store.json");
+var TESTIMONIALS_FILE = import_path19.default.resolve(process.cwd(), ".testimonials_store.json");
 var SEED_TESTIMONIALS = [
   {
     id: "test-1",
@@ -16782,11 +15784,11 @@ var SEED_TESTIMONIALS = [
 ];
 function loadTestimonialsFromDisk() {
   try {
-    if (!import_fs20.default.existsSync(TESTIMONIALS_FILE)) {
-      import_fs20.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
+    if (!import_fs19.default.existsSync(TESTIMONIALS_FILE)) {
+      import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(SEED_TESTIMONIALS, null, 2), "utf-8");
       return SEED_TESTIMONIALS;
     }
-    const raw = import_fs20.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
+    const raw = import_fs19.default.readFileSync(TESTIMONIALS_FILE, "utf-8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
@@ -16799,20 +15801,20 @@ function loadTestimonialsFromDisk() {
 }
 function saveTestimonialsToDisk(items) {
   try {
-    import_fs20.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
+    import_fs19.default.writeFileSync(TESTIMONIALS_FILE, JSON.stringify(items, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write testimonials file:", err);
     return false;
   }
 }
-var CMS_CONFIG_FILE = import_path20.default.resolve(process.cwd(), ".site_cms_store.json");
+var CMS_CONFIG_FILE = import_path19.default.resolve(process.cwd(), ".site_cms_store.json");
 function loadCmsConfigFromDisk() {
   try {
-    if (!import_fs20.default.existsSync(CMS_CONFIG_FILE)) {
+    if (!import_fs19.default.existsSync(CMS_CONFIG_FILE)) {
       return null;
     }
-    const raw = import_fs20.default.readFileSync(CMS_CONFIG_FILE, "utf-8");
+    const raw = import_fs19.default.readFileSync(CMS_CONFIG_FILE, "utf-8");
     return JSON.parse(raw);
   } catch (err) {
     console.error("[CMS Server] Failed to read CMS config file:", err);
@@ -16821,7 +15823,7 @@ function loadCmsConfigFromDisk() {
 }
 function saveCmsConfigToDisk(config) {
   try {
-    import_fs20.default.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+    import_fs19.default.writeFileSync(CMS_CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
     return true;
   } catch (err) {
     console.error("[CMS Server] Failed to write CMS config file:", err);
@@ -16939,105 +15941,6 @@ cmsRouter.delete("/testimonials/:id", (req, res) => {
   }
 });
 
-// server/routes/backupRoutes.ts
-var import_express17 = __toESM(require("express"));
-var import_fs21 = __toESM(require("fs"));
-var import_path21 = __toESM(require("path"));
-var backupRouter = import_express17.default.Router();
-var BACKUP_DIR = import_path21.default.join(process.cwd(), ".server_backups_vault");
-if (!import_fs21.default.existsSync(BACKUP_DIR)) {
-  try {
-    import_fs21.default.mkdirSync(BACKUP_DIR, { recursive: true });
-  } catch (e) {
-    console.error("[Backup Vault] Failed to create backup dir:", e);
-  }
-}
-backupRouter.get("/backups", (req, res) => {
-  try {
-    if (!import_fs21.default.existsSync(BACKUP_DIR)) {
-      return res.json({ success: true, backups: [] });
-    }
-    const files = import_fs21.default.readdirSync(BACKUP_DIR);
-    const backups = files.filter((f) => f.endsWith(".json") || f.endsWith(".enc") || f.endsWith(".mbibackup")).map((file) => {
-      const filePath = import_path21.default.join(BACKUP_DIR, file);
-      const stats = import_fs21.default.statSync(filePath);
-      let metadata = {};
-      try {
-        const content = import_fs21.default.readFileSync(filePath, "utf-8");
-        const parsed = JSON.parse(content);
-        metadata = {
-          tenantId: parsed.tenantId || "tenant_default",
-          createdAt: parsed.createdAt || stats.mtime.toISOString(),
-          appSignature: parsed.appSignature || "MBI_INVENTRA_OFFICIAL_SYSTEM_BACKUP",
-          checksum: parsed.checksum || "",
-          mbiEncrypted: parsed.mbiEncrypted === true
-        };
-      } catch {
-      }
-      return {
-        filename: file,
-        sizeBytes: stats.size,
-        sizeFormatted: `${(stats.size / 1024).toFixed(1)} KB`,
-        createdAt: stats.mtime.toISOString(),
-        ...metadata
-      };
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    res.json({ success: true, count: backups.length, backups });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
-});
-backupRouter.post("/backup/push", (req, res) => {
-  try {
-    const { clientName, installationId, recordCounts, backupPayload } = req.body;
-    if (!backupPayload) {
-      return res.status(400).json({ success: false, message: "Missing backup payload" });
-    }
-    const safeTenant = (installationId || "tenant_main").replace(/[^a-zA-Z0-9_-]/g, "_");
-    const timestamp = (/* @__PURE__ */ new Date()).toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    const filename = `vault-${safeTenant}-${timestamp}.mbibackup`;
-    const filePath = import_path21.default.join(BACKUP_DIR, filename);
-    import_fs21.default.writeFileSync(filePath, JSON.stringify(backupPayload, null, 2), "utf-8");
-    res.json({
-      success: true,
-      filename,
-      message: `Encrypted backup archive stored in Master Vault (${filename})`,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
-});
-backupRouter.get("/backup/download/:filename", (req, res) => {
-  try {
-    const { filename } = req.params;
-    const safeFilename = import_path21.default.basename(filename);
-    const filePath = import_path21.default.join(BACKUP_DIR, safeFilename);
-    if (!import_fs21.default.existsSync(filePath)) {
-      return res.status(404).json({ success: false, message: "Backup file not found" });
-    }
-    res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
-    res.setHeader("Content-Type", "application/octet-stream");
-    import_fs21.default.createReadStream(filePath).pipe(res);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
-});
-backupRouter.delete("/backup/:filename", (req, res) => {
-  try {
-    const { filename } = req.params;
-    const safeFilename = import_path21.default.basename(filename);
-    const filePath = import_path21.default.join(BACKUP_DIR, safeFilename);
-    if (import_fs21.default.existsSync(filePath)) {
-      import_fs21.default.unlinkSync(filePath);
-      return res.json({ success: true, message: `Backup file ${safeFilename} deleted from vault` });
-    }
-    res.status(404).json({ success: false, message: "File not found" });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
-});
-
 // server/middleware/rateLimiter.ts
 var import_express_rate_limit = __toESM(require("express-rate-limit"));
 var apiLimiter = (0, import_express_rate_limit.default)({
@@ -17069,12 +15972,12 @@ process.on("unhandledRejection", (reason) => {
   console.error("[CRASH SHIELD: UNHANDLED REJECTION]:", reason?.message || reason);
 });
 async function startServer() {
-  const app = (0, import_express18.default)();
+  const app = (0, import_express17.default)();
   const rawPort = process.env.PORT || "3000";
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
   const HOST = "0.0.0.0";
-  const syncFile12 = import_path22.default.resolve(process.cwd(), ".sync_data.json");
+  const syncFile12 = import_path20.default.resolve(process.cwd(), ".sync_data.json");
   const vaultHealth = checkVaultEngineHealth();
   console.log(`[SQLITE VAULT ENGINE]: 100% Standalone Active (WAL Mode). Master Vault: ${vaultHealth.masterDbPath}`);
   app.disable("x-powered-by");
@@ -17085,8 +15988,8 @@ async function startServer() {
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
     next();
   });
-  app.use(import_express18.default.json({ limit: "100mb" }));
-  app.use(import_express18.default.urlencoded({ limit: "100mb", extended: true }));
+  app.use(import_express17.default.json({ limit: "100mb" }));
+  app.use(import_express17.default.urlencoded({ limit: "100mb", extended: true }));
   app.use("/api", apiLimiter);
   app.use("/api/auth", authRouter);
   app.use("/api/tenant", tenantRouter);
@@ -17166,8 +16069,8 @@ async function startServer() {
     });
   });
   app.get("/api/db/schema-download", (req, res) => {
-    const ddlPath = import_path22.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
-    if (import_fs22.default.existsSync(ddlPath)) {
+    const ddlPath = import_path20.default.resolve(process.cwd(), "mbi_inventra_mariadb.sql");
+    if (import_fs20.default.existsSync(ddlPath)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.setHeader("Content-Disposition", 'attachment; filename="mbi_inventra_mariadb.sql"');
       return res.sendFile(ddlPath);
@@ -17239,8 +16142,8 @@ async function startServer() {
       return memorySyncData;
     }
     try {
-      if (import_fs22.default.existsSync(syncFile12)) {
-        memorySyncData = JSON.parse(import_fs22.default.readFileSync(syncFile12, "utf-8"));
+      if (import_fs20.default.existsSync(syncFile12)) {
+        memorySyncData = JSON.parse(import_fs20.default.readFileSync(syncFile12, "utf-8"));
       } else {
         memorySyncData = {};
       }
@@ -17256,8 +16159,8 @@ async function startServer() {
     try {
       isFlushingSync = true;
       const tmpFile = `${syncFile12}.tmp`;
-      import_fs22.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
-      import_fs22.default.renameSync(tmpFile, syncFile12);
+      import_fs20.default.writeFileSync(tmpFile, JSON.stringify(memorySyncData, null, 2), "utf-8");
+      import_fs20.default.renameSync(tmpFile, syncFile12);
       pendingSyncWrites = 0;
       lastSyncFlushTime = Date.now();
       addServerLog("GENERAL_INFO", "Disk sync flush completed successfully", "info", { syncFile: syncFile12 }, "/api/sync/flush");
@@ -17347,8 +16250,8 @@ async function startServer() {
     let totalRecordsCount = 0;
     let serverLogCount = 0;
     try {
-      if (import_fs22.default.existsSync(syncFile12)) {
-        const stat = import_fs22.default.statSync(syncFile12);
+      if (import_fs20.default.existsSync(syncFile12)) {
+        const stat = import_fs20.default.statSync(syncFile12);
         fileSize = stat.size;
         lastModified = stat.mtime.toISOString();
       }
@@ -18122,29 +17025,29 @@ async function startServer() {
     }
   });
   const crypto2 = await import("crypto");
-  const masterConfigFile = import_path22.default.resolve(process.cwd(), ".master_config.json");
-  const masterUsersFile2 = import_path22.default.resolve(process.cwd(), ".master_users.json");
-  const masterLicensesFile = import_path22.default.resolve(process.cwd(), ".master_licenses.json");
-  const masterTenantsFile = import_path22.default.resolve(process.cwd(), ".master_tenants.json");
-  const masterPlatformBillingFile = import_path22.default.resolve(process.cwd(), ".master_platform_billing.json");
-  const masterHeartbeatsFile = import_path22.default.resolve(process.cwd(), ".master_heartbeats.json");
-  const masterAuditLogsFile = import_path22.default.resolve(process.cwd(), ".master_audit_logs.json");
-  const masterBackupsDir = import_path22.default.resolve(process.cwd(), ".master_client_backups");
-  const centralMedicinesFile = import_path22.default.resolve(process.cwd(), ".central_medicines.json");
-  const centralAssignmentsFile = import_path22.default.resolve(process.cwd(), ".central_assignments.json");
-  const centralMedicineAuditFile = import_path22.default.resolve(process.cwd(), ".central_medicine_audit.json");
-  const masterDbAssignmentsFile = import_path22.default.resolve(process.cwd(), ".master_db_assignments.json");
-  const masterSystemUpdatesFile = import_path22.default.resolve(process.cwd(), ".master_system_updates.json");
-  if (!import_fs22.default.existsSync(masterBackupsDir)) {
+  const masterConfigFile = import_path20.default.resolve(process.cwd(), ".master_config.json");
+  const masterUsersFile2 = import_path20.default.resolve(process.cwd(), ".master_users.json");
+  const masterLicensesFile = import_path20.default.resolve(process.cwd(), ".master_licenses.json");
+  const masterTenantsFile = import_path20.default.resolve(process.cwd(), ".master_tenants.json");
+  const masterPlatformBillingFile = import_path20.default.resolve(process.cwd(), ".master_platform_billing.json");
+  const masterHeartbeatsFile = import_path20.default.resolve(process.cwd(), ".master_heartbeats.json");
+  const masterAuditLogsFile = import_path20.default.resolve(process.cwd(), ".master_audit_logs.json");
+  const masterBackupsDir = import_path20.default.resolve(process.cwd(), ".master_client_backups");
+  const centralMedicinesFile = import_path20.default.resolve(process.cwd(), ".central_medicines.json");
+  const centralAssignmentsFile = import_path20.default.resolve(process.cwd(), ".central_assignments.json");
+  const centralMedicineAuditFile = import_path20.default.resolve(process.cwd(), ".central_medicine_audit.json");
+  const masterDbAssignmentsFile = import_path20.default.resolve(process.cwd(), ".master_db_assignments.json");
+  const masterSystemUpdatesFile = import_path20.default.resolve(process.cwd(), ".master_system_updates.json");
+  if (!import_fs20.default.existsSync(masterBackupsDir)) {
     try {
-      import_fs22.default.mkdirSync(masterBackupsDir, { recursive: true });
+      import_fs20.default.mkdirSync(masterBackupsDir, { recursive: true });
     } catch (e) {
     }
   }
   function readJsonFile(filePath, fallback) {
     try {
-      if (import_fs22.default.existsSync(filePath)) {
-        return JSON.parse(import_fs22.default.readFileSync(filePath, "utf-8"));
+      if (import_fs20.default.existsSync(filePath)) {
+        return JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
       }
     } catch (e) {
     }
@@ -18152,7 +17055,7 @@ async function startServer() {
   }
   function writeJsonFile(filePath, data) {
     try {
-      import_fs22.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
     }
   }
@@ -18170,7 +17073,7 @@ async function startServer() {
       sessionTimeoutMinutes: 30
     };
     const loaded = readJsonFile(masterConfigFile, fallback);
-    if (!import_fs22.default.existsSync(masterConfigFile)) {
+    if (!import_fs20.default.existsSync(masterConfigFile)) {
       writeJsonFile(masterConfigFile, fallback);
     }
     return loaded;
@@ -18505,7 +17408,7 @@ async function startServer() {
       res.status(500).json({ success: false, error: err?.message });
     }
   });
-  const masterAccountUsageFile = import_path22.default.resolve(process.cwd(), ".master_account_usage.json");
+  const masterAccountUsageFile = import_path20.default.resolve(process.cwd(), ".master_account_usage.json");
   app.get("/api/tenant/usage", (req, res) => {
     try {
       const tenantId = req.query.tenantId || "tenant_default";
@@ -19294,14 +18197,14 @@ async function startServer() {
   app.get("/api/master/backups", requireMasterAdmin, (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs22.default.readdirSync(masterBackupsDir);
+      let files = import_fs20.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs22.default.readFileSync(import_path22.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -19325,9 +18228,9 @@ async function startServer() {
     try {
       const { key, installationId, clientName } = req.query;
       let licenses = [];
-      if (import_fs22.default.existsSync(masterLicensesFile)) {
+      if (import_fs20.default.existsSync(masterLicensesFile)) {
         try {
-          licenses = JSON.parse(import_fs22.default.readFileSync(masterLicensesFile, "utf-8"));
+          licenses = JSON.parse(import_fs20.default.readFileSync(masterLicensesFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -19375,9 +18278,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "installationId required" });
       }
       let heartbeats = {};
-      if (import_fs22.default.existsSync(masterHeartbeatsFile)) {
+      if (import_fs20.default.existsSync(masterHeartbeatsFile)) {
         try {
-          heartbeats = JSON.parse(import_fs22.default.readFileSync(masterHeartbeatsFile, "utf-8"));
+          heartbeats = JSON.parse(import_fs20.default.readFileSync(masterHeartbeatsFile, "utf-8"));
         } catch (e) {
         }
       }
@@ -19393,7 +18296,7 @@ async function startServer() {
         ipAddress: String(clientIp),
         dataMetrics: dataMetrics || existing.dataMetrics || {}
       };
-      import_fs22.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(masterHeartbeatsFile, JSON.stringify(heartbeats, null, 2), "utf-8");
       res.json({
         success: true,
         serverTime: (/* @__PURE__ */ new Date()).toISOString(),
@@ -19411,7 +18314,7 @@ async function startServer() {
       const safeName = (clientName || "General_Client").replace(/[^a-zA-Z0-9_-]/g, "_");
       const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
       const fileName = `backup_${safeName}_${timestamp}.json`;
-      const filePath = import_path22.default.join(masterBackupsDir, fileName);
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
       const totalVerifiedRecords = Object.values(dataObj).reduce((acc, val) => {
@@ -19431,15 +18334,15 @@ async function startServer() {
         isVerified: isVerifiedStatus,
         backupPayload: payload
       };
-      import_fs22.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
+      import_fs20.default.writeFileSync(filePath, JSON.stringify(backupObj, null, 2), "utf-8");
       logServerAudit("Automated Backup Received", "BACKUP", `Received snapshot for "${clientName}" (${totalVerifiedRecords} records, ${backupObj.sizeKb} KB)`, clientName);
       try {
-        const allFiles = import_fs22.default.readdirSync(masterBackupsDir);
+        const allFiles = import_fs20.default.readdirSync(masterBackupsDir);
         if (allFiles.length > 50) {
-          const sorted = allFiles.map((f) => ({ name: f, time: import_fs22.default.statSync(import_path22.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
+          const sorted = allFiles.map((f) => ({ name: f, time: import_fs20.default.statSync(import_path20.default.join(masterBackupsDir, f)).mtimeMs })).sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
             try {
-              import_fs22.default.unlinkSync(import_path22.default.join(masterBackupsDir, oldFile.name));
+              import_fs20.default.unlinkSync(import_path20.default.join(masterBackupsDir, oldFile.name));
             } catch (e) {
             }
           }
@@ -19494,11 +18397,11 @@ async function startServer() {
   app.get("/api/master/backup/download/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path22.default.join(masterBackupsDir, fileName);
-      if (!import_fs22.default.existsSync(filePath)) {
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
+      if (!import_fs20.default.existsSync(filePath)) {
         return res.status(404).json({ success: false, error: "Backup file not found on server" });
       }
-      const raw = JSON.parse(import_fs22.default.readFileSync(filePath, "utf-8"));
+      const raw = JSON.parse(import_fs20.default.readFileSync(filePath, "utf-8"));
       const exportData = raw.backupPayload || raw;
       res.setHeader("Content-Type", "application/json");
       res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
@@ -19510,9 +18413,9 @@ async function startServer() {
   app.delete("/api/master/backup/:fileName", (req, res) => {
     try {
       const fileName = req.params.fileName.replace(/[^a-zA-Z0-9_.-]/g, "");
-      const filePath = import_path22.default.join(masterBackupsDir, fileName);
-      if (import_fs22.default.existsSync(filePath)) {
-        import_fs22.default.unlinkSync(filePath);
+      const filePath = import_path20.default.join(masterBackupsDir, fileName);
+      if (import_fs20.default.existsSync(filePath)) {
+        import_fs20.default.unlinkSync(filePath);
         logServerAudit("Backup Deleted", "BACKUP", `Removed backup file ${fileName}`);
         return res.json({ success: true, message: `Backup ${fileName} deleted successfully` });
       }
@@ -19524,14 +18427,14 @@ async function startServer() {
   app.get("/api/master/backups", (req, res) => {
     try {
       const { client } = req.query;
-      let files = import_fs22.default.readdirSync(masterBackupsDir);
+      let files = import_fs20.default.readdirSync(masterBackupsDir);
       if (client) {
         const safe = String(client).replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
         files = files.filter((f) => f.toLowerCase().includes(safe));
       }
       const backups = files.map((file) => {
         try {
-          const content = JSON.parse(import_fs22.default.readFileSync(import_path22.default.join(masterBackupsDir, file), "utf-8"));
+          const content = JSON.parse(import_fs20.default.readFileSync(import_path20.default.join(masterBackupsDir, file), "utf-8"));
           return {
             id: content.id || file,
             clientName: content.clientName || "Unknown",
@@ -19580,16 +18483,16 @@ async function startServer() {
       });
     }
   });
-  const distPath = import_path22.default.join(process.cwd(), "dist");
-  const hasDist = import_fs22.default.existsSync(import_path22.default.join(distPath, "index.html"));
+  const distPath = import_path20.default.join(process.cwd(), "dist");
+  const hasDist = import_fs20.default.existsSync(import_path20.default.join(distPath, "index.html"));
   if (hasDist && process.env.FORCE_VITE_DEV !== "true") {
-    const indexPath = import_path22.default.join(distPath, "index.html");
+    const indexPath = import_path20.default.join(distPath, "index.html");
     let indexHtml = "";
     try {
-      indexHtml = import_fs22.default.readFileSync(indexPath, "utf-8");
+      indexHtml = import_fs20.default.readFileSync(indexPath, "utf-8");
     } catch {
     }
-    app.use(import_express18.default.static(distPath, {
+    app.use(import_express17.default.static(distPath, {
       maxAge: "1d",
       setHeaders: (res, filePath) => {
         if (filePath.endsWith("index.html") || filePath.endsWith("sw.js") || filePath.endsWith("registerSW.js") || filePath.endsWith("manifest.webmanifest")) {
@@ -19599,7 +18502,7 @@ async function startServer() {
         }
       }
     }));
-    app.use(import_express18.default.static(import_path22.default.join(process.cwd(), "public"), {
+    app.use(import_express17.default.static(import_path20.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
     app.get("*", (req, res) => {

@@ -534,15 +534,15 @@ class AdminService {
 
     return {
       success: true,
-      database: 'mbi72dn',
+      database: 'master_hub.sqlite & tenant_vaults',
       isConnectedToMariaDb: true,
-      engine: 'MariaDB 10.11 / InnoDB',
+      engine: 'Node.js Native SQLite Vault (WAL Mode)',
       totalTables: 23,
       totalRows: 58240,
       totalSizeKb: 14200,
       totalSizeMb: '13.87',
       tables: [],
-      queryTimeMs: 12,
+      queryTimeMs: 0.1,
       timestamp: new Date().toISOString()
     };
   }

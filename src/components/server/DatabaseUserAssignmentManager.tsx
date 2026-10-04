@@ -25,10 +25,10 @@ export interface DatabaseAssignment {
 const DB_ASSIGNMENTS_KEY = 'mbi_master_db_user_assignments_v1';
 
 export const DB_NODES = [
-  { id: 'mariadb_primary', name: 'MariaDB Primary Cluster (Port 3306 / Hostinger)', host: 'localhost:3306', status: 'ONLINE', capacity: '500 GB' },
+  { id: 'sqlite_vault_primary', name: 'Master SQLite Vault Hub (WAL Mode Native)', host: 'master_hub.sqlite', status: 'ONLINE', capacity: '500 GB' },
   { id: 'cloud_sync_mem', name: 'Cloud In-Memory Sync Engine (Sub-ms Latency)', host: '0.0.0.0:3000', status: 'ONLINE', capacity: '100 GB' },
   { id: 'replica_shard_01', name: 'Secondary Read Replica / Shard 01 (Backup)', host: 'replica-1.mbi.internal', status: 'ONLINE', capacity: '1 TB' },
-  { id: 'isolated_tenant_vault', name: 'Dedicated Encrypted Tenant Vault (High Security)', host: 'vault-isolated.mbi.cloud', status: 'ONLINE', capacity: '250 GB' },
+  { id: 'isolated_tenant_vault', name: 'Dedicated Encrypted Tenant Vault (High Security)', host: 'tenant_[id].sqlite', status: 'ONLINE', capacity: '250 GB' },
 ];
 
 export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) => void }> = ({ onNotify }) => {
@@ -42,7 +42,7 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
   // New Assignment Modal / Form State
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [selectedDbNodeId, setSelectedDbNodeId] = useState<string>('mariadb_primary');
+  const [selectedDbNodeId, setSelectedDbNodeId] = useState<string>('sqlite_vault_primary');
   const [selectedPrivilege, setSelectedPrivilege] = useState<DatabaseAssignment['accessPrivilege']>('READ_WRITE');
   const [assignmentNotes, setAssignmentNotes] = useState<string>('');
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -85,7 +85,7 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
       // If empty, automatically provision active tenants to appropriate database nodes
       if (loaded.length === 0 && allT.length > 0) {
         const autoAssigned: DatabaseAssignment[] = [];
-        const nodesList = ['mariadb_primary', 'cloud_sync_mem', 'replica_shard_01', 'isolated_tenant_vault'];
+        const nodesList = ['sqlite_vault_primary', 'cloud_sync_mem', 'replica_shard_01', 'isolated_tenant_vault'];
         
         allT.forEach((t, idx) => {
           const tid = t.tenantId || t.id;
@@ -233,7 +233,7 @@ export const DatabaseUserAssignmentManager: React.FC<{ onNotify?: (msg: string) 
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Assign staff cashiers, store managers, and tenants to dedicated MariaDB clusters, in-memory sync engines, or isolated data shards. Full real-time control to assign, modify permissions, or unassign users instantly.
+              Assign staff cashiers, store managers, and tenants to dedicated SQLite Vault clusters, in-memory sync engines, or isolated data shards. Full real-time control to assign, modify permissions, or unassign users instantly.
             </p>
           </div>
         </div>

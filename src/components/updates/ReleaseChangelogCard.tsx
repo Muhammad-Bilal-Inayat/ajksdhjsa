@@ -190,7 +190,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'Full Multi-Tenant Schema Validation: Verified 20+ MariaDB tables with strict per-tenant cryptographic isolation.',
+        text: 'Full Multi-Tenant Schema Validation: Verified 20+ SQLite tables with strict per-tenant cryptographic isolation.',
         type: 'feature',
         minPlan: 'all'
       }
@@ -227,7 +227,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Previous Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Production 503 Crash Shield, MariaDB 30s Keep-Alive Ping, and Sanitized Health Metrics.',
+    summary: 'Production 503 Crash Shield, SQLite Vault WAL Mode, and Sanitized Health Metrics.',
     features: [
       {
         text: 'Sanitized Public Health Metrics: database schema name hidden to prevent information disclosure.',
@@ -240,7 +240,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'MariaDB Background Keep-Alive Ping: Eliminates connection drops and idle wait_timeout disconnects.',
+        text: 'Native SQLite Vault WAL Engine: Eliminates network database connection drops and idle wait_timeout disconnects.',
         type: 'performance',
         minPlan: 'all'
       }

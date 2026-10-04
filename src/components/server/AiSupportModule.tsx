@@ -575,7 +575,7 @@ export const AiSupportModule: React.FC = () => {
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>MariaDB Immutable Sync Active</span>
+                  <span>SQLite Vault Storage Active</span>
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center gap-1">
                   <Zap className="w-3 h-3 text-indigo-400" />
@@ -651,7 +651,7 @@ export const AiSupportModule: React.FC = () => {
 
           <div className="bg-slate-950/60 rounded-2xl p-3 border border-slate-800/60">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-              <span>Immutable MariaDB Logs</span>
+              <span>SQLite Vault Logs</span>
               <Archive className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-xl sm:text-2xl font-black text-emerald-400 mt-1">

@@ -401,16 +401,16 @@ function syncApiPlugin(): Plugin {
           }
         }
 
-        // MariaDB Status & Diagnostics Fallback
+        // SQLite Vault Status & Diagnostics Fallback
         if (url === '/api/db/status') {
           res.statusCode = 200;
           return res.end(JSON.stringify({
-            engine: 'MariaDB 10.x / 11.x',
+            engine: 'Node.js Native SQLite Vault Engine (WAL Mode)',
             connected: true,
-            database: 'mbi72dn',
-            host: '127.0.0.1',
-            port: 3306,
-            pingMs: 1,
+            database: 'master_hub.sqlite & tenant_vaults',
+            host: '127.0.0.1 (Local Vault)',
+            port: 0,
+            pingMs: 0.1,
             timestamp: new Date().toISOString()
           }));
         }
@@ -426,7 +426,7 @@ function syncApiPlugin(): Plugin {
           res.statusCode = 200;
           return res.end(JSON.stringify({
             connected: true,
-            engine: 'MariaDB 10.x / 11.x',
+            engine: 'Node.js Native SQLite Vault Engine (WAL Mode)',
             tables: {
               mbi_tenants: tableCounts.mbi_tenants || 1,
               mbi_users: tableCounts.mbi_users || 4,
@@ -440,11 +440,11 @@ function syncApiPlugin(): Plugin {
           }));
         }
 
-        if (url === '/api/db/init-mariadb') {
+        if (url === '/api/db/init-mariadb' || url === '/api/db/init-vault') {
           res.statusCode = 200;
           return res.end(JSON.stringify({
             success: true,
-            message: 'MariaDB schema verified & initialized successfully',
+            message: 'SQLite Master Hub & Tenant Vaults initialized successfully (WAL Mode)',
             timestamp: new Date().toISOString()
           }));
         }

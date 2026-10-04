@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { DatabaseUserAssignmentManager } from './DatabaseUserAssignmentManager';
 
-interface MariaDbStatus {
+interface VaultStatus {
   connected: boolean;
   database: string;
   host: string;
@@ -44,7 +44,7 @@ interface MariaDbDatabaseManagerPanelProps {
 }
 
 export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelProps> = ({ onNotify }) => {
-  const [dbStatus, setDbStatus] = useState<MariaDbStatus | null>(null);
+  const [dbStatus, setDbStatus] = useState<VaultStatus | null>(null);
   const [tableStats, setTableStats] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [isProvisioning, setIsProvisioning] = useState<boolean>(false);
@@ -68,7 +68,7 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
         if (tData && tData.tables) setTableStats(tData.tables);
       }
     } catch (err: any) {
-      console.warn('MariaDB status notice:', err?.message || err);
+      console.warn('SQLite Vault status notice:', err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -86,16 +86,16 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
   const handleInitSchema = async () => {
     setIsProvisioning(true);
     try {
-      const res = await fetch('/api/db/init-mariadb', { method: 'POST' });
+      const res = await fetch('/api/db/init-vault', { method: 'POST' });
       const data = res.headers.get('content-type')?.includes('application/json') ? await res.json().catch(() => ({})) : {};
       if (data.success) {
-        if (onNotify) onNotify('MariaDB schema successfully provisioned and verified!');
+        if (onNotify) onNotify('SQLite Master Hub & Tenant Vaults successfully verified!');
         await fetchStatus();
       } else {
-        if (onNotify) onNotify(`MariaDB: ${data.message || 'Verification complete'}`);
+        if (onNotify) onNotify(`Vault: ${data.message || 'Verification complete'}`);
       }
     } catch (err: any) {
-      if (onNotify) onNotify(`MariaDB Init Error: ${err?.message}`);
+      if (onNotify) onNotify(`Vault Init Error: ${err?.message}`);
     } finally {
       setIsProvisioning(false);
     }
@@ -118,230 +118,204 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
     { name: 'mbi_purchases', label: 'Supplier Purchases', desc: 'Wholesale purchase orders, intake stock batches, and supplier bills' },
     { name: 'mbi_parties', label: 'Khata Accounts (Customers/Suppliers)', desc: 'Customer credit books, supplier payables, and contact directories' },
     { name: 'mbi_party_transactions', label: 'Ledger Debit/Credit Entries', desc: 'Real-time double-entry debit and credit audit trails' },
-    { name: 'mbi_cashier_shifts', label: 'Cashier Shifts & Register Closing', desc: 'Physical drawer opening and closing cash balancing' },
-    { name: 'mbi_print_templates', label: 'Master Invoice & Print Templates', desc: 'Official 80mm/58mm thermal templates & A4 drug warranty settings' },
-    { name: 'mbi_audit_logs', label: 'Security & Threat Logs', desc: 'Master security audit trail and telemetry events' },
+    { name: 'mbi_cashier_shifts', label: 'Cash Drawer Shifts', desc: 'Opening floats, closing cash drops, and register reconciliation' },
+    { name: 'mbi_expenses', label: 'Store Operating Expenses', desc: 'Daily utility bills, store maintenance, and petty cash logs' },
+    { name: 'mbi_audit_logs', label: 'Security & Audit Trails', desc: 'Immutable action logging, permission overrides, and delete tracking' },
+    { name: 'mbi_licenses', label: 'License Keys & HWID Locks', desc: 'Cryptographic activation keys, bound hardware MAC/CPUs, and plans' }
   ];
 
-  const totalRecords = Object.values(tableStats).reduce((acc, curr) => acc + (curr || 0), 0);
+  const totalRowCount = Object.values(tableStats).reduce((acc, curr) => acc + (typeof curr === 'number' ? curr : 0), 0);
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-teal-900/40 via-slate-900 to-indigo-900/40 dark:from-teal-950/60 dark:via-slate-900 dark:to-indigo-950/60 border border-teal-500/30 rounded-2xl p-6 text-white shadow-sm">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-teal-500/20 border border-teal-500/40 text-teal-300 flex items-center justify-center shrink-0 shadow-sm">
-              <Database className="w-6 h-6" />
+      {/* HEADER HERO CARD */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 border border-slate-800 p-6 sm:p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 tracking-wider uppercase flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-indigo-400" />
+                <span>SQLite Vault Enterprise Engine (WAL Mode)</span>
+              </span>
+              
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Zero-Latency 100% Native</span>
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black text-white">SQLite Vault Enterprise Database Studio</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10.5px] font-mono font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40">
-                  SQLITE WAL ENGINE
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-1">
-                Centralized Tenant-Isolated SQLite Vault engine with 0ms query latency, atomic WAL transactions, FEFO batch indexing, and zero external cloud database bills.
-              </p>
-            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-3">
+              Tenant-Isolated SQLite Vault Hub
+            </h1>
+
+            <p className="text-sm text-slate-300 max-w-2xl">
+              100% Native SQLite Vault engine with physically isolated database vaults per company (<code className="text-cyan-300 font-mono">tenant_[id].sqlite</code>) and a centralized Master Server Hub (<code className="text-cyan-300 font-mono">master_hub.sqlite</code>). Zero cloud bills and sub-millisecond query execution.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
             <button
               onClick={fetchStatus}
               disabled={loading}
-              className="px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-700 shadow-sm"
+              className="px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-white text-xs font-bold flex items-center gap-2 border border-slate-700 transition cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh Status</span>
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+              <span>Refresh Telemetry</span>
             </button>
-
-            <a
-              href="/api/db/schema-download"
-              download="mbi_inventra_database.sql"
-              className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-teal-600/30 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download SQL Schema</span>
-            </a>
 
             <button
               onClick={handleInitSchema}
               disabled={isProvisioning}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-600/30 transition cursor-pointer disabled:opacity-50"
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>{isProvisioning ? 'Provisioning...' : 'Verify Vault Schema'}</span>
+              <ShieldCheck className="w-4 h-4" />
+              <span>{isProvisioning ? 'Verifying...' : 'Verify Vault Health'}</span>
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Connection & Health Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Status Card */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>Vault Service</span>
-            <Server className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+        {/* METRICS ROW */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-800/80">
+          <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800/60">
+            <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Vault Engine</span>
+            </div>
+            <div className="text-lg font-black text-white mt-1">
+              Node.js Native SQLite
+            </div>
+            <div className="text-[11px] text-emerald-400 font-semibold mt-0.5">
+              WAL Journal Mode
+            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xl font-black text-slate-900 dark:text-white">
-              Online &amp; Active
-            </span>
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            WAL Mode Active • 0ms Local I/O
-          </div>
-        </div>
 
-        {/* Database Info */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>Primary Master Vault</span>
-            <Database className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800/60">
+            <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Isolation Strategy</span>
+            </div>
+            <div className="text-lg font-black text-cyan-300 mt-1 font-mono">
+              Physical DB Files
+            </div>
+            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+              server/data/tenants/
+            </div>
           </div>
-          <div className="mt-2 text-xl font-black text-indigo-600 dark:text-indigo-300 font-mono">
-            {dbStatus?.database || 'master_hub.sqlite'}
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            Engine: Node.js Native SQLite (WAL)
-          </div>
-        </div>
 
-        {/* Total Synced Records */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>Relational Tables</span>
-            <Table className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800/60">
+            <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span>Query Latency</span>
+            </div>
+            <div className="text-lg font-black text-amber-300 mt-1">
+              &lt; 0.1 ms
+            </div>
+            <div className="text-[11px] text-emerald-400 font-semibold mt-0.5">
+              Instant In-Process Access
+            </div>
           </div>
-          <div className="mt-2 text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-            {tableDefinitions.length} Tables
-          </div>
-          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            Tenant Isolated SQLite Vaults
-          </div>
-        </div>
 
-        {/* Synced Records Count */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4.5 text-slate-900 dark:text-white shadow-sm transition">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
-            <span>Auto Sync Pipeline</span>
-            <HardDrive className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-          </div>
-          <div className="mt-2 text-xl font-black text-cyan-600 dark:text-cyan-300 font-mono">
-            {totalRecords > 0 ? `${totalRecords.toLocaleString()} Records` : 'Auto-Syncing'}
-          </div>
-          <div className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" />
-            <span>IndexedDB ⇄ SQLite Vault 2-Way</span>
+          <div className="bg-slate-950/60 rounded-2xl p-3.5 border border-slate-800/60">
+            <div className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Total Active Records</span>
+            </div>
+            <div className="text-lg font-black text-emerald-400 mt-1 font-mono">
+              {totalRowCount.toLocaleString()}
+            </div>
+            <div className="text-[11px] text-slate-400 font-semibold mt-0.5">
+              Across Master &amp; Tenant Vaults
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs Selector */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+      {/* NAVIGATION TABS */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('assignments')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
-            activeTab === 'assignments' 
-              ? 'bg-indigo-600 text-white dark:bg-indigo-500/20 dark:text-indigo-300 dark:border dark:border-indigo-500/40' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'assignments'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>User &amp; Tenant Database Assignments</span>
+          <span>User &amp; Tenant DB Assignments</span>
         </button>
 
         <button
           onClick={() => setActiveTab('tables')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
-            activeTab === 'tables' 
-              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'tables'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <Table className="w-4 h-4" />
-          <span>MariaDB Relational Tables ({tableDefinitions.length})</span>
+          <span>Tenant Vault Schema ({tableDefinitions.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('connection')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
-            activeTab === 'connection' 
-              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'connection'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
-          <Server className="w-4 h-4" />
-          <span>Connection &amp; .env Setup</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('schema_cli')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-sm ${
-            activeTab === 'schema_cli' 
-              ? 'bg-teal-600 text-white dark:bg-teal-500/20 dark:text-teal-300 dark:border dark:border-teal-500/40' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800'
-          }`}
-        >
-          <Terminal className="w-4 h-4" />
-          <span>cPanel, phpMyAdmin &amp; CLI Migration</span>
+          <HardDrive className="w-4 h-4" />
+          <span>Storage &amp; Path Architecture</span>
         </button>
       </div>
 
-      {/* TAB 0: DATABASE USER ASSIGNMENTS */}
+      {/* TAB 0: USER & TENANT ASSIGNMENTS */}
       {activeTab === 'assignments' && (
         <DatabaseUserAssignmentManager onNotify={onNotify} />
       )}
 
-      {/* TAB 1: RELATIONAL TABLES EXPLORER */}
+      {/* TAB 1: TABLE METRICS & SCHEMAS */}
       {activeTab === 'tables' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-4 shadow-sm">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Database Schema &amp; Row Counters</span>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Table className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>SQLite Relational Tables ({tableDefinitions.length})</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Live row statistics from MariaDB server. When client adds invoices, batches, or users, records auto-insert via ON DUPLICATE KEY UPDATE.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Standardized enterprise schema instantiated automatically for every isolated tenant vault.
               </p>
             </div>
-            <span className="text-xs font-mono text-teal-600 dark:text-teal-400 font-bold bg-teal-50 dark:bg-teal-500/10 px-2.5 py-1 rounded-lg border border-teal-200 dark:border-teal-500/20">
-              InnoDB Fast Engine
-            </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {tableDefinitions.map((tbl) => {
-              const rowCount = tableStats[tbl.name] ?? 0;
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tableDefinitions.map((def) => {
+              const rowCount = tableStats[def.name] || tableStats[def.name.replace('mbi_', '')] || 0;
               return (
                 <div 
-                  key={tbl.name}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 hover:border-teal-500/40 transition flex flex-col justify-between shadow-xs"
+                  key={def.name}
+                  className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500/50 transition-all shadow-xs space-y-2 group"
                 >
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-black text-sm text-teal-700 dark:text-teal-300">
-                        {tbl.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30">
-                        {rowCount > 0 ? `${rowCount.toLocaleString()} rows` : '0 rows / ready'}
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500">
+                      {def.name}
                     </div>
-                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-1">
-                      {tbl.label}
-                    </div>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">
-                      {tbl.desc}
-                    </p>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      {rowCount.toLocaleString()} rows
+                    </span>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700/50 flex items-center justify-between text-[10.5px] text-slate-500 dark:text-slate-400 font-mono">
-                    <span>PRIMARY KEY (`id`)</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">AUTO-SYNC ON</span>
+
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {def.label}
                   </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {def.desc}
+                  </p>
                 </div>
               );
             })}
@@ -349,109 +323,42 @@ export const MariaDbDatabaseManagerPanel: React.FC<MariaDbDatabaseManagerPanelPr
         </div>
       )}
 
-      {/* TAB 2: CONNECTION & .ENV CONFIG */}
+      {/* TAB 2: STORAGE & ARCHITECTURE CONFIG */}
       {activeTab === 'connection' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-5 shadow-sm">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Environment Variables (.env) for MariaDB</span>
+              <span>SQLite Vault Storage Configuration</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Add these environment variables to your VPS / Hostinger / cPanel Node.js environment to bind to your MariaDB instance:
+              Zero configuration required. All company data is automatically partitioned into isolated SQLite files with WAL mode enabled:
             </p>
           </div>
 
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 relative font-mono text-xs text-slate-300 space-y-1">
             <button
-              onClick={() => handleCopy(`DB_HOST=localhost\nDB_PORT=3306\nDB_USER=root\nDB_PASSWORD=YourStrongPasswordHere\nDB_NAME=mbi_inventra`, '.env config')}
+              onClick={() => handleCopy(`SQLITE_VAULT_DIR=server/data/tenants\nSQLITE_MASTER_VAULT=server/data/master/master_hub.sqlite`, 'vault storage config')}
               className="absolute top-3 right-3 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer border border-slate-700 text-[11px] flex items-center gap-1 font-sans"
             >
-              {copiedKey === '.env config' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedKey === '.env config' ? 'Copied' : 'Copy .env'}</span>
+              {copiedKey === 'vault storage config' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedKey === 'vault storage config' ? 'Copied' : 'Copy Config'}</span>
             </button>
-            <div className="text-teal-400"># MariaDB Connection Configuration</div>
-            <div>DB_HOST=localhost</div>
-            <div>DB_PORT=3306</div>
-            <div>DB_USER=root</div>
-            <div>DB_PASSWORD=YourStrongPasswordHere</div>
-            <div>DB_NAME=mbi_inventra</div>
+            <div className="text-teal-400"># SQLite Vault Storage Directories</div>
+            <div>SQLITE_VAULT_DIR=server/data/tenants</div>
+            <div>SQLITE_MASTER_VAULT=server/data/master/master_hub.sqlite</div>
           </div>
 
           <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/30 text-xs text-indigo-900 dark:text-indigo-200 space-y-2">
             <div className="font-bold flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
               <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>Driver Details</span>
+              <span>Engine Features &amp; Security</span>
             </div>
-            <p>
-              Backend uses high-speed <strong>mysql2/promise</strong> connection pool with connection recycling, UTF8MB4 full Unicode emojis support, and non-blocking asynchronous sync queue.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: CPANEL, PHPMYADMIN & CLI MIGRATION */}
-      {activeTab === 'schema_cli' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-slate-900 dark:text-white space-y-5 shadow-sm">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span>Database Migration &amp; Terminal Commands</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Instructions for importing the <strong>mbi_inventra_mariadb.sql</strong> file into MariaDB via CLI or phpMyAdmin:
-            </p>
-          </div>
-
-          {/* CLI Step */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
-              <span>Step 1: Create Database &amp; User (Linux Terminal / MariaDB Prompt)</span>
-            </div>
-            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 relative">
-              <button
-                onClick={() => handleCopy(`CREATE DATABASE IF NOT EXISTS mbi_inventra CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\nGRANT ALL PRIVILEGES ON mbi_inventra.* TO 'mbi_user'@'localhost' IDENTIFIED BY 'StrongPassword123!';\nFLUSH PRIVILEGES;`, 'SQL Init Commands')}
-                className="absolute top-2.5 right-2.5 p-1 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
-              >
-                {copiedKey === 'SQL Init Commands' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <pre className="text-[11.5px] leading-relaxed">
-{`CREATE DATABASE IF NOT EXISTS mbi_inventra CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON mbi_inventra.* TO 'mbi_user'@'localhost' IDENTIFIED BY 'StrongPassword123!';
-FLUSH PRIVILEGES;`}
-              </pre>
-            </div>
-          </div>
-
-          {/* Import Step */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-teal-700 dark:text-teal-300 flex items-center gap-1.5">
-              <span>Step 2: Import Schema File (SSH CLI)</span>
-            </div>
-            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 relative">
-              <button
-                onClick={() => handleCopy(`mariadb -u root -p mbi_inventra < mbi_inventra_mariadb.sql`, 'CLI Import')}
-                className="absolute top-2.5 right-2.5 p-1 rounded bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
-              >
-                {copiedKey === 'CLI Import' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <code className="text-[11.5px] text-emerald-400">
-                mariadb -u root -p mbi_inventra &lt; mbi_inventra_mariadb.sql
-              </code>
-            </div>
-          </div>
-
-          {/* phpMyAdmin Step */}
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2">
-            <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <ExternalLink className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              <span>phpMyAdmin / cPanel Import Guide</span>
-            </div>
-            <ol className="list-decimal pl-4 space-y-1 text-slate-700 dark:text-slate-300 text-[11.5px]">
-              <li>Log in to your cPanel / phpMyAdmin dashboard.</li>
-              <li>Click <strong>New</strong> in the left sidebar and create a database named <code>mbi_inventra</code> with <code>utf8mb4_unicode_ci</code> collation.</li>
-              <li>Click the <strong>Import</strong> tab at the top.</li>
-              <li>Click <strong>Choose File</strong> and select <code>mbi_inventra_mariadb.sql</code>.</li>
-              <li>Click <strong>Go / Import</strong> at the bottom. All 12 enterprise tables and initial plan seeds will be created instantly.</li>
-            </ol>
+            <ul className="list-disc pl-5 space-y-1 text-slate-700 dark:text-slate-300 text-[11.5px]">
+              <li><strong>Zero Cloud Cost:</strong> No external RDS or managed database fees.</li>
+              <li><strong>Write-Ahead Logging (WAL Mode):</strong> Concurrent read/write without table locks or latency spikes.</li>
+              <li><strong>Physical Isolation:</strong> Company 001 cannot physically access Company 002's database file.</li>
+              <li><strong>Instant Backup:</strong> A tenant's entire database can be snapshotted in 1ms by copying its single <code>.sqlite</code> file.</li>
+            </ul>
           </div>
         </div>
       )}

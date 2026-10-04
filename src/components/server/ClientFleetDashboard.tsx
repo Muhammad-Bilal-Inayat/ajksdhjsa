@@ -659,10 +659,10 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
     }
   };
 
-  // Handle permanent deletion of tenant from MariaDB and local fleet
+  // Handle permanent deletion of tenant from SQLite Master Hub & Vault fleet
   const handleDeleteTenant = async (tenant: Tenant) => {
     const tid = tenant.tenantId || tenant.id;
-    if (!window.confirm(`Are you sure you want to permanently delete company "${tenant.name}" (${tid}) from MariaDB and server fleet? All associated user credentials and data will be removed.`)) {
+    if (!window.confirm(`Are you sure you want to permanently delete company "${tenant.name}" (${tid}) from SQLite Vault and server fleet? All associated user credentials and data will be removed.`)) {
       return;
     }
 
@@ -1256,7 +1256,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                       <button
                         onClick={() => handleDeleteTenant(t)}
                         className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-bold transition-all cursor-pointer"
-                        title="Permanently Delete Company from MariaDB & Fleet"
+                        title="Permanently Delete Company from SQLite Vault & Fleet"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

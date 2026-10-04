@@ -891,7 +891,7 @@ class SyncEngine {
 
     this.setStatus('syncing');
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('mbi-sync-progress', { detail: { synced: 0, total: 100, message: 'Connecting to Cloud MariaDB...' } }));
+      window.dispatchEvent(new CustomEvent('mbi-sync-progress', { detail: { synced: 0, total: 100, message: 'Connecting to Cloud SQLite Vault...' } }));
     }
 
     try {
@@ -992,7 +992,7 @@ class SyncEngine {
       return {
         success: false,
         count: 0,
-        message: err?.message || 'Failed to restore cloud data from MariaDB.'
+        message: err?.message || 'Failed to restore cloud data from SQLite Vault.'
       };
     }
   }

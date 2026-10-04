@@ -25,6 +25,14 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
           if (!tid || seenIds.has(tid)) continue;
           seenIds.add(tid);
 
+          const actualApiKey = t.api_key || t.apiKey || `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '')}_K7A8N2`;
+          let featuresObj = {};
+          if (t.features_json) {
+            try {
+              featuresObj = typeof t.features_json === 'string' ? JSON.parse(t.features_json) : t.features_json;
+            } catch (e) {}
+          }
+
           tenants.push({
             id: t.id || tid,
             tenant_id: tid,
@@ -38,10 +46,23 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
             address: t.address || '',
             plan: t.plan || 'Basic',
             status: t.status || 'Active',
-            api_key: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '')}_K7A8N2`,
-            apiKey: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '')}_K7A8N2`,
-            license_id: `lic_${tid}`,
-            trial_expiry_date: t.trial_expires_at || 'Never (Lifetime)',
+            api_key: actualApiKey,
+            apiKey: actualApiKey,
+            license_id: t.license_id || `lic_${tid}`,
+            trial_expiry_date: t.trial_expires_at || t.trial_expiry_date || 'Never (Lifetime)',
+            features_json: t.features_json || JSON.stringify(featuresObj),
+            features: featuresObj,
+            customFeatures: featuresObj,
+            feature_toggles: featuresObj,
+            featureToggles: featuresObj,
+            max_users: t.max_users || 5,
+            max_firms: t.max_firms || 2,
+            max_devices: t.max_devices || 3,
+            sale_price: t.sale_price || 0,
+            amount_paid: t.amount_paid || 0,
+            sale_status: t.sale_status || 'Paid',
+            payment_method: t.payment_method || 'Bank Transfer',
+            sale_notes: t.sale_notes || '',
             user_count: 1,
             invoice_count: 0,
             created_at: t.created_at || new Date().toISOString(),
@@ -90,6 +111,13 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
               } catch (e) {}
             }
 
+            let featuresObj = {};
+            if (t.features_json) {
+              try {
+                featuresObj = typeof t.features_json === 'string' ? JSON.parse(t.features_json) : t.features_json;
+              } catch (e) {}
+            }
+
             tenants.push({
               id: t.id || tid,
               tenant_id: tid,
@@ -109,6 +137,19 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
               apiKey: apiKey,
               license_id: t.license_key || `lic_${tid}`,
               trial_expiry_date: t.trial_expiry_date || t.license_expiry || 'Never (Lifetime)',
+              features_json: t.features_json || JSON.stringify(featuresObj),
+              features: featuresObj,
+              customFeatures: featuresObj,
+              feature_toggles: featuresObj,
+              featureToggles: featuresObj,
+              max_users: t.max_users || 5,
+              max_firms: t.max_firms || 2,
+              max_devices: t.max_devices || 3,
+              sale_price: t.sale_price || 0,
+              amount_paid: t.amount_paid || 0,
+              sale_status: t.sale_status || 'Paid',
+              payment_method: t.payment_method || 'Bank Transfer',
+              sale_notes: t.sale_notes || '',
               user_count: Number(t.user_count) || 0,
               invoice_count: Number(t.invoice_count) || 0,
               created_at: t.created_at || new Date().toISOString(),
@@ -151,18 +192,43 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
             const tid = ft.id || ft.tenantId || ft.tenant_id;
             const tName = ft.name || ft.storeName || ft.store_name;
             if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid || t.name === tName))) {
+              let featuresObj = {};
+              if (ft.features_json) {
+                try { featuresObj = typeof ft.features_json === 'string' ? JSON.parse(ft.features_json) : ft.features_json; } catch (e) {}
+              } else if (ft.features || ft.featureToggles) {
+                featuresObj = ft.features || ft.featureToggles;
+              }
+
               tenants.push({
                 id: tid,
                 tenant_id: tid,
                 tenantId: tid,
+                organization_id: ft.organization_id || tid,
+                license_id: ft.license_id || `lic_${tid}`,
                 name: tName,
                 owner_name: ft.ownerName || ft.owner_name || 'Owner',
                 owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || '',
                 owner_email: ft.ownerEmail || ft.owner_email || ft.email || '',
                 city: ft.city || 'Lahore',
-                plan: ft.plan || ft.planId || 'Standard POS',
+                address: ft.address || '',
+                plan: ft.plan || ft.planId || 'Basic',
                 status: ft.status || 'Active',
                 api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+                apiKey: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+                trial_expiry_date: ft.trial_expiry_date || ft.trialExpiryDate || 'Never (Lifetime)',
+                features_json: ft.features_json || JSON.stringify(featuresObj),
+                features: featuresObj,
+                customFeatures: featuresObj,
+                feature_toggles: featuresObj,
+                featureToggles: featuresObj,
+                max_users: ft.max_users || ft.maxUsers || 5,
+                max_firms: ft.max_firms || ft.maxFirms || 2,
+                max_devices: ft.max_devices || ft.maxDevices || 3,
+                sale_price: ft.sale_price || ft.salePrice || 0,
+                amount_paid: ft.amount_paid || ft.amountPaid || 0,
+                sale_status: ft.sale_status || ft.saleStatus || 'Paid',
+                payment_method: ft.payment_method || ft.paymentMethod || 'Bank Transfer',
+                sale_notes: ft.sale_notes || ft.saleNotes || '',
                 created_at: ft.trialStartDate || ft.created_at || new Date().toISOString()
               });
             }
@@ -179,18 +245,43 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
           const tid = ft.id || ft.tenantId || ft.tenant_id;
           const tName = ft.name || ft.storeName || ft.store_name;
           if (tName && !tenants.some(t => (t.id === tid || t.tenant_id === tid || t.name === tName))) {
+            let featuresObj = {};
+            if (ft.features_json) {
+              try { featuresObj = typeof ft.features_json === 'string' ? JSON.parse(ft.features_json) : ft.features_json; } catch (e) {}
+            } else if (ft.features || ft.featureToggles) {
+              featuresObj = ft.features || ft.featureToggles;
+            }
+
             tenants.push({
               id: tid,
               tenant_id: tid,
               tenantId: tid,
+              organization_id: ft.organization_id || tid,
+              license_id: ft.license_id || `lic_${tid}`,
               name: tName,
               owner_name: ft.ownerName || ft.owner_name || 'Owner',
               owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || '',
               owner_email: ft.ownerEmail || ft.owner_email || ft.email || '',
               city: ft.city || 'Lahore',
+              address: ft.address || '',
               plan: ft.plan || ft.planId || 'Basic',
               status: ft.status || 'Active',
               api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+              apiKey: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+              trial_expiry_date: ft.trial_expiry_date || ft.trialExpiryDate || 'Never (Lifetime)',
+              features_json: ft.features_json || JSON.stringify(featuresObj),
+              features: featuresObj,
+              customFeatures: featuresObj,
+              feature_toggles: featuresObj,
+              featureToggles: featuresObj,
+              max_users: ft.max_users || ft.maxUsers || 5,
+              max_firms: ft.max_firms || ft.maxFirms || 2,
+              max_devices: ft.max_devices || ft.maxDevices || 3,
+              sale_price: ft.sale_price || ft.salePrice || 0,
+              amount_paid: ft.amount_paid || ft.amountPaid || 0,
+              sale_status: ft.sale_status || ft.saleStatus || 'Paid',
+              payment_method: ft.payment_method || ft.paymentMethod || 'Bank Transfer',
+              sale_notes: ft.sale_notes || ft.saleNotes || '',
               created_at: ft.trialStartDate || ft.created_at || new Date().toISOString()
             });
           }
@@ -291,40 +382,136 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
     // 1. Primary Engine: Save immediately to Native SQLite Master Hub Vault
     try {
       const masterDb = getMasterVault();
-      masterDb.prepare(`
-        INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expires_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET
-          name = excluded.name,
-          owner_name = excluded.owner_name,
-          owner_phone = excluded.owner_phone,
-          owner_email = excluded.owner_email,
-          city = excluded.city,
-          address = excluded.address,
-          plan = excluded.plan,
-          status = excluded.status,
-          api_key = excluded.api_key,
-          features_json = excluded.features_json,
-          trial_expires_at = excluded.trial_expires_at,
-          updated_at = datetime('now');
-      `).run(
-        cleanId,
-        cleanTenantId,
-        cleanTenantId,
-        name || 'Pharmacy Store',
-        owner_name || ownerName || 'Store Admin',
-        owner_phone || ownerPhone || phone || '',
-        owner_email || ownerEmail || email || '',
-        city || 'Lahore',
-        address || '',
-        plan || 'Business',
-        status || 'Active',
-        drug_license_no || '',
-        ntn_number || '',
-        cleanApiKey,
-        cleanFeaturesJson,
-        cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : null
-      );
+      const existingRow: any = masterDb.prepare("SELECT id, tenant_id FROM mbi_tenants WHERE id = ? OR tenant_id = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1").get(cleanId, cleanTenantId, name || '');
+      const effectiveId = existingRow?.id || cleanId;
+      const effectiveTenantId = existingRow?.tenant_id || cleanTenantId;
+
+      const targetMaxUsers = Number(req.body.max_users || req.body.maxUsers) || 5;
+      const targetMaxFirms = Number(req.body.max_firms || req.body.maxFirms) || 2;
+      const targetMaxDevices = Number(req.body.max_devices || req.body.maxDevices) || 3;
+      const targetSalePrice = Number(req.body.sale_price !== undefined ? req.body.sale_price : req.body.salePrice) || 0;
+      const targetAmountPaid = Number(req.body.amount_paid !== undefined ? req.body.amount_paid : req.body.amountPaid) || 0;
+      const targetSaleStatus = req.body.sale_status || req.body.saleStatus || 'Paid';
+      const targetPaymentMethod = req.body.payment_method || req.body.paymentMethod || 'Bank Transfer';
+      const targetSaleNotes = req.body.sale_notes || req.body.saleNotes || '';
+      const formattedExpiry = cleanExpiry === 'Lifetime' ? '2099-12-31' : (cleanExpiry ? cleanExpiry.slice(0, 10) : '2099-12-31');
+
+      if (existingRow) {
+        masterDb.prepare(`
+          UPDATE mbi_tenants SET
+            name = ?,
+            owner_name = ?,
+            owner_phone = ?,
+            owner_email = ?,
+            city = ?,
+            address = ?,
+            plan = ?,
+            status = ?,
+            drug_license_no = ?,
+            ntn_number = ?,
+            api_key = COALESCE(?, api_key),
+            features_json = ?,
+            trial_expires_at = ?,
+            max_users = ?,
+            max_firms = ?,
+            max_devices = ?,
+            sale_price = ?,
+            amount_paid = ?,
+            sale_status = ?,
+            payment_method = ?,
+            sale_notes = ?,
+            updated_at = datetime('now')
+          WHERE id = ? OR tenant_id = ?
+        `).run(
+          name || 'Pharmacy Store',
+          owner_name || ownerName || 'Store Admin',
+          owner_phone || ownerPhone || phone || '',
+          owner_email || ownerEmail || email || '',
+          city || 'Lahore',
+          address || '',
+          plan || 'Business',
+          status || 'Active',
+          drug_license_no || '',
+          ntn_number || '',
+          cleanApiKey,
+          cleanFeaturesJson,
+          formattedExpiry,
+          targetMaxUsers,
+          targetMaxFirms,
+          targetMaxDevices,
+          targetSalePrice,
+          targetAmountPaid,
+          targetSaleStatus,
+          targetPaymentMethod,
+          targetSaleNotes,
+          effectiveId,
+          effectiveTenantId
+        );
+      } else {
+        masterDb.prepare(`
+          INSERT INTO mbi_tenants (
+            id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email,
+            city, address, plan, status, drug_license_no, ntn_number, api_key, features_json,
+            trial_expires_at, max_users, max_firms, max_devices, sale_price, amount_paid,
+            sale_status, payment_method, sale_notes, updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          effectiveId,
+          effectiveTenantId,
+          effectiveTenantId,
+          name || 'Pharmacy Store',
+          owner_name || ownerName || 'Store Admin',
+          owner_phone || ownerPhone || phone || '',
+          owner_email || ownerEmail || email || '',
+          city || 'Lahore',
+          address || '',
+          plan || 'Business',
+          status || 'Active',
+          drug_license_no || '',
+          ntn_number || '',
+          cleanApiKey,
+          cleanFeaturesJson,
+          formattedExpiry,
+          targetMaxUsers,
+          targetMaxFirms,
+          targetMaxDevices,
+          targetSalePrice,
+          targetAmountPaid,
+          targetSaleStatus,
+          targetPaymentMethod,
+          targetSaleNotes
+        );
+      }
+
+      // Also ensure license record in SQLite
+      try {
+        const existingLic: any = masterDb.prepare("SELECT id FROM mbi_licenses WHERE license_key = ? OR tenant_id = ? LIMIT 1").get(`lic_${effectiveTenantId}`, effectiveTenantId);
+        if (existingLic) {
+          masterDb.prepare("UPDATE mbi_licenses SET plan = ?, status = ?, expires_at = ? WHERE license_key = ? OR tenant_id = ?").run(
+            plan || 'Business',
+            status || 'Active',
+            cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : '2099-12-31',
+            `lic_${effectiveTenantId}`,
+            effectiveTenantId
+          );
+        } else {
+          masterDb.prepare(`
+            INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 5, 3, datetime('now'))
+          `).run(
+            `lic_${effectiveTenantId}`,
+            effectiveTenantId,
+            `lic_${effectiveTenantId}`,
+            name || 'Pharmacy Store',
+            owner_name || ownerName || 'Store Owner',
+            owner_phone || ownerPhone || phone || '',
+            plan || 'Business',
+            status || 'Active',
+            cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : '2099-12-31'
+          );
+        }
+      } catch (e) {}
     } catch (sqErr) {}
 
     if (await isMariaDbAvailable()) {
@@ -519,6 +706,162 @@ fleetRouter.delete('/tenants/:id', async (req: TenantRequest, res: Response): Pr
     res.json({ success: true, message: `Tenant ${tenant_id} deleted successfully.` });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error deleting tenant' });
+  }
+});
+
+// 3b. Update tenant lock status (Suspend / Unlock) with persistent broadcast
+fleetRouter.post('/tenants/status', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, tenant_id, id, status } = req.body;
+    const tid = tenantId || tenant_id || id;
+    const newStatus = status === 'Suspended' ? 'Suspended' : 'Active';
+
+    if (!tid) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    // 1. Primary Engine: Update Native SQLite Master Hub Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET status = ?, updated_at = datetime('now') 
+        WHERE tenant_id = ? OR id = ?;
+      `).run(newStatus, tid, tid);
+    } catch (sqErr) {}
+
+    // 2. MariaDB Engine (if available)
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query('UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;', [newStatus, tid, tid]);
+        await pool.query('UPDATE mbi_licenses SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;', [newStatus, tid, tid]);
+        await pool.query('UPDATE mbi_users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;', [newStatus, tid]);
+      } catch (dbErr) {}
+    }
+
+    // 3. Update fallback stores
+    try {
+      const masterTenantsPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(fs.readFileSync(masterTenantsPath, 'utf-8') || '[]');
+        const idx = list.findIndex((t: any) => t.id === tid || t.tenant_id === tid);
+        if (idx >= 0) {
+          list[idx].status = newStatus;
+          list[idx].updated_at = new Date().toISOString();
+          fs.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // 4. Broadcast global & tenant SSE events
+    broadcastGlobalEvent({
+      type: 'FLEET_UPDATE',
+      payload: { tenantId: tid, status: newStatus, action: 'STATUS_CHANGE', timestamp: new Date().toISOString() }
+    });
+    broadcastTenantEvent(tid, {
+      type: newStatus === 'Suspended' ? 'TENANT_LOCKED' : 'TENANT_UNLOCKED',
+      payload: { status: newStatus },
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ success: true, message: `Tenant ${tid} status updated to ${newStatus}`, tenantId: tid, status: newStatus });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error updating tenant status' });
+  }
+});
+
+// 3c. Regenerate API Key for Tenant and Reset HWID Device Binding
+fleetRouter.post('/keys/generate', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, tenant_id, id, apiKey } = req.body;
+    const tid = tenantId || tenant_id || id;
+
+    if (!tid) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    const cleanTid = String(tid).replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const newApiKey = apiKey || `mbi_live_sec_${cleanTid}_${randomHex}`;
+
+    // 1. Primary Engine: Update Native SQLite Master Hub Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET api_key = ?, updated_at = datetime('now') 
+        WHERE tenant_id = ? OR id = ?;
+      `).run(newApiKey, tid, tid);
+    } catch (sqErr) {}
+
+    // 2. MariaDB Engine (if available) - Also clear bound HWID
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query('UPDATE mbi_tenants SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;', [newApiKey, tid, tid]);
+        // Reset device hardware bindings for clean 1-device activation
+        await pool.query('UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;', [tid]);
+        try {
+          await pool.query('DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;', [tid]);
+        } catch (e) {}
+      } catch (dbErr) {}
+    }
+
+    // 3. Update fallback stores
+    try {
+      const masterTenantsPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(fs.readFileSync(masterTenantsPath, 'utf-8') || '[]');
+        const idx = list.findIndex((t: any) => t.id === tid || t.tenant_id === tid);
+        if (idx >= 0) {
+          list[idx].api_key = newApiKey;
+          list[idx].apiKey = newApiKey;
+          list[idx].updated_at = new Date().toISOString();
+          fs.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // 4. Broadcast global event
+    broadcastGlobalEvent({
+      type: 'API_KEY_REGENERATED',
+      payload: { tenantId: tid, apiKey: newApiKey, timestamp: new Date().toISOString() }
+    });
+
+    res.json({
+      success: true,
+      message: `New API Key generated and device lock reset for tenant ${tid}`,
+      tenantId: tid,
+      apiKey: newApiKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error generating API key' });
+  }
+});
+
+// 3d. Reset hardware machine fingerprint (HWID)
+fleetRouter.post('/keys/reset-hwid', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, licenseKey } = req.body;
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        if (tenantId) {
+          await pool.query('UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE tenant_id = ?;', [tenantId]);
+          try { await pool.query('DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;', [tenantId]); } catch (e) {}
+        }
+        if (licenseKey) {
+          await pool.query('UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE license_key = ?;', [licenseKey]);
+        }
+      } catch (e) {}
+    }
+
+    res.json({ success: true, message: 'Device hardware binding cleared. Tenant can bind a new machine.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error resetting hardware binding' });
   }
 });
 
@@ -1008,7 +1351,23 @@ const handlePlanUpdate = async (req: TenantRequest, res: Response): Promise<void
     const expiryDate = expiresAt || new Date(Date.now() + (Number(durationDays) || 365) * 86400000).toISOString();
     const maxUsers = Number(maxDevices) || (plan.toLowerCase().includes('enterprise') ? 15 : plan.toLowerCase().includes('business') ? 5 : 2);
 
-    // 1. Update MariaDB
+    // 1. Primary Engine: Update Native SQLite Master Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET plan = ?, max_devices = ?, trial_expires_at = ?, updated_at = datetime('now') 
+        WHERE id = ? OR tenant_id = ?;
+      `).run(plan, maxUsers, expiryDate, targetTenantId, targetTenantId);
+
+      masterDb.prepare(`
+        UPDATE mbi_licenses 
+        SET plan = ?, max_devices = ?, expires_at = ? 
+        WHERE license_key = ? OR tenant_id = ?;
+      `).run(plan, maxUsers, expiryDate, `lic_${targetTenantId}`, targetTenantId);
+    } catch (sqErr) {}
+
+    // 2. Update MariaDB (if available)
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
@@ -1931,6 +2290,223 @@ fleetRouter.post('/alert', async (req: TenantRequest, res: Response): Promise<vo
     res.status(500).json({ success: false, error: err?.message || 'Error dispatching alert' });
   }
 });
+
+// 22. Permanent Lock/Unlock Tenant Status: POST /api/fleet/tenants/status
+fleetRouter.post('/tenants/status', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, status } = req.body;
+    if (!tenantId || !status) {
+      res.status(400).json({ success: false, error: 'tenantId and status are required' });
+      return;
+    }
+
+    const newStatus = status === 'Suspended' ? 'Suspended' : 'Active';
+    const targetLic = `lic_${tenantId}`;
+
+    // 1. Persist in Native SQLite Master Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newStatus, tenantId, tenantId);
+      masterDb.prepare("UPDATE mbi_licenses SET status = ?, updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(newStatus, targetLic, tenantId);
+      try {
+        masterDb.prepare("UPDATE mbi_users SET status = ?, updated_at = datetime('now') WHERE tenant_id = ?").run(newStatus, tenantId);
+      } catch (uErr) {}
+    } catch (sqErr) {
+      console.warn('[SQLite Lock Status Update Error]', sqErr);
+    }
+
+    // 2. Persist in MariaDB (if active)
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [newStatus, tenantId, tenantId]);
+        await pool.query("UPDATE mbi_licenses SET status = ?, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [newStatus, targetLic, tenantId]);
+        await pool.query("UPDATE mbi_users SET status = ?, updated_at = NOW() WHERE tenant_id = ?", [newStatus, tenantId]);
+      } catch (dbErr) {
+        console.warn('[MariaDB Lock Status Update Error]', dbErr);
+      }
+    }
+
+    // 3. Update sync file cache & .master_tenants.json
+    try {
+      if (fs.existsSync(syncFile)) {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+        if (Array.isArray(syncData.tenants)) {
+          const t = syncData.tenants.find((item: any) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.status = newStatus;
+        }
+        if (Array.isArray(syncData.mbi_tenants)) {
+          const t = syncData.mbi_tenants.find((item: any) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.status = newStatus;
+        }
+        fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    try {
+      const masterTenantsPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(fs.readFileSync(masterTenantsPath, 'utf-8') || '[]');
+        if (Array.isArray(localList)) {
+          localList.forEach((t: any) => {
+            if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
+              t.status = newStatus;
+              t.updated_at = new Date().toISOString();
+            }
+          });
+          fs.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // 4. Real-Time Broadcast
+    broadcastTenantEvent(tenantId, {
+      type: newStatus === 'Suspended' ? 'TENANT_LOCKED' : 'TENANT_UNLOCKED',
+      payload: { tenantId, status: newStatus, timestamp: new Date().toISOString() }
+    });
+
+    broadcastGlobalEvent({
+      type: 'FLEET_TENANT_STATUS_CHANGED',
+      payload: { tenantId, status: newStatus }
+    });
+
+    res.json({
+      success: true,
+      tenantId,
+      status: newStatus,
+      message: `Tenant ${tenantId} status permanently updated to ${newStatus}`
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error updating tenant status' });
+  }
+});
+
+// 23. Regenerate Tenant API Key & Reset 1-Device HWID Lock: POST /api/fleet/keys/generate
+fleetRouter.post('/keys/generate', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, newKey } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: 'tenantId is required' });
+      return;
+    }
+
+    const cleanTid = String(tenantId).replace(/[^a-zA-Z0-9]/g, '').slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const apiKey = newKey || `mbi_live_sec_${cleanTid}_${randomHex}`;
+    const targetLic = `lic_${tenantId}`;
+
+    // 1. Update in SQLite Master Vault & Reset HWID Binding
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET api_key = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(apiKey, tenantId, tenantId);
+      masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, tenantId);
+      try {
+        masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tenantId);
+      } catch (dErr) {}
+    } catch (sqErr) {
+      console.warn('[SQLite Key Regen Error]', sqErr);
+    }
+
+    // 2. Update in MariaDB (if active)
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [apiKey, tenantId, tenantId]);
+        await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tenantId]);
+      } catch (dbErr) {
+        console.warn('[MariaDB Key Regen Error]', dbErr);
+      }
+    }
+
+    // 3. Update Sync Cache & .master_tenants.json
+    try {
+      if (fs.existsSync(syncFile)) {
+        const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+        if (Array.isArray(syncData.tenants)) {
+          const t = syncData.tenants.find((item: any) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.api_key = apiKey;
+        }
+        if (Array.isArray(syncData.mbi_tenants)) {
+          const t = syncData.mbi_tenants.find((item: any) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.api_key = apiKey;
+        }
+        fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+      }
+    } catch (e) {}
+
+    try {
+      const masterTenantsPath = path.resolve(process.cwd(), '.master_tenants.json');
+      if (fs.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(fs.readFileSync(masterTenantsPath, 'utf-8') || '[]');
+        if (Array.isArray(localList)) {
+          localList.forEach((t: any) => {
+            if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
+              t.api_key = apiKey;
+              t.apiKey = apiKey;
+              t.updated_at = new Date().toISOString();
+            }
+          });
+          fs.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // 4. Real-time broadcast
+    broadcastTenantEvent(tenantId, {
+      type: 'API_KEY_ROTATED',
+      payload: { tenantId, apiKey, hwidReset: true, timestamp: new Date().toISOString() }
+    });
+
+    res.json({
+      success: true,
+      tenantId,
+      apiKey,
+      message: 'New API Key generated successfully. Device hardware lock reset for 1 new device authorization.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error generating API key' });
+  }
+});
+
+// 24. Reset Hardware Binding Only: POST /api/fleet/keys/reset-hwid
+fleetRouter.post('/keys/reset-hwid', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, licenseKey } = req.body;
+    if (!tenantId && !licenseKey) {
+      res.status(400).json({ success: false, error: 'tenantId or licenseKey is required' });
+      return;
+    }
+
+    const tid = tenantId || licenseKey;
+    const targetLic = licenseKey || `lic_${tenantId}`;
+
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, tid);
+      masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tid);
+    } catch (sqErr) {}
+
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tid]);
+      } catch (dbErr) {}
+    }
+
+    broadcastTenantEvent(tid, {
+      type: 'HWID_RESET',
+      payload: { tenantId: tid, timestamp: new Date().toISOString() }
+    });
+
+    res.json({
+      success: true,
+      message: 'Hardware fingerprint cleared. New PC can now bind.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error resetting HWID' });
+  }
+});
+
 
 
 

@@ -73,6 +73,25 @@ export function getActiveTenantPlan(tenantId?: string): PlanTier {
   return 'silver'; // Default to Silver Basic for safe operational fallback
 }
 
+const FEATURE_ALIASES_MAP: Record<string, string[]> = {
+  'onlineStore': ['online_storefront', 'online_store', 'ecommerce_store', 'sync_online_storefront', 'digital_pharmacy', 'onlineStore', 'store_management'],
+  'online_store': ['online_storefront', 'online_store', 'ecommerce_store', 'sync_online_storefront', 'digital_pharmacy', 'onlineStore', 'store_management'],
+  'online_storefront': ['online_storefront', 'online_store', 'ecommerce_store', 'sync_online_storefront', 'digital_pharmacy', 'onlineStore', 'store_management'],
+  'bookers': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management', 'booker-biller', 'dist_booker_commission_ledger'],
+  'booker_biller_management': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management', 'booker-biller', 'dist_booker_commission_ledger'],
+  'auto_whatsapp_gateway': ['auto_whatsapp_gateway', 'automated_whatsapp_gateway', 'whatsapp_automation', 'whatsapp_auto_gateway'],
+  'whatsapp_automation': ['auto_whatsapp_gateway', 'automated_whatsapp_gateway', 'whatsapp_automation', 'whatsapp_auto_gateway'],
+  'whatsapp_auto_gateway': ['auto_whatsapp_gateway', 'automated_whatsapp_gateway', 'whatsapp_automation', 'whatsapp_auto_gateway'],
+  'fbr_pos_integration': ['fbr_pos_integration', 'pos_tax_fbr_pos_integration', 'digital_fiscalization', 'fbr-pos', 'tax-fbr', 'qr_digital_tax_stamps'],
+  'journal_vouchers': ['journal_vouchers', 'chart_of_accounts', 'double_entry_accounting', 'journal-vouchers', 'coa', 'trial_balance'],
+  'rx_prescriptions': ['rx_prescriptions', 'doctor_prescription_management', 'hosp_doctor_prescriptions_registry', 'prescription_management', 'patient_chronic_medication_refills'],
+  'full_audit_trail': ['full_audit_trail', 'complete_user_audit_trail', 'security_immutable_audit_trails', 'audit-logs', 'audit_logs'],
+  'narcotics_register': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry', 'drap_form8', 'drap_form_8_drug_register'],
+  'controlled_register': ['controlled_generic_registry', 'narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d'],
+  'multi_godowns': ['godowns', 'multi_warehouse', 'inventory_multi_godown', 'multi-godowns', 'multi_godowns', 'stock_transfer'],
+  'multi_branch_hq': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches', 'centralized_branch_sync', 'inter_branch_stock_transfers', 'multi_branch_telemetry'],
+};
+
 /**
  * Check dynamic /server Super Admin overrides
  */
@@ -83,21 +102,34 @@ export function checkServerFeatureOverride(featureKey: string, tenantId?: string
       return true;
     }
 
-    // 2. Check tenant-specific custom feature map
-    if (tenantId) {
-      const overridesStr = localStorage.getItem(`mbi_tenant_overrides_${tenantId}`);
-      if (overridesStr) {
-        const overrides = JSON.parse(overridesStr);
-        if (typeof overrides[featureKey] === 'boolean') {
-          return overrides[featureKey];
-        }
-      }
+    const tid = tenantId || (typeof localStorage !== 'undefined' ? localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') : undefined);
+    const keysToCheck = [featureKey, ...(FEATURE_ALIASES_MAP[featureKey] || [])];
 
-      const planFeaturesStr = localStorage.getItem(`mbi_plan_features_${tenantId}`);
-      if (planFeaturesStr) {
-        const features = JSON.parse(planFeaturesStr);
-        if (typeof features[featureKey] === 'boolean') {
-          return features[featureKey];
+    // 2. Check tenant-specific custom feature map
+    if (tid) {
+      const storageKeys = [
+        `mbi_tenant_overrides_${tid}`,
+        `mbi_tenant_features_${tid}`,
+        `mbi_plan_features_${tid}`
+      ];
+
+      for (const storageKey of storageKeys) {
+        const storedStr = localStorage.getItem(storageKey);
+        if (storedStr) {
+          try {
+            const parsed = JSON.parse(storedStr);
+            for (const k of keysToCheck) {
+              if (typeof parsed[k] === 'boolean') {
+                return parsed[k];
+              }
+              const norm = k.toLowerCase().replace(/[\s-_]/g, '');
+              for (const [prop, val] of Object.entries(parsed)) {
+                if (prop.toLowerCase().replace(/[\s-_]/g, '') === norm && typeof val === 'boolean') {
+                  return val;
+                }
+              }
+            }
+          } catch {}
         }
       }
     }
@@ -105,10 +137,20 @@ export function checkServerFeatureOverride(featureKey: string, tenantId?: string
     // 3. Check global manual feature flags from /server
     const manualFlags = localStorage.getItem('mbi_server_feature_flags');
     if (manualFlags) {
-      const parsed = JSON.parse(manualFlags);
-      if (typeof parsed[featureKey] === 'boolean') {
-        return parsed[featureKey];
-      }
+      try {
+        const parsed = JSON.parse(manualFlags);
+        for (const k of keysToCheck) {
+          if (typeof parsed[k] === 'boolean') {
+            return parsed[k];
+          }
+          const norm = k.toLowerCase().replace(/[\s-_]/g, '');
+          for (const [prop, val] of Object.entries(parsed)) {
+            if (prop.toLowerCase().replace(/[\s-_]/g, '') === norm && typeof val === 'boolean') {
+              return val;
+            }
+          }
+        }
+      } catch {}
     }
   } catch (e) {
     console.warn('Error checking feature override:', e);
@@ -222,9 +264,15 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
  * Check if a top-level module or feature is allowed
  */
 export function isModuleAllowed(moduleKey: string, tenantId?: string, explicitPlan?: string): boolean {
-  // 1. Check dynamic Super Admin /server override
+  // 1. Check dynamic Super Admin /server override (including aliases)
   const override = checkServerFeatureOverride(moduleKey, tenantId);
   if (override !== null) return override;
+
+  const aliases = FEATURE_ALIASES_MAP[moduleKey] || [];
+  for (const alias of aliases) {
+    const aliasOverride = checkServerFeatureOverride(alias, tenantId);
+    if (aliasOverride !== null) return aliasOverride;
+  }
 
   // 2. Resolve plan tier
   const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
@@ -240,22 +288,28 @@ export function isModuleAllowed(moduleKey: string, tenantId?: string, explicitPl
 export function isRouteAllowed(path: string, tenantId?: string, explicitPlan?: string): boolean {
   const cleanPath = path.toLowerCase().split('?')[0];
 
-  // Specific Enterprise restricted routes
-  const enterpriseRoutePrefixes = [
-    '/bookers',
-    '/bookers-management',
-    '/order-bookers',
-    '/online-store',
-    '/journal-vouchers',
-    '/rx-prescriptions',
-    '/audit-trail'
+  // Specific Enterprise restricted routes and their primary feature keys
+  const enterpriseRouteRules: Array<{ prefix: string; featureKey: string }> = [
+    { prefix: '/bookers', featureKey: 'booker_biller_management' },
+    { prefix: '/bookers-management', featureKey: 'booker_biller_management' },
+    { prefix: '/order-bookers', featureKey: 'booker_biller_management' },
+    { prefix: '/online-store', featureKey: 'online_storefront' },
+    { prefix: '/journal-vouchers', featureKey: 'journal_vouchers' },
+    { prefix: '/rx-prescriptions', featureKey: 'rx_prescriptions' },
+    { prefix: '/audit-trail', featureKey: 'full_audit_trail' }
   ];
 
-  for (const prefix of enterpriseRoutePrefixes) {
-    if (cleanPath.startsWith(prefix)) {
-      const featureKey = prefix.replace('/', '').replace(/-/g, '_');
-      const override = checkServerFeatureOverride(featureKey, tenantId);
+  for (const rule of enterpriseRouteRules) {
+    if (cleanPath.startsWith(rule.prefix)) {
+      const override = checkServerFeatureOverride(rule.featureKey, tenantId);
       if (override !== null) return override;
+
+      const aliases = FEATURE_ALIASES_MAP[rule.featureKey] || [];
+      for (const alias of aliases) {
+        const aliasOverride = checkServerFeatureOverride(alias, tenantId);
+        if (aliasOverride !== null) return aliasOverride;
+      }
+
       const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
       return plan === 'platinum';
     }
@@ -337,13 +391,52 @@ export const REPORT_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'consolidated_financial_audits': 'platinum'
 };
 
+const REPORT_FEATURE_MAP: Record<string, string[]> = {
+  'fbr_tax_audit': ['fbr_pos_integration', 'pos_tax_fbr_pos_integration', 'digital_fiscalization', 'tax-fbr'],
+  'fbr_fiscal_tax_audit': ['fbr_pos_integration', 'pos_tax_fbr_pos_integration', 'digital_fiscalization', 'tax-fbr'],
+  'journal_voucher_report': ['journal_vouchers', 'chart_of_accounts', 'double_entry_accounting'],
+  'trial_balance_report': ['journal_vouchers', 'chart_of_accounts', 'double_entry_accounting'],
+  'multi_branch_consolidated_report': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches', 'multi_branch_telemetry'],
+  'multi_branch_stock_sales': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches'],
+  'online_store_performance_report': ['online_storefront', 'online_store', 'onlineStore', 'ecommerce_store', 'sync_online_storefront'],
+  'online_store_sales': ['online_storefront', 'online_store', 'onlineStore', 'ecommerce_store', 'sync_online_storefront'],
+  'narcotics_dispensing_report': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry'],
+  'controlled_drug_dispensing': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry'],
+  'drap_form8_regulatory_report': ['drap_form8', 'drap_form_8_drug_register', 'narcotics_register', 'inventory_narcotic_schedule_d'],
+  'drap_form8': ['drap_form8', 'drap_form_8_drug_register', 'narcotics_register', 'inventory_narcotic_schedule_d'],
+  'booker_commission_report': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management', 'dist_booker_commission_ledger'],
+  'booker_commission_sales': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management'],
+  'master_user_activity_audit_export': ['full_audit_trail', 'complete_user_audit_trail', 'security_immutable_audit_trails', 'audit-logs', 'audit_logs'],
+  'audit_trail_export': ['full_audit_trail', 'complete_user_audit_trail', 'security_immutable_audit_trails', 'audit-logs', 'audit_logs'],
+  'fefo_expiry_report': ['fefo_radar_near_expiry', 'fefo_expiry', 'batch_management'],
+  'item_batch_report': ['inventory_batch_segregation', 'batch_management'],
+  'fifo_allocation_report': ['fefo_radar_near_expiry', 'batch_management'],
+  'controlled_register': ['controlled_generic_registry', 'inventory_narcotic_schedule_d', 'narcotics_register'],
+  'bill_wise_profit': ['khata_profit_loss_realtime', 'live_profit_margin', 'bill_wise_profit_loss'],
+  'profit_loss': ['khata_profit_loss_realtime', 'advanced_accounting'],
+  'balance_sheet': ['advanced_accounting', 'double_entry_accounting'],
+  'tax_report': ['tax_report', 'pos_tax_fbr_pos_integration'],
+};
+
 /**
  * Check if a specific report is allowed for tenant's plan
  */
 export function isReportAllowed(reportId: string, tenantId?: string, explicitPlan?: string): boolean {
-  const override = checkServerFeatureOverride(`report_${reportId}`, tenantId);
-  if (override !== null) return override;
+  // 1. Direct report override check
+  const directOverride = checkServerFeatureOverride(`report_${reportId}`, tenantId);
+  if (directOverride !== null) return directOverride;
 
+  const rawOverride = checkServerFeatureOverride(reportId, tenantId);
+  if (rawOverride !== null) return rawOverride;
+
+  // 2. Check parent feature overrides
+  const parentFeatures = REPORT_FEATURE_MAP[reportId] || [];
+  for (const feat of parentFeatures) {
+    const parentOverride = checkServerFeatureOverride(feat, tenantId);
+    if (parentOverride === true) return true;
+  }
+
+  // 3. Plan hierarchy check
   const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
   const reqTier = REPORT_TIER_REQUIREMENTS[reportId] || 'silver';
 

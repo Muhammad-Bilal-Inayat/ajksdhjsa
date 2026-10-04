@@ -64,6 +64,7 @@ export interface TabItem {
 
 export const SETTINGS_TABS: TabItem[] = [
   { key: 'GENERAL', label: 'GENERAL', icon: Sliders },
+  { key: 'WHATSAPP AUTOMATION', label: 'WHATSAPP AUTOMATION', icon: MessageSquare, badge: 'AUTO' },
   { key: 'NAVIGATION & MENU PREFERENCES', label: 'MENU & NAVIGATION', icon: Sliders, badge: 'PRIMARY' },
   { key: 'BACKUP & RESTORE', label: 'BACKUP & RESTORE', icon: ShieldCheck, badge: 'VERIFIED' },
   { key: 'DOCUMENTATION', label: 'USER MANUAL & GUIDES', icon: BookOpen },
@@ -98,6 +99,7 @@ export const resolveTabKey = (param?: string | null): TabKey => {
   // 3. Match normalized key or slug (remove special chars & spaces)
   const normalized = upper.replace(/[^A-Z0-9]/g, '');
 
+  if (normalized.includes('WHATSAPP') || normalized.includes('WA')) return 'WHATSAPP AUTOMATION';
   if (normalized.includes('NAVIGATION') || normalized.includes('MENU') || normalized.includes('CUSTOMIZ')) return 'NAVIGATION & MENU PREFERENCES';
   if (normalized.includes('PATCH')) return 'MANUAL PATCH';
   if (normalized.includes('QR') || normalized.includes('BARCODE') || normalized.includes('STICKER') || normalized.includes('LABEL')) return 'QR CODE GENERATOR';
@@ -142,6 +144,19 @@ export const Settings: React.FC = () => {
     } else {
       setActiveTab('GENERAL');
     }
+
+    const handleCustomTabChange = (e: any) => {
+      const targetTab = e?.detail;
+      if (targetTab) {
+        const resolvedTab = resolveTabKey(targetTab);
+        if (isSettingsTabAllowedInPlan(resolvedTab, currentPlan, effectiveTenantId)) {
+          setActiveTab(resolvedTab);
+        }
+      }
+    };
+
+    window.addEventListener('settings_tab_change', handleCustomTabChange);
+    return () => window.removeEventListener('settings_tab_change', handleCustomTabChange);
   }, [tabParam, currentPlan, effectiveTenantId]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);

@@ -115,6 +115,41 @@ export function getMasterVault(): DatabaseSync {
     );
   `);
 
+  // Dynamically add any missing columns so SQLite master hub never rejects payload fields
+  const tenantColumns = [
+    'organization_id TEXT',
+    'drug_license_no TEXT',
+    'ntn_number TEXT',
+    'api_key TEXT',
+    'features_json TEXT',
+    'sale_price REAL DEFAULT 0',
+    'amount_paid REAL DEFAULT 0',
+    'sale_status TEXT DEFAULT \'Paid\'',
+    'payment_method TEXT DEFAULT \'Bank Transfer\'',
+    'sale_notes TEXT',
+    'max_users INTEGER DEFAULT 5',
+    'max_firms INTEGER DEFAULT 2',
+    'max_devices INTEGER DEFAULT 3'
+  ];
+  for (const col of tenantColumns) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_tenants ADD COLUMN ${col};`);
+    } catch (e) {}
+  }
+
+  const licenseColumns = [
+    'sale_price REAL DEFAULT 0',
+    'amount_paid REAL DEFAULT 0',
+    'sale_status TEXT DEFAULT \'Paid\'',
+    'payment_method TEXT DEFAULT \'Bank Transfer\'',
+    'sale_notes TEXT'
+  ];
+  for (const col of licenseColumns) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_licenses ADD COLUMN ${col};`);
+    } catch (e) {}
+  }
+
   return masterDbInstance;
 }
 

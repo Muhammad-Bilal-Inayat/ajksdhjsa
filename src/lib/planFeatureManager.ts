@@ -889,6 +889,13 @@ export function isSettingsTabAllowedInPlan(tabKey: string, plan?: string | PlanT
   // Manual patch check for settings tab
   if (manualPatchService.isSettingsTabPatched(tabKey, tenantId)) return true;
 
+  // WhatsApp Automation feature check
+  if (upperTab.includes('WHATSAPP')) {
+    if (hasPlanFeature('auto_whatsapp_gateway', plan, tenantId) || hasPlanFeature('whatsapp_automation', plan, tenantId) || hasPlanFeature('whatsapp_auto_gateway', plan, tenantId)) {
+      return true;
+    }
+  }
+
   const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
   if (tier === 'ENTERPRISE') return true;
 

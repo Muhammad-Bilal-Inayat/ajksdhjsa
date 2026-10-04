@@ -16,7 +16,7 @@ import { playScannerBeep } from '../../lib/barcodeAudio';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { getCurrentPlan, isPlanAtLeast } from '../../lib/planFeatureManager';
+import { getCurrentPlan, isPlanAtLeast, hasPlanFeature } from '../../lib/planFeatureManager';
 
 interface AddEditMedicineModalProps {
   isOpen: boolean;
@@ -38,10 +38,11 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
   const { tenant, tenantId } = useAuth();
   const { settings } = useSettings();
 
-  const currentPlan = getCurrentPlan(tenantId || tenant?.id);
-  const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS'); // Gold & Platinum only
-  const isControlledAllowed = isPlanAtLeast(currentPlan, 'BUSINESS'); // Gold (Business) & Platinum (Enterprise)
-  const isOnlineAndImagesAllowed = isPlanAtLeast(currentPlan, 'ENTERPRISE'); // Platinum (Enterprise) only
+  const effectiveTid = tenantId || tenant?.id;
+  const currentPlan = getCurrentPlan(effectiveTid);
+  const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('live_profit_margin', currentPlan, effectiveTid); // Gold & Platinum only
+  const isControlledAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('controlled_generic_registry', currentPlan, effectiveTid) || hasPlanFeature('narcotics_register', currentPlan, effectiveTid); // Gold (Business) & Platinum (Enterprise)
+  const isOnlineAndImagesAllowed = isPlanAtLeast(currentPlan, 'ENTERPRISE') || hasPlanFeature('online_storefront', currentPlan, effectiveTid) || hasPlanFeature('onlineStore', currentPlan, effectiveTid) || hasPlanFeature('sync_online_storefront', currentPlan, effectiveTid); // Platinum (Enterprise) only
 
   // Core Form State
   const [formData, setFormData] = useState<Partial<Medicine>>({

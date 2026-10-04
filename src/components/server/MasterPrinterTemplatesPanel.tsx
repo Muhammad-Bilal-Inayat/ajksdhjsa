@@ -446,9 +446,30 @@ export const MasterPrinterTemplatesPanel: React.FC<{ onNotify?: (msg: string) =>
                 </p>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Master 1-Line Footer Text (Full Width End Line)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Master 1-Line Footer Text (Full Width End Line)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isSyncing}
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm transition active:scale-95 disabled:opacity-50"
+                      title="Save & Enforce Universal Footer Server-Wide"
+                    >
+                      {savedSuccess ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-300" />
+                          <span>Footer Saved!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{isSyncing ? 'Saving...' : 'Save Universal Footer'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={config.a4MasterFooterText}

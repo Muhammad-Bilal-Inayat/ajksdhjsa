@@ -2401,8 +2401,10 @@ export function getAllTenants(): Tenant[] {
 
     const cleanTid = (tid || `tenant_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`).replace(/[^a-zA-Z0-9_]/g, '_');
     const finalApiKey = t.apiKey || `mbi_live_key_${cleanTid.slice(-6)}_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    const feats = t.features || t.customFeatures || t.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES };
 
     aggregated.push({
+      ...t,
       id: tid || cleanTid,
       tenantId: tid || cleanTid,
       organizationId: t.organizationId || `org_${cleanTid}`,
@@ -2420,10 +2422,21 @@ export function getAllTenants(): Tenant[] {
       trialStartDate: t.trialStartDate || t.createdAt || new Date().toISOString(),
       trialExpiryDate: t.trialExpiryDate || 'Never (Lifetime License)',
       isTrialActive: t.status === 'Trial',
-      trialExpired: false,
-      paidLicenseActive: t.status !== 'Suspended',
-      maxDevices: t.maxDevices || 5,
-      featureToggles: t.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+      trialExpired: t.status === 'Expired',
+      paidLicenseActive: t.status === 'Active',
+      maxDevices: t.maxDevices || 3,
+      maxUsers: t.maxUsers || 5,
+      maxFirms: t.maxFirms || 2,
+      features: feats,
+      customFeatures: feats,
+      featureToggles: t.featureToggles || feats,
+      salePrice: t.salePrice || 0,
+      amountPaid: t.amountPaid || 0,
+      amountDue: t.amountDue || Math.max(0, (t.salePrice || 0) - (t.amountPaid || 0)),
+      saleStatus: t.saleStatus || 'Paid',
+      paymentMethod: t.paymentMethod || 'Bank Transfer',
+      saleNotes: t.saleNotes || '',
+      isManualOverride: t.isManualOverride || false,
       apiKey: finalApiKey,
       totalInvoicesCount: Number(t.totalInvoicesCount) || Number(t.invoicesCount) || 0,
       totalProductsCount: Number(t.totalProductsCount) || Number(t.productsCount) || 0,
@@ -2545,6 +2558,8 @@ export async function syncTenantsFromServer(): Promise<Tenant[]> {
           if (cleanId) seen.add(cleanId);
 
           const tid = rt.tenant_id || rt.id;
+          const feats = rt.features || rt.customFeatures || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || { ...DEFAULT_TENANT_FEATURE_TOGGLES };
+
           sanitized.push({
             id: rt.id || tid,
             tenantId: tid,
@@ -2563,10 +2578,20 @@ export async function syncTenantsFromServer(): Promise<Tenant[]> {
             trialStartDate: rt.created_at || new Date().toISOString(),
             trialExpiryDate: rt.trial_expiry_date || rt.trial_ends_at || 'Never (Lifetime)',
             isTrialActive: rt.status === 'Trial',
-            trialExpired: false,
+            trialExpired: rt.status === 'Expired',
             paidLicenseActive: rt.status === 'Active',
-            maxDevices: rt.max_devices || 3,
-            featureToggles: rt.feature_toggles || rt.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+            maxDevices: rt.max_devices || rt.maxDevices || 3,
+            maxUsers: rt.max_users || rt.maxUsers || 5,
+            maxFirms: rt.max_firms || rt.maxFirms || 2,
+            features: feats,
+            customFeatures: feats,
+            featureToggles: rt.feature_toggles || rt.featureToggles || feats,
+            salePrice: rt.sale_price || rt.salePrice || 0,
+            amountPaid: rt.amount_paid || rt.amountPaid || 0,
+            amountDue: Math.max(0, (rt.sale_price || rt.salePrice || 0) - (rt.amount_paid || rt.amountPaid || 0)),
+            saleStatus: rt.sale_status || rt.saleStatus || 'Paid',
+            paymentMethod: rt.payment_method || rt.paymentMethod || 'Bank Transfer',
+            saleNotes: rt.sale_notes || rt.saleNotes || '',
             apiKey: rt.api_key || rt.apiKey || `mbi_live_key_${tid.slice(-6)}_${Date.now().toString(36).toUpperCase()}`,
             totalInvoicesCount: Number(rt.invoice_count) || Number(rt.total_invoices_count) || 0,
             totalProductsCount: 0,

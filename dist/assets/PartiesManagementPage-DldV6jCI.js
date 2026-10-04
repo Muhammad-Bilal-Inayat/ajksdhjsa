@@ -1,1 +1,0 @@
-import{j as r}from"./app.js";import{Suppliers as t}from"./Suppliers-f96Fg9kb.js";import"./vendor-react-7ihK1vNv.js";import"./vendor-pdf-BBRQgEbE.js";import"./vendor-charts-DkjMq18R.js";import"./vendor-icons-DIRbd0aK.js";import"./ConfirmDeleteModal-BpUbg46x.js";import"./PaymentVoucherPrintModal-D1w6wkxu.js";const u=()=>r.jsx(t,{});export{u as PartiesManagementPage,u as default};

@@ -285,9 +285,8 @@ function RoleAccessGuard({ children }: { children: React.ReactNode }) {
     tenantId: tenant?.tenantId || tenant?.id || tenantId
   });
 
-  // Primary Admin has full administrative access to all core operational routes
-  const isPrimaryAdminAllowed = (activeRole === 'Primary Admin' || isMasterUser) && !location.pathname.startsWith('/master-only');
-  const isAllowed = isPrimaryAdminAllowed || (isRoleAllowed && granularCheck.isAllowed);
+  // Primary Admin has full access unless explicitly turned OFF in Master Control Switchboard
+  const isAllowed = isMasterUser || (granularCheck.isAllowed && (activeRole === 'Primary Admin' || isRoleAllowed));
 
   if (!isAllowed) {
     return (

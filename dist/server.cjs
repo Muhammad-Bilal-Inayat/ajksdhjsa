@@ -244,8 +244,8 @@ async function isMariaDbAvailable() {
     return false;
   }
   try {
-    const status2 = await testMariaDbConnection();
-    return status2.connected;
+    const status = await testMariaDbConnection();
+    return status.connected;
   } catch {
     isConnected = false;
     return false;
@@ -1234,6 +1234,40 @@ function getMasterVault() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  const tenantColumns = [
+    "organization_id TEXT",
+    "drug_license_no TEXT",
+    "ntn_number TEXT",
+    "api_key TEXT",
+    "features_json TEXT",
+    "sale_price REAL DEFAULT 0",
+    "amount_paid REAL DEFAULT 0",
+    "sale_status TEXT DEFAULT 'Paid'",
+    "payment_method TEXT DEFAULT 'Bank Transfer'",
+    "sale_notes TEXT",
+    "max_users INTEGER DEFAULT 5",
+    "max_firms INTEGER DEFAULT 2",
+    "max_devices INTEGER DEFAULT 3"
+  ];
+  for (const col of tenantColumns) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_tenants ADD COLUMN ${col};`);
+    } catch (e) {
+    }
+  }
+  const licenseColumns = [
+    "sale_price REAL DEFAULT 0",
+    "amount_paid REAL DEFAULT 0",
+    "sale_status TEXT DEFAULT 'Paid'",
+    "payment_method TEXT DEFAULT 'Bank Transfer'",
+    "sale_notes TEXT"
+  ];
+  for (const col of licenseColumns) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_licenses ADD COLUMN ${col};`);
+    } catch (e) {
+    }
+  }
   return masterDbInstance;
 }
 function getTenantVault(tenantId) {
@@ -1716,7 +1750,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
       const city = record.city || "Lahore";
       const address = record.address || "";
       const plan = record.plan || record.subscriptionPlan || "Basic";
-      const status2 = record.status || "Active";
+      const status = record.status || "Active";
       master.prepare(`
         INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -1730,7 +1764,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
           plan = excluded.plan,
           status = excluded.status,
           updated_at = datetime('now')
-      `).run(record.id || tId, tId, storeName, ownerName, ownerPhone, ownerEmail, city, address, plan, status2);
+      `).run(record.id || tId, tId, storeName, ownerName, ownerPhone, ownerEmail, city, address, plan, status);
     } else if (entityType === "medicines") {
       vault.prepare(`
         INSERT INTO medicines (id, name, generic_name, barcode, rack, retail_price, cost_price, stock_qty, min_stock, fefo_expiry_date, batch_number, updated_at)
@@ -1888,7 +1922,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         const ntn = record.ntnNumber || record.ntn || record.tax_ntn_number || "";
         const apiKey = record.apiKey || record.api_key || "";
         const plan = record.plan || record.subscriptionPlan || "Basic";
-        const status2 = record.status || "Active";
+        const status = record.status || "Active";
         await pool2.query(
           `INSERT INTO mbi_tenants (
             id, tenant_id, organization_id, name, legal_name, owner_name, owner_phone, owner_email,
@@ -1931,9 +1965,9 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
             apiKey,
             plan,
             plan,
-            status2,
+            status,
             plan,
-            status2
+            status
           ]
         );
       } else if (entityType === "users" || entityType === "appUsers") {
@@ -1944,7 +1978,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
         const passcode = record.passcode || record.pin || record.password || "0000";
         const role = record.role || "Cashier";
         const isPrimary = record.isPrimaryOwner || record.isPrimaryAdmin || record.role === "primary_admin" ? 1 : 0;
-        const status2 = record.status || "Active";
+        const status = record.status || "Active";
         const apiKey = record.apiKey || record.api_key || null;
         await pool2.query(
           `INSERT INTO mbi_users (
@@ -1977,7 +2011,7 @@ async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main"
             role,
             isPrimary,
             isPrimary,
-            status2
+            status
           ]
         );
         await pool2.query(
@@ -2715,7 +2749,7 @@ async function getUsersController(req, res) {
 }
 async function createUserController(req, res) {
   try {
-    const { name, username, emailOrPhone, phone, email, role, passcode, status: status2, permissions, notes } = req.body;
+    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes } = req.body;
     const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
     if (!tenantId) {
       return res.status(400).json({ success: false, error: "Cannot create user without an explicit tenant context" });
@@ -2743,7 +2777,7 @@ async function createUserController(req, res) {
       role: role || "Cashier",
       isPrimaryOwner: false,
       is_primary_owner: 0,
-      status: status2 || "Active",
+      status: status || "Active",
       passcode: passcode || "1234",
       is_online: 0,
       isOnline: false,
@@ -2863,7 +2897,7 @@ async function updateUserController(req, res) {
   try {
     const { id } = req.params;
     const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
-    const { name, username, emailOrPhone, phone, email, role, passcode, status: status2, permissions, notes, is_kill_switch_active } = req.body;
+    const { name, username, emailOrPhone, phone, email, role, passcode, status, permissions, notes, is_kill_switch_active } = req.body;
     const tenantUsers = getFallbackUsers(tenantId);
     const existingIndex = tenantUsers.findIndex((u) => u.id === id);
     const existing = existingIndex >= 0 ? tenantUsers[existingIndex] : null;
@@ -2871,7 +2905,7 @@ async function updateUserController(req, res) {
       if (role && role !== "Owner") {
         return res.status(403).json({ success: false, error: "Primary Store Owner account cannot have its Owner role altered" });
       }
-      if (status2 && status2 !== "Active") {
+      if (status && status !== "Active") {
         return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be deactivated" });
       }
     }
@@ -2884,7 +2918,7 @@ async function updateUserController(req, res) {
       email: email !== void 0 ? email : existing?.email,
       role: existing?.isPrimaryOwner || existing?.is_primary_owner === 1 ? "Owner" : role !== void 0 ? role : existing?.role,
       passcode: passcode !== void 0 ? passcode : existing?.passcode,
-      status: existing?.isPrimaryOwner || existing?.is_primary_owner === 1 ? "Active" : status2 !== void 0 ? status2 : existing?.status,
+      status: existing?.isPrimaryOwner || existing?.is_primary_owner === 1 ? "Active" : status !== void 0 ? status : existing?.status,
       is_kill_switch_active: is_kill_switch_active !== void 0 ? is_kill_switch_active ? 1 : 0 : existing?.is_kill_switch_active,
       isKillSwitchActive: is_kill_switch_active !== void 0 ? Boolean(is_kill_switch_active) : existing?.isKillSwitchActive,
       permissions: permissions !== void 0 ? permissions : existing?.permissions,
@@ -2943,13 +2977,13 @@ async function toggleUserStatusController(req, res) {
   try {
     const { id } = req.params;
     const tenantId = req.user?.tenantId || req.headers["x-tenant-id"] || req.body.tenantId || req.query.tenantId;
-    const { status: status2, killSwitch } = req.body;
+    const { status, killSwitch } = req.body;
     const tenantUsers = getFallbackUsers(tenantId);
     const existing = tenantUsers.find((u) => u.id === id);
     if (id === "usr_primary_owner" || existing && (existing.isPrimaryOwner || existing.is_primary_owner === 1 || existing.role === "Owner")) {
       return res.status(403).json({ success: false, error: "Primary Store Owner account cannot be disabled or killed" });
     }
-    const newStatus = status2 || (existing?.status === "Active" ? "Inactive" : "Active");
+    const newStatus = status || (existing?.status === "Active" ? "Inactive" : "Active");
     const isKillActive = killSwitch !== void 0 ? killSwitch ? 1 : 0 : existing?.is_kill_switch_active ? 1 : 0;
     if (existing) {
       existing.status = newStatus;
@@ -6119,6 +6153,11 @@ adminRouter.post("/tenants/:id/plan", async (req, res) => {
     const { plan, planId } = req.body;
     const targetPlan = plan || planId || "Platinum";
     try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET plan = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, id, id);
+    } catch (sqErr) {
+    }
+    try {
       const pool2 = getMariaDbPool();
       await pool2.query(
         "UPDATE mbi_tenants SET plan = ?, subscription_plan = ?, plan_id = ?, updated_at = ? WHERE id = ?",
@@ -6733,8 +6772,8 @@ adminRouter.put("/tenants/:id/private-panel-config", async (req, res) => {
 adminRouter.post("/tenants/:tenantId/staff/:userId/toggle-status", async (req, res) => {
   try {
     const { tenantId, userId } = req.params;
-    const { status: status2 } = req.body;
-    const newStatus = status2 || "Active";
+    const { status } = req.body;
+    const newStatus = status || "Active";
     try {
       const pool2 = getMariaDbPool();
       await pool2.query("UPDATE mbi_users SET status = ?, updated_at = ? WHERE id = ?", [
@@ -7103,6 +7142,11 @@ adminRouter.post("/tenants/:id/lock", async (req, res) => {
     const { id } = req.params;
     const { lock } = req.body;
     const newStatus = lock ? "Locked" : "Active";
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newStatus === "Locked" ? "Suspended" : "Active", id, id);
+    } catch (sqErr) {
+    }
     try {
       const pool2 = getMariaDbPool();
       await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = ? WHERE id = ?", [
@@ -7663,7 +7707,7 @@ adminRouter.post("/licenses/create", async (req, res) => {
   }
 });
 adminRouter.post("/licenses/action", async (req, res) => {
-  const { action, licenseKey, days, tenantId, expiryDate, plan, maxDevices, maxUsers, maxFirms, salePrice, amountPaid, amountDue, paymentMethod, notes, clientName, ownerName, phone, city } = req.body;
+  const { action, licenseKey, days, tenantId, expiryDate, plan, status, maxDevices, maxUsers, maxFirms, salePrice, amountPaid, amountDue, paymentMethod, notes, clientName, ownerName, phone, city } = req.body;
   if (!action) {
     return res.status(400).json({ success: false, error: "action is required" });
   }
@@ -7721,6 +7765,137 @@ adminRouter.post("/licenses/action", async (req, res) => {
         relativeTime: "Just now"
       });
       return res.json({ success: true, message: `Extended validity to ${targetExpiry}!`, expiryDate: targetExpiry });
+    }
+    if (action === "update_plan_suite") {
+      const targetExpiry = expiryDate ? expiryDate === "Lifetime" ? "2099-12-31" : expiryDate : days === "lifetime" || Number(days) >= 3e4 ? "2099-12-31" : new Date(Date.now() + (Number(days) || 365) * 864e5).toISOString().split("T")[0];
+      const cleanFeaturesJson = typeof req.body.features === "string" ? req.body.features : JSON.stringify(req.body.features || {});
+      const cleanPlan = plan || req.body.plan || "Basic";
+      const cleanStatus = status || req.body.status || "Active";
+      const cleanApiKey = req.body.apiKey || req.body.api_key;
+      const targetTid2 = tenantId || req.body.id || req.body.tenant_id || licenseKey || "tenant_001";
+      const targetLic2 = licenseKey || `lic_${targetTid2}`;
+      const targetName = req.body.name || "";
+      const devicesCount = Number(maxDevices || req.body.max_devices) || 3;
+      const usersCount = Number(maxUsers || req.body.max_users) || 5;
+      const firmsCount = Number(maxFirms || req.body.max_firms) || 2;
+      const sPrice = Number(salePrice !== void 0 ? salePrice : req.body.sale_price) || 0;
+      const aPaid = Number(amountPaid !== void 0 ? amountPaid : req.body.amount_paid) || 0;
+      const sStatus = req.body.saleStatus || req.body.sale_status || "Paid";
+      const pMethod = req.body.paymentMethod || req.body.payment_method || "Bank Transfer";
+      const sNotes = req.body.saleNotes || req.body.sale_notes || "";
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare(`
+          UPDATE mbi_tenants 
+          SET plan = ?, status = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
+              max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
+              sale_status = ?, payment_method = ?, sale_notes = ?, updated_at = datetime('now')
+          WHERE id = ? OR tenant_id = ? OR (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND ? != '')
+        `).run(
+          cleanPlan,
+          cleanStatus,
+          targetExpiry,
+          cleanFeaturesJson,
+          cleanApiKey || null,
+          usersCount,
+          firmsCount,
+          devicesCount,
+          sPrice,
+          aPaid,
+          sStatus,
+          pMethod,
+          sNotes,
+          targetTid2,
+          targetTid2,
+          targetName,
+          targetName
+        );
+        masterDb.prepare(`
+          UPDATE mbi_licenses 
+          SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = datetime('now')
+          WHERE license_key = ? OR tenant_id = ?
+        `).run(cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic2, targetTid2);
+        if (cleanStatus === "Suspended") {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid2);
+        } else if (cleanStatus === "Active") {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid2);
+        }
+      } catch (sqErr) {
+        console.warn("[SQLite Update Plan Suite Error]", sqErr);
+      }
+      if (pool2) {
+        try {
+          await pool2.query(`
+            UPDATE mbi_tenants 
+            SET plan = ?, plan_id = ?, status = ?, trial_expiry_date = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
+                max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
+                sale_status = ?, payment_method = ?, sale_notes = ?, updated_at = NOW()
+            WHERE id = ? OR tenant_id = ? OR (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND ? != '')
+          `, [
+            cleanPlan,
+            cleanPlan,
+            cleanStatus,
+            targetExpiry,
+            targetExpiry,
+            cleanFeaturesJson,
+            cleanApiKey || null,
+            usersCount,
+            firmsCount,
+            devicesCount,
+            sPrice,
+            aPaid,
+            sStatus,
+            pMethod,
+            sNotes,
+            targetTid2,
+            targetTid2,
+            targetName,
+            targetName
+          ]);
+          await pool2.query(`
+            UPDATE mbi_licenses 
+            SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = NOW()
+            WHERE license_key = ? OR tenant_id = ?
+          `, [cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic2, targetTid2]);
+          if (cleanStatus === "Suspended" || cleanStatus === "Active") {
+            await pool2.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid2]);
+          }
+        } catch (dbErr) {
+          console.warn("[DB Update Plan Suite Error]", dbErr);
+        }
+      }
+      const fallback = getLocalFallbackData();
+      if (fallback.tenants) {
+        const t = fallback.tenants.find((item) => item.id === targetTid2 || item.tenantId === targetTid2 || targetName && item.name && item.name.toLowerCase() === targetName.toLowerCase());
+        if (t) {
+          t.plan = cleanPlan;
+          t.status = cleanStatus;
+          t.trialExpiryDate = targetExpiry;
+          t.maxDevices = devicesCount;
+          if (cleanApiKey) t.apiKey = cleanApiKey;
+          t.maxUsers = usersCount;
+          t.maxFirms = firmsCount;
+          t.salePrice = sPrice;
+          t.amountPaid = aPaid;
+          t.amountDue = Math.max(0, sPrice - aPaid);
+          t.saleStatus = sStatus;
+          t.paymentMethod = pMethod;
+          t.saleNotes = sNotes;
+          t.features = typeof req.body.features === "object" ? req.body.features : {};
+        }
+      }
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === targetLic2 || l.license_key === targetLic2 || l.tenantId === targetTid2);
+        if (lic) {
+          lic.plan = cleanPlan;
+          lic.maxDevices = devicesCount;
+          lic.expiryDate = targetExpiry;
+          lic.status = cleanStatus;
+        }
+      }
+      saveLocalFallbackData(fallback);
+      broadcastAdminEvent({ type: "PLAN_SUITE_UPDATED", licenseKey: targetLic2, tenantId: targetTid2, plan: cleanPlan, expiryDate: targetExpiry, status: cleanStatus });
+      return res.json({ success: true, message: `Successfully updated Plan Suite for ${targetTid2}!`, plan: cleanPlan, expiryDate: targetExpiry });
     }
     const targetTid = tenantId || licenseKey || "";
     const targetLic = licenseKey || (targetTid ? `lic_${targetTid}` : "");
@@ -7812,69 +7987,6 @@ adminRouter.post("/licenses/action", async (req, res) => {
       saveLocalFallbackData(fallback);
       broadcastAdminEvent({ type: "HWID_FINGERPRINT_RESET", licenseKey: targetLic, tenantId: targetTid });
       return res.json({ success: true, message: "Hardware fingerprint cleared. New PC can now bind." });
-    }
-    if (action === "update_plan_suite") {
-      const targetExpiry = expiryDate || "2028-12-31";
-      const targetPlan = plan || "Gold";
-      const devicesCount = Number(maxDevices) || 3;
-      const cleanStatus = status || "Active";
-      const cleanFeaturesJson = typeof req.body.features === "string" ? req.body.features : JSON.stringify(req.body.features || {});
-      try {
-        const masterDb = getMasterVault();
-        masterDb.prepare("UPDATE mbi_tenants SET plan = ?, trial_expires_at = ?, status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, targetExpiry, cleanStatus, targetTid, targetTid);
-        masterDb.prepare("UPDATE mbi_licenses SET plan = ?, expires_at = ?, max_devices = ?, status = ? WHERE license_key = ? OR tenant_id = ?").run(targetPlan, targetExpiry, devicesCount, cleanStatus, targetLic, targetTid);
-        if (cleanStatus === "Suspended") {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
-        } else if (cleanStatus === "Active") {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
-        }
-      } catch (sqErr) {
-      }
-      if (pool2) {
-        try {
-          await pool2.query(`
-            UPDATE mbi_licenses 
-            SET plan = ?, max_devices = ?, expiry_date = ?, status = ?, updated_at = NOW() 
-            WHERE license_key = ? OR tenant_id = ?
-          `, [targetPlan, devicesCount, targetExpiry, cleanStatus, targetLic, targetTid]);
-          await pool2.query(`
-            UPDATE mbi_tenants 
-            SET plan = ?, plan_id = ?, trial_expiry_date = ?, status = ?, features_json = ?, updated_at = NOW() 
-            WHERE id = ? OR tenant_id = ?
-          `, [targetPlan, targetPlan, targetExpiry, cleanStatus, cleanFeaturesJson, targetTid, targetTid]);
-          if (cleanStatus === "Suspended" || cleanStatus === "Active") {
-            await pool2.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid]);
-          }
-        } catch (dbErr) {
-        }
-      }
-      const fallback = getLocalFallbackData();
-      if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
-        if (lic) {
-          lic.plan = targetPlan;
-          lic.maxDevices = devicesCount;
-          lic.expiryDate = targetExpiry;
-          lic.status = cleanStatus;
-        }
-      }
-      if (fallback.tenants) {
-        const t = fallback.tenants.find((item) => item.id === targetTid || item.tenantId === targetTid);
-        if (t) {
-          t.plan = targetPlan;
-          t.trialExpiryDate = targetExpiry;
-          t.maxDevices = devicesCount;
-          t.status = cleanStatus;
-          if (maxUsers) t.maxUsers = Number(maxUsers);
-          if (maxFirms) t.maxFirms = Number(maxFirms);
-          if (salePrice !== void 0) t.salePrice = Number(salePrice);
-          if (amountPaid !== void 0) t.amountPaid = Number(amountPaid);
-          if (amountDue !== void 0) t.amountDue = Number(amountDue);
-        }
-      }
-      saveLocalFallbackData(fallback);
-      broadcastAdminEvent({ type: "PLAN_SUITE_UPDATED", licenseKey: targetLic, tenantId: targetTid, plan: targetPlan, expiryDate: targetExpiry, status: cleanStatus });
-      return res.json({ success: true, message: `Plan suite updated permanently to ${targetPlan} (${cleanStatus})!` });
     }
     if (action === "grant_terminal_slot") {
       if (pool2) {
@@ -8908,11 +9020,11 @@ function addSupportLead(lead) {
 function getSupportLeads() {
   return loadLeads();
 }
-function updateLeadStatus(id, status2, notes) {
+function updateLeadStatus(id, status, notes) {
   const leads = loadLeads();
   const lead = leads.find((l) => l.id === id);
   if (lead) {
-    lead.status = status2;
+    lead.status = status;
     if (notes !== void 0) lead.notes = notes;
     saveLeads(leads);
   }
@@ -9262,18 +9374,18 @@ function addMessageToSession(params) {
   });
   return { session, message };
 }
-function updateSessionStatus(sessionId, status2, agentName) {
+function updateSessionStatus(sessionId, status, agentName) {
   const sessions = loadChatSessions();
   const session = sessions.find((s) => s.id === sessionId);
   if (session) {
-    session.status = status2;
+    session.status = status;
     if (agentName) session.assignedAgentName = agentName;
-    if (status2 === "human_active") {
+    if (status === "human_active") {
       session.isHumanAssigned = true;
       session.unreadCountForServer = 0;
-    } else if (status2 === "resolved") {
+    } else if (status === "resolved") {
       session.unreadCountForServer = 0;
-    } else if (status2 === "active_ai") {
+    } else if (status === "active_ai") {
       session.isHumanAssigned = false;
     }
     session.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -9346,11 +9458,11 @@ async function addCustomApiKey(newKey) {
   const testRes = await testSingleKey(trimmed);
   const updatedKeys = [...settings.customKeys, trimmed];
   saveSettings({ customKeys: updatedKeys });
-  const status2 = getAiConfigStatus();
+  const status = getAiConfigStatus();
   return {
     success: true,
     message: testRes.success ? "New API key verified & added to rotation pool!" : `API key added (Warning: ${testRes.message})`,
-    keyHealth: status2.keyHealthMetrics
+    keyHealth: status.keyHealthMetrics
   };
 }
 function removeCustomApiKey(keyToRemove) {
@@ -9366,11 +9478,11 @@ function removeCustomApiKey(keyToRemove) {
   const updatedKeys = settings.customKeys.filter((k) => k !== keyToRemove);
   deleteKeyStat(keyToRemove);
   saveSettings({ customKeys: updatedKeys });
-  const status2 = getAiConfigStatus();
+  const status = getAiConfigStatus();
   return {
     success: true,
     message: "API key successfully removed from rotation pool.",
-    keyHealth: status2.keyHealthMetrics
+    keyHealth: status.keyHealthMetrics
   };
 }
 async function generateAiResponse(prompt, context = "user", userPlan = "business", history = []) {
@@ -9913,9 +10025,9 @@ aiRouter.post("/chat/sessions/:sessionId/message", async (req, res) => {
 aiRouter.post("/chat/sessions/:sessionId/status", (req, res) => {
   try {
     const { sessionId } = req.params;
-    const { status: status2, agentName } = req.body;
-    if (!status2) return res.status(400).json({ error: "Status is required." });
-    const updated = updateSessionStatus(sessionId, status2, agentName);
+    const { status, agentName } = req.body;
+    if (!status) return res.status(400).json({ error: "Status is required." });
+    const updated = updateSessionStatus(sessionId, status, agentName);
     if (!updated) return res.status(404).json({ error: "Session not found." });
     res.json({ success: true, session: updated });
   } catch (err) {
@@ -10058,8 +10170,8 @@ aiRouter.get("/leads", (req, res) => {
 aiRouter.patch("/leads/:id", (req, res) => {
   try {
     const { id } = req.params;
-    const { status: status2, notes } = req.body;
-    const updated = updateLeadStatus(id, status2, notes);
+    const { status, notes } = req.body;
+    const updated = updateLeadStatus(id, status, notes);
     if (!updated) return res.status(404).json({ error: "Lead not found." });
     res.json({ success: true, lead: updated });
   } catch (err) {
@@ -10078,8 +10190,8 @@ aiRouter.post("/test-key", async (req, res) => {
 });
 aiRouter.get("/settings", (req, res) => {
   try {
-    const status2 = getAiConfigStatus();
-    res.json({ success: true, status: status2 });
+    const status = getAiConfigStatus();
+    res.json({ success: true, status });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -10143,6 +10255,14 @@ fleetRouter.get("/tenants", async (req, res) => {
           const tid = t.tenant_id || t.id;
           if (!tid || seenIds.has(tid)) continue;
           seenIds.add(tid);
+          const actualApiKey = t.api_key || t.apiKey || `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "")}_K7A8N2`;
+          let featuresObj = {};
+          if (t.features_json) {
+            try {
+              featuresObj = typeof t.features_json === "string" ? JSON.parse(t.features_json) : t.features_json;
+            } catch (e) {
+            }
+          }
           tenants.push({
             id: t.id || tid,
             tenant_id: tid,
@@ -10156,10 +10276,23 @@ fleetRouter.get("/tenants", async (req, res) => {
             address: t.address || "",
             plan: t.plan || "Basic",
             status: t.status || "Active",
-            api_key: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "")}_K7A8N2`,
-            apiKey: `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "")}_K7A8N2`,
-            license_id: `lic_${tid}`,
-            trial_expiry_date: t.trial_expires_at || "Never (Lifetime)",
+            api_key: actualApiKey,
+            apiKey: actualApiKey,
+            license_id: t.license_id || `lic_${tid}`,
+            trial_expiry_date: t.trial_expires_at || t.trial_expiry_date || "Never (Lifetime)",
+            features_json: t.features_json || JSON.stringify(featuresObj),
+            features: featuresObj,
+            customFeatures: featuresObj,
+            feature_toggles: featuresObj,
+            featureToggles: featuresObj,
+            max_users: t.max_users || 5,
+            max_firms: t.max_firms || 2,
+            max_devices: t.max_devices || 3,
+            sale_price: t.sale_price || 0,
+            amount_paid: t.amount_paid || 0,
+            sale_status: t.sale_status || "Paid",
+            payment_method: t.payment_method || "Bank Transfer",
+            sale_notes: t.sale_notes || "",
             user_count: 1,
             invoice_count: 0,
             created_at: t.created_at || (/* @__PURE__ */ new Date()).toISOString(),
@@ -10204,6 +10337,13 @@ fleetRouter.get("/tenants", async (req, res) => {
               } catch (e) {
               }
             }
+            let featuresObj = {};
+            if (t.features_json) {
+              try {
+                featuresObj = typeof t.features_json === "string" ? JSON.parse(t.features_json) : t.features_json;
+              } catch (e) {
+              }
+            }
             tenants.push({
               id: t.id || tid,
               tenant_id: tid,
@@ -10223,6 +10363,19 @@ fleetRouter.get("/tenants", async (req, res) => {
               apiKey,
               license_id: t.license_key || `lic_${tid}`,
               trial_expiry_date: t.trial_expiry_date || t.license_expiry || "Never (Lifetime)",
+              features_json: t.features_json || JSON.stringify(featuresObj),
+              features: featuresObj,
+              customFeatures: featuresObj,
+              feature_toggles: featuresObj,
+              featureToggles: featuresObj,
+              max_users: t.max_users || 5,
+              max_firms: t.max_firms || 2,
+              max_devices: t.max_devices || 3,
+              sale_price: t.sale_price || 0,
+              amount_paid: t.amount_paid || 0,
+              sale_status: t.sale_status || "Paid",
+              payment_method: t.payment_method || "Bank Transfer",
+              sale_notes: t.sale_notes || "",
               user_count: Number(t.user_count) || 0,
               invoice_count: Number(t.invoice_count) || 0,
               created_at: t.created_at || (/* @__PURE__ */ new Date()).toISOString(),
@@ -10261,18 +10414,45 @@ fleetRouter.get("/tenants", async (req, res) => {
             const tid = ft.id || ft.tenantId || ft.tenant_id;
             const tName = ft.name || ft.storeName || ft.store_name;
             if (tName && !tenants.some((t) => t.id === tid || t.tenant_id === tid || t.name === tName)) {
+              let featuresObj = {};
+              if (ft.features_json) {
+                try {
+                  featuresObj = typeof ft.features_json === "string" ? JSON.parse(ft.features_json) : ft.features_json;
+                } catch (e) {
+                }
+              } else if (ft.features || ft.featureToggles) {
+                featuresObj = ft.features || ft.featureToggles;
+              }
               tenants.push({
                 id: tid,
                 tenant_id: tid,
                 tenantId: tid,
+                organization_id: ft.organization_id || tid,
+                license_id: ft.license_id || `lic_${tid}`,
                 name: tName,
                 owner_name: ft.ownerName || ft.owner_name || "Owner",
                 owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || "",
                 owner_email: ft.ownerEmail || ft.owner_email || ft.email || "",
                 city: ft.city || "Lahore",
-                plan: ft.plan || ft.planId || "Standard POS",
+                address: ft.address || "",
+                plan: ft.plan || ft.planId || "Basic",
                 status: ft.status || "Active",
                 api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+                apiKey: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+                trial_expiry_date: ft.trial_expiry_date || ft.trialExpiryDate || "Never (Lifetime)",
+                features_json: ft.features_json || JSON.stringify(featuresObj),
+                features: featuresObj,
+                customFeatures: featuresObj,
+                feature_toggles: featuresObj,
+                featureToggles: featuresObj,
+                max_users: ft.max_users || ft.maxUsers || 5,
+                max_firms: ft.max_firms || ft.maxFirms || 2,
+                max_devices: ft.max_devices || ft.maxDevices || 3,
+                sale_price: ft.sale_price || ft.salePrice || 0,
+                amount_paid: ft.amount_paid || ft.amountPaid || 0,
+                sale_status: ft.sale_status || ft.saleStatus || "Paid",
+                payment_method: ft.payment_method || ft.paymentMethod || "Bank Transfer",
+                sale_notes: ft.sale_notes || ft.saleNotes || "",
                 created_at: ft.trialStartDate || ft.created_at || (/* @__PURE__ */ new Date()).toISOString()
               });
             }
@@ -10289,18 +10469,45 @@ fleetRouter.get("/tenants", async (req, res) => {
           const tid = ft.id || ft.tenantId || ft.tenant_id;
           const tName = ft.name || ft.storeName || ft.store_name;
           if (tName && !tenants.some((t) => t.id === tid || t.tenant_id === tid || t.name === tName)) {
+            let featuresObj = {};
+            if (ft.features_json) {
+              try {
+                featuresObj = typeof ft.features_json === "string" ? JSON.parse(ft.features_json) : ft.features_json;
+              } catch (e) {
+              }
+            } else if (ft.features || ft.featureToggles) {
+              featuresObj = ft.features || ft.featureToggles;
+            }
             tenants.push({
               id: tid,
               tenant_id: tid,
               tenantId: tid,
+              organization_id: ft.organization_id || tid,
+              license_id: ft.license_id || `lic_${tid}`,
               name: tName,
               owner_name: ft.ownerName || ft.owner_name || "Owner",
               owner_phone: ft.ownerPhone || ft.owner_phone || ft.phone || "",
               owner_email: ft.ownerEmail || ft.owner_email || ft.email || "",
               city: ft.city || "Lahore",
+              address: ft.address || "",
               plan: ft.plan || ft.planId || "Basic",
               status: ft.status || "Active",
               api_key: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+              apiKey: ft.api_key || ft.apiKey || `mbi_live_key_${String(tid).slice(-6)}`,
+              trial_expiry_date: ft.trial_expiry_date || ft.trialExpiryDate || "Never (Lifetime)",
+              features_json: ft.features_json || JSON.stringify(featuresObj),
+              features: featuresObj,
+              customFeatures: featuresObj,
+              feature_toggles: featuresObj,
+              featureToggles: featuresObj,
+              max_users: ft.max_users || ft.maxUsers || 5,
+              max_firms: ft.max_firms || ft.maxFirms || 2,
+              max_devices: ft.max_devices || ft.maxDevices || 3,
+              sale_price: ft.sale_price || ft.salePrice || 0,
+              amount_paid: ft.amount_paid || ft.amountPaid || 0,
+              sale_status: ft.sale_status || ft.saleStatus || "Paid",
+              payment_method: ft.payment_method || ft.paymentMethod || "Bank Transfer",
+              sale_notes: ft.sale_notes || ft.saleNotes || "",
               created_at: ft.trialStartDate || ft.created_at || (/* @__PURE__ */ new Date()).toISOString()
             });
           }
@@ -10356,7 +10563,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       city,
       address,
       plan,
-      status: status2,
+      status,
       drug_license_no,
       ntn_number,
       api_key,
@@ -10384,7 +10591,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       city: city || "Lahore",
       address: address || "",
       plan: plan || "Business",
-      status: status2 || "Active",
+      status: status || "Active",
       drug_license_no: drug_license_no || "",
       ntn_number: ntn_number || "",
       api_key: cleanApiKey,
@@ -10394,40 +10601,133 @@ fleetRouter.post("/tenants/save", async (req, res) => {
     };
     try {
       const masterDb = getMasterVault();
-      masterDb.prepare(`
-        INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number, api_key, features_json, trial_expires_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET
-          name = excluded.name,
-          owner_name = excluded.owner_name,
-          owner_phone = excluded.owner_phone,
-          owner_email = excluded.owner_email,
-          city = excluded.city,
-          address = excluded.address,
-          plan = excluded.plan,
-          status = excluded.status,
-          api_key = excluded.api_key,
-          features_json = excluded.features_json,
-          trial_expires_at = excluded.trial_expires_at,
-          updated_at = datetime('now');
-      `).run(
-        cleanId,
-        cleanTenantId,
-        cleanTenantId,
-        name || "Pharmacy Store",
-        owner_name || ownerName || "Store Admin",
-        owner_phone || ownerPhone || phone || "",
-        owner_email || ownerEmail || email || "",
-        city || "Lahore",
-        address || "",
-        plan || "Business",
-        status2 || "Active",
-        drug_license_no || "",
-        ntn_number || "",
-        cleanApiKey,
-        cleanFeaturesJson,
-        cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : null
-      );
+      const existingRow = masterDb.prepare("SELECT id, tenant_id FROM mbi_tenants WHERE id = ? OR tenant_id = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1").get(cleanId, cleanTenantId, name || "");
+      const effectiveId = existingRow?.id || cleanId;
+      const effectiveTenantId = existingRow?.tenant_id || cleanTenantId;
+      const targetMaxUsers = Number(req.body.max_users || req.body.maxUsers) || 5;
+      const targetMaxFirms = Number(req.body.max_firms || req.body.maxFirms) || 2;
+      const targetMaxDevices = Number(req.body.max_devices || req.body.maxDevices) || 3;
+      const targetSalePrice = Number(req.body.sale_price !== void 0 ? req.body.sale_price : req.body.salePrice) || 0;
+      const targetAmountPaid = Number(req.body.amount_paid !== void 0 ? req.body.amount_paid : req.body.amountPaid) || 0;
+      const targetSaleStatus = req.body.sale_status || req.body.saleStatus || "Paid";
+      const targetPaymentMethod = req.body.payment_method || req.body.paymentMethod || "Bank Transfer";
+      const targetSaleNotes = req.body.sale_notes || req.body.saleNotes || "";
+      const formattedExpiry = cleanExpiry === "Lifetime" ? "2099-12-31" : cleanExpiry ? cleanExpiry.slice(0, 10) : "2099-12-31";
+      if (existingRow) {
+        masterDb.prepare(`
+          UPDATE mbi_tenants SET
+            name = ?,
+            owner_name = ?,
+            owner_phone = ?,
+            owner_email = ?,
+            city = ?,
+            address = ?,
+            plan = ?,
+            status = ?,
+            drug_license_no = ?,
+            ntn_number = ?,
+            api_key = COALESCE(?, api_key),
+            features_json = ?,
+            trial_expires_at = ?,
+            max_users = ?,
+            max_firms = ?,
+            max_devices = ?,
+            sale_price = ?,
+            amount_paid = ?,
+            sale_status = ?,
+            payment_method = ?,
+            sale_notes = ?,
+            updated_at = datetime('now')
+          WHERE id = ? OR tenant_id = ?
+        `).run(
+          name || "Pharmacy Store",
+          owner_name || ownerName || "Store Admin",
+          owner_phone || ownerPhone || phone || "",
+          owner_email || ownerEmail || email || "",
+          city || "Lahore",
+          address || "",
+          plan || "Business",
+          status || "Active",
+          drug_license_no || "",
+          ntn_number || "",
+          cleanApiKey,
+          cleanFeaturesJson,
+          formattedExpiry,
+          targetMaxUsers,
+          targetMaxFirms,
+          targetMaxDevices,
+          targetSalePrice,
+          targetAmountPaid,
+          targetSaleStatus,
+          targetPaymentMethod,
+          targetSaleNotes,
+          effectiveId,
+          effectiveTenantId
+        );
+      } else {
+        masterDb.prepare(`
+          INSERT INTO mbi_tenants (
+            id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email,
+            city, address, plan, status, drug_license_no, ntn_number, api_key, features_json,
+            trial_expires_at, max_users, max_firms, max_devices, sale_price, amount_paid,
+            sale_status, payment_method, sale_notes, updated_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          effectiveId,
+          effectiveTenantId,
+          effectiveTenantId,
+          name || "Pharmacy Store",
+          owner_name || ownerName || "Store Admin",
+          owner_phone || ownerPhone || phone || "",
+          owner_email || ownerEmail || email || "",
+          city || "Lahore",
+          address || "",
+          plan || "Business",
+          status || "Active",
+          drug_license_no || "",
+          ntn_number || "",
+          cleanApiKey,
+          cleanFeaturesJson,
+          formattedExpiry,
+          targetMaxUsers,
+          targetMaxFirms,
+          targetMaxDevices,
+          targetSalePrice,
+          targetAmountPaid,
+          targetSaleStatus,
+          targetPaymentMethod,
+          targetSaleNotes
+        );
+      }
+      try {
+        const existingLic = masterDb.prepare("SELECT id FROM mbi_licenses WHERE license_key = ? OR tenant_id = ? LIMIT 1").get(`lic_${effectiveTenantId}`, effectiveTenantId);
+        if (existingLic) {
+          masterDb.prepare("UPDATE mbi_licenses SET plan = ?, status = ?, expires_at = ? WHERE license_key = ? OR tenant_id = ?").run(
+            plan || "Business",
+            status || "Active",
+            cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : "2099-12-31",
+            `lic_${effectiveTenantId}`,
+            effectiveTenantId
+          );
+        } else {
+          masterDb.prepare(`
+            INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, plan, status, expires_at, max_users, max_devices, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 5, 3, datetime('now'))
+          `).run(
+            `lic_${effectiveTenantId}`,
+            effectiveTenantId,
+            `lic_${effectiveTenantId}`,
+            name || "Pharmacy Store",
+            owner_name || ownerName || "Store Owner",
+            owner_phone || ownerPhone || phone || "",
+            plan || "Business",
+            status || "Active",
+            cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : "2099-12-31"
+          );
+        }
+      } catch (e) {
+      }
     } catch (sqErr) {
     }
     if (await isMariaDbAvailable()) {
@@ -10474,7 +10774,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             city || "Lahore",
             address || "",
             plan || "Business",
-            status2 || "Active",
+            status || "Active",
             drug_license_no || "",
             ntn_number || "",
             cleanApiKey,
@@ -10487,7 +10787,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = VALUES(status), updated_at = CURRENT_TIMESTAMP;`,
-            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || "Business", status2 || "Active"]
+            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || "Business", status || "Active"]
           );
         } catch (licErr) {
         }
@@ -10604,6 +10904,144 @@ fleetRouter.delete("/tenants/:id", async (req, res) => {
     res.json({ success: true, message: `Tenant ${tenant_id} deleted successfully.` });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error deleting tenant" });
+  }
+});
+fleetRouter.post("/tenants/status", async (req, res) => {
+  try {
+    const { tenantId, tenant_id, id, status } = req.body;
+    const tid = tenantId || tenant_id || id;
+    const newStatus = status === "Suspended" ? "Suspended" : "Active";
+    if (!tid) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET status = ?, updated_at = datetime('now') 
+        WHERE tenant_id = ? OR id = ?;
+      `).run(newStatus, tid, tid);
+    } catch (sqErr) {
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
+        await pool2.query("UPDATE mbi_licenses SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
+        await pool2.query("UPDATE mbi_users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [newStatus, tid]);
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+        const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
+        if (idx >= 0) {
+          list[idx].status = newStatus;
+          list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "FLEET_UPDATE",
+      payload: { tenantId: tid, status: newStatus, action: "STATUS_CHANGE", timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    broadcastTenantEvent(tid, {
+      type: newStatus === "Suspended" ? "TENANT_LOCKED" : "TENANT_UNLOCKED",
+      payload: { status: newStatus },
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    res.json({ success: true, message: `Tenant ${tid} status updated to ${newStatus}`, tenantId: tid, status: newStatus });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error updating tenant status" });
+  }
+});
+fleetRouter.post("/keys/generate", async (req, res) => {
+  try {
+    const { tenantId, tenant_id, id, apiKey } = req.body;
+    const tid = tenantId || tenant_id || id;
+    if (!tid) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    const cleanTid = String(tid).replace(/[^a-zA-Z0-9]/g, "").slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const newApiKey = apiKey || `mbi_live_sec_${cleanTid}_${randomHex}`;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET api_key = ?, updated_at = datetime('now') 
+        WHERE tenant_id = ? OR id = ?;
+      `).run(newApiKey, tid, tid);
+    } catch (sqErr) {
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("UPDATE mbi_tenants SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newApiKey, tid, tid]);
+        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ?;", [tid]);
+        try {
+          await pool2.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tid]);
+        } catch (e) {
+        }
+      } catch (dbErr) {
+      }
+    }
+    try {
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const list = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+        const idx = list.findIndex((t) => t.id === tid || t.tenant_id === tid);
+        if (idx >= 0) {
+          list[idx].api_key = newApiKey;
+          list[idx].apiKey = newApiKey;
+          list[idx].updated_at = (/* @__PURE__ */ new Date()).toISOString();
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(list, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastGlobalEvent({
+      type: "API_KEY_REGENERATED",
+      payload: { tenantId: tid, apiKey: newApiKey, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      message: `New API Key generated and device lock reset for tenant ${tid}`,
+      tenantId: tid,
+      apiKey: newApiKey
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error generating API key" });
+  }
+});
+fleetRouter.post("/keys/reset-hwid", async (req, res) => {
+  try {
+    const { tenantId, licenseKey } = req.body;
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        if (tenantId) {
+          await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE tenant_id = ?;", [tenantId]);
+          try {
+            await pool2.query("DELETE FROM mbi_device_authorizations WHERE tenant_id = ?;", [tenantId]);
+          } catch (e) {
+          }
+        }
+        if (licenseKey) {
+          await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, current_hwid = NULL WHERE license_key = ?;", [licenseKey]);
+        }
+      } catch (e) {
+      }
+    }
+    res.json({ success: true, message: "Device hardware binding cleared. Tenant can bind a new machine." });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error resetting hardware binding" });
   }
 });
 fleetRouter.get("/leads", async (req, res) => {
@@ -10835,7 +11273,7 @@ fleetRouter.get("/users", async (req, res) => {
 });
 fleetRouter.post("/users/save", async (req, res) => {
   try {
-    const { id, name, username, emailOrPhone, role, status: status2, passcode, storeName, tenantId, boundHwid } = req.body;
+    const { id, name, username, emailOrPhone, role, status, passcode, storeName, tenantId, boundHwid } = req.body;
     const cleanId = id || `u_${Date.now()}`;
     const cleanTenantId = tenantId || "tenant_main";
     const cleanRole = role || "Cashier";
@@ -10861,7 +11299,7 @@ fleetRouter.post("/users/save", async (req, res) => {
             username || emailOrPhone || cleanId,
             emailOrPhone || "",
             cleanRole,
-            status2 || "Active",
+            status || "Active",
             boundHwid || null,
             passcode || "1234"
           ]
@@ -10884,7 +11322,7 @@ fleetRouter.post("/users/save", async (req, res) => {
         name: name || "Staff User",
         emailOrPhone: emailOrPhone || `${cleanId}@inventra.local`,
         role: cleanRole,
-        status: status2 || "Active",
+        status: status || "Active",
         passcode: passcode || "1234",
         storeName: storeName || "MBI INVENTRA",
         installationId: cleanTenantId,
@@ -11032,6 +11470,20 @@ var handlePlanUpdate = async (req, res) => {
     }
     const expiryDate = expiresAt || new Date(Date.now() + (Number(durationDays) || 365) * 864e5).toISOString();
     const maxUsers = Number(maxDevices) || (plan.toLowerCase().includes("enterprise") ? 15 : plan.toLowerCase().includes("business") ? 5 : 2);
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        UPDATE mbi_tenants 
+        SET plan = ?, max_devices = ?, trial_expires_at = ?, updated_at = datetime('now') 
+        WHERE id = ? OR tenant_id = ?;
+      `).run(plan, maxUsers, expiryDate, targetTenantId, targetTenantId);
+      masterDb.prepare(`
+        UPDATE mbi_licenses 
+        SET plan = ?, max_devices = ?, expires_at = ? 
+        WHERE license_key = ? OR tenant_id = ?;
+      `).run(plan, maxUsers, expiryDate, `lic_${targetTenantId}`, targetTenantId);
+    } catch (sqErr) {
+    }
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -11268,12 +11720,12 @@ fleetRouter.get("/licenses", async (req, res) => {
 });
 fleetRouter.post("/licenses/save", async (req, res) => {
   try {
-    const { id, tenant_id, tenantId, license_key, licenseKey, plan, status: status2, max_terminals, expires_at } = req.body;
+    const { id, tenant_id, tenantId, license_key, licenseKey, plan, status, max_terminals, expires_at } = req.body;
     const cleanId = id || `lic_${Date.now()}`;
     const cleanTenantId = tenant_id || tenantId || "tenant_main";
     const cleanKey = license_key || licenseKey || `MBI-PRO-${Date.now().toString(36).slice(-6).toUpperCase()}`;
     const cleanPlan = plan || "Pharmacy Pro";
-    const cleanStatus = status2 || "Active";
+    const cleanStatus = status || "Active";
     const cleanExpires = expires_at || new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
     if (await isMariaDbAvailable()) {
       try {
@@ -11358,7 +11810,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
 });
 fleetRouter.post("/keys/revoke", async (req, res) => {
   try {
-    const { keyId, status: status2 } = req.body;
+    const { keyId, status } = req.body;
     if (!keyId) {
       res.status(400).json({ success: false, error: "keyId is required" });
       return;
@@ -11376,7 +11828,7 @@ fleetRouter.post("/keys/revoke", async (req, res) => {
       res.status(404).json({ success: false, error: "API key not found" });
       return;
     }
-    targetKey.status = status2 || (targetKey.status === "Active" ? "Revoked" : "Active");
+    targetKey.status = status || (targetKey.status === "Active" ? "Revoked" : "Active");
     targetKey.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
     broadcastGlobalEvent({
@@ -11854,6 +12306,196 @@ fleetRouter.post("/alert", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error dispatching alert" });
   }
 });
+fleetRouter.post("/tenants/status", async (req, res) => {
+  try {
+    const { tenantId, status } = req.body;
+    if (!tenantId || !status) {
+      res.status(400).json({ success: false, error: "tenantId and status are required" });
+      return;
+    }
+    const newStatus = status === "Suspended" ? "Suspended" : "Active";
+    const targetLic = `lic_${tenantId}`;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newStatus, tenantId, tenantId);
+      masterDb.prepare("UPDATE mbi_licenses SET status = ?, updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(newStatus, targetLic, tenantId);
+      try {
+        masterDb.prepare("UPDATE mbi_users SET status = ?, updated_at = datetime('now') WHERE tenant_id = ?").run(newStatus, tenantId);
+      } catch (uErr) {
+      }
+    } catch (sqErr) {
+      console.warn("[SQLite Lock Status Update Error]", sqErr);
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [newStatus, tenantId, tenantId]);
+        await pool2.query("UPDATE mbi_licenses SET status = ?, updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [newStatus, targetLic, tenantId]);
+        await pool2.query("UPDATE mbi_users SET status = ?, updated_at = NOW() WHERE tenant_id = ?", [newStatus, tenantId]);
+      } catch (dbErr) {
+        console.warn("[MariaDB Lock Status Update Error]", dbErr);
+      }
+    }
+    try {
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+        if (Array.isArray(syncData.tenants)) {
+          const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.status = newStatus;
+        }
+        if (Array.isArray(syncData.mbi_tenants)) {
+          const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.status = newStatus;
+        }
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    try {
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+        if (Array.isArray(localList)) {
+          localList.forEach((t) => {
+            if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
+              t.status = newStatus;
+              t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+            }
+          });
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastTenantEvent(tenantId, {
+      type: newStatus === "Suspended" ? "TENANT_LOCKED" : "TENANT_UNLOCKED",
+      payload: { tenantId, status: newStatus, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    broadcastGlobalEvent({
+      type: "FLEET_TENANT_STATUS_CHANGED",
+      payload: { tenantId, status: newStatus }
+    });
+    res.json({
+      success: true,
+      tenantId,
+      status: newStatus,
+      message: `Tenant ${tenantId} status permanently updated to ${newStatus}`
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error updating tenant status" });
+  }
+});
+fleetRouter.post("/keys/generate", async (req, res) => {
+  try {
+    const { tenantId, newKey } = req.body;
+    if (!tenantId) {
+      res.status(400).json({ success: false, error: "tenantId is required" });
+      return;
+    }
+    const cleanTid = String(tenantId).replace(/[^a-zA-Z0-9]/g, "").slice(-6);
+    const randomHex = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const apiKey = newKey || `mbi_live_sec_${cleanTid}_${randomHex}`;
+    const targetLic = `lic_${tenantId}`;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET api_key = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(apiKey, tenantId, tenantId);
+      masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, tenantId);
+      try {
+        masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tenantId);
+      } catch (dErr) {
+      }
+    } catch (sqErr) {
+      console.warn("[SQLite Key Regen Error]", sqErr);
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [apiKey, tenantId, tenantId]);
+        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tenantId]);
+      } catch (dbErr) {
+        console.warn("[MariaDB Key Regen Error]", dbErr);
+      }
+    }
+    try {
+      if (import_fs11.default.existsSync(syncFile8)) {
+        const syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+        if (Array.isArray(syncData.tenants)) {
+          const t = syncData.tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.api_key = apiKey;
+        }
+        if (Array.isArray(syncData.mbi_tenants)) {
+          const t = syncData.mbi_tenants.find((item) => item.id === tenantId || item.tenant_id === tenantId || item.tenantId === tenantId);
+          if (t) t.api_key = apiKey;
+        }
+        import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+      }
+    } catch (e) {
+    }
+    try {
+      const masterTenantsPath = import_path11.default.resolve(process.cwd(), ".master_tenants.json");
+      if (import_fs11.default.existsSync(masterTenantsPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(masterTenantsPath, "utf-8") || "[]");
+        if (Array.isArray(localList)) {
+          localList.forEach((t) => {
+            if (t.id === tenantId || t.tenant_id === tenantId || t.tenantId === tenantId || t.name?.toLowerCase() === String(tenantId).toLowerCase()) {
+              t.api_key = apiKey;
+              t.apiKey = apiKey;
+              t.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+            }
+          });
+          import_fs11.default.writeFileSync(masterTenantsPath, JSON.stringify(localList, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    broadcastTenantEvent(tenantId, {
+      type: "API_KEY_ROTATED",
+      payload: { tenantId, apiKey, hwidReset: true, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      tenantId,
+      apiKey,
+      message: "New API Key generated successfully. Device hardware lock reset for 1 new device authorization."
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error generating API key" });
+  }
+});
+fleetRouter.post("/keys/reset-hwid", async (req, res) => {
+  try {
+    const { tenantId, licenseKey } = req.body;
+    if (!tenantId && !licenseKey) {
+      res.status(400).json({ success: false, error: "tenantId or licenseKey is required" });
+      return;
+    }
+    const tid = tenantId || licenseKey;
+    const targetLic = licenseKey || `lic_${tenantId}`;
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = datetime('now') WHERE license_key = ? OR tenant_id = ?").run(targetLic, tid);
+      masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tid);
+    } catch (sqErr) {
+    }
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool2 = getMariaDbPool();
+        await pool2.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tid]);
+      } catch (dbErr) {
+      }
+    }
+    broadcastTenantEvent(tid, {
+      type: "HWID_RESET",
+      payload: { tenantId: tid, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      message: "Hardware fingerprint cleared. New PC can now bind."
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error resetting HWID" });
+  }
+});
 
 // server/routes/adminMasterRoutes.ts
 var import_express7 = __toESM(require("express"));
@@ -12272,7 +12914,7 @@ adminMasterRouter.post("/users/kill-switch", async (req, res) => {
 });
 adminMasterRouter.post("/users/update", async (req, res) => {
   try {
-    const { id, name, passcode, role, status: status2 } = req.body;
+    const { id, name, passcode, role, status } = req.body;
     if (!id) {
       res.status(400).json({ success: false, error: "User ID is required" });
       return;
@@ -12286,7 +12928,7 @@ adminMasterRouter.post("/users/update", async (req, res) => {
            status = COALESCE(?, status),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?;`,
-      [name, passcode, role, status2, id]
+      [name, passcode, role, status, id]
     );
     res.json({ success: true, message: `User ${id} updated successfully` });
   } catch (err) {
@@ -12744,7 +13386,7 @@ adminMasterRouter.get("/tickets", handleGetSupportTickets);
 var handleUpdateSupportTicketStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status: status2, notes } = req.body;
+    const { status, notes } = req.body;
     const pool2 = getMariaDbPool();
     await pool2.query(
       `UPDATE mbi_registration_leads 
@@ -12752,9 +13394,9 @@ var handleUpdateSupportTicketStatus = async (req, res) => {
            notes = CASE WHEN ? IS NOT NULL THEN CONCAT(COALESCE(notes, ''), ' | ', ?) ELSE notes END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?;`,
-      [status2, notes, notes, id]
+      [status, notes, notes, id]
     );
-    res.json({ success: true, message: `Ticket ${id} status updated to ${status2}` });
+    res.json({ success: true, message: `Ticket ${id} status updated to ${status}` });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error updating support ticket" });
   }
@@ -13749,7 +14391,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
     let maxDevices = 10;
     let licenseKey = "";
     let plan = "Basic";
-    let status2 = "Active";
+    let status = "Active";
     if (await isMariaDbAvailable()) {
       try {
         const pool2 = getMariaDbPool();
@@ -13760,7 +14402,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
         if (rows && rows.length > 0) {
           licenseKey = rows[0].license_key;
           plan = rows[0].plan || "Basic";
-          status2 = rows[0].status || "Active";
+          status = rows[0].status || "Active";
           maxDevices = Number(rows[0].max_devices || 10);
           const raw = rows[0].bound_hardware_ids;
           if (typeof raw === "string") {
@@ -13781,7 +14423,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
       tenantId,
       licenseKey,
       plan,
-      status: status2,
+      status,
       maxDevices,
       totalBound: boundHardwareIds.length,
       boundHardwareIds
@@ -15857,18 +16499,18 @@ async function startServer() {
     }
   });
   app.get("/api/db/status", async (req, res) => {
-    const status2 = await testMariaDbConnection();
+    const status = await testMariaDbConnection();
     res.json({
       engine: "MariaDB",
-      ...status2,
+      ...status,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
   });
   app.get("/api/db/table-stats", async (req, res) => {
-    const status2 = await testMariaDbConnection();
+    const status = await testMariaDbConnection();
     const tables = await getMariaDbTableStats();
     res.json({
-      connected: status2.connected,
+      connected: status.connected,
       engine: "MariaDB 10.x / 11.x",
       tables,
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -17142,14 +17784,14 @@ async function startServer() {
   app.put("/api/master/tenants/:id/status", requireMasterAdmin, (req, res) => {
     try {
       const { id } = req.params;
-      const { status: status2 } = req.body;
+      const { status } = req.body;
       const tenants = readJsonFile(masterTenantsFile, []);
       const idx = tenants.findIndex((t) => t.id === id || t.tenantId === id);
       if (idx >= 0) {
-        tenants[idx].status = status2;
+        tenants[idx].status = status;
         tenants[idx].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
         writeJsonFile(masterTenantsFile, tenants);
-        logServerAudit("Tenant Status Changed", "FLEET", `Tenant ${tenants[idx].name} status changed to ${status2}`, tenants[idx].name);
+        logServerAudit("Tenant Status Changed", "FLEET", `Tenant ${tenants[idx].name} status changed to ${status}`, tenants[idx].name);
         return res.json({ success: true, tenant: tenants[idx], tenants });
       }
       res.status(404).json({ success: false, message: "Tenant not found" });
@@ -17625,15 +18267,15 @@ async function startServer() {
   app.put("/api/master/users/:id/status", requireMasterAdmin, (req, res) => {
     try {
       const { id } = req.params;
-      const { status: status2 } = req.body;
+      const { status } = req.body;
       const users = readJsonFile(masterUsersFile2, []);
       const idx = users.findIndex((u) => u.id === id);
       if (idx >= 0) {
-        users[idx].status = status2;
-        users[idx].isOnline = status2 === "Active";
+        users[idx].status = status;
+        users[idx].isOnline = status === "Active";
         users[idx].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
         writeJsonFile(masterUsersFile2, users);
-        logServerAudit("User Status Changed", "SECURITY", `User ${users[idx].name} status changed to ${status2}`, users[idx].storeName);
+        logServerAudit("User Status Changed", "SECURITY", `User ${users[idx].name} status changed to ${status}`, users[idx].storeName);
         return res.json({ success: true, user: users[idx], users });
       }
       res.status(404).json({ success: false, message: "User not found" });

@@ -548,6 +548,11 @@ adminRouter.post('/tenants/:id/plan', async (req: Request, res: Response) => {
     const targetPlan = plan || planId || 'Platinum';
 
     try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET plan = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, id, id);
+    } catch (sqErr) {}
+
+    try {
       const pool = getMariaDbPool();
       await pool.query(
         'UPDATE mbi_tenants SET plan = ?, subscription_plan = ?, plan_id = ?, updated_at = ? WHERE id = ?',
@@ -1719,6 +1724,11 @@ adminRouter.post('/tenants/:id/lock', async (req: Request, res: Response) => {
     const newStatus = lock ? 'Locked' : 'Active';
 
     try {
+      const masterDb = getMasterVault();
+      masterDb.prepare("UPDATE mbi_tenants SET status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(newStatus === 'Locked' ? 'Suspended' : 'Active', id, id);
+    } catch (sqErr) {}
+
+    try {
       const pool = getMariaDbPool();
       await pool.query('UPDATE mbi_tenants SET status = ?, updated_at = ? WHERE id = ?', [
         newStatus,
@@ -2410,7 +2420,7 @@ adminRouter.post('/licenses/create', async (req: Request, res: Response) => {
  * Perform Master Actions (extend_days, grant_terminal_slot, reset_fingerprint, suspend, reactivate)
  */
 adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
-  const { action, licenseKey, days, tenantId, expiryDate, plan, maxDevices, maxUsers, maxFirms, salePrice, amountPaid, amountDue, paymentMethod, notes, clientName, ownerName, phone, city } = req.body;
+  const { action, licenseKey, days, tenantId, expiryDate, plan, status, maxDevices, maxUsers, maxFirms, salePrice, amountPaid, amountDue, paymentMethod, notes, clientName, ownerName, phone, city } = req.body;
   if (!action) {
     return res.status(400).json({ success: false, error: 'action is required' });
   }
@@ -2480,6 +2490,126 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       });
 
       return res.json({ success: true, message: `Extended validity to ${targetExpiry}!`, expiryDate: targetExpiry });
+    }
+
+    if (action === 'update_plan_suite') {
+      const targetExpiry = expiryDate 
+        ? (expiryDate === 'Lifetime' ? '2099-12-31' : expiryDate)
+        : days === 'lifetime' || Number(days) >= 30000 
+          ? '2099-12-31' 
+          : new Date(Date.now() + (Number(days) || 365) * 86400000).toISOString().split('T')[0];
+
+      const cleanFeaturesJson = typeof req.body.features === 'string' ? req.body.features : JSON.stringify(req.body.features || {});
+      const cleanPlan = plan || req.body.plan || 'Basic';
+      const cleanStatus = status || req.body.status || 'Active';
+      const cleanApiKey = req.body.apiKey || req.body.api_key;
+      const targetTid = tenantId || req.body.id || req.body.tenant_id || licenseKey || 'tenant_001';
+      const targetLic = licenseKey || `lic_${targetTid}`;
+      const targetName = req.body.name || '';
+      const devicesCount = Number(maxDevices || req.body.max_devices) || 3;
+      const usersCount = Number(maxUsers || req.body.max_users) || 5;
+      const firmsCount = Number(maxFirms || req.body.max_firms) || 2;
+      const sPrice = Number(salePrice !== undefined ? salePrice : req.body.sale_price) || 0;
+      const aPaid = Number(amountPaid !== undefined ? amountPaid : req.body.amount_paid) || 0;
+      const sStatus = req.body.saleStatus || req.body.sale_status || 'Paid';
+      const pMethod = req.body.paymentMethod || req.body.payment_method || 'Bank Transfer';
+      const sNotes = req.body.saleNotes || req.body.sale_notes || '';
+
+      // 1. SQLite Master Vault
+      try {
+        const masterDb = getMasterVault();
+        masterDb.prepare(`
+          UPDATE mbi_tenants 
+          SET plan = ?, status = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
+              max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
+              sale_status = ?, payment_method = ?, sale_notes = ?, updated_at = datetime('now')
+          WHERE id = ? OR tenant_id = ? OR (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND ? != '')
+        `).run(
+          cleanPlan, cleanStatus, targetExpiry, cleanFeaturesJson, cleanApiKey || null,
+          usersCount, firmsCount, devicesCount, sPrice, aPaid,
+          sStatus, pMethod, sNotes,
+          targetTid, targetTid, targetName, targetName
+        );
+
+        masterDb.prepare(`
+          UPDATE mbi_licenses 
+          SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = datetime('now')
+          WHERE license_key = ? OR tenant_id = ?
+        `).run(cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic, targetTid);
+
+        if (cleanStatus === 'Suspended') {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
+        } else if (cleanStatus === 'Active') {
+          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
+        }
+      } catch (sqErr) {
+        console.warn('[SQLite Update Plan Suite Error]', sqErr);
+      }
+
+      // 2. MariaDB
+      if (pool) {
+        try {
+          await pool.query(`
+            UPDATE mbi_tenants 
+            SET plan = ?, plan_id = ?, status = ?, trial_expiry_date = ?, trial_expires_at = ?, features_json = ?, api_key = COALESCE(?, api_key),
+                max_users = ?, max_firms = ?, max_devices = ?, sale_price = ?, amount_paid = ?,
+                sale_status = ?, payment_method = ?, sale_notes = ?, updated_at = NOW()
+            WHERE id = ? OR tenant_id = ? OR (LOWER(TRIM(name)) = LOWER(TRIM(?)) AND ? != '')
+          `, [
+            cleanPlan, cleanPlan, cleanStatus, targetExpiry, targetExpiry, cleanFeaturesJson, cleanApiKey || null,
+            usersCount, firmsCount, devicesCount, sPrice, aPaid,
+            sStatus, pMethod, sNotes,
+            targetTid, targetTid, targetName, targetName
+          ]);
+
+          await pool.query(`
+            UPDATE mbi_licenses 
+            SET plan = ?, status = ?, expiry_date = ?, max_devices = ?, updated_at = NOW()
+            WHERE license_key = ? OR tenant_id = ?
+          `, [cleanPlan, cleanStatus, targetExpiry, devicesCount, targetLic, targetTid]);
+
+          if (cleanStatus === 'Suspended' || cleanStatus === 'Active') {
+            await pool.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid]);
+          }
+        } catch (dbErr) {
+          console.warn('[DB Update Plan Suite Error]', dbErr);
+        }
+      }
+
+      // 3. Fallback
+      const fallback = getLocalFallbackData();
+      if (fallback.tenants) {
+        const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid || (targetName && item.name && item.name.toLowerCase() === targetName.toLowerCase()));
+        if (t) {
+          t.plan = cleanPlan;
+          t.status = cleanStatus;
+          t.trialExpiryDate = targetExpiry;
+          t.maxDevices = devicesCount;
+          if (cleanApiKey) t.apiKey = cleanApiKey;
+          t.maxUsers = usersCount;
+          t.maxFirms = firmsCount;
+          t.salePrice = sPrice;
+          t.amountPaid = aPaid;
+          t.amountDue = Math.max(0, sPrice - aPaid);
+          t.saleStatus = sStatus;
+          t.paymentMethod = pMethod;
+          t.saleNotes = sNotes;
+          t.features = typeof req.body.features === 'object' ? req.body.features : {};
+        }
+      }
+      if (fallback.mbi_licenses) {
+        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
+        if (lic) {
+          lic.plan = cleanPlan;
+          lic.maxDevices = devicesCount;
+          lic.expiryDate = targetExpiry;
+          lic.status = cleanStatus;
+        }
+      }
+      saveLocalFallbackData(fallback);
+
+      broadcastAdminEvent({ type: 'PLAN_SUITE_UPDATED', licenseKey: targetLic, tenantId: targetTid, plan: cleanPlan, expiryDate: targetExpiry, status: cleanStatus });
+      return res.json({ success: true, message: `Successfully updated Plan Suite for ${targetTid}!`, plan: cleanPlan, expiryDate: targetExpiry });
     }
 
     const targetTid = tenantId || licenseKey || '';
@@ -2578,73 +2708,7 @@ adminRouter.post('/licenses/action', async (req: Request, res: Response) => {
       return res.json({ success: true, message: 'Hardware fingerprint cleared. New PC can now bind.' });
     }
 
-    if (action === 'update_plan_suite') {
-      const targetExpiry = expiryDate || '2028-12-31';
-      const targetPlan = plan || 'Gold';
-      const devicesCount = Number(maxDevices) || 3;
-      const cleanStatus = status || 'Active';
-      const cleanFeaturesJson = typeof req.body.features === 'string' ? req.body.features : JSON.stringify(req.body.features || {});
 
-      try {
-        const masterDb = getMasterVault();
-        masterDb.prepare("UPDATE mbi_tenants SET plan = ?, trial_expires_at = ?, status = ?, updated_at = datetime('now') WHERE id = ? OR tenant_id = ?").run(targetPlan, targetExpiry, cleanStatus, targetTid, targetTid);
-        masterDb.prepare("UPDATE mbi_licenses SET plan = ?, expires_at = ?, max_devices = ?, status = ? WHERE license_key = ? OR tenant_id = ?").run(targetPlan, targetExpiry, devicesCount, cleanStatus, targetLic, targetTid);
-        if (cleanStatus === 'Suspended') {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Suspended' WHERE tenant_id = ?").run(targetTid);
-        } else if (cleanStatus === 'Active') {
-          masterDb.prepare("UPDATE mbi_users SET status = 'Active' WHERE tenant_id = ?").run(targetTid);
-        }
-      } catch (sqErr) {}
-
-      if (pool) {
-        try {
-          await pool.query(`
-            UPDATE mbi_licenses 
-            SET plan = ?, max_devices = ?, expiry_date = ?, status = ?, updated_at = NOW() 
-            WHERE license_key = ? OR tenant_id = ?
-          `, [targetPlan, devicesCount, targetExpiry, cleanStatus, targetLic, targetTid]);
-
-          await pool.query(`
-            UPDATE mbi_tenants 
-            SET plan = ?, plan_id = ?, trial_expiry_date = ?, status = ?, features_json = ?, updated_at = NOW() 
-            WHERE id = ? OR tenant_id = ?
-          `, [targetPlan, targetPlan, targetExpiry, cleanStatus, cleanFeaturesJson, targetTid, targetTid]);
-
-          if (cleanStatus === 'Suspended' || cleanStatus === 'Active') {
-            await pool.query(`UPDATE mbi_users SET status = ? WHERE tenant_id = ?`, [cleanStatus, targetTid]);
-          }
-        } catch (dbErr) {}
-      }
-
-      const fallback = getLocalFallbackData();
-      if (fallback.mbi_licenses) {
-        const lic = fallback.mbi_licenses.find((l: any) => l.licenseKey === targetLic || l.license_key === targetLic || l.tenantId === targetTid);
-        if (lic) {
-          lic.plan = targetPlan;
-          lic.maxDevices = devicesCount;
-          lic.expiryDate = targetExpiry;
-          lic.status = cleanStatus;
-        }
-      }
-      if (fallback.tenants) {
-        const t = fallback.tenants.find((item: any) => item.id === targetTid || item.tenantId === targetTid);
-        if (t) {
-          t.plan = targetPlan;
-          t.trialExpiryDate = targetExpiry;
-          t.maxDevices = devicesCount;
-          t.status = cleanStatus;
-          if (maxUsers) t.maxUsers = Number(maxUsers);
-          if (maxFirms) t.maxFirms = Number(maxFirms);
-          if (salePrice !== undefined) t.salePrice = Number(salePrice);
-          if (amountPaid !== undefined) t.amountPaid = Number(amountPaid);
-          if (amountDue !== undefined) t.amountDue = Number(amountDue);
-        }
-      }
-      saveLocalFallbackData(fallback);
-
-      broadcastAdminEvent({ type: 'PLAN_SUITE_UPDATED', licenseKey: targetLic, tenantId: targetTid, plan: targetPlan, expiryDate: targetExpiry, status: cleanStatus });
-      return res.json({ success: true, message: `Plan suite updated permanently to ${targetPlan} (${cleanStatus})!` });
-    }
 
     if (action === 'grant_terminal_slot') {
       if (pool) {

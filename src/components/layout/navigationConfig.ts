@@ -294,7 +294,7 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
 export function getFilteredNavigation(plan: PlanTier, tenantId?: string): NavItem[] {
   return RAW_NAVIGATION_ITEMS
     .filter(item => {
-      // Enterprise only modules
+      // Enterprise and custom modules
       if (item.id === 'onlineStore' || item.id === 'bookers') {
         return isModuleAllowed(item.id, tenantId, plan);
       }
@@ -304,6 +304,13 @@ export function getFilteredNavigation(plan: PlanTier, tenantId?: string): NavIte
       if (!item.subItems) return item;
       const filteredSubs = item.subItems.filter(sub => {
         if (sub.requiredPlan && !isPlanSufficient(plan, sub.requiredPlan)) {
+          // Check if this sub-item points to a report that is allowed via override
+          if (sub.path?.includes('report=')) {
+            const reportId = sub.path.split('report=')[1]?.split('&')[0];
+            if (reportId && isReportAllowed(reportId, tenantId, plan)) {
+              return true;
+            }
+          }
           return false;
         }
         return true;

@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import { 
   Info, Lock, Building2, Plus, Edit2, Trash2, CheckCircle2, 
   RotateCcw, ShieldCheck, Database, Calendar, DollarSign, FileText,
-  Download, Upload, AlertCircle, Sparkles, RefreshCw, Sun, Moon, Monitor, Coins
+  Download, Upload, AlertCircle, Sparkles, RefreshCw, Sun, Moon, Monitor, Coins,
+  MessageSquare
 } from 'lucide-react';
 import { useSettings, Firm } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,6 +16,7 @@ import {
 import { AccountUsageService, TenantUsageInfo } from '../../lib/accountUsageService';
 import { UpgradePlanModal } from '../pricing/UpgradePlanModal';
 import { APP_VERSION } from '../../config/appVersion';
+import { getTenantWhatsAppConfig, saveTenantWhatsAppConfig } from '../../lib/whatsappAutomationService';
 
 export const GeneralTab: React.FC = () => {
   const { 
@@ -606,6 +608,99 @@ export const GeneralTab: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* WhatsApp Automation & Invoice Dispatch Control */}
+            <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/10 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-600 text-white rounded-lg shadow-2xs">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>WhatsApp Invoicing & Auto-Gateway</span>
+                    </h4>
+                    <p className="text-[10.5px] text-slate-500 dark:text-slate-400">
+                      1-Click PDF Bill & Khata statements dispatch
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tab', 'WHATSAPP AUTOMATION');
+                    window.history.pushState({}, '', url.toString());
+                    window.dispatchEvent(new Event('popstate'));
+                    // Force state update if inside Settings component
+                    window.dispatchEvent(new CustomEvent('settings_tab_change', { detail: 'WHATSAPP AUTOMATION' }));
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold shadow-2xs transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Configure Gateway</span>
+                  <Sparkles className="w-3 h-3 text-amber-300" />
+                </button>
+              </div>
+
+              {/* Fast Toggles */}
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40 space-y-2 text-xs">
+                <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                    Auto-Send Invoice on Finalized Sale
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={(() => {
+                      try {
+                        const cfg = getTenantWhatsAppConfig();
+                        return Boolean(cfg.autoSendOnSale);
+                      } catch {
+                        return true;
+                      }
+                    })()}
+                    onChange={(e) => {
+                      try {
+                        const cfg = getTenantWhatsAppConfig();
+                        const updated = { ...cfg, autoSendOnSale: e.target.checked };
+                        saveTenantWhatsAppConfig(updated);
+                        showToast(e.target.checked ? '✅ WhatsApp Auto Invoice on Sale enabled!' : 'WhatsApp Auto Invoice on Sale disabled.');
+                      } catch (err) {
+                        console.warn(err);
+                      }
+                    }}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                    Auto-Send Customer Khata Payment Receipt
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={(() => {
+                      try {
+                        const cfg = getTenantWhatsAppConfig();
+                        return Boolean(cfg.autoSendOnKhataPayment);
+                      } catch {
+                        return true;
+                      }
+                    })()}
+                    onChange={(e) => {
+                      try {
+                        const cfg = getTenantWhatsAppConfig();
+                        const updated = { ...cfg, autoSendOnKhataPayment: e.target.checked };
+                        saveTenantWhatsAppConfig(updated);
+                        showToast(e.target.checked ? '✅ WhatsApp Khata Receipts enabled!' : 'WhatsApp Khata Receipts disabled.');
+                      } catch (err) {
+                        console.warn(err);
+                      }
+                    }}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </label>
+              </div>
             </div>
 
           </div>

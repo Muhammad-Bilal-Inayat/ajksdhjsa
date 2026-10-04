@@ -80,6 +80,15 @@ export async function logAuditEvent(params: {
   userRole?: string;
 }): Promise<ComprehensiveAuditLogEntry> {
   const currentBusinessId = params.businessId || localStorage.getItem('mbi_active_business_id') || 'local-business-id';
+
+  // EXCLUSION: Master Server operations (/server or Shadow Mode) MUST NEVER pollute tenant-side audit/activity history
+  const isFromMasterServer = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/server') ||
+    localStorage.getItem('mbi_master_shadow_session_v1') !== null ||
+    localStorage.getItem('mbi_master_token') !== null ||
+    localStorage.getItem('mbi_is_master_admin') === 'true'
+  );
+
   let storedUser: any = null;
   try {
     const rawUser = localStorage.getItem('active_simulated_user') || localStorage.getItem('mock_session');
@@ -93,6 +102,29 @@ export async function logAuditEvent(params: {
 
   const entryId = 'aud_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const now = new Date();
+
+  if (isFromMasterServer) {
+    return {
+      id: entryId,
+      businessId: currentBusinessId,
+      userId,
+      userName,
+      userRole: params.userRole || activeRole,
+      userEmail,
+      category: params.category,
+      severity: params.severity || 'INFO',
+      action: params.action,
+      entity: params.entity,
+      entityId: params.entityId,
+      amount: params.amount,
+      details: params.details,
+      metadata: params.metadata,
+      previousValue: params.previousValue,
+      newValue: params.newValue,
+      timestamp: Date.now(),
+      createdAt: now.toISOString(),
+    };
+  }
 
   // Automatic severity determination if not explicitly provided
   let severity: AuditSeverity = params.severity || 'INFO';

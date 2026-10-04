@@ -396,9 +396,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
 
-        // 1. Check if item's menu is explicitly blocked in Master Control / 173-Feature Switchboard
+        // 1. Check if item's menu is explicitly blocked in Master Control / 173-Feature Switchboard (Universal Authority)
         const targetMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
-        if (targetMenuId && !isOwner) {
+        if (targetMenuId) {
           const isMenuAllowed = evaluatePermission({
             userId: effectiveUserId,
             role: activeRole,
@@ -443,8 +443,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
       })
       .map(item => {
         if (!item.subItems) return item;
+        const parentMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
         const filteredSubs = item.subItems.filter(sub => {
+          // Check submenu switchboard toggle
+          const submenuIdMap: Record<string, string> = {
+            '/sale/invoices': 'saleInvoices',
+            '/sale/payment-in': 'paymentIn',
+            '/sale/return': 'saleReturn',
+            '/sale/quotation': 'estimateQuotation',
+            '/sale/order': 'saleOrder',
+            '/sale/challan': 'deliveryChallan',
+            '/inventory': 'inventoryList',
+            '/top-products': 'topProducts',
+            '/shortage-registry': 'shortageRegistry',
+            '/purchase': 'purchaseBills',
+            '/purchase/return': 'purchaseReturn',
+            '/purchase/payment-out': 'paymentOut',
+            '/purchase/order': 'purchaseOrder',
+            '/parties/customers': 'partyDirectory',
+            '/parties/suppliers': 'partyDirectory',
+            '/accounts/ledgers': 'partyDirectory',
+            '/bank': 'bankAccounts',
+            '/cash-in-hand': 'cashInHand',
+            '/shift-management': 'shiftOperations',
+            '/bank/cheques': 'cheques',
+            '/bank/loan-accounts': 'loanAccounts',
+            '/online-store': 'storeCatalog',
+            '/utilities': 'utilitiesDirectory',
+          };
+
+          const rawPath = sub.path ? sub.path.split('?')[0] : '';
+          const matchedSubmenuId = rawPath ? submenuIdMap[rawPath] : undefined;
+          if (matchedSubmenuId) {
+            const isSubAllowed = evaluatePermission({
+              userId: effectiveUserId,
+              role: activeRole,
+              plan: effectivePlan,
+              tenantId: effectiveTenantId,
+              menuId: parentMenuId,
+              submenuId: matchedSubmenuId
+            });
+            if (!isSubAllowed) return false;
+          }
+
           if (sub.requiredPlan && !isPlanSufficient(activePlanTier, sub.requiredPlan)) {
+            if (sub.path?.includes('report=')) {
+              const repId = sub.path.split('report=')[1]?.split('&')[0];
+              if (repId && isPlanReportAllowed(repId, effectiveTenantId, activePlanTier)) {
+                return true;
+              }
+            }
             return false;
           }
           return true;
@@ -484,13 +532,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return getFilteredCategorizedReports(activePlanTier, currentTid);
   }, [activePlanTier, currentTid]);
 
-  // Sync & Share is guaranteed available across all plans
-  const isSyncAllowed = settings.modules?.syncShare !== false;
+  // Sync & Share navigation button is guaranteed permanently visible across ALL plans
+  const isSyncAllowed = true;
 
   // Backup & Restore is strictly EXCLUSIVE to Primary Store Owner
   const isBackupAllowed = canAccessBackupRestore(activeUser || currentUser);
 
-  const isSettingsAllowed = isPrimaryOwner(activeUser || currentUser) || canAccess('settings') || isRouteAllowedForRole('/settings', activeUser || currentUser);
+  const isSettingsAllowed = (isPrimaryOwner(activeUser || currentUser) || canAccess('settings') || isRouteAllowedForRole('/settings', activeUser || currentUser)) && evaluatePermission({
+    userId: currentUid,
+    role: activeRole,
+    plan: currentPlan,
+    tenantId: currentTid,
+    menuId: 'settings'
+  });
 
   return (
     <>

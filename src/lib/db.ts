@@ -292,6 +292,19 @@ async function saveRecord<T extends StoreNames>(storeName: T, record: any) {
 
   const ctx = getCurrentBusinessContext();
 
+  // EXCLUSION: Master Server operations (/server or Shadow Mode) MUST NEVER pollute tenant-side audit/activity history
+  if (storeName === 'auditLogs' || storeName === 'userActivities') {
+    const isFromMasterServer = typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/server') ||
+      localStorage.getItem('mbi_master_shadow_session_v1') !== null ||
+      localStorage.getItem('mbi_master_token') !== null ||
+      localStorage.getItem('mbi_is_master_admin') === 'true'
+    );
+    if (isFromMasterServer) {
+      return record as T;
+    }
+  }
+
   // Enforce Tenant + Firm + User Scoping
   const recordWithContext = {
     ...record,
@@ -405,6 +418,19 @@ async function saveBatch<T extends StoreNames>(
     supplierReturns: 'ret',
     loyaltyCustomers: 'loy'
   };
+
+  // EXCLUSION: Master Server operations (/server or Shadow Mode) MUST NEVER pollute tenant-side audit/activity history
+  if (storeName === 'auditLogs' || storeName === 'userActivities') {
+    const isFromMasterServer = typeof window !== 'undefined' && (
+      window.location.pathname.startsWith('/server') ||
+      localStorage.getItem('mbi_master_shadow_session_v1') !== null ||
+      localStorage.getItem('mbi_master_token') !== null ||
+      localStorage.getItem('mbi_is_master_admin') === 'true'
+    );
+    if (isFromMasterServer) {
+      return records as T[];
+    }
+  }
 
   const ctx = getCurrentBusinessContext();
   const now = new Date().toISOString();

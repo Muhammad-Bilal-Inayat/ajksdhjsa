@@ -410,14 +410,23 @@ export function isWidgetAllowedWithFeatures(
 ): boolean {
   // Check explicit granular feature switchboard override if defined
   if (customFeatures) {
+    if (customFeatures['all_24_dashboard_widgets'] === true || customFeatures['all_dashboard_widgets'] === true) return true;
+    if (customFeatures[widget.id] === true) return true;
+    if (customFeatures[`widget_${widget.id}`] === true) return true;
     if (customFeatures[widget.id] === false) return false;
     if (customFeatures[`widget_${widget.id}`] === false) return false;
     // Specific aliases
+    if (widget.id === 'todays_profit' && customFeatures['widget_net_profit_margin'] === true) return true;
     if (widget.id === 'todays_profit' && customFeatures['widget_net_profit_margin'] === false) return false;
+    if (widget.id === 'recent_sales' && customFeatures['widget_recent_invoices_feed'] === true) return true;
     if (widget.id === 'recent_sales' && customFeatures['widget_recent_invoices_feed'] === false) return false;
+    if (widget.id === 'low_stock_alerts' && customFeatures['widget_low_stock_alert'] === true) return true;
     if (widget.id === 'low_stock_alerts' && customFeatures['widget_low_stock_alert'] === false) return false;
+    if (widget.id === 'expiry_alerts' && customFeatures['widget_near_expiry_alert'] === true) return true;
     if (widget.id === 'expiry_alerts' && customFeatures['widget_near_expiry_alert'] === false) return false;
+    if (widget.id === 'top_products' && customFeatures['widget_top_selling_medicines'] === true) return true;
     if (widget.id === 'top_products' && customFeatures['widget_top_selling_medicines'] === false) return false;
+    if (widget.id === 'reorder_suggestions' && customFeatures['inventory_low_stock_auto_order'] === true) return true;
     if (widget.id === 'reorder_suggestions' && customFeatures['inventory_low_stock_auto_order'] === false) return false;
   }
   return isWidgetAllowedInPlan(widget, userPlan);

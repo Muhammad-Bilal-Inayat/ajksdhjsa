@@ -144,7 +144,12 @@ class UnifiedSyncService {
         this.setStatus('synced');
         this.initSSE();
         this.flushSyncBatch().catch(() => {});
+        this.forceFullSync().catch(() => {});
         this.detectAndReconcile(false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { trigger: 'online-auto-sync' } }));
+          window.dispatchEvent(new CustomEvent('mbi-local-db-change'));
+        }
       });
       window.addEventListener('offline', () => {
         this.setStatus('offline');

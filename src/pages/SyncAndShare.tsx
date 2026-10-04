@@ -301,6 +301,10 @@ export const SyncAndShare: React.FC = () => {
   };
 
   const handleOpenAdd = () => {
+    if (activeUsersCount >= maxAllowedUsers) {
+      showToast(`⚠️ User limit reached for current plan (${maxAllowedUsers} max seats). Upgrade plan to add more staff.`);
+      return;
+    }
     setFormData({
       name: '',
       emailOrPhone: '',
@@ -327,6 +331,11 @@ export const SyncAndShare: React.FC = () => {
     e.preventDefault();
     if (!formData.name.trim()) {
       alert('Staff name is required');
+      return;
+    }
+
+    if (activeUsersCount >= maxAllowedUsers) {
+      showToast(`⚠️ User limit reached for current plan (${maxAllowedUsers} max seats).`);
       return;
     }
 
@@ -667,6 +676,7 @@ export const SyncAndShare: React.FC = () => {
     ? 5
     : 3;
   const displayTenantId = tenantId ? (tenantId.startsWith('MBI-') ? tenantId : `MBI-TNT-${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '101'}`) : 'MBI-TNT-101';
+  const isStoreAdminOrOwner = isPrimaryUser(activeUser) || activeRole === 'Primary Admin' || activeRole === 'Admin' || activeRole === 'Secondary Admin' || (currentUser as any)?.isPrimaryOwner || !activeUser;
 
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">
@@ -751,114 +761,181 @@ export const SyncAndShare: React.FC = () => {
         </div>
       </div>
 
-      {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 sm:px-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm transition-colors">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center justify-center shrink-0 shadow-xs">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <span>Sync & Multi-User Sharing</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
-                Enterprise Cloud
+      {/* Sub-User Streamlined Sync View vs Primary Admin Suite */}
+      {!isStoreAdminOrOwner ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 animate-in fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <RefreshCw className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <span>Counter Station Cloud Sync Hub</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Connected User: <strong className="text-slate-700 dark:text-slate-200 font-mono">{activeUser?.name || 'Staff User'} ({activeRole})</strong> • Company: <strong>{business?.name || tenant?.name || 'Pharmacy Store'}</strong>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Auto-Sync Active (0ms Offline Ready)</span>
               </span>
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Manage staff permissions, track immutable company audit trails, and keep all records synchronized.
-            </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 space-y-3 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-300">
+                  <Cloud className="w-4 h-4 text-blue-600" />
+                  <span>Live Cloud Vault Reconciler</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                  All your sales bills, payments, and stock changes automatically sync with the company's master database the moment internet is active.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleFullCloudSync}
+                disabled={isRefreshing}
+                className="w-full py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Synchronizing with Cloud...' : '⚡ Sync Counter Now'}</span>
+              </button>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/70 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
+                <Laptop className="w-4 h-4 text-slate-500" />
+                <span>Offline 0ms Cache Status</span>
+              </div>
+              <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                <div className="flex items-center justify-between">
+                  <span>Local IndexedDB Cache:</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-mono">100% Operational</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Delta Sync Outbox:</span>
+                  <strong className="text-blue-600 dark:text-blue-400 font-mono">Auto-Flushing</strong>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Internet Auto-Reconnection:</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-mono">Instant (On Reconnect)</strong>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      ) : (
+        <>
+          {/* Top Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 sm:px-6 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-sm transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-center justify-center shrink-0 shadow-xs">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                  <span>Sync &amp; Multi-User Sharing</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    Enterprise Cloud
+                  </span>
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Manage staff permissions, track immutable company audit trails, and keep all records synchronized.
+                </p>
+              </div>
+            </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setIsPermissionsMatrixOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span>Role Permissions Matrix</span>
-          </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setIsPermissionsMatrixOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>Role Permissions Matrix</span>
+              </button>
 
-          <button
-            onClick={() => setMainTab('AUDIT_LOGS')}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
-          >
-            <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <span>Audit Trail</span>
-          </button>
+              <button
+                onClick={() => setMainTab('AUDIT_LOGS')}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span>Audit Trail</span>
+              </button>
 
-          <button
-            onClick={handleOpenAdd}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/20 active:scale-98 cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>+ Invite Staff User</span>
-          </button>
-        </div>
-      </div>
+              <button
+                onClick={handleOpenAdd}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-600/20 active:scale-98 cursor-pointer"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>+ Invite Staff User</span>
+              </button>
+            </div>
+          </div>
 
-      {/* TOP NAVIGATION SWITCHBOARD TABS */}
-      <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setMainTab('STAFF')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            mainTab === 'STAFF'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>👥 Staff Members & Accounts ({users.length})</span>
-        </button>
+          {/* TOP NAVIGATION SWITCHBOARD TABS */}
+          <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setMainTab('STAFF')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                mainTab === 'STAFF'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>👥 Staff Members &amp; Accounts ({users.length})</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setMainTab('AUDIT_LOGS')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            mainTab === 'AUDIT_LOGS'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-          <span>📋 All Activity & Audit Logs</span>
-          <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold rounded-md">
-            Immutable
-          </span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setMainTab('AUDIT_LOGS')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                mainTab === 'AUDIT_LOGS'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <History className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span>📋 All Activity &amp; Audit Logs</span>
+              <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold rounded-md">
+                Immutable
+              </span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setMainTab('CLOUD_SYNC')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            mainTab === 'CLOUD_SYNC'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>🔄 Multi-Counter Realtime Sync</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => setMainTab('CLOUD_SYNC')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                mainTab === 'CLOUD_SYNC'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>🔄 Multi-Counter Realtime Sync</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setMainTab('BACKUP_RESTORE')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-            mainTab === 'BACKUP_RESTORE'
-              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>🛡️ Backup &amp; Restore</span>
-        </button>
-      </div>
+            <button
+              type="button"
+              onClick={() => setMainTab('BACKUP_RESTORE')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                mainTab === 'BACKUP_RESTORE'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>🛡️ Backup &amp; Restore</span>
+            </button>
+          </div>
 
-      {/* TAB 1: AUDIT LOGS VIEW */}
-      {mainTab === 'AUDIT_LOGS' && (
-        <CompanyAuditLogsTab users={users} />
-      )}
+          {/* TAB 1: AUDIT LOGS VIEW */}
+          {mainTab === 'AUDIT_LOGS' && (
+            <CompanyAuditLogsTab users={users} />
+          )}
 
       {/* TAB 2: BACKUP & RESTORE VIEW */}
       {mainTab === 'BACKUP_RESTORE' && (
@@ -1366,6 +1443,8 @@ export const SyncAndShare: React.FC = () => {
       </div>
     </div>
   )}
+        </>
+      )}
 
       {/* MODAL: ADD / EDIT STAFF */}
       {(isAddUserModalOpen || isEditUserModalOpen) && (

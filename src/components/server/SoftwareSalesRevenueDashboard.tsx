@@ -548,8 +548,18 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               isTrialActive: rt.status === 'Trial',
               trialExpired: false,
               paidLicenseActive: rt.status === 'Active',
-              maxDevices: rt.max_devices || 3,
-              featureToggles: rt.feature_toggles || rt.featureToggles || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              maxDevices: rt.max_devices || rt.maxDevices || 3,
+              maxUsers: rt.max_users || rt.maxUsers || 5,
+              maxFirms: rt.max_firms || rt.maxFirms || 2,
+              features: rt.features || rt.customFeatures || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              customFeatures: rt.customFeatures || rt.features || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              featureToggles: rt.feature_toggles || rt.featureToggles || rt.features || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              salePrice: rt.sale_price || rt.salePrice || 0,
+              amountPaid: rt.amount_paid || rt.amountPaid || 0,
+              amountDue: Math.max(0, (rt.sale_price || rt.salePrice || 0) - (rt.amount_paid || rt.amountPaid || 0)),
+              saleStatus: rt.sale_status || rt.saleStatus || 'Paid',
+              paymentMethod: rt.payment_method || rt.paymentMethod || 'Bank Transfer',
+              saleNotes: rt.sale_notes || rt.saleNotes || '',
               apiKey: rt.api_key || rt.apiKey || `mbi_live_key_${tid.slice(-6)}_${Date.now().toString(36).toUpperCase()}`,
               totalInvoicesCount: Number(rt.invoice_count) || Number(rt.total_invoices_count) || 0,
               totalProductsCount: 0,
@@ -563,6 +573,7 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
           setTenants(serverTenants);
           localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(serverTenants));
           localStorage.setItem('mbi_master_tenants_v3', JSON.stringify(serverTenants));
+          localStorage.setItem('mbi_master_tenants', JSON.stringify(serverTenants));
         } else {
           setTenants(getAllTenants());
         }
@@ -647,16 +658,24 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     const newApiKey = `mbi_live_key_${cleanTid}_${randomHex}`;
 
     target.apiKey = newApiKey;
+    target.isManualOverride = true;
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
 
-    // Call server key generation endpoint to ensure DB synchronization
+    // Reset license hardware machine fingerprint
+    const licId = target.licenseId || `lic_${target.tenantId || target.id}`;
+    try {
+      resetLicenseHardware(licId);
+    } catch (e) {}
+
+    // Call server key generation endpoint to ensure DB synchronization & clear server HWID
     try {
       await fetch('/api/fleet/keys/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tenantId: target.tenantId || target.id,
+          newKey: newApiKey,
           tenantName: target.name,
           keyName: `${target.name} REST API Key`,
           environment: 'production',
@@ -670,8 +689,16 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       localStorage.setItem(`mbi_tenant_apikey_${target.tenantId || target.id}`, newApiKey);
     } catch (e) {}
 
+    // Reset linked license bound HWID in state
+    const linkedLicense = licenses.find(l => l.licenseKey === target.licenseId || l.clientName.toLowerCase() === target.name.toLowerCase());
+    if (linkedLicense) {
+      linkedLicense.boundHardwareIds = [];
+      (linkedLicense as any).boundHwid = null;
+      saveClientLicense(linkedLicense);
+    }
+
     refreshAllData();
-    toast(`🔑 New API Key generated for ${target.name}: ${newApiKey}`);
+    toast(`🔑 New 1-Time Device Key generated for ${target.name}: ${newApiKey} (HWID unlinked so client can bind new PC)`);
   };
 
   // Get Sub-Users for a Tenant (Excludes Primary Admin/Owner to prevent dummy/duplicate rows)
@@ -836,6 +863,8 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     const actPromise = callLicenseActionApi({
       action: 'update_plan_suite',
       tenantId: target.tenantId || target.id,
+      id: target.id,
+      name: target.name,
       licenseKey: target.licenseId || `lic_${target.tenantId || target.id}`,
       plan: target.plan,
       status: target.status,
@@ -869,7 +898,15 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
         status: target.status,
         api_key: target.apiKey,
         features_json: JSON.stringify(planForm.featureOverrides),
-        trial_expiry_date: newExpiryStr === 'Lifetime' ? 'Lifetime' : newExpiryStr.slice(0, 10)
+        trial_expiry_date: newExpiryStr === 'Lifetime' ? 'Lifetime' : newExpiryStr.slice(0, 10),
+        max_users: target.maxUsers,
+        max_firms: target.maxFirms,
+        max_devices: target.maxDevices,
+        sale_price: target.salePrice,
+        amount_paid: target.amountPaid,
+        sale_status: target.saleStatus,
+        payment_method: target.paymentMethod,
+        sale_notes: target.saleNotes
       })
     }).catch(() => {});
 
@@ -973,6 +1010,9 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     const newStatus: Tenant['status'] = isCurrentlyLocked ? 'Active' : 'Suspended';
 
     target.status = newStatus;
+    target.isManualOverride = true;
+    target.paidLicenseActive = newStatus === 'Active';
+    target.isTrialActive = false;
     target.updatedAt = new Date().toISOString();
     saveTenant(target);
 
@@ -1452,20 +1492,6 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                           <span>Manage Plan &amp; Expiry Suite</span>
                         </button>
 
-                        {/* Lock / Unlock Switch */}
-                        <button
-                          onClick={() => handleToggleLock(tenant.id || tenant.tenantId, tenant.status)}
-                          className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
-                            isLocked
-                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                              : 'bg-rose-100 dark:bg-rose-950/80 hover:bg-rose-200 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
-                          }`}
-                          title={isLocked ? 'Unlock access for company & sub-users' : 'Lock company & suspend sub-users immediately'}
-                        >
-                          {isLocked ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                          <span>{isLocked ? 'Unlock' : 'Lock Company'}</span>
-                        </button>
-
                         {/* Quick Fast Extend Pills */}
                         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
                           <button
@@ -1556,11 +1582,17 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                         <button
                           onClick={() => handleRegenerateApiKey(tenant.tenantId || tenant.id)}
                           className="px-2 py-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 hover:bg-amber-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer border border-amber-300 dark:border-amber-800"
-                          title="Regenerate API Key"
+                          title="Generate new 1-time activation key & unlink previous machine HWID"
                         >
                           <RefreshCw className="w-3 h-3" />
                           <span>Regen</span>
                         </button>
+                        <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-md text-[10px] font-black tracking-wide" title="Single Device HWID Enforcement: 1 Key binds exclusively to 1 authorized PC/device">
+                          1 Key = 1 Device
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                          {linkedLic?.boundHardwareIds?.length || ((linkedLic as any)?.boundHwid && (linkedLic as any).boundHwid !== 'UNBOUND' ? 1 : 0)} / {tenant.maxDevices || 1} Bound
+                        </span>
                       </div>
 
                       {/* Sub-Users Drawer Toggle */}

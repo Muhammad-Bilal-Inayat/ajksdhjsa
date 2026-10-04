@@ -1,1 +1,0 @@
-import{j as r,E as o}from"./app.js";import{Dashboard as s}from"./Dashboard-r9ik4B26.js";import"./vendor-react-7ihK1vNv.js";import"./vendor-pdf-BBRQgEbE.js";import"./vendor-charts-DkjMq18R.js";import"./vendor-icons-DIRbd0aK.js";const l=()=>r.jsx("div",{className:"w-full space-y-4",children:r.jsx(o,{children:r.jsx(s,{})})});export{l as UserPortalPage};

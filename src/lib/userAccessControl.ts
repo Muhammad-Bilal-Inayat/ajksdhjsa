@@ -1297,7 +1297,7 @@ export function getPlanDefaultToggles(plan: string): {
   SYSTEM_MENU_TREE.forEach(menu => {
     // Basic / Business / Enterprise menu restrictions
     if (tier === 'BASIC') {
-      if (menu.id === 'onlineStore' || menu.id === 'syncShare') {
+      if (menu.id === 'onlineStore') {
         menus[menu.id] = false;
       } else {
         menus[menu.id] = true;
@@ -1309,7 +1309,7 @@ export function getPlanDefaultToggles(plan: string): {
         menus[menu.id] = true;
       }
     } else {
-      // ENTERPRISE
+      // ENTERPRISE / PLATINUM
       menus[menu.id] = true;
     }
 
@@ -1372,7 +1372,7 @@ export function getRoleDefaultToggles(role: UserRole): {
   functions: Record<string, boolean>;
   actions: Record<string, boolean>;
 } {
-  const norm = role || 'Primary Admin';
+  const norm = String(role || 'Primary Admin');
 
   const menus: Record<string, boolean> = {};
   const submenus: Record<string, boolean> = {};
@@ -1393,7 +1393,7 @@ export function getRoleDefaultToggles(role: UserRole): {
     });
   });
 
-  if (norm === 'Primary Admin' || norm === 'Secondary Admin' || norm === 'Admin') {
+  if (norm === 'Primary Admin' || norm === 'Secondary Admin' || norm === 'Admin' || norm === 'Company Tenant' || norm === 'Owner' || norm === 'Store Owner' || norm === 'Master Admin') {
     // Unrestricted
     SYSTEM_MENU_TREE.forEach(menu => {
       menus[menu.id] = true;
@@ -1783,6 +1783,20 @@ export function getUserAccessControlProfile(
       }
     } catch (e) {}
 
+    // 2b. Direct tenant key for this tenant (allows sub-users & cashiers to inherit tenant overrides)
+    if (tenantId) {
+      try {
+        const tenantKey = `mbi_user_access_profile_tenant_${tenantId}`;
+        const rawTenant = localStorage.getItem(tenantKey) || localStorage.getItem(`mbi_user_access_profile_user_${tenantId}`);
+        if (rawTenant) {
+          const parsed = JSON.parse(rawTenant);
+          if (parsed && typeof parsed === 'object') {
+            return sanitizeAccessProfile(parsed, role, plan, tenantId);
+          }
+        }
+      } catch (e) {}
+    }
+
     // 3. Active session priority: Only if querying 'usr_active' or if the active cached session strictly belongs to this user/alias
     try {
       const activeCached = localStorage.getItem('mbi_active_user_access_profile');
@@ -2106,6 +2120,17 @@ export function saveUserAccessControlProfile(
     const effective = computeEffectivePermissions(profile);
     saveEffectivePermissionsLocalAndCloud(effective);
 
+    // Also replicate to tenant-level keys so that all cashier/subusers in that tenant inherit these permissions
+    if (profile.tenantId) {
+      const tid = profile.tenantId;
+      localStorage.setItem(`mbi_user_access_profile_tenant_${tid}`, serialized);
+      localStorage.setItem(`mbi_user_access_profile_user_${tid}`, serialized);
+      localStorage.setItem(`mbi_user_access_profile_${tid}_${profile.userId}`, serialized);
+      localStorage.setItem(getUserAccessProfileKey(tid, tid, profile.firmId), serialized);
+      localStorage.setItem(getUserAccessProfileKey('usr_tenant_owner', tid, profile.firmId), serialized);
+      localStorage.setItem(getUserAccessProfileKey('usr_active', tid, profile.firmId), serialized);
+    }
+
     // Also replicate to all user aliases (e.g. usr_mbi_admin <-> u1 <-> admin-master)
     const aliases = resolveUserAliases(profile.userId);
     for (const alias of aliases) {
@@ -2138,7 +2163,8 @@ export function saveUserAccessControlProfile(
       });
     }
 
-    // Always update active session profile cache
+    // Always update active session profile cache and clear memory cache
+    clearUserAccessProfileMemoryCache();
     localStorage.setItem('mbi_active_user_access_profile', serialized);
     localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(effective));
     localStorage.setItem('mbi_user_access_profile_user_usr_active', serialized);

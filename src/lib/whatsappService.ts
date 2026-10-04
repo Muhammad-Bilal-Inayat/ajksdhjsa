@@ -32,6 +32,7 @@ export interface WhatsAppInvoiceData {
   changeAmount?: number;
   paymentMethod?: string;
   notes?: string;
+  printFormat?: 'A4' | 'Thermal' | string;
 }
 
 export interface WhatsAppShortageData {
@@ -127,6 +128,11 @@ export function buildInvoiceWhatsAppMessage(data: WhatsAppInvoiceData): string {
     }
   }
 
+  // A4 / Thermal Full PDF & Image Receipt Link
+  const formatLabel = data.printFormat === 'A4' ? 'A4 PDF Bill' : 'Thermal Slip';
+  lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
+  lines.push(`📄 *View / Download ${formatLabel}:*`);
+  lines.push(`https://${typeof window !== 'undefined' ? window.location.host : 'mbiinventra.com'}/receipt/${data.invoiceNumber}`);
   lines.push(`━━━━━━━━━━━━━━━━━━━━━`);
   lines.push(`✨ *Thank you for choosing ${nameOfStore}!*`);
   lines.push(`_Get well soon. Please store medicines in a cool & dry place._`);

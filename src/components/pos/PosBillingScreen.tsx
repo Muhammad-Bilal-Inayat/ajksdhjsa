@@ -3,7 +3,8 @@ import {
   X, Plus, Check, Zap, Settings, 
   CheckCircle2, Printer, ArrowRight
 } from 'lucide-react';
-import { dbMedicines, dbInvoices, dbAuditLogs } from '../../lib/db';
+import { dbMedicines, dbInvoices, dbAuditLogs, dbPartyPayments } from '../../lib/db';
+import { deductStockFromMedicine } from '../../lib/stockRotationEngine';
 import { Medicine, Invoice } from '../../types';
 import { formatCurrency } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
@@ -154,6 +155,63 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
       };
 
       await dbInvoices.save(invoiceRecord);
+
+      // Deduct inventory stock & sync batch / expiry dates
+      for (const item of invoiceRecord.items) {
+        if (item.medicineId) {
+          try {
+            const med = medicines.find(m => m.id === item.medicineId) || (await dbMedicines.getById(item.medicineId));
+            if (med) {
+              let updatedMed = deductStockFromMedicine(med, item.quantity, {
+                specificBatchNumber: item.batchNumber,
+                method: 'FIFO',
+                allowExpired: true
+              });
+
+              if (item.expiryDate && item.expiryDate.trim()) {
+                updatedMed.expiryDate = item.expiryDate.trim();
+              }
+              if (item.batchNumber && item.batchNumber.trim()) {
+                updatedMed.batchNumber = item.batchNumber.trim();
+              }
+
+              await dbMedicines.save(updatedMed);
+            }
+          } catch (e) {
+            console.warn('Could not deduct stock for pos item', item.name, e);
+          }
+        }
+      }
+
+      // Universal Payment-In Auto Log (for Cash, Bank & Shift Drawer sync)
+      const effectivePaid = paidAmount > 0 ? paidAmount : (paymentMethod === 'Credit' ? 0 : grandTotal);
+      if (effectivePaid > 0) {
+        try {
+          await dbPartyPayments.save({
+            id: uuidv4(),
+            partyId: 'walkin_customer',
+            partyName: customerName || 'Walk-in Customer',
+            type: 'PAYMENT_IN',
+            amount: effectivePaid,
+            date: invoiceDate,
+            paymentMode: paymentMethod === 'Card' || paymentMethod === 'Online' ? 'Bank Transfer' : 'Cash',
+            referenceNumber: invoiceNumber,
+            receiptNumber: `REC-${invoiceNumber}`,
+            notes: `Auto Payment-In for POS Sale #${invoiceNumber}`,
+            recordedBy: 'Cashier',
+            createdAt: new Date().toISOString()
+          });
+        } catch (payErr) {
+          console.warn('POS Payment-In voucher save warning:', payErr);
+        }
+      }
+
+      // Dispatch global sync events for 0ms reactivity
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'invoices' } }));
+        window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'invoices' } }));
+      }
 
       // Automated / 1-Click WhatsApp Invoice Dispatch
       if (customerPhone && customerPhone.trim()) {

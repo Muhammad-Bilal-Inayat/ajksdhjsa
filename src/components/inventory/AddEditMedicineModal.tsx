@@ -395,70 +395,60 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
             <span>Pricing & Batches</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('CONTROLLED')}
-            className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'CONTROLLED'
-                ? 'border-purple-600 text-purple-700 bg-white rounded-t-xl shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${
-              formData.isControlled ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'
-            }`}>3</span>
-            <span className="flex items-center gap-1.5">
-              <span>Controlled & Visibility</span>
-              {!isControlledAllowed && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 font-bold border border-purple-200">
-                  Gold+
-                </span>
-              )}
-              {formData.isControlled && (
-                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
-              )}
-            </span>
-          </button>
+          {/* Tab 3: Controlled & Visibility (Gold & Platinum Only) */}
+          {isControlledAllowed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('CONTROLLED')}
+              className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'CONTROLLED'
+                  ? 'border-purple-600 text-purple-700 bg-white rounded-t-xl shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-black ${
+                formData.isControlled ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'
+              }`}>3</span>
+              <span className="flex items-center gap-1.5">
+                <span>Controlled & Visibility</span>
+                {formData.isControlled && (
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
+                )}
+              </span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('IMAGES')}
-            className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'IMAGES'
-                ? 'border-blue-600 text-blue-700 bg-white rounded-t-xl shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[10px] flex items-center justify-center font-black">4</span>
-            <span className="flex items-center gap-1.5">
+          {/* Tab 4: Images & Gallery (Platinum Enterprise Only) */}
+          {isOnlineAndImagesAllowed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('IMAGES')}
+              className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'IMAGES'
+                  ? 'border-blue-600 text-blue-700 bg-white rounded-t-xl shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[10px] flex items-center justify-center font-black">4</span>
               <span>Images & Gallery</span>
-              {!isOnlineAndImagesAllowed && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200">
-                  Platinum
-                </span>
-              )}
-            </span>
-          </button>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('ONLINE_STORE')}
-            className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'ONLINE_STORE'
-                ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-2xs'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] flex items-center justify-center font-black">5</span>
-            <span className="flex items-center gap-1.5">
+          {/* Tab 5: Online Store (Platinum Enterprise Only) */}
+          {isOnlineAndImagesAllowed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('ONLINE_STORE')}
+              className={`px-3.5 py-2 text-xs font-black border-b-2 flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'ONLINE_STORE'
+                  ? 'border-emerald-600 text-emerald-700 bg-white rounded-t-xl shadow-2xs'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 text-[10px] flex items-center justify-center font-black">5</span>
               <span>Online Store</span>
-              {!isOnlineAndImagesAllowed && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
-                  Platinum
-                </span>
-              )}
-            </span>
-          </button>
+            </button>
+          )}
         </div>
 
         {/* Modal Form Body */}
@@ -579,49 +569,70 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     </select>
                   </div>
 
-                  {/* Category & Unit */}
+                  {/* Category (Creatable Combobox) */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700">Category *</label>
-                    <select
-                      className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.category || ''}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      <option value="">-- Select Category --</option>
-                      <option value="Surgical Items">Surgical Items</option>
-                      <option value="Syringes">Syringes</option>
-                      <option value="IV Infusions">IV Infusions</option>
-                      <option value="Diagnostic Devices">Diagnostic Devices</option>
-                      <option value="General Medicines">General Medicines</option>
-                      <option value="Antibiotics">Antibiotics</option>
-                      <option value="Bandages & Dressing">Bandages & Dressing</option>
-                      <option value="Hospital Disposables">Hospital Disposables</option>
-                      <option value="Orthopedic Support">Orthopedic Support</option>
-                      <option value="Narcotics & Controlled">Narcotics & Controlled</option>
-                      <option value="Eye & Ear Care">Eye & Ear Care</option>
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        list="preset-categories-list"
+                        placeholder="Type or select category..."
+                        className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={formData.category || ''}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        required
+                      />
+                      <datalist id="preset-categories-list">
+                        <option value="Surgical Items" />
+                        <option value="Syringes" />
+                        <option value="IV Infusions" />
+                        <option value="Diagnostic Devices" />
+                        <option value="General Medicines" />
+                        <option value="Antibiotics" />
+                        <option value="Bandages & Dressing" />
+                        <option value="Hospital Disposables" />
+                        <option value="Orthopedic Support" />
+                        <option value="Narcotics & Controlled" />
+                        <option value="Eye & Ear Care" />
+                        <option value="Tablets & Capsules" />
+                        <option value="Syrups & Suspensions" />
+                        <option value="Injections & Vials" />
+                        <option value="Skin & Dermatology" />
+                      </datalist>
+                    </div>
                   </div>
 
+                  {/* Unit of Measurement (Creatable Combobox) */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700">Unit of Measurement *</label>
-                    <select
-                      className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.unit || ''}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    >
-                      <option value="">-- Select Unit --</option>
-                      <option value="PCS">PCS (Pieces)</option>
-                      <option value="BOX">BOX</option>
-                      <option value="PACK">PACK</option>
-                      <option value="STRIP">STRIP</option>
-                      <option value="BOTTLE">BOTTLE</option>
-                      <option value="SET">SET</option>
-                      <option value="VIAL">VIAL</option>
-                      <option value="AMP">AMPOULE</option>
-                      <option value="ROLL">ROLL</option>
-                      <option value="KG">KG</option>
-                      <option value="LITRE">LITRE</option>
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        list="preset-units-list"
+                        placeholder="Type or select unit (e.g. PCS, BOX, STRIP)..."
+                        className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase"
+                        value={formData.unit || ''}
+                        onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                        required
+                      />
+                      <datalist id="preset-units-list">
+                        <option value="PCS" />
+                        <option value="BOX" />
+                        <option value="PACK" />
+                        <option value="STRIP" />
+                        <option value="BOTTLE" />
+                        <option value="SET" />
+                        <option value="VIAL" />
+                        <option value="AMP" />
+                        <option value="ROLL" />
+                        <option value="KG" />
+                        <option value="LITRE" />
+                        <option value="SACHET" />
+                        <option value="TUBE" />
+                        <option value="CARTON" />
+                        <option value="JAR" />
+                      </datalist>
+                    </div>
                   </div>
 
                   {/* Barcode & Live Scan */}

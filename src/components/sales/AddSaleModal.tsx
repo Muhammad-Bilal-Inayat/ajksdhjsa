@@ -7,7 +7,7 @@ import {
   Keyboard
 } from 'lucide-react';
 import { Medicine, Party, Invoice, InvoiceItem, AuditLog, PurchaseOrder, Booker } from '../../types';
-import { dbMedicines, dbSuppliers, dbInvoices, dbPurchaseOrders, dbAuditLogs, dbBookers, getCurrentBusinessContext } from '../../lib/db';
+import { dbMedicines, dbSuppliers, dbInvoices, dbPurchaseOrders, dbAuditLogs, dbBookers, dbPartyPayments, getCurrentBusinessContext } from '../../lib/db';
 import { bookerService } from '../../lib/bookerService';
 import { v4 as uuidv4 } from 'uuid';
 import { CalculatorModal } from './CalculatorModal';
@@ -1857,11 +1857,20 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                     );
                   }
 
-                  const updatedMed = deductStockFromMedicine(med, item.quantity, {
+                  let updatedMed = deductStockFromMedicine(med, item.quantity, {
                     specificBatchNumber: item.batchNumber,
                     method: rotationMethod,
                     allowExpired: !enforceExpired
                   });
+
+                  // Ensure row expiryDate and batchNumber stay synchronized to medicine record
+                  if (item.expiryDate && item.expiryDate.trim()) {
+                    updatedMed.expiryDate = item.expiryDate.trim();
+                  }
+                  if (item.batchNumber && item.batchNumber.trim()) {
+                    updatedMed.batchNumber = item.batchNumber.trim();
+                  }
+
                   updatedMedsList.push(updatedMed);
 
                   auditLogsList.push({
@@ -1936,9 +1945,9 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
             }
           }
 
-          // Atomic batch updates for lightning fast execution
+          // Atomic batch updates with central sync enabled for immediate multi-terminal sync
           if (updatedMedsList.length > 0) {
-            await dbMedicines.saveBatch(updatedMedsList, { skipCentralSync: true });
+            await dbMedicines.saveBatch(updatedMedsList);
           }
           if (auditLogsList.length > 0) {
             await dbAuditLogs.saveBatch(auditLogsList);
@@ -1958,12 +1967,38 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
             }
           }
 
+          // Universal Payment-In Auto Log (for Cash, Bank & Shift Drawer sync)
+          if (effectiveRecAmount > 0 && txType === 'Sale') {
+            try {
+              await dbPartyPayments.save({
+                id: uuidv4(),
+                partyId: currentTab.selectedPartyId || 'walkin_customer',
+                partyName: newInvoice.customerName || 'Walk-in Customer',
+                type: 'PAYMENT_IN',
+                amount: effectiveRecAmount,
+                date: newInvoice.date,
+                paymentMode: currentTab.isCredit ? 'Cash' : 'Cash',
+                referenceNumber: newInvoice.invoiceNumber,
+                receiptNumber: `REC-${newInvoice.invoiceNumber}`,
+                notes: `Auto Payment-In for Invoice #${newInvoice.invoiceNumber}`,
+                recordedBy: effectiveUserName,
+                createdAt: new Date().toISOString()
+              });
+            } catch (payErr) {
+              console.warn('Auto Payment-In voucher save warning:', payErr);
+            }
+          }
+
           // Record in Booker & Biller Khata/Ledger
           if (newInvoice.bookerId) {
             await bookerService.recordSaleForBooker(newInvoice);
           }
 
-          window.dispatchEvent(new Event('mbi-local-db-change'));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+            window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'invoices' } }));
+            window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'invoices' } }));
+          }
         } catch (bgErr: any) {
           console.error('Background invoice sync error:', bgErr);
         }

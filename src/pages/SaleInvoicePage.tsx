@@ -6,7 +6,7 @@ import {
   AlertTriangle, Scan, Keyboard, FileText, Image as ImageIcon, 
   Upload, X, RefreshCw, ShieldCheck, Zap, HelpCircle, ArrowRight
 } from 'lucide-react';
-import { dbMedicines, dbSuppliers, dbInvoices, dbAuditLogs } from '../lib/db';
+import { dbMedicines, dbSuppliers, dbInvoices, dbAuditLogs, dbPartyPayments } from '../lib/db';
 import { Medicine, Party, Invoice } from '../types';
 import { InvoiceColumnConfig, DEFAULT_INVOICE_COLUMN_CONFIG } from '../types/invoice';
 import { InvoiceItemsGrid, GridRowItem } from '../components/invoice/InvoiceItemsGrid';
@@ -270,18 +270,28 @@ export const SaleInvoicePage: React.FC = () => {
 
       await dbInvoices.save(invoiceRecord);
 
-      // Deduct inventory stock
+      // Deduct inventory stock & sync batch / expiry dates
       for (const item of invoiceRecord.items) {
         if (item.medicineId) {
           try {
             const med = medicines.find(m => m.id === item.medicineId);
             if (med) {
               const deductQty = item.quantity + (item.freeQuantity || 0);
-              const updatedMed: Medicine = {
-                ...med,
-                quantity: Math.max(0, (med.quantity || 0) - deductQty),
-                updatedAt: new Date().toISOString()
-              };
+              const rotationMethod = settings?.item?.stockRotationMethod || 'FIFO';
+              let updatedMed = deductStockFromMedicine(med, deductQty, {
+                specificBatchNumber: item.batchNumber,
+                method: rotationMethod,
+                allowExpired: true
+              });
+
+              // Ensure row expiryDate and batchNumber stay synchronized
+              if (item.expiryDate && item.expiryDate.trim()) {
+                updatedMed.expiryDate = item.expiryDate.trim();
+              }
+              if (item.batchNumber && item.batchNumber.trim()) {
+                updatedMed.batchNumber = item.batchNumber.trim();
+              }
+
               await dbMedicines.save(updatedMed);
             }
           } catch (e) {
@@ -292,8 +302,10 @@ export const SaleInvoicePage: React.FC = () => {
             const newMedId = `med_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             const newMed: Medicine = {
               id: newMedId,
+              barcode: (item as any).barcode || newMedId,
               name: item.name.trim(),
               genericName: '',
+              manufacturer: 'General Pharma',
               category: 'General',
               unit: item.unit || 'Box',
               purchasePrice: Number(item.pricePerUnit || item.sellingPrice || 0) * 0.8,
@@ -301,6 +313,8 @@ export const SaleInvoicePage: React.FC = () => {
               salePrice: Number(item.pricePerUnit || item.sellingPrice || 0),
               mrp: Number(item.mrp || item.sellingPrice || 0),
               quantity: 0,
+              lowStockThreshold: 5,
+              gstPercentage: Number(item.taxPercentage || 0),
               batchNumber: item.batchNumber || '',
               expiryDate: item.expiryDate || '',
               tenantId: invoiceRecord.tenantId || 'tenant_main',
@@ -312,6 +326,50 @@ export const SaleInvoicePage: React.FC = () => {
             console.warn('Auto create medicine note:', e);
           }
         }
+      }
+
+      // Sync Customer Khata / Party Balance
+      if (selectedPartyId) {
+        try {
+          const party = parties.find(p => p.id === selectedPartyId);
+          if (party) {
+            const currentBal = party.balance || 0;
+            const updatedBal = currentBal + balanceDue;
+            await dbSuppliers.save({ ...party, balance: updatedBal });
+          }
+        } catch (partyErr) {
+          console.warn('Customer balance sync warning:', partyErr);
+        }
+      }
+
+      // Universal Payment-In Auto Log (for Cash, Bank & Shift Drawer sync)
+      const numericPaid = Number(paidAmount) || 0;
+      if (numericPaid > 0) {
+        try {
+          await dbPartyPayments.save({
+            id: uuidv4(),
+            partyId: selectedPartyId || 'walkin_customer',
+            partyName: customerName || 'Walk-in Customer',
+            type: 'PAYMENT_IN',
+            amount: numericPaid,
+            date: new Date(invoiceDate).toISOString(),
+            paymentMode: isCredit ? 'Cash' : 'Cash',
+            referenceNumber: invoiceNumber,
+            receiptNumber: `REC-${invoiceNumber}`,
+            notes: `Auto Payment-In for Sale Invoice #${invoiceNumber}`,
+            recordedBy: activeUser?.name || 'Cashier',
+            createdAt: new Date().toISOString()
+          });
+        } catch (payErr) {
+          console.warn('Auto Payment-In voucher save warning:', payErr);
+        }
+      }
+
+      // Dispatch global sync events for 0ms reactivity
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'invoices' } }));
+        window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'invoices' } }));
       }
 
       // Record audit log

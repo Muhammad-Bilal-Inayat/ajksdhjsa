@@ -6,7 +6,7 @@ import {
   AlertTriangle, Scan, Keyboard, FileText, Image as ImageIcon, 
   Upload, X, RefreshCw, ShieldCheck, Zap, HelpCircle, ArrowRight
 } from 'lucide-react';
-import { dbMedicines, dbSuppliers, dbPurchaseOrders, dbAuditLogs } from '../lib/db';
+import { dbMedicines, dbSuppliers, dbPurchaseOrders, dbAuditLogs, dbPartyPayments } from '../lib/db';
 import { Medicine, Supplier, PurchaseOrder } from '../types';
 import { InvoiceColumnConfig, DEFAULT_INVOICE_COLUMN_CONFIG } from '../types/invoice';
 import { InvoiceItemsGrid, GridRowItem } from '../components/invoice/InvoiceItemsGrid';
@@ -289,27 +289,85 @@ export const PurchaseInvoicePage: React.FC = () => {
       // Save to IndexedDB
       await dbPurchaseOrders.save(purchaseRecord);
 
-      // Inward stock into inventory catalog
+      // Inward stock into inventory catalog & batches with expiry
       for (const item of purchaseRecord.items) {
-        if (item.medicineId) {
-          try {
-            const med = medicines.find(m => m.id === item.medicineId);
-            if (med) {
-              const updatedMed: Medicine = {
-                ...med,
-                quantity: (med.quantity || 0) + item.quantity + (item.freeQuantity || 0),
-                purchasePrice: item.purchasePrice || med.purchasePrice,
-                salePrice: item.sellingPrice || med.salePrice,
-                batchNumber: item.batchNumber || med.batchNumber,
-                expiryDate: item.expiryDate || med.expiryDate,
-                updatedAt: new Date().toISOString()
-              };
-              await dbMedicines.save(updatedMed);
-            }
-          } catch (e) {
-            console.warn('Could not increment stock for medicine', item.name, e);
-          }
+        if (!item.name || !item.name.trim()) continue;
+        try {
+          const existingMed = (item.medicineId ? medicines.find(m => m.id === item.medicineId) : null) ||
+            medicines.find(m => m.name.toLowerCase().trim() === item.name.toLowerCase().trim()) || null;
+
+          const updatedMed = addPurchaseStockToMedicine(
+            existingMed,
+            {
+              name: item.name,
+              batchNumber: item.batchNumber || 'BATCH-01',
+              expiryDate: item.expiryDate || '12/2028',
+              quantity: Number(item.quantity) || 1,
+              freeQuantity: Number(item.freeQuantity) || 0,
+              purchasePrice: Number(item.purchasePrice || (item as any).unitPrice) || 0,
+              sellingPrice: Number(item.sellingPrice) || (Number(item.purchasePrice || (item as any).unitPrice) * 1.15) || 0,
+              mrp: Number(item.mrp) || Number(item.sellingPrice) || 0,
+              unit: item.unit || 'Box',
+              purchaseBillId: billNumber
+            },
+            supplierName.trim(),
+            new Date(billDate).toISOString()
+          );
+
+          await dbMedicines.save(updatedMed);
+        } catch (e) {
+          console.warn('Could not inward stock for medicine', item.name, e);
         }
+      }
+
+      // Sync Supplier Khata / Balance
+      if (selectedSupplierId) {
+        try {
+          const supplier = suppliers.find(p => p.id === selectedSupplierId);
+          if (supplier) {
+            const currentBal = supplier.balance || 0;
+            const updatedBal = currentBal + balanceDue;
+            await dbSuppliers.save({
+              ...supplier,
+              balance: updatedBal,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        } catch (supErr) {
+          console.warn('Supplier balance sync warning:', supErr);
+        }
+      }
+
+      // Universal Payment-Out Auto Log (for Cash & Bank sync)
+      const numericPaid = Number(paidAmount) || 0;
+      if (numericPaid > 0) {
+        try {
+          await dbPartyPayments.save({
+            id: uuidv4(),
+            partyId: selectedSupplierId || 'distributor_general',
+            partyName: supplierName.trim(),
+            type: 'PAYMENT_OUT',
+            amount: numericPaid,
+            date: new Date(billDate).toISOString(),
+            paymentMode: isCredit ? 'Cash' : 'Cash',
+            referenceNumber: billNumber,
+            receiptNumber: `VOUCHER-${billNumber}`,
+            notes: `Auto Payment-Out for Purchase Bill #${billNumber}`,
+            recordedBy: activeUser?.name || 'Admin',
+            createdAt: new Date().toISOString()
+          });
+        } catch (payErr) {
+          console.warn('Auto Payment-Out voucher save warning:', payErr);
+        }
+      }
+
+      // Dispatch global sync events for 0ms reactivity
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-purchases-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'purchaseOrders' } }));
+        window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'purchaseOrders' } }));
       }
 
       // Record audit log

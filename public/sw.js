@@ -63,13 +63,18 @@ self.addEventListener('fetch', (event) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
             caches.open(CURRENT_CACHE).then((cache) => {
-              cache.put(event.request, responseClone);
+              cache.put('/index.html', responseClone);
             });
           }
           return networkResponse;
         })
-        .catch(() => {
-          return caches.match('/index.html') || caches.match('/') || caches.match(event.request);
+        .catch(async () => {
+          const cached = await caches.match('/index.html') || await caches.match('/') || await caches.match(event.request);
+          if (cached) return cached;
+          return new Response(
+            '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="1"></head><body>Reconnecting...</body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
         })
     );
     return;
@@ -93,13 +98,13 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return networkResponse;
-        });
+        }).catch(() => cachedResponse);
       })
     );
     return;
   }
 
-  // Default Stale-While-Revalidate for bundled assets & scripts
+  // Default Stale-While-Revalidate for bundled assets & scripts with safety fallback
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {

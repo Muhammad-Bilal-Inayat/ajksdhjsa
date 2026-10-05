@@ -104,12 +104,15 @@ class UserService {
    * Update sub-user details
    */
   async updateUser(id: string, input: UpdateUserInput, tenantId?: string): Promise<AppUser> {
-    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+    const effectiveTenantId = this.getEffectiveTenantId(tenantId);
 
     const response = await fetch(`/api/users/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: this.getAuthHeaders(effectiveTenantId),
-      body: JSON.stringify(input)
+      body: JSON.stringify({
+        ...input,
+        tenantId: effectiveTenantId
+      })
     });
 
     const data = await response.json();
@@ -130,13 +133,13 @@ class UserService {
       throw new Error('Primary Store Owner account cannot be deleted or deactivated');
     }
 
-    const effectiveTenantId = tenantId || user.tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+    const effectiveTenantId = this.getEffectiveTenantId(tenantId || user.tenantId);
     const nextStatus = user.status === 'Active' ? 'Inactive' : 'Active';
 
     const response = await fetch(`/api/users/${encodeURIComponent(user.id)}/status`, {
       method: 'PUT',
       headers: this.getAuthHeaders(effectiveTenantId),
-      body: JSON.stringify({ status: nextStatus })
+      body: JSON.stringify({ status: nextStatus, tenantId: effectiveTenantId })
     });
 
     const data = await response.json();
@@ -157,9 +160,9 @@ class UserService {
       throw new Error('Primary Store Owner account cannot be deleted or deactivated');
     }
 
-    const effectiveTenantId = tenantId || user.tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+    const effectiveTenantId = this.getEffectiveTenantId(tenantId || user.tenantId);
 
-    const response = await fetch(`/api/users/${encodeURIComponent(user.id)}`, {
+    const response = await fetch(`/api/users/${encodeURIComponent(user.id)}?tenantId=${encodeURIComponent(effectiveTenantId)}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(effectiveTenantId)
     });

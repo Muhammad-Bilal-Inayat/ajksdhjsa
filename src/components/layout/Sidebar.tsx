@@ -356,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const effectiveUserId = activeUser?.id || currentUser?.uid || 'usr_active';
     const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId;
     const isOwner = isPrimaryOwner(activeUser || currentUser) || activeRole === 'Primary Admin' || (activeUser as any)?.is_primary_owner === true;
-    const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+    const isGlobalMaster = isServerRoute ? ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated()) : ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin');
     const effectivePlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
     const rawTier = effectivePlan ? normalizePlan(effectivePlan) : getActiveTenantPlan(effectiveTenantId);
     const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
@@ -397,8 +397,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           if (!isGlobalMaster && !isPlanModuleAllowed(item.moduleKey, effectiveTenantId, activePlanTier)) return false;
         }
 
-        const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
-
         // 1. Check if item's menu is explicitly blocked in Master Control / 173-Feature Switchboard (Universal Authority)
         const targetMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
         if (targetMenuId) {
@@ -412,30 +410,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           if (!isMenuAllowed) return false;
         }
 
-        // SAFE MENU PERMISSION FALLBACK:
-        // For non-owner staff roles, check granular module and role permissions
-        if (!isOwner) {
-          if (!canAccess(item.moduleKey as any) && !isCoreModule) return false;
-          if (item.id && userVis[item.id] === false && !isCoreModule) return false;
-          if (item.label.includes('Sale') && mods.sales === false && !isCoreModule) return false;
-          if (item.label.includes('Purchase') && mods.purchases === false && !isCoreModule) return false;
-          if (item.label.includes('Item') && (mods.inventory === false || settings.item.enableItem === false) && !isCoreModule) return false;
-          if (item.label.includes('Part') && mods.parties === false && !isCoreModule) return false;
-          if (item.label.includes('Expense') && mods.expenses === false && !isCoreModule) return false;
-          if ((item.label.includes('Bank') || item.label.includes('Cash')) && mods.banking === false && !isCoreModule) return false;
-          if (item.label.includes('Report') && mods.reports === false && !isCoreModule) return false;
-
-          // Check if item's primary route is blocked by role RBAC policy (Cashier, Pharmacist, etc.)
-          if (item.path && !isRouteAllowedForRole(item.path, activeUser || currentUser)) {
-            return false;
-          }
-
-          // Check if item is permitted in custom assigned sidebar menus switchboard
-          const assignedMenuKey = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
-          if (assignedMenuKey && Array.isArray(assignedUserMenus) && !assignedUserMenus.includes(assignedMenuKey)) {
-            return false;
-          }
-        }
+        // Hide if specifically turned off in tenant system settings
+        const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
+        if (item.id && userVis[item.id] === false && !isCoreModule) return false;
+        if (item.label.includes('Sale') && mods.sales === false && !isCoreModule) return false;
+        if (item.label.includes('Purchase') && mods.purchases === false && !isCoreModule) return false;
+        if (item.label.includes('Item') && (mods.inventory === false || settings.item.enableItem === false) && !isCoreModule) return false;
+        if (item.label.includes('Part') && mods.parties === false && !isCoreModule) return false;
+        if (item.label.includes('Expense') && mods.expenses === false && !isCoreModule) return false;
+        if ((item.label.includes('Bank') || item.label.includes('Cash')) && mods.banking === false && !isCoreModule) return false;
+        if (item.label.includes('Report') && mods.reports === false && !isCoreModule) return false;
 
         // Plan Route Tier Gating
         if (item.path && !isGlobalMaster && !isPlanRouteAllowed(item.path, effectiveTenantId, activePlanTier)) {
@@ -445,7 +429,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return true;
       })
       .map(item => {
-        if (!item.subItems) return item;
+        const isItemRoleLocked = !isOwner && (
+          (item.path && !isRouteAllowedForRole(item.path, activeUser || currentUser)) ||
+          (Array.isArray(assignedUserMenus) && assignedUserMenus.length > 0 && !assignedUserMenus.includes(menuIdMap[item.id || ''] || item.id || (item.moduleKey as string)))
+        );
+
+        if (!item.subItems) {
+          return { ...item, isRoleLocked: Boolean(isItemRoleLocked) };
+        }
+
         const parentMenuId = menuIdMap[item.id || ''] || item.id || (item.moduleKey as string);
         const filteredSubs = item.subItems.filter(sub => {
           // Check submenu switchboard toggle
@@ -504,8 +496,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }
 
           return true;
+        }).map(sub => {
+          const isSubRoleLocked = Boolean(isItemRoleLocked || (!isOwner && sub.path && !isRouteAllowedForRole(sub.path, activeUser || currentUser)));
+          return { ...sub, isRoleLocked: isSubRoleLocked };
         });
-        return { ...item, subItems: filteredSubs };
+
+        return { ...item, isRoleLocked: Boolean(isItemRoleLocked), subItems: filteredSubs };
       });
 
     return filtered.sort((a, b) => {
@@ -523,7 +519,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Dynamic filter for Settings Tabs based on RBAC & Active Plan Tier
   const visibleSettingsTabs = useMemo(() => {
     const rawTid = tenant?.tenantId || tenant?.id || tenantId;
-    const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+    const isGlobalMaster = isServerRoute ? ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated()) : ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin');
     const effPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
     const rawTier = effPlan ? normalizePlan(effPlan) : getActiveTenantPlan(rawTid);
     const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
@@ -546,7 +542,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Filtered categorized reports for Sidebar navigation dropdown
   const filteredCategorizedReports = useMemo(() => {
     const rawTid = tenant?.tenantId || tenant?.id || tenantId;
-    const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+    const isGlobalMaster = isServerRoute ? ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated()) : ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin');
     const effPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
     const rawTier = effPlan ? normalizePlan(effPlan) : getActiveTenantPlan(rawTid);
     const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
@@ -1002,10 +998,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isCollapsed ? 'justify-center p-2.5 mx-auto' : 'justify-between px-4 py-2.5 min-h-[42px]',
                     isActive 
                       ? 'bg-blue-600 text-white font-semibold shadow-md shadow-blue-600/20' 
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
+                      : item.isRoleLocked
+                        ? 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 opacity-85'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
                   )}
-                  title={isCollapsed ? item.label : undefined}
+                  title={isCollapsed ? (item.isRoleLocked ? `${item.label} (Locked for ${activeRole})` : item.label) : undefined}
                   onClick={(e) => {
+                    if (item.isRoleLocked) {
+                      showToast(`🔒 ${item.label} is locked for ${activeRole || 'Staff'}. Contact Store Owner for access.`);
+                      return;
+                    }
                     if (isCollapsed && setIsCollapsed) {
                       setIsCollapsed(false);
                     }
@@ -1029,10 +1031,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isCollapsed && (
                       <>
                         <span className={cn("truncate text-[13px] font-semibold tracking-normal flex-1", isActive ? "text-white" : "")}>{item.label}</span>
-                        {item.label === 'Top Products' && (
-                          <span className="px-1.5 py-0.2 text-[9px] font-extrabold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 flex-shrink-0 shadow-2xs">
-                            HOT
+                        {item.isRoleLocked ? (
+                          <span className="flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold uppercase rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex-shrink-0 shadow-2xs">
+                            <Lock className="w-2.5 h-2.5" />
+                            <span>Lock</span>
                           </span>
+                        ) : (
+                          item.label === 'Top Products' && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-extrabold uppercase rounded bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40 flex-shrink-0 shadow-2xs">
+                              HOT
+                            </span>
+                          )
                         )}
                       </>
                     )}
@@ -1041,7 +1050,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && (
                     <div className="flex items-center gap-1.5 flex-shrink-0 ml-1.5" onClick={(e) => e.stopPropagation()}>
                       {/* Clean Quick Add Plus Icon */}
-                      {item.hasAdd && (
+                      {item.hasAdd && !item.isRoleLocked && (
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1098,10 +1107,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {cat.reports.map((subItem, sIdx) => {
                                 const subPath = subItem.path || `/reports?report=${subItem.id}`;
                                 const isSubActive = location.pathname === '/reports' && (location.search === `?report=${subItem.id}` || (!location.search && subItem.id === 'sale'));
+                                const isReportLocked = item.isRoleLocked;
                                 return (
                                   <div
                                     key={sIdx}
                                     onClick={() => {
+                                      if (isReportLocked) {
+                                        showToast(`🔒 Reports are locked for ${activeRole || 'Staff'}.`);
+                                        return;
+                                      }
                                       navigate(subPath);
                                       setIsOpen(false);
                                     }}
@@ -1109,10 +1123,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       'flex items-center justify-between px-3.5 py-1.5 min-h-[32px] transition-colors text-[12px] font-medium pl-8 pr-3 group/sub cursor-pointer select-none',
                                       isSubActive
                                         ? 'bg-blue-100/70 dark:bg-slate-700/70 text-blue-700 dark:text-blue-300 font-semibold border-l-2 border-blue-600'
-                                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white border-l-2 border-transparent'
+                                        : isReportLocked
+                                          ? 'text-slate-400 dark:text-slate-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/40'
+                                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white border-l-2 border-transparent'
                                     )}
                                   >
                                     <span className="flex-1 truncate">{subItem.label}</span>
+                                    {isReportLocked && (
+                                      <Lock className="w-2.5 h-2.5 text-amber-500/70 dark:text-amber-400/70 shrink-0 ml-1" />
+                                    )}
                                   </div>
                                 );
                               })}
@@ -1129,7 +1148,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         return (
                           <div
                             key={index}
-                            onClick={() => {
+                            onClick={(e) => {
+                              if (subItem.isRoleLocked) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                showToast(`🔒 ${subItem.label} is locked for ${activeRole || 'Staff'}.`);
+                                return;
+                              }
                               navigate(subItem.path);
                               setIsOpen(false);
                             }}
@@ -1137,7 +1162,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               'flex items-center justify-between px-3 py-2 min-h-[38px] sm:min-h-[34px] transition-colors text-[12.5px] font-medium pl-8 pr-2.5 group/sub cursor-pointer select-none',
                               isSubActive
                                 ? 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-semibold border-l-2 border-blue-500'
-                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border-l-2 border-transparent'
+                                : subItem.isRoleLocked
+                                  ? 'text-slate-400 dark:text-slate-500 hover:bg-slate-100/50 dark:hover:bg-slate-800/40 border-l-2 border-transparent'
+                                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white border-l-2 border-transparent'
                             )}
                           >
                             <div className="flex items-center min-w-0 flex-1 pr-1.5">
@@ -1148,7 +1175,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <span className="truncate">{subItem.label}</span>
                             </div>
 
-                            {subItem.hasAdd && subItem.addPath && (
+                            {subItem.isRoleLocked && (
+                              <Lock className="w-3 h-3 text-amber-500/70 dark:text-amber-400/70 shrink-0 ml-1" />
+                            )}
+
+                            {subItem.hasAdd && subItem.addPath && !subItem.isRoleLocked && (
                               <button
                                 type="button"
                                 onClick={(e) => {

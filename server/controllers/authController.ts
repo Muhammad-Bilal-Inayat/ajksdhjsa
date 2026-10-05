@@ -351,7 +351,16 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       }
     } catch (e) {}
 
-    // Fallback: Retrieve authentic store name from tenant SQLite vault
+    // Fallback: Retrieve authentic store name from tenant SQLite vault or License
+    if (!tenantStoreName) {
+      try {
+        const masterDb = getMasterVault();
+        const licRow: any = masterDb.prepare('SELECT client_name, owner_name, plan FROM mbi_licenses WHERE tenant_id = ? LIMIT 1').get(tenantId);
+        if (licRow?.client_name) {
+          tenantStoreName = licRow.client_name;
+        }
+      } catch (e) {}
+    }
     if (!tenantStoreName) {
       try {
         const tVault = getTenantVault(tenantId);

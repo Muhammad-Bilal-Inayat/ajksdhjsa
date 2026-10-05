@@ -58,10 +58,13 @@ export function getMariaDbPool(): any {
   return dummyPool;
 }
 
-export async function testMariaDbConnection(): Promise<{ success: boolean; connected: boolean; message: string }> {
+export async function testMariaDbConnection(): Promise<{ success: boolean; connected: boolean; message: string; pingMs?: number; host?: string; port?: number }> {
   return {
     success: true,
     connected: false,
+    pingMs: 0,
+    host: 'sqlite_vault',
+    port: 0,
     message: 'System running on 100% Tenant-Isolated Native SQLite Vault Engine (WAL Mode). MariaDB is disabled.'
   };
 }

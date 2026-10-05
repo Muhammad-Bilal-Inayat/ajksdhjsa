@@ -3271,12 +3271,17 @@ export const Dashboard: React.FC = () => {
         {/* Top Header Greeting Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <span>Welcome Back, {business?.name || tenant?.name || activeUser?.name || 'Admin'}</span>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
+              <span>Welcome Back, {activeUser?.name || currentUser?.displayName || business?.ownerName || 'Staff'}</span>
               <span className="animate-bounce inline-block">👋</span>
+              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 uppercase tracking-wider">
+                {activeRole || activeUser?.role || 'Staff'}
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Here's your pharmacy performance overview for today.
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-slate-700 dark:text-slate-300">{tenant?.name || business?.name || 'Inventra Central Pharmacy'}</span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span>Performance & daily operations overview</span>
             </p>
           </div>
 

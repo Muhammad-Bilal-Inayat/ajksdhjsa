@@ -241,6 +241,7 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'bookers': 'gold',
   'booker-biller': 'gold',
   'booker_management': 'gold',
+  'booker_biller_management': 'gold',
   'biller_field_force_management': 'gold',
   'booker_ledger': 'gold',
   'commission_tracking': 'gold',

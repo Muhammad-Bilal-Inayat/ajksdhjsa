@@ -29,20 +29,11 @@ import { checkForAppVersionUpdate, triggerSeamlessHotUpdate } from '../lib/pwaSe
 
 export const ALL_AVAILABLE_ROLES: UserRole[] = [
   'Primary Admin',
-  'Secondary Admin',
-  'Admin',
   'Store Manager',
   'Pharmacist',
   'Cashier',
-  'Salesman',
-  'Biller',
-  'Biller and Salesman',
-  'Sales Staff',
   'Accountant',
-  'CA/Accountant',
-  'Inventory Manager',
-  'Stock Keeper',
-  'Viewer'
+  'Stock Keeper'
 ];
 
 // Roles assignable to sub-users / staff (Primary Admin is strictly 1 per company and cannot be assigned to new users)
@@ -50,15 +41,8 @@ export const ASSIGNABLE_STAFF_ROLES: UserRole[] = [
   'Store Manager',
   'Pharmacist',
   'Cashier',
-  'Salesman',
-  'Biller',
-  'Biller and Salesman',
-  'Sales Staff',
   'Accountant',
-  'CA/Accountant',
-  'Inventory Manager',
-  'Stock Keeper',
-  'Viewer'
+  'Stock Keeper'
 ];
 
 export const SyncAndShare: React.FC = () => {

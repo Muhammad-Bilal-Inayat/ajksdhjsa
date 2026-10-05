@@ -8,6 +8,7 @@ export interface NavSubItem {
   hasAdd?: boolean;
   requiredTier?: 'BASIC' | 'BUSINESS' | 'ENTERPRISE';
   requiredPlan?: 'silver' | 'gold' | 'platinum';
+  isRoleLocked?: boolean;
 }
 
 export interface NavItem {
@@ -22,6 +23,7 @@ export interface NavItem {
   subItems?: NavSubItem[];
   requiredTier?: 'BASIC' | 'BUSINESS' | 'ENTERPRISE';
   isCore?: boolean;
+  isRoleLocked?: boolean;
 }
 
 export type CorePharmacyModule = 

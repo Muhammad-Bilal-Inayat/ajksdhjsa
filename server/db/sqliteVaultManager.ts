@@ -596,16 +596,31 @@ export function validateAndBindHwidLock(
 ): { allowed: boolean; boundHwid: string; isFirstDevice: boolean; error?: string } {
   const master = getMasterVault();
   
-  // 1. Check License Bound HWID
+  // 1. Check License & Company Status
   let license: any = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
   
   if (!license) {
     // Provision license record for this tenant if not yet created
     master.prepare(`
-      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, bound_hwid, created_at)
-      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', ?, datetime('now'))
+      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, max_devices, bound_hwid, created_at)
+      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', 5, ?, datetime('now'))
     `).run(`lic_${tenantId}`, tenantId, `MBI-LIC-${tenantId.slice(-6).toUpperCase()}`, tenantId, hwid || 'UNBOUND');
     license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  }
+
+  // Check if tenant license is explicitly locked/suspended
+  if (license?.status === 'Locked' || license?.status === 'Suspended') {
+    return {
+      allowed: false,
+      boundHwid: license?.bound_hwid || '',
+      isFirstDevice: false,
+      error: 'Organization Suspended: Company access has been temporarily locked by Master Administrator.'
+    };
+  }
+
+  // Allow localhost / loopback / missing HWID in dev/testing
+  if (!hwid || hwid === 'UNBOUND' || hwid === 'HWID-LOCAL' || ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress === 'localhost') {
+    return { allowed: true, boundHwid: license?.bound_hwid || hwid, isFirstDevice: false };
   }
 
   let boundHwid = license?.bound_hwid || '';
@@ -616,7 +631,7 @@ export function validateAndBindHwidLock(
     boundHwid.startsWith('HWID-DEV1-') ||
     boundHwid === 'HWID-LOCAL';
 
-  // If first login on unbound license -> auto-bind device #1
+  // If first device on unbound license -> bind primary HWID
   if (isPlaceholder && hwid) {
     master.prepare(`
       UPDATE mbi_licenses 
@@ -624,18 +639,18 @@ export function validateAndBindHwidLock(
       WHERE tenant_id = ?
     `).run(hwid, tenantId);
 
-    // Register device in mbi_registered_devices
     master.prepare(`
       INSERT INTO mbi_registered_devices (
         id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
       ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
-        last_seen_at = datetime('now')
+        last_seen_at = datetime('now'),
+        status = 'Active'
     `).run(
       `dev_${userId}_${hwid.slice(-6)}`,
       tenantId,
       userId,
-      deviceModel || 'POS Workstation',
+      deviceModel || 'Primary Terminal',
       os || 'Windows',
       hwid,
       hwid
@@ -644,26 +659,73 @@ export function validateAndBindHwidLock(
     return { allowed: true, boundHwid: hwid, isFirstDevice: true };
   }
 
-  // If already bound, verify match
-  if (boundHwid && boundHwid !== hwid) {
-    return {
-      allowed: false,
-      boundHwid,
-      isFirstDevice: false,
-      error: 'Device Unauthorized: This company is locked to its registered primary device. You cannot log in from a 2nd terminal without Master Admin approval.'
-    };
+  // 2. Check if this HWID is already registered for this tenant
+  const existingDevice: any = master.prepare(`
+    SELECT * FROM mbi_registered_devices 
+    WHERE tenant_id = ? AND hwid_fingerprint = ?
+  `).get(tenantId, hwid);
+
+  if (existingDevice) {
+    if (existingDevice.status === 'Blocked' || existingDevice.status === 'Suspended') {
+      return {
+        allowed: false,
+        boundHwid,
+        isFirstDevice: false,
+        error: 'Terminal Blocked: This device has been locked or unapproved. Contact store administrator.'
+      };
+    }
+    // Update last seen
+    try {
+      master.prepare(`
+        UPDATE mbi_registered_devices 
+        SET last_seen_at = datetime('now'), user_id = ? 
+        WHERE id = ?
+      `).run(userId, existingDevice.id);
+    } catch (e) {}
+
+    return { allowed: true, boundHwid, isFirstDevice: false };
   }
 
-  // Update last seen
+  // 3. New terminal check against company max_devices quota
+  const maxDevices = Math.max(Number(license?.max_devices) || 5, 3);
+  let currentActiveCount = 0;
   try {
-    master.prepare(`
-      UPDATE mbi_registered_devices 
-      SET last_seen_at = datetime('now') 
-      WHERE tenant_id = ? AND hwid_fingerprint = ?
-    `).run(tenantId, hwid);
+    const countRow: any = master.prepare(`
+      SELECT COUNT(*) as total FROM mbi_registered_devices 
+      WHERE tenant_id = ? AND status = 'Active'
+    `).get(tenantId);
+    currentActiveCount = countRow?.total || 0;
   } catch (e) {}
 
-  return { allowed: true, boundHwid, isFirstDevice: false };
+  if (currentActiveCount < maxDevices) {
+    // Automatically register new terminal for sub-user
+    master.prepare(`
+      INSERT INTO mbi_registered_devices (
+        id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
+      ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        last_seen_at = datetime('now'),
+        status = 'Active'
+    `).run(
+      `dev_${userId}_${hwid.slice(-6)}`,
+      tenantId,
+      userId,
+      deviceModel || 'Staff Workstation',
+      os || 'Windows',
+      hwid,
+      hwid
+    );
+
+    return { allowed: true, boundHwid, isFirstDevice: false };
+  }
+
+  // If terminal limit reached
+  return {
+    allowed: false,
+    boundHwid,
+    isFirstDevice: false,
+    error: `Terminal Limit Reached: Your company license allows up to ${maxDevices} active terminals. Please approve or remove unused devices in Master Server.`
+  };
 }
 
 /**

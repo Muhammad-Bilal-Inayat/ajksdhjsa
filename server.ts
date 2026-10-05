@@ -32,6 +32,7 @@ import { backupRouter } from './server/routes/backupRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
 import { getBroadcastHistoryController, markBroadcastSeenController, getHomePagePopupController } from './server/controllers/broadcastController';
+import { isMariaDbAvailable, testMariaDbConnection, getMariaDbTableStats, initializeMariaDbSchema, syncRecordToMariaDb } from './server/db/mariaClient';
 
 async function startServer() {
   const app = express();

@@ -314,17 +314,17 @@ export const Header: React.FC<HeaderProps> = ({
             <div 
               onClick={() => openCompanySettings('general')}
               className="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 cursor-pointer transition-colors shrink-0"
-              title={`${business?.name || tenant?.name || 'Company Account'} (${activeRole || 'Admin'}) — Click for Company Settings`}
+              title={`${tenant?.name || business?.name || 'Company Account'} (${activeRole || 'Admin'}) — Click for Company Settings`}
             >
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs uppercase">
-                {(business?.name || tenant?.name || activeUser?.name || currentUser?.name || 'C').charAt(0).toUpperCase()}
+                {(tenant?.name || business?.name || activeUser?.name || 'C').charAt(0).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left text-xs leading-tight min-w-0">
                 <div className="font-extrabold text-slate-900 dark:text-white truncate max-w-[130px] md:max-w-[180px] uppercase">
-                  {business?.name || tenant?.name || 'MBI INVENTRA'}
+                  {tenant?.name || business?.name || 'MBI INVENTRA'}
                 </div>
                 <div className="text-[10px] text-slate-400 font-semibold truncate">
-                  {activeRole || 'Company Tenant'}
+                  {activeUser ? `${activeUser.name} • ${activeRole}` : activeRole || 'Company Tenant'}
                 </div>
               </div>
               <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:block shrink-0" />

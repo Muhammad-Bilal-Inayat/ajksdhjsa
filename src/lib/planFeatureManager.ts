@@ -71,7 +71,7 @@ export const PLAN_LIMITS_MAP: Record<PlanTier, PlanLimits> = {
     deletedRecoveryDays: 30,
     isGodownAllowed: true,
     isOnlineStoreAllowed: false,
-    isAuditTrailAllowed: false,
+    isAuditTrailAllowed: true,
     isJournalVoucherAllowed: false,
     isBatchExpiryAllowed: true,
     isExcelImportExportAllowed: true,
@@ -251,9 +251,30 @@ export const PLAN_FEATURES = {
     'supplier_intelligence',
     'demand_forecast',
     'top_products_analytics',
-    'top_products',
     'shortage_registry',
     'shortage_book',
+
+    // Booker & Biller Field Force
+    'booker_management',
+    'bookers',
+    'booker_biller_management',
+    'booker_biller_dashboard',
+    'biller_field_force_management',
+    'biller_management',
+    'booker_ledger',
+    'commission_tracking',
+    'booker_commission',
+    'booker_commission_report',
+
+    // Activity & Audit Trail
+    'full_audit_trail',
+    'complete_user_audit_trail',
+    'who_edited_deleted_tracking',
+    'audit_trail_who_edited',
+    'timestamp_ip_logs',
+    'user_activity_logs',
+    'audit_export',
+    'master_user_activity_audit_export',
   ],
 
   ENTERPRISE: [

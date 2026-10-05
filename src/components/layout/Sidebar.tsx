@@ -389,9 +389,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const filtered = mainNavItems
       .filter(item => {
         // Strict Plan-Tier Feature Gating
-        // Hide enterprise only modules on Silver/Gold unless Super Admin or allowed by plan
-        if (item.id === 'onlineStore' || item.id === 'bookers') {
+        // Hide modules if not allowed by tenant's active subscription tier (unless Master Admin override)
+        if (item.id) {
           if (!isGlobalMaster && !isPlanModuleAllowed(item.id, effectiveTenantId, activePlanTier)) return false;
+        }
+        if (item.moduleKey && typeof item.moduleKey === 'string') {
+          if (!isGlobalMaster && !isPlanModuleAllowed(item.moduleKey, effectiveTenantId, activePlanTier)) return false;
         }
 
         const isCoreModule = item.isCore || (item.id && planService.isCoreBaselineModule(item.id)) || (item.moduleKey && planService.isCoreBaselineModule(item.moduleKey as string));
@@ -434,9 +437,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }
         }
 
-        // Plan Tier Gating
-        if (item.path && !isPlanRouteAllowed(item.path, effectiveTenantId, activePlanTier)) {
-          if (!isCoreModule && !isOwner) return false;
+        // Plan Route Tier Gating
+        if (item.path && !isGlobalMaster && !isPlanRouteAllowed(item.path, effectiveTenantId, activePlanTier)) {
+          return false;
         }
 
         return true;

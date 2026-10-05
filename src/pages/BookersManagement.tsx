@@ -21,7 +21,7 @@ export const BookersManagement: React.FC = () => {
   const { openTransaction } = useTransactionDock();
 
   const currentPlan = (tenant as any)?.plan || (userProfile as any)?.plan || getCurrentPlan(tenantId || tenant?.id);
-  const isEnterprise = isPlanAtLeast(currentPlan, 'ENTERPRISE') || activeRole === 'Primary Admin' || (userProfile as any)?.isPrimaryOwner;
+  const isPlanAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || activeRole === 'Master Admin' || (userProfile as any)?.role === 'Master Admin';
 
   const [activeTab, setActiveTab] = useState<'performance' | 'directory'>('performance');
   const [bookers, setBookers] = useState<Booker[]>([]);
@@ -255,7 +255,7 @@ export const BookersManagement: React.FC = () => {
     window.open(url, '_blank');
   };
 
-  if (!isEnterprise) {
+  if (!isPlanAllowed) {
     return (
       <div className="p-4 sm:p-8 max-w-4xl mx-auto space-y-6 animate-in fade-in pb-16">
         <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-10 text-white border border-indigo-500/30 shadow-2xl space-y-6">
@@ -263,9 +263,9 @@ export const BookersManagement: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400">
               <Users className="w-7 h-7" />
             </div>
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center gap-1.5">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>💎 ENTERPRISE PLATINUM ONLY</span>
+              <span>🥇 BUSINESS &amp; PLATINUM ONLY</span>
             </span>
           </div>
 

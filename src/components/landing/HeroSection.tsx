@@ -112,10 +112,17 @@ export const HeroSection: React.FC = () => {
               <span>Next-Gen Pharmacy POS &amp; Cloud ERP</span>
             </div>
 
-            {/* Main Headline from Selected Mockup */}
-            <h1 className="text-3.5xl sm:text-5xl lg:text-[3.25rem] xl:text-[3.6rem] font-black tracking-tight text-slate-950 dark:text-white leading-[1.08] break-words">
+            {/* Main Headline with Guaranteed Glowing Contrast */}
+            <h1 className="text-3.5xl sm:text-5xl lg:text-[3.25rem] xl:text-[3.6rem] font-black tracking-tight text-slate-900 dark:text-white leading-[1.08] break-words">
               Smart Pharmacy.<br />
-              <span className="inline-block font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 dark:from-cyan-300 dark:via-sky-200 dark:to-blue-300 filter drop-shadow-[0_2px_14px_rgba(56,189,248,0.35)]">
+              <span 
+                className="inline-block font-black bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-400 dark:from-sky-300 dark:via-cyan-200 dark:to-blue-300 bg-clip-text text-transparent"
+                style={{
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 2px 18px rgba(56, 189, 248, 0.5))'
+                }}
+              >
                 Smarter Business.
               </span>
             </h1>
@@ -253,7 +260,7 @@ export const HeroSection: React.FC = () => {
               {/* ─────────────────────────────────────────────────────────────
                   REALISTIC MACBOOK LAPTOP CONTAINER WITH REAL DASHBOARD
               ───────────────────────────────────────────────────────────── */}
-              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-cyan-500/30 shadow-cyan-600/10 dark:shadow-cyan-500/20">
+              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-cyan-500/40 shadow-cyan-600/10 dark:shadow-cyan-500/20">
                 
                 {/* Laptop Top Bezel with Camera & Glossy Chrome Edge */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950 rounded-t-xl border-b border-slate-800 text-slate-400 text-[10px]">
@@ -275,25 +282,15 @@ export const HeroSection: React.FC = () => {
                 {/* Laptop Screen Inner Canvas with Actual Screenshots */}
                 <div className="relative bg-slate-900 dark:bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800 flex items-center justify-center min-h-[160px]">
                   
-                  {/* Light Mode Dashboard Screenshot */}
+                  {/* Responsive Dynamic Web Dashboard Screenshot (Dark / Light) */}
                   <img 
-                    src={dashboardLightImg} 
-                    alt="MBI INVENTRA Web Dashboard Light Mode" 
-                    className={`w-full h-auto object-cover rounded-b-xl transition-all duration-300 select-none ${isDark ? 'hidden' : 'block'}`}
+                    key={isDark ? 'hero-dash-dark' : 'hero-dash-light'}
+                    src={isDark ? dashboardDarkImg : dashboardLightImg} 
+                    alt={isDark ? "MBI INVENTRA Web Dashboard Dark Mode" : "MBI INVENTRA Web Dashboard Light Mode"} 
+                    className="w-full h-auto block object-cover rounded-b-xl transition-all duration-300 select-none filter brightness-105 contrast-105"
                     loading="eager"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/landing/dashboard-light.png';
-                    }}
-                  />
-
-                  {/* Dark Mode Dashboard Screenshot */}
-                  <img 
-                    src={dashboardDarkImg} 
-                    alt="MBI INVENTRA Web Dashboard Dark Mode" 
-                    className={`w-full h-auto object-cover rounded-b-xl transition-all duration-300 select-none filter brightness-105 contrast-105 ${isDark ? 'block' : 'hidden'}`}
-                    loading="eager"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/landing/dashboard-dark.png';
+                      (e.target as HTMLImageElement).src = isDark ? '/landing/dashboard-dark.png' : '/landing/dashboard-light.png';
                     }}
                   />
 
@@ -313,7 +310,7 @@ export const HeroSection: React.FC = () => {
                   SYNCHRONIZED SMARTPHONE FRAME (Overlapped on Right Corner)
               ───────────────────────────────────────────────────────────── */}
               <div 
-                className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-cyan-500/40 shadow-2xl shadow-black/80 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300"
+                className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-cyan-500/50 shadow-2xl shadow-black/80 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300"
                 style={{
                   transform: isHovered ? `rotate(1deg) translate3d(${-tilt.x * 0.4}px, ${-tilt.y * 0.4}px, 40px)` : undefined
                 }}
@@ -328,25 +325,15 @@ export const HeroSection: React.FC = () => {
                 {/* Phone Screen Canvas with Actual Mobile App Screenshots */}
                 <div className="relative bg-slate-900 dark:bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center min-h-[120px]">
                   
-                  {/* Light Mode Mobile Screenshot */}
+                  {/* Responsive Dynamic Mobile App Screenshot (Dark / Light) */}
                   <img 
-                    src={mobileLightImg} 
-                    alt="MBI INVENTRA Mobile App Light Mode" 
-                    className={`w-full h-auto object-cover rounded-[1.6rem] transition-all duration-300 select-none ${isDark ? 'hidden' : 'block'}`}
+                    key={isDark ? 'hero-mob-dark' : 'hero-mob-light'}
+                    src={isDark ? mobileDarkImg : mobileLightImg} 
+                    alt={isDark ? "MBI INVENTRA Mobile POS App Dark Mode" : "MBI INVENTRA Mobile POS App Light Mode"} 
+                    className="w-full h-auto block object-cover rounded-[1.6rem] transition-all duration-300 select-none filter brightness-105 contrast-105"
                     loading="eager"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/landing/mobile-light.png';
-                    }}
-                  />
-
-                  {/* Dark Mode Mobile Screenshot */}
-                  <img 
-                    src={mobileDarkImg} 
-                    alt="MBI INVENTRA Mobile App Dark Mode" 
-                    className={`w-full h-auto object-cover rounded-[1.6rem] transition-all duration-300 select-none filter brightness-105 contrast-105 ${isDark ? 'block' : 'hidden'}`}
-                    loading="eager"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/landing/mobile-dark.png';
+                      (e.target as HTMLImageElement).src = isDark ? '/landing/mobile-dark.png' : '/landing/mobile-light.png';
                     }}
                   />
 

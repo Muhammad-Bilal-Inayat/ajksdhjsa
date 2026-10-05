@@ -156,16 +156,18 @@
   <script>
     (function () {
       try {
+        var landingTheme = localStorage.getItem('mbi_landing_theme');
         var raw = localStorage.getItem('mbi_system_app_settings_v2');
-        if (raw) {
+        var isDark = landingTheme === 'dark';
+        if (!landingTheme && raw) {
           var settings = JSON.parse(raw);
           var theme = settings && settings.general && settings.general.theme;
-          var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-          } else if (theme === 'light') {
-            document.documentElement.classList.remove('dark');
-          }
+          isDark = theme === 'dark' || (theme === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        }
+        if (isDark || landingTheme === 'dark' || (!landingTheme && !raw)) {
+          document.documentElement.classList.add('dark');
+        } else if (landingTheme === 'light') {
+          document.documentElement.classList.remove('dark');
         }
       } catch (e) { }
     })();

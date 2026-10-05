@@ -1848,6 +1848,18 @@ function createTransporter(settings) {
     }
   });
 }
+function getEmailBannerHeader() {
+  return `
+    <!-- Top Branded Image Banner -->
+    <div style="background-color: #0b1e36; text-align: center; line-height: 0; margin: 0; padding: 0; border-bottom: 2px solid #00d2ff;">
+      <img 
+        src="cid:mbi-email-banner" 
+        alt="MBI INVENTRA - Smart Pharmacy POS &amp; ERP Solution" 
+        style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0 auto; border: 0;"
+      />
+    </div>
+  `;
+}
 async function sendEmail({
   to,
   subject,
@@ -1868,6 +1880,21 @@ async function sendEmail({
     const toRecipients = Array.isArray(to) ? to.join(", ") : to;
     const cleanText = text || html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "").replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "").replace(/<br\s*[\/]?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<\/tr>/gi, "\n").replace(/<\/td>/gi, "  ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\n\s*\n\s*\n/g, "\n\n").trim();
     const uniqueMessageId = `<mbi.${Date.now()}.${Math.random().toString(36).substring(2, 9)}@gmail.com>`;
+    const bannerPathPublic = import_path3.default.resolve(process.cwd(), "public", "mbi-email-banner.png");
+    const bannerPathServer = import_path3.default.resolve(process.cwd(), "server", "data", "mbi-email-banner.png");
+    const bannerPathDist = import_path3.default.resolve(process.cwd(), "dist", "mbi-email-banner.png");
+    let actualBannerPath = null;
+    if (import_fs3.default.existsSync(bannerPathPublic)) actualBannerPath = bannerPathPublic;
+    else if (import_fs3.default.existsSync(bannerPathDist)) actualBannerPath = bannerPathDist;
+    else if (import_fs3.default.existsSync(bannerPathServer)) actualBannerPath = bannerPathServer;
+    const attachments = [];
+    if (actualBannerPath && html.includes("cid:mbi-email-banner")) {
+      attachments.push({
+        filename: "mbi-email-banner.png",
+        path: actualBannerPath,
+        cid: "mbi-email-banner"
+      });
+    }
     const mailOptions = {
       from: `"${settings.senderName || "MBI INVENTRA Cloud ERP"}" <${settings.smtpUser}>`,
       to: toRecipients,
@@ -1875,6 +1902,7 @@ async function sendEmail({
       subject,
       text: cleanText,
       html,
+      attachments,
       // Anti-Spam & 2024 Inbox Deliverability Headers
       headers: {
         "Message-ID": uniqueMessageId,
@@ -1898,29 +1926,30 @@ async function sendAdminAlertNewTenant(tenantData) {
   const settings = getEmailSettings();
   const adminEmail = settings.adminEmail || "mbiinventra@gmail.com";
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 25px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">\u{1F6A8} New Pharmacy Registered!</h1>
-          <p style="margin: 5px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 20px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">\u{1F6A8} New Pharmacy Registered!</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
         </div>
-        <div style="padding: 25px;">
-          <p style="font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Username / ID:</td><td style="padding: 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 10px; color: #1e293b;">${tenantData.email || "\u2014"}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 10px; color: #1e293b;">${tenantData.city || "Pakistan"}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 10px; font-weight: bold; color: #059669;">${tenantData.plan || "30-Day Free Trial"}</td></tr>
-            <tr><td style="padding: 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || "auto_assigned"}</td></tr>
+        <div style="padding: 24px;">
+          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px;">
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">Username / ID:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.email || "\u2014"}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.city || "Pakistan"}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 8px 10px; font-weight: bold; color: #059669;">${tenantData.plan || "30-Day Free Trial"}</td></tr>
+            <tr><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 8px 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || "auto_assigned"}</td></tr>
           </table>
-          <div style="text-align: center; margin-top: 25px;">
-            <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 11px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
           </div>
         </div>
-        <div style="background: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #64748b;">
+        <div style="background: #f1f5f9; padding: 14px; text-align: center; font-size: 11px; color: #64748b;">
           MBI INVENTRA Automated Cloud Notification Engine \u2022 24/7 Realtime Monitoring
         </div>
       </div>
@@ -1936,20 +1965,21 @@ async function sendTenantWelcomeEmail(tenantData) {
   if (!tenantData.toEmail || !tenantData.toEmail.includes("@")) return;
   const url = tenantData.portalUrl || "https://mbiinventra.com";
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 25px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 24px; font-weight: 800;">\u{1F389} Welcome to MBI INVENTRA!</h1>
-          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.95;">Your Cloud POS & Pharmacy ERP is Ready</p>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 22px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800;">\u{1F389} Welcome to MBI INVENTRA!</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">Your Cloud POS &amp; Pharmacy ERP is Ready</p>
         </div>
-        <div style="padding: 25px;">
-          <p style="font-size: 15px; color: #334155; line-height: 1.5;">Dear <strong>${tenantData.ownerName}</strong>,</p>
+        <div style="padding: 24px;">
+          <p style="font-size: 15px; color: #334155; line-height: 1.5; margin-top: 0;">Dear <strong>${tenantData.ownerName}</strong>,</p>
           <p style="font-size: 14px; color: #334155; line-height: 1.5;">
             Congratulations! Your official pharmacy account for <strong>${tenantData.storeName}</strong> has been created with high-speed 0ms offline capability.
           </p>
 
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">\u{1F511} Your Login Credentials</h3>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
+            <h3 style="margin: 0 0 12px 0; font-size: 13px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">\u{1F511} Your Login Credentials</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Login Identifier:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
               ${tenantData.pin ? `<tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Fast Login PIN:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #059669; font-size: 16px;">${tenantData.pin}</td></tr>` : ""}
@@ -1957,18 +1987,18 @@ async function sendTenantWelcomeEmail(tenantData) {
             </table>
           </div>
 
-          <div style="text-align: center; margin-top: 25px;">
-            <a href="${url}" style="background-color: #059669; color: white; padding: 13px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px; display: inline-block;">Launch Pharmacy Dashboard</a>
+          <div style="text-align: center; margin-top: 22px;">
+            <a href="${url}" style="background-color: #059669; color: white; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Launch Pharmacy Dashboard</a>
           </div>
 
-          <p style="font-size: 12px; color: #64748b; margin-top: 25px; line-height: 1.5;">
+          <p style="font-size: 12px; color: #64748b; margin-top: 22px; line-height: 1.5;">
             Need help? Contact MBI Support 24/7 on WhatsApp: <strong>+92 336 4585863</strong> / <strong>+92 328 1302636</strong>.
           </p>
         </div>
-        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
-          <p style="margin: 0 0 4px 0; font-weight: 600;">MBI INVENTRA Cloud ERP \u2022 Official Pharmacy Management Suite</p>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
+          <p style="margin: 0 0 3px 0; font-weight: 600;">MBI INVENTRA Cloud ERP \u2022 Official Pharmacy Management Suite</p>
           <p style="margin: 0; color: #94a3b8;">Sargodha, Punjab, Pakistan \u2022 Support: +92 336 4585863</p>
-          <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8;">You received this transactional email for your pharmacy account on MBI INVENTRA.</p>
+          <p style="margin: 5px 0 0 0; font-size: 10px; color: #94a3b8;">You received this transactional email for your pharmacy account on MBI INVENTRA.</p>
         </div>
       </div>
     </div>
@@ -1983,14 +2013,15 @@ async function sendStaffInvitationEmail(staffData) {
   if (!staffData.toEmail || !staffData.toEmail.includes("@")) return;
   const url = staffData.portalUrl || "https://mbiinventra.com";
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 20px; text-align: center; color: white;">
           <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Staff Access Invitation</h2>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${staffData.storeName}</p>
         </div>
         <div style="padding: 22px;">
-          <p style="font-size: 14px; color: #334155;">Hello <strong>${staffData.staffName}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${staffData.staffName}</strong>,</p>
           <p style="font-size: 13px; color: #334155;">
             You have been assigned access to the pharmacy management portal as <strong>${staffData.role}</strong>.
           </p>
@@ -2018,14 +2049,15 @@ async function sendPasswordResetEmail(resetData) {
   if (!resetData.toEmail || !resetData.toEmail.includes("@")) return;
   const url = resetData.portalUrl || "https://mbiinventra.com";
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #e11d48, #f43f5e); padding: 22px; text-align: center; color: white;">
-          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Password & PIN Reset Notification</h2>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #e11d48, #f43f5e); padding: 20px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Password &amp; PIN Reset Notification</h2>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${resetData.storeName || "MBI INVENTRA Security"}</p>
         </div>
         <div style="padding: 22px;">
-          <p style="font-size: 14px; color: #334155;">Hello <strong>${resetData.userName}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${resetData.userName}</strong>,</p>
           <p style="font-size: 13px; color: #334155;">
             Your account credentials have been reset by your store administrator or via security request.
           </p>
@@ -2049,6 +2081,45 @@ async function sendPasswordResetEmail(resetData) {
     html
   });
 }
+async function sendPasswordResetOtpEmail(otpData) {
+  if (!otpData.toEmail || !otpData.toEmail.includes("@")) return { success: false, error: "Invalid email address" };
+  const validity = otpData.expiresMinutes || 15;
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #1e3a8a, #2563eb); padding: 22px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 22px; font-weight: 800;">\u{1F510} Password Recovery Code</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Cloud POS &amp; ERP Security</p>
+        </div>
+        <div style="padding: 24px;">
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${otpData.userName}</strong>,</p>
+          <p style="font-size: 13px; color: #475569; line-height: 1.6;">
+            We received a request to reset your password for your MBI INVENTRA workspace account. Please use the following 6-digit verification code to proceed:
+          </p>
+          
+          <div style="background: #eff6ff; border: 2px dashed #93c5fd; border-radius: 12px; padding: 20px; margin: 22px 0; text-align: center;">
+            <p style="margin: 0; font-size: 11px; color: #1e40af; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Your 6-Digit Verification Code</p>
+            <p style="margin: 8px 0 0 0; font-size: 34px; font-family: monospace; font-weight: 900; color: #1d4ed8; letter-spacing: 6px;">${otpData.otpCode}</p>
+            <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">(Valid for ${validity} minutes)</p>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5;">
+            If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+          </p>
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px; text-align: center; font-size: 11px; color: #94a3b8;">
+          MBI INVENTRA Security Engine \u2022 Need help? Contact +92 328 1302636 / +92 336 4585863
+        </div>
+      </div>
+    </div>
+  `;
+  return sendEmail({
+    to: otpData.toEmail,
+    subject: `\u{1F510} [MBI INVENTRA] Password Recovery Code: ${otpData.otpCode}`,
+    html
+  });
+}
 async function sendCustomTenantEmail(payload) {
   const recipients = Array.isArray(payload.toEmail) ? payload.toEmail.filter((e) => e && e.includes("@")) : [payload.toEmail].filter((e) => e && e.includes("@"));
   if (recipients.length === 0) {
@@ -2066,35 +2137,19 @@ async function sendCustomTenantEmail(payload) {
       <title>${payload.subject}</title>
     </head>
     <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-      <div style="max-width: 620px; margin: 25px auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
+      <div style="max-width: 600px; margin: 25px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
         
-        <!-- Brand Header with Logo & Gradient Theme -->
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e3a8a 100%); padding: 30px 24px; text-align: center; color: #ffffff; border-bottom: 3px solid rgba(59, 130, 246, 0.4);">
-          <table align="center" style="margin: 0 auto; border-collapse: collapse;">
-            <tr>
-              <td style="vertical-align: middle; padding-right: 12px;">
-                <div style="background: linear-gradient(135deg, #2563eb, #00d2ff); width: 44px; height: 44px; border-radius: 12px; display: inline-block; text-align: center; line-height: 44px; color: #ffffff; font-weight: 900; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 210, 255, 0.35);">
-                  M4
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align: left;">
-                <div style="font-size: 22px; font-weight: 900; letter-spacing: 0.5px; color: #ffffff; line-height: 1.1;">
-                  MBI <span style="color: #00d2ff;">INVENTRA</span>
-                </div>
-                <div style="font-size: 10px; font-weight: 700; color: #93c5fd; letter-spacing: 1.5px; text-transform: uppercase;">
-                  Cloud POS &amp; Pharmacy ERP
-                </div>
-              </td>
-            </tr>
-          </table>
+        ${getEmailBannerHeader()}
 
-          <div style="margin-top: 18px;">
+        <!-- Brand Header with Logo & Gradient Theme -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e3a8a 100%); padding: 24px 20px; text-align: center; color: #ffffff; border-bottom: 3px solid rgba(59, 130, 246, 0.4);">
+          <div>
             <span style="display: inline-block; background-color: ${badgeColor}; color: #ffffff; padding: 5px 16px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
               ${badgeTitle}
             </span>
           </div>
 
-          <h1 style="margin: 14px 0 0 0; font-size: 21px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.35;">
+          <h1 style="margin: 14px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.35;">
             ${payload.subject}
           </h1>
 
@@ -2106,27 +2161,27 @@ async function sendCustomTenantEmail(payload) {
         </div>
 
         <!-- Main Content Body -->
-        <div style="padding: 28px 26px;">
+        <div style="padding: 26px 22px;">
           ${payload.recipientName ? `
-            <p style="font-size: 15px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 16px;">
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 14px;">
               Respected ${payload.recipientName},
             </p>
           ` : ""}
 
-          <div style="background: #ffffff; border-left: 4px solid ${badgeColor}; padding-left: 16px; margin: 12px 0 22px 0;">
+          <div style="background: #ffffff; border-left: 4px solid ${badgeColor}; padding-left: 14px; margin: 12px 0 20px 0;">
             ${messageHtml}
           </div>
 
           ${payload.actionButtonText && payload.actionButtonUrl ? `
-            <div style="text-align: center; margin: 28px 0;">
-              <a href="${payload.actionButtonUrl}" target="_blank" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; padding: 13px 32px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); letter-spacing: 0.2px;">
+            <div style="text-align: center; margin: 26px 0;">
+              <a href="${payload.actionButtonUrl}" target="_blank" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 10px; font-weight: 800; font-size: 13px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); letter-spacing: 0.2px;">
                 ${payload.actionButtonText}
               </a>
             </div>
           ` : ""}
 
           <!-- 24/7 Dedicated Helpline Box -->
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; margin-top: 28px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 24px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="vertical-align: middle;">
@@ -2151,14 +2206,14 @@ async function sendCustomTenantEmail(payload) {
         </div>
 
         <!-- Compliance & Professional Footer -->
-        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
-          <p style="margin: 0 0 4px 0; font-weight: 700; color: #334155;">
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 20px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
+          <p style="margin: 0 0 3px 0; font-weight: 700; color: #334155;">
             MBI INVENTRA Cloud ERP \u2022 Master Server Communication System
           </p>
           <p style="margin: 0; color: #94a3b8;">
             Sargodha, Punjab, Pakistan \u2022 Official Helpline: +92 336 4585863 / +92 328 1302636
           </p>
-          <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8;">
+          <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8;">
             This is a verified transactional message from your MBI INVENTRA server. To manage your communication preferences, visit your master portal.
           </p>
         </div>
@@ -8242,10 +8297,223 @@ async function registerTrialController(req, res) {
     res.status(500).json({ success: false, error: err?.message || "Registration failed" });
   }
 }
+var passwordResetOtpMap = /* @__PURE__ */ new Map();
+function maskEmail(email) {
+  const parts = email.split("@");
+  if (parts.length !== 2) return email;
+  const name = parts[0];
+  const domain = parts[1];
+  const maskedName = name.length <= 2 ? name + "***" : name.slice(0, 2) + "***" + name.slice(-1);
+  return `${maskedName}@${domain}`;
+}
+async function forgotPasswordController(req, res) {
+  try {
+    const { identifier } = req.body;
+    const cleanId = (identifier || "").trim().toLowerCase();
+    if (!cleanId) {
+      res.status(400).json({ success: false, error: "Please enter your registered Email, Username, or Mobile." });
+      return;
+    }
+    let targetEmail = "";
+    let targetUserName = "User";
+    let targetUserId = "";
+    let targetTenantId = "";
+    let targetUsername = cleanId;
+    const rawDigits = cleanId.replace(/\D/g, "");
+    const searchDigits = rawDigits.length >= 7 ? rawDigits.slice(-10) : "";
+    try {
+      const master = getMasterVault();
+      const allUsers = master.prepare(`
+        SELECT * FROM mbi_users
+      `).all();
+      const user = allUsers.find((u) => {
+        const uEmail = (u.email || "").toLowerCase().trim();
+        const uUser = (u.username || "").toLowerCase().trim();
+        const uPhone = (u.phone || "").replace(/\D/g, "");
+        const uName = (u.name || "").toLowerCase().trim();
+        const uId = (u.id || "").toLowerCase().trim();
+        if (uEmail === cleanId || uUser === cleanId || uName === cleanId || uId === cleanId) return true;
+        if (searchDigits && uPhone && (uPhone.endsWith(searchDigits) || searchDigits.endsWith(uPhone))) return true;
+        return false;
+      });
+      if (user) {
+        targetEmail = user.email || "";
+        targetUserName = user.name || user.username || "User";
+        targetUserId = user.id;
+        targetTenantId = user.tenant_id;
+        targetUsername = user.username || cleanId;
+      }
+    } catch (e) {
+    }
+    if (!targetEmail) {
+      try {
+        const master = getMasterVault();
+        const allTenants = master.prepare(`SELECT * FROM mbi_tenants`).all();
+        const tenant = allTenants.find((t) => {
+          const tEmail = (t.owner_email || t.primary_admin_email || "").toLowerCase().trim();
+          const tUser = (t.username || "").toLowerCase().trim();
+          const tPhone = (t.owner_phone || "").replace(/\D/g, "");
+          const tName = (t.name || t.owner_name || "").toLowerCase().trim();
+          const tId = (t.tenant_id || "").toLowerCase().trim();
+          if (tEmail === cleanId || tUser === cleanId || tName === cleanId || tId === cleanId) return true;
+          if (searchDigits && tPhone && (tPhone.endsWith(searchDigits) || searchDigits.endsWith(tPhone))) return true;
+          return false;
+        });
+        if (tenant) {
+          targetEmail = tenant.owner_email || tenant.primary_admin_email || "";
+          targetUserName = tenant.owner_name || tenant.name || "Owner";
+          targetTenantId = tenant.tenant_id;
+          targetUsername = tenant.username || cleanId;
+        }
+      } catch (e) {
+      }
+    }
+    if (!targetEmail) {
+      try {
+        const master = getMasterVault();
+        const allTenants = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
+        for (const t of allTenants) {
+          try {
+            const vaultUsers = listTenantUsers(t.tenant_id);
+            const matched = vaultUsers.find((u) => {
+              const uEmail = (u.email || u.emailOrPhone || "").toLowerCase().trim();
+              const uUser = (u.username || "").toLowerCase().trim();
+              const uPhone = (u.phone || "").replace(/\D/g, "");
+              const uName = (u.name || "").toLowerCase().trim();
+              if (uEmail === cleanId || uUser === cleanId || uName === cleanId) return true;
+              if (searchDigits && uPhone && (uPhone.endsWith(searchDigits) || searchDigits.endsWith(uPhone))) return true;
+              return false;
+            });
+            if (matched) {
+              targetEmail = matched.email || (matched.emailOrPhone && matched.emailOrPhone.includes("@") ? matched.emailOrPhone : "");
+              targetUserName = matched.name || matched.username || "User";
+              targetUserId = matched.id;
+              targetTenantId = t.tenant_id;
+              targetUsername = matched.username || cleanId;
+              break;
+            }
+          } catch (tErr) {
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (!targetEmail && cleanId.includes("@")) {
+      targetEmail = cleanId;
+      targetUserName = cleanId.split("@")[0];
+    }
+    if (!targetEmail || !targetEmail.includes("@")) {
+      res.status(404).json({
+        success: false,
+        noEmail: true,
+        error: "No registered email found for this account/number. Please use WhatsApp Support (+92 328 1302636) to recover your account."
+      });
+      return;
+    }
+    const otp = Math.floor(1e5 + Math.random() * 9e5).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1e3;
+    const otpEntry = {
+      email: targetEmail.toLowerCase().trim(),
+      username: targetUsername,
+      userName: targetUserName,
+      otp,
+      expiresAt,
+      userId: targetUserId,
+      tenantId: targetTenantId
+    };
+    passwordResetOtpMap.set(targetEmail.toLowerCase().trim(), otpEntry);
+    if (targetUsername) {
+      passwordResetOtpMap.set(targetUsername.toLowerCase().trim(), otpEntry);
+    }
+    if (cleanId) {
+      passwordResetOtpMap.set(cleanId, otpEntry);
+    }
+    const emailResult = await sendPasswordResetOtpEmail({
+      toEmail: targetEmail,
+      userName: targetUserName,
+      otpCode: otp,
+      expiresMinutes: 15
+    });
+    if (!emailResult.success) {
+      console.warn("[FORGOT PASSWORD EMAIL NOTICE]: Could not send email directly:", emailResult.error);
+    }
+    res.json({
+      success: true,
+      message: `A 6-digit password recovery code has been sent to ${maskEmail(targetEmail)}.`,
+      maskedEmail: maskEmail(targetEmail),
+      targetEmail
+    });
+  } catch (err) {
+    console.error("[FORGOT PASSWORD CONTROLLER ERROR]:", err);
+    res.status(500).json({ success: false, error: err?.message || "Failed to process password recovery request" });
+  }
+}
+async function verifyResetOtpController(req, res) {
+  try {
+    const { identifier, otp, newPassword } = req.body;
+    const cleanId = (identifier || "").trim().toLowerCase();
+    const cleanOtp = (otp || "").trim();
+    const cleanPass = (newPassword || "").trim();
+    if (!cleanId || !cleanOtp || !cleanPass) {
+      res.status(400).json({ success: false, error: "Verification code and new password are required." });
+      return;
+    }
+    if (cleanPass.length < 4) {
+      res.status(400).json({ success: false, error: "New password must be at least 4 characters long." });
+      return;
+    }
+    const entry = passwordResetOtpMap.get(cleanId);
+    if (!entry) {
+      res.status(400).json({ success: false, error: "Invalid or expired recovery session. Please request a new code." });
+      return;
+    }
+    if (Date.now() > entry.expiresAt) {
+      passwordResetOtpMap.delete(cleanId);
+      res.status(400).json({ success: false, error: "Verification code has expired. Please request a new code." });
+      return;
+    }
+    if (entry.otp !== cleanOtp) {
+      res.status(400).json({ success: false, error: "Invalid 6-digit verification code. Please check your email and try again." });
+      return;
+    }
+    try {
+      const master = getMasterVault();
+      master.prepare(`
+        UPDATE mbi_users 
+        SET passcode = ?, pin = ?
+        WHERE LOWER(email) = ? OR LOWER(username) = ? OR id = ?
+      `).run(cleanPass, cleanPass, entry.email.toLowerCase(), entry.username.toLowerCase(), entry.userId || "");
+    } catch (dbErr) {
+    }
+    if (entry.tenantId) {
+      try {
+        const tenantDb = getTenantVault(entry.tenantId);
+        tenantDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?
+          WHERE LOWER(email) = ? OR LOWER(username) = ? OR id = ?
+        `).run(cleanPass, cleanPass, entry.email.toLowerCase(), entry.username.toLowerCase(), entry.userId || "");
+      } catch (tDbErr) {
+      }
+    }
+    passwordResetOtpMap.delete(cleanId);
+    if (entry.email) passwordResetOtpMap.delete(entry.email.toLowerCase().trim());
+    if (entry.username) passwordResetOtpMap.delete(entry.username.toLowerCase().trim());
+    res.json({
+      success: true,
+      message: "Password has been reset successfully! You can now log in with your new password."
+    });
+  } catch (err) {
+    console.error("[VERIFY RESET OTP ERROR]:", err);
+    res.status(500).json({ success: false, error: err?.message || "Failed to reset password" });
+  }
+}
 
 // server/routes/authRoutes.ts
 var authRouter = import_express3.default.Router();
 authRouter.post("/login", loginController);
+authRouter.post("/forgot-password", forgotPasswordController);
+authRouter.post("/verify-reset-otp", verifyResetOtpController);
 authRouter.get("/me", requireAuth, (req, res) => {
   res.json({
     success: true,
@@ -11024,6 +11292,111 @@ fleetRouter.post("/users/passcode", async (req, res) => {
     res.status(500).json({ success: false, error: err?.message || "Error resetting passcode" });
   }
 });
+fleetRouter.post("/tenants/reset-password", async (req, res) => {
+  try {
+    const { tenantId, newPassword } = req.body;
+    if (!tenantId || !newPassword) {
+      res.status(400).json({ success: false, error: "tenantId and newPassword are required" });
+      return;
+    }
+    const cleanTid = String(tenantId).trim();
+    const cleanPass = String(newPassword).trim();
+    if (cleanPass.length < 4) {
+      res.status(400).json({ success: false, error: "Password must be at least 4 characters long" });
+      return;
+    }
+    try {
+      const master = getMasterVault();
+      try {
+        master.prepare(`
+          UPDATE mbi_tenants 
+          SET password = ?, passcode = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? OR tenant_id = ?
+        `).run(cleanPass, cleanPass, cleanTid, cleanTid);
+      } catch (e1) {
+      }
+      try {
+        master.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE tenant_id = ? OR id = ? OR username = ?
+        `).run(cleanPass, cleanPass, cleanTid, cleanTid, cleanTid);
+      } catch (e2) {
+      }
+    } catch (sqliteErr) {
+      console.error("[MASTER RESET PASSWORD SQLITE ERROR]:", sqliteErr);
+    }
+    try {
+      const tenantDb = getTenantVault(cleanTid);
+      try {
+        tenantDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE role IN ('Primary Admin', 'Admin', 'Owner') OR id LIKE '%admin%'
+        `).run(cleanPass, cleanPass);
+      } catch (tErr) {
+      }
+      try {
+        tenantDb.prepare(`
+          UPDATE users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE role IN ('Primary Admin', 'Admin', 'Owner') OR id LIKE '%admin%'
+        `).run(cleanPass, cleanPass);
+      } catch (uErr) {
+      }
+    } catch (vaultErr) {
+    }
+    if (await isMariaDbAvailable2()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_users 
+           SET passcode_hash = ?, passcode = ?, updated_at = CURRENT_TIMESTAMP 
+           WHERE (tenant_id = ? OR tenant_id = ?) AND (role = 'Primary Admin' OR role = 'Admin' OR role = 'Owner');`,
+          [cleanPass, cleanPass, cleanTid, cleanTid]
+        );
+      } catch (mariaErr) {
+      }
+    }
+    try {
+      const usersJsonPath = import_path11.default.resolve(process.cwd(), ".master_users.json");
+      if (import_fs11.default.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(import_fs11.default.readFileSync(usersJsonPath, "utf-8") || "[]");
+        let updated = false;
+        for (const u of localList) {
+          if (u.tenantId === cleanTid || u.tenant_id === cleanTid || u.id === cleanTid) {
+            u.passcode = cleanPass;
+            u.pin = cleanPass;
+            u.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+            updated = true;
+          }
+        }
+        if (updated) {
+          import_fs11.default.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), "utf-8");
+        }
+      }
+    } catch (e) {
+    }
+    try {
+      broadcastGlobalEvent({
+        type: "TENANT_PASSWORD_RESET",
+        payload: { tenantId: cleanTid, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      });
+      broadcastTenantEvent(cleanTid, {
+        type: "CREDENTIALS_UPDATED",
+        payload: { tenantId: cleanTid, timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+      });
+    } catch (bErr) {
+    }
+    res.json({
+      success: true,
+      message: `Password for tenant "${cleanTid}" has been reset successfully.`
+    });
+  } catch (err) {
+    console.error("[RESET TENANT PASSWORD ERROR]:", err);
+    res.status(500).json({ success: false, error: err?.message || "Failed to reset tenant password" });
+  }
+});
 fleetRouter.post("/users/kill-switch", async (req, res) => {
   try {
     const { userId, isKilled } = req.body;
@@ -13307,6 +13680,7 @@ adminMasterRouter.post("/email/test", async (req, res) => {
     const testHtml = `
       <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
         <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          ${getEmailBannerHeader()}
           <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
             <h2 style="margin: 0; font-size: 20px; font-weight: 800;">\u2705 Test Email Successful!</h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">MBI INVENTRA Automated Email Engine</p>

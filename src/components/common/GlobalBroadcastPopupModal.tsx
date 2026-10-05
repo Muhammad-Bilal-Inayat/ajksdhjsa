@@ -437,15 +437,15 @@ export function GlobalBroadcastPopupModal() {
         <div className={`p-4 border-b ${theme.headerBg} flex items-center justify-between gap-3 shrink-0`}>
           <div className="flex items-center gap-3 min-w-0">
             {/* Crisp Visible Brand Logo Badge */}
-            <div className={`w-11 h-11 rounded-2xl ${
+            <div className={`w-11 h-11 rounded-full ${
               isDark 
-                ? 'bg-slate-800/90 border-slate-700/80 shadow-md' 
+                ? 'bg-slate-900 border-slate-700 shadow-md' 
                 : 'bg-white border-slate-200 shadow-sm'
-            } border p-1.5 flex items-center justify-center shrink-0`}>
+            } border p-0.5 flex items-center justify-center shrink-0`}>
               <img 
                 src="/mbi-logo.png" 
                 alt="MBI INVENTRA Logo" 
-                className="w-full h-full object-contain dark:brightness-125" 
+                className="w-full h-full object-contain rounded-full shadow-xs" 
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }} 

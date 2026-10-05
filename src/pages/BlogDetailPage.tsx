@@ -168,12 +168,15 @@ export const BlogDetailPage: React.FC = () => {
             <span>All Articles</span>
           </button>
 
-          <Link to="/" className="hidden sm:block">
+          <Link to="/" className="hidden sm:flex items-center gap-2 group">
             <img 
               src="/mbi-logo.png" 
-              alt="MBI INVENTRA " 
-              className="h-8 w-auto object-contain transition-all duration-200 dark:brightness-200 dark:contrast-125 dark:drop-shadow-[0_2px_10px_rgba(59,130,246,0.25)]" 
+              alt="MBI INVENTRA" 
+              className="h-8.5 w-8.5 rounded-full object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs transition-transform duration-200 group-hover:scale-105" 
             />
+            <span className="font-black text-slate-900 dark:text-white tracking-tight text-sm">
+              MBI <span className="text-blue-600 dark:text-blue-400">INVENTRA</span>
+            </span>
           </Link>
         </div>
 

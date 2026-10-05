@@ -212,15 +212,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <div className="absolute bottom-0 left-0 w-32 h-32 bg-teal-100/40 rounded-full blur-2xl -ml-10 -mb-10 pointer-events-none"></div>
 
           {/* Brand Logo & Subtitle */}
-          <div className="relative z-10 space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black text-blue-600 tracking-wider font-mono">MBI</span>
-              <span className="text-slate-300 font-light">|</span>
-              <span className="text-base font-bold text-slate-800 tracking-tight">INVENTRA</span>
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/mbi-logo.png" 
+                alt="MBI INVENTRA" 
+                className="w-10 h-10 rounded-full object-contain shadow-xs bg-white p-0.5 border border-slate-200/80 shrink-0" 
+              />
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-lg font-black text-blue-600 tracking-wider">MBI</span>
+                  <span className="text-slate-300 font-light">|</span>
+                  <span className="text-base font-bold text-slate-800 tracking-tight">INVENTRA</span>
+                </div>
+                <p className="text-[10px] font-semibold text-slate-500">Pharmacy &amp; Inventory Suite</p>
+              </div>
             </div>
-            <p className="text-xs font-semibold text-slate-500">
-              Smart Inventory for a Healthier Tomorrow
-            </p>
           </div>
 
           {/* Feature Pills (3D Soft Shadow Cards) */}
@@ -299,12 +306,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               </button>
             </div>
             {/* Mobile Header Brand */}
-            <div className="md:hidden flex justify-center mb-2">
+            <div className="md:hidden flex items-center justify-center gap-2 mb-2">
               <img 
                 src="/mbi-logo.png" 
                 alt="MBI INVENTRA" 
-                className="h-7 w-auto object-contain dark:brightness-200" 
+                className="w-8 h-8 rounded-full object-contain shadow-xs bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700" 
               />
+              <span className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
+                MBI <span className="text-blue-600 dark:text-blue-400">INVENTRA</span>
+              </span>
             </div>
 
             {/* Header */}

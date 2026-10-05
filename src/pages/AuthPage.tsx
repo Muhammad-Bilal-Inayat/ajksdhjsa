@@ -310,12 +310,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
 
         {/* Top Branding Section */}
         <div className="relative z-10 space-y-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-11 w-auto object-contain brightness-200 contrast-125 filter drop-shadow-[0_4px_16px_rgba(59,130,246,0.4)]" 
+              className="w-12 h-12 rounded-full object-contain bg-white/10 p-0.5 border border-white/20 shadow-lg shadow-blue-500/20" 
             />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xl font-black text-white tracking-wider">MBI</span>
+                <span className="text-blue-400 font-light">|</span>
+                <span className="text-xl font-extrabold text-blue-400 tracking-tight">INVENTRA</span>
+              </div>
+              <p className="text-[11px] font-semibold text-slate-400">Enterprise Pharmacy POS &amp; Cloud ERP</p>
+            </div>
           </div>
           <p className="text-slate-300 text-sm font-medium tracking-wide">
             Smart Inventory for a Healthier Tomorrow
@@ -385,7 +393,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-10 w-auto object-contain dark:brightness-200"
+              className="w-12 h-12 rounded-full object-contain shadow-xs bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700"
               onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
             />
             <h2 className="text-lg font-black text-slate-900 dark:text-white">MBI INVENTRA</h2>
@@ -397,7 +405,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-11 w-auto object-contain dark:brightness-200"
+              className="w-14 h-14 rounded-full object-contain shadow-md bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700"
               onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
             />
           </div>

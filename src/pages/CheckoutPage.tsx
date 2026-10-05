@@ -329,7 +329,7 @@ export const CheckoutPage: React.FC = () => {
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-9 w-auto object-contain dark:brightness-200"
+              className="h-10 w-10 rounded-full object-contain shadow-xs bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shrink-0"
               onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
             />
             <div className="flex flex-col">

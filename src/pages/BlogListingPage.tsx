@@ -92,12 +92,15 @@ export const BlogListingPage: React.FC = () => {
         isDark ? 'bg-[#131d33]/90 border-slate-800/80 shadow-lg shadow-black/20' : 'bg-white/95 border-slate-200 shadow-xs'
       }`}>
         <div className="flex items-center gap-8">
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2.5 group">
             <img 
               src="/mbi-logo.png" 
-              alt="MBI INVENTRA " 
-              className="h-8.5 w-auto object-contain transition-all duration-200 dark:brightness-200 dark:contrast-125 dark:drop-shadow-[0_2px_10px_rgba(59,130,246,0.25)] group-hover:scale-105" 
+              alt="MBI INVENTRA" 
+              className="h-9 w-9 rounded-full object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs transition-transform duration-200 group-hover:scale-105" 
             />
+            <span className="font-black text-slate-900 dark:text-white tracking-tight text-base hidden sm:inline">
+              MBI <span className="text-blue-600 dark:text-blue-400">INVENTRA</span>
+            </span>
           </Link>
           <nav className={`hidden md:flex items-center gap-6 text-sm font-bold ${
             isDark ? 'text-slate-300' : 'text-slate-600'
@@ -437,7 +440,7 @@ export const BlogListingPage: React.FC = () => {
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-7 w-auto object-contain transition-all duration-200 dark:brightness-200 dark:contrast-125 dark:drop-shadow-[0_2px_10px_rgba(59,130,246,0.25)]" 
+              className="h-8 w-8 rounded-full object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shadow-xs" 
             />
             <span>© 2026 MBI INVENTRA. Enterprise Live Sync Pharmacy POS &amp; ERP.</span>
           </div>

@@ -82,8 +82,15 @@ export const Navbar: React.FC = () => {
             <img 
               src="/mbi-logo.png" 
               alt="MBI INVENTRA" 
-              className="h-8 sm:h-9 w-auto object-contain dark:brightness-200" 
+              className="h-9 sm:h-10 w-auto object-contain rounded-full shadow-xs group-hover:scale-105 transition-transform" 
             />
+            <div className="hidden sm:flex flex-col">
+              <div className="flex items-center gap-1 font-black text-base tracking-tight leading-none text-slate-900 dark:text-white">
+                <span className="text-blue-600 dark:text-blue-400">MBI</span>
+                <span>INVENTRA</span>
+              </div>
+              <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase mt-0.5">Pharma POS &amp; ERP</span>
+            </div>
           </Link>
 
           {/* Desktop Navigation Links */}

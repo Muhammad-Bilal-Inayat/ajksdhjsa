@@ -45,14 +45,23 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToSection }) => {
                 <img 
                   src={config.brand.logoUrl} 
                   alt={config.brand.name || 'MBI INVENTRA'} 
-                  className="h-9 w-auto object-contain dark:brightness-200" 
+                  className="h-10 w-auto object-contain rounded-full shadow-xs" 
                 />
               ) : (
-                <img 
-                  src="/mbi-logo.png" 
-                  alt="MBI INVENTRA" 
-                  className="h-9 w-auto object-contain dark:brightness-200" 
-                />
+                <div className="flex items-center gap-2.5">
+                  <img 
+                    src="/mbi-logo.png" 
+                    alt="MBI INVENTRA" 
+                    className="h-10 w-auto object-contain rounded-full shadow-xs" 
+                  />
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1 font-black text-lg tracking-tight leading-none text-slate-900 dark:text-white">
+                      <span className="text-blue-600 dark:text-blue-400">MBI</span>
+                      <span>INVENTRA</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase mt-0.5">Pharma POS &amp; ERP</span>
+                  </div>
+                </div>
               )}
             </Link>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">

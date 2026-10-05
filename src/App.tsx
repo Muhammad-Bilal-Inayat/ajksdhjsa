@@ -26,6 +26,7 @@ import { LicenseActivationModal } from './components/modals/LicenseActivationMod
 import { DeviceUnauthorizedModal } from './components/common/DeviceUnauthorizedModal';
 import { LicenseMilestoneAlert } from './components/common/LicenseMilestoneAlert';
 import { GlobalBroadcastPopupModal } from './components/common/GlobalBroadcastPopupModal';
+import { HomePagePopupModal } from './components/landing/HomePagePopupModal';
 import { AppLockModal } from './components/common/AppLockModal';
 import { ShieldAlert, ArrowLeft, RefreshCw, RotateCcw, Lock } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -648,6 +649,7 @@ export default function App() {
                   <MbiAiWidget />
                   <LicenseMilestoneAlert />
                   <GlobalBroadcastPopupModal />
+                  <HomePagePopupModal />
                   <TrialExpiryHardLockOverlay />
                   <DeviceAuthorizationOverlay />
                   <AppRoutes />

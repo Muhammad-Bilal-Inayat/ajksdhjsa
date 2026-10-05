@@ -169,6 +169,21 @@ export function getMasterVault(): DatabaseSync {
       seen_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE (notification_id, tenant_id, hwid)
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_homepage_popup (
+      id TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      body TEXT NOT NULL,
+      badge_text TEXT DEFAULT 'SPECIAL ANNOUNCEMENT',
+      image_url TEXT,
+      cta_label TEXT DEFAULT 'Get Started Now',
+      cta_url TEXT DEFAULT '/register',
+      type TEXT DEFAULT 'special_offer',
+      auto_show_delay_ms INTEGER DEFAULT 1200,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // Dynamically add any missing columns so SQLite master hub never rejects payload fields
@@ -510,6 +525,44 @@ export function upsertTenantUser(tenantId: string, user: any): any {
     user.createdAt || new Date().toISOString()
   );
 
+  // Also mirror to Master Hub mbi_users for central control
+  try {
+    const master = getMasterVault();
+    master.prepare(`
+      INSERT INTO mbi_users (
+        id, tenant_id, name, username, email, phone, role, is_primary_owner,
+        passcode, status, is_online, is_kill_switch_active, permissions, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        username = excluded.username,
+        email = excluded.email,
+        phone = excluded.phone,
+        role = excluded.role,
+        passcode = excluded.passcode,
+        status = excluded.status,
+        is_online = excluded.is_online,
+        is_kill_switch_active = excluded.is_kill_switch_active,
+        permissions = excluded.permissions,
+        updated_at = datetime('now');
+    `).run(
+      user.id,
+      tenantId,
+      user.name,
+      user.username || user.name.toLowerCase().replace(/\s+/g, '_'),
+      user.email || '',
+      user.phone || '',
+      user.role || 'Cashier',
+      user.isPrimaryOwner || user.is_primary_owner ? 1 : 0,
+      user.passcode || '1234',
+      user.status === 'Inactive' || user.is_active === 0 ? 'Inactive' : 'Active',
+      user.isOnline || user.is_online ? 1 : 0,
+      user.isKillSwitchActive || user.is_kill_switch_active ? 1 : 0,
+      permissionsStr,
+      user.createdAt || new Date().toISOString()
+    );
+  } catch (mErr) {}
+
   return user;
 }
 
@@ -523,6 +576,10 @@ export function deleteTenantUser(tenantId: string, userId: string): boolean {
     return false;
   }
   vault.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  try {
+    const master = getMasterVault();
+    master.prepare("DELETE FROM mbi_users WHERE id = ?").run(userId);
+  } catch (e) {}
   return true;
 }
 

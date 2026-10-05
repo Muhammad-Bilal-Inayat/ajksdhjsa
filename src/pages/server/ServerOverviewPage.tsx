@@ -111,6 +111,7 @@ import { SyncDiagnosticStatusCard } from '../../components/server/SyncDiagnostic
 import { AiHumanSupportMasterHub } from '../../components/server/AiHumanSupportMasterHub';
 import { UnifiedUserControlHub } from '../../components/server/UnifiedUserControlHub';
 import { MasterBroadcastCenterTab } from '../../components/admin/MasterBroadcastCenterTab';
+import { MasterHomePagePopupTab } from '../../components/admin/MasterHomePagePopupTab';
 import { MasterMedicineSeederTab } from '../../components/admin/MasterMedicineSeederTab';
 import { EmailNotificationManagerPanel } from '../../components/server/EmailNotificationManagerPanel';
 import { CreditCard, BookOpen, Sparkles, ShieldAlert, AlertTriangle, Play, Terminal, Headphones, Bot, Megaphone, Pill, Mail } from 'lucide-react';
@@ -1393,6 +1394,18 @@ export const ServerOverviewPage: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setActiveServerTab('homepage_popup' as any)}
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                (activeServerTab as string) === 'homepage_popup'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>🌐 Home Page Popup</span>
+            </button>
+
+            <button
               onClick={() => setActiveServerTab('pricing_manager')}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeServerTab === 'pricing_manager'
@@ -1447,6 +1460,13 @@ export const ServerOverviewPage: React.FC = () => {
       {activeServerTab === 'broadcast' && (
         <div className="w-full animate-in fade-in duration-150">
           <MasterBroadcastCenterTab />
+        </div>
+      )}
+
+      {/* RENDER TAB: 🌐 HOME PAGE PUBLIC POPUP CENTER */}
+      {(activeServerTab as string) === 'homepage_popup' && (
+        <div className="w-full animate-in fade-in duration-150">
+          <MasterHomePagePopupTab />
         </div>
       )}
 

@@ -369,7 +369,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
       owner_email: owner_email || ownerEmail || email || '',
       city: city || 'Lahore',
       address: address || '',
-      plan: plan || 'Business',
+      plan: plan || 'Basic',
       status: status || 'Active',
       drug_license_no: drug_license_no || '',
       ntn_number: ntn_number || '',
@@ -429,7 +429,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
           owner_email || ownerEmail || email || '',
           city || 'Lahore',
           address || '',
-          plan || 'Business',
+          plan || 'Basic',
           status || 'Active',
           drug_license_no || '',
           ntn_number || '',
@@ -466,7 +466,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
           owner_email || ownerEmail || email || '',
           city || 'Lahore',
           address || '',
-          plan || 'Business',
+          plan || 'Basic',
           status || 'Active',
           drug_license_no || '',
           ntn_number || '',
@@ -489,7 +489,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
         const existingLic: any = masterDb.prepare("SELECT id FROM mbi_licenses WHERE license_key = ? OR tenant_id = ? LIMIT 1").get(`lic_${effectiveTenantId}`, effectiveTenantId);
         if (existingLic) {
           masterDb.prepare("UPDATE mbi_licenses SET plan = ?, status = ?, expires_at = ? WHERE license_key = ? OR tenant_id = ?").run(
-            plan || 'Business',
+            plan || 'Basic',
             status || 'Active',
             cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : '2099-12-31',
             `lic_${effectiveTenantId}`,
@@ -506,7 +506,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
             name || 'Pharmacy Store',
             owner_name || ownerName || 'Store Owner',
             owner_phone || ownerPhone || phone || '',
-            plan || 'Business',
+            plan || 'Basic',
             status || 'Active',
             cleanExpiry && cleanExpiry !== 'Lifetime' ? cleanExpiry.slice(0, 10) : '2099-12-31'
           );
@@ -561,7 +561,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
             owner_email || ownerEmail || email || '',
             city || 'Lahore',
             address || '',
-            plan || 'Business',
+            plan || 'Basic',
             status || 'Active',
             drug_license_no || '',
             ntn_number || '',
@@ -577,7 +577,7 @@ fleetRouter.post('/tenants/save', async (req: TenantRequest, res: Response): Pro
             `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = VALUES(status), updated_at = CURRENT_TIMESTAMP;`,
-            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || 'Business', status || 'Active']
+            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || 'Basic', status || 'Active']
           );
         } catch (licErr) {}
 
@@ -913,7 +913,7 @@ fleetRouter.post('/leads/approve', async (req: TenantRequest, res: Response): Pr
 
     const lead = leadRows[0];
     const tenantId = `tenant_${lead.phone.replace(/[^0-9]/g, '') || Date.now()}`;
-    const cleanPlan = plan || lead.selected_plan || 'Business';
+    const cleanPlan = plan || lead.selected_plan || 'Basic';
 
     // 1. Provision Tenant
     await pool.query(
@@ -1070,7 +1070,34 @@ fleetRouter.get('/users', async (req: TenantRequest, res: Response): Promise<voi
   try {
     const usersMap = new Map<string, any>();
 
-    // 1. Read from MariaDB mbi_users
+    // 1. Read from SQLite Master Hub Vault (0ms native retrieval)
+    try {
+      const masterDb = getMasterVault();
+      const sqliteRows: any[] = masterDb.prepare(`
+        SELECT u.id, u.tenant_id, u.name, u.username, u.email, u.phone,
+               COALESCE(u.email, u.phone, u.username) as emailOrPhone,
+               u.role, u.status, u.is_kill_switch_active as isKillSwitchActive,
+               u.passcode, u.is_online as isOnline, u.permissions,
+               t.name as storeName, t.plan as storePlan
+        FROM mbi_users u
+        LEFT JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
+        ORDER BY u.created_at DESC;
+      `).all();
+
+      if (Array.isArray(sqliteRows)) {
+        for (const r of sqliteRows) {
+          usersMap.set(r.id, {
+            ...r,
+            installationId: r.tenant_id,
+            isOnline: Boolean(r.isOnline === 1),
+            passcode: r.passcode || '1234',
+            storeName: r.storeName || 'Pharmacy Store'
+          });
+        }
+      }
+    } catch (sqErr) {}
+
+    // 2. Read from MariaDB mbi_users (if connected)
     if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
@@ -1085,11 +1112,14 @@ fleetRouter.get('/users', async (req: TenantRequest, res: Response): Promise<voi
         );
         if (Array.isArray(rows)) {
           for (const r of rows) {
+            const existing = usersMap.get(r.id);
             usersMap.set(r.id, {
+              ...existing,
               ...r,
               installationId: r.tenant_id,
               isOnline: true,
-              passcode: '1234'
+              passcode: existing?.passcode || r.passcode || '1234',
+              storeName: r.storeName || existing?.storeName || 'Pharmacy Store'
             });
           }
         }

@@ -31,7 +31,7 @@ import { cmsRouter } from './server/routes/cmsRoutes';
 import { backupRouter } from './server/routes/backupRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
-import { getBroadcastHistoryController, markBroadcastSeenController } from './server/controllers/broadcastController';
+import { getBroadcastHistoryController, markBroadcastSeenController, getHomePagePopupController } from './server/controllers/broadcastController';
 
 async function startServer() {
   const app = express();
@@ -92,6 +92,7 @@ async function startServer() {
   app.use('/api/cms', cmsRouter);
   app.use('/api/master', backupRouter);
   app.use('/api', backupRouter);
+  app.get(['/api/homepage-popup', '/api/public/homepage-popup'], getHomePagePopupController);
 
   // Helper function to sanitize keys and prevent prototype pollution
   function isSafeKey(key: string): boolean {

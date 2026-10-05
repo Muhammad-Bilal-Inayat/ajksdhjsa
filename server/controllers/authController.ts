@@ -316,17 +316,32 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       });
     } catch (sseErr) {}
 
+    // Extract tenant plan and store name from Master DB
+    let tenantPlan = 'Basic';
+    let tenantStoreName = 'Pharmacy Store';
+    try {
+      const masterDb = getMasterVault();
+      const tRow: any = masterDb.prepare('SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;').get(tenantId, tenantId);
+      if (tRow) {
+        if (tRow.name) tenantStoreName = tRow.name;
+        if (tRow.plan) tenantPlan = tRow.plan;
+      }
+    } catch (e) {}
+
     // Construct signed JWT payload
     const tokenPayload = {
       userId: authenticatedUser.id,
       tenantId,
-      role: authenticatedUser.role,
+      role: authenticatedUser.role || 'Staff',
       name: authenticatedUser.name,
-      email: authenticatedUser.email_or_phone || authenticatedUser.email,
+      username: authenticatedUser.username || authenticatedUser.name,
+      email: authenticatedUser.email_or_phone || authenticatedUser.email || authenticatedUser.phone,
       firmId: firmId || 'firm_main',
       deviceId: clientHwid,
+      plan: tenantPlan,
+      storeName: tenantStoreName,
       isPrimaryAdmin: (authenticatedUser.role || '').toLowerCase().includes('admin') || (authenticatedUser.role || '').toLowerCase().includes('owner'),
-      permissions: authenticatedUser.allowed_modules ? JSON.parse(authenticatedUser.allowed_modules || '[]') : ['ALL_PERMISSIONS']
+      permissions: authenticatedUser.permissions ? (typeof authenticatedUser.permissions === 'string' ? JSON.parse(authenticatedUser.permissions) : authenticatedUser.permissions) : (authenticatedUser.allowed_modules ? JSON.parse(authenticatedUser.allowed_modules) : ['ALL_PERMISSIONS'])
     };
 
     const token = signJwt(tokenPayload, 86400 * 7);
@@ -336,13 +351,21 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       token,
       user: {
         userId: tokenPayload.userId,
+        id: tokenPayload.userId,
         tenantId: tokenPayload.tenantId,
+        tenant_id: tokenPayload.tenantId,
         role: tokenPayload.role,
         name: tokenPayload.name,
         fullName: tokenPayload.name,
+        username: tokenPayload.username,
         email: tokenPayload.email,
+        phone: authenticatedUser.phone || '',
         firmId: tokenPayload.firmId,
+        plan: tenantPlan,
+        storeName: tenantStoreName,
         isPrimaryAdmin: tokenPayload.isPrimaryAdmin,
+        isPrimaryOwner: Boolean(authenticatedUser.is_primary_owner === 1 || authenticatedUser.role === 'Owner'),
+        permissions: tokenPayload.permissions,
         hwid: clientHwid
       }
     });
@@ -373,6 +396,11 @@ export async function registerTrialController(req: TenantRequest, res: Response)
 
     if (!cleanStoreName) {
       res.status(400).json({ success: false, error: 'Pharmacy / Store Name is required' });
+      return;
+    }
+
+    if (!email || !email.trim()) {
+      res.status(400).json({ success: false, error: 'Email Address is required' });
       return;
     }
 

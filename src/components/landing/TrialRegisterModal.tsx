@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   X, CheckCircle2, ShieldCheck, Sparkles, Store, User, 
-  MapPin, Phone, Lock, ArrowRight, RefreshCw, AlertCircle 
+  MapPin, Phone, Mail, Lock, ArrowRight, RefreshCw, AlertCircle 
 } from 'lucide-react';
 
 interface TrialRegisterModalProps {
@@ -14,12 +14,13 @@ interface TrialRegisterModalProps {
 export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({ 
   isOpen, 
   onClose,
-  selectedPlan = '10-Day Free Trial (All Features Unlocked)'
+  selectedPlan = 'Basic'
 }) => {
   const navigate = useNavigate();
   const [storeName, setStoreName] = useState('');
   const [ownerName, setOwnerName] = useState('');
-  const [city, setCity] = useState('Lahore');
+  const [city, setCity] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   
@@ -31,8 +32,8 @@ export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!storeName.trim() || !phone.trim() || !password.trim()) {
-      setError('Please fill in Pharmacy Name, Phone Number, and Password.');
+    if (!storeName.trim() || !phone.trim() || !email.trim() || !password.trim()) {
+      setError('Please fill in Pharmacy Name, Email Address, Phone Number, and Password.');
       return;
     }
 
@@ -47,6 +48,7 @@ export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({
           storeName: storeName.trim(),
           ownerName: (ownerName || storeName).trim(),
           city: city.trim(),
+          email: email.trim(),
           phone: phone.trim(),
           password: password.trim(),
           plan: selectedPlan
@@ -175,7 +177,7 @@ export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({
                 </div>
               </div>
 
-              {/* Grid: Phone & Password */}
+              {/* Grid: Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -196,19 +198,37 @@ export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Login Password <span className="text-rose-500">*</span>
+                    Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
-                      type="password"
+                      type="email"
                       required
-                      placeholder="Create master passcode"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="store@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Login Password <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="password"
+                    required
+                    placeholder="Create master passcode"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               </div>
             </div>

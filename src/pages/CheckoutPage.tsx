@@ -55,7 +55,7 @@ export const CheckoutPage: React.FC = () => {
   const [ownerName, setOwnerName] = useState('');
   const [username, setUsername] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
-  const [city, setCity] = useState('Lahore');
+  const [city, setCity] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -158,6 +158,10 @@ export const CheckoutPage: React.FC = () => {
     }
     if (!whatsapp.trim()) {
       setErrorMessage('Please enter your WhatsApp / Mobile Number.');
+      return;
+    }
+    if (!email.trim()) {
+      setErrorMessage('Please enter your valid Email Address.');
       return;
     }
     if (!password.trim()) {
@@ -587,12 +591,13 @@ export const CheckoutPage: React.FC = () => {
                 {/* Email */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Email Address (Optional)
+                    Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="store@example.com"

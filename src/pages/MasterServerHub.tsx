@@ -42,6 +42,7 @@ import { Master2faSettingsModal } from '../components/admin/Master2faSettingsMod
 import { AiControlTowerHealingHub } from '../components/server/AiControlTowerHealingHub';
 import { EmailNotificationManagerPanel } from '../components/server/EmailNotificationManagerPanel';
 import { MasterBroadcastCenterTab } from '../components/admin/MasterBroadcastCenterTab';
+import { MasterHomePagePopupTab } from '../components/admin/MasterHomePagePopupTab';
 import { ManualTenantBackupRestoreHub } from '../components/server/ManualTenantBackupRestoreHub';
 import { verifyTotpToken } from '../services/totpService';
 import { Mail, Megaphone } from 'lucide-react';
@@ -49,6 +50,7 @@ import { Mail, Megaphone } from 'lucide-react';
 export type ServerTabKey = 
   | 'master_control'
   | 'user_broadcasts'
+  | 'homepage_popup'
   | 'lan_hub'
   | 'users_control'
   | 'ai_support'
@@ -107,6 +109,7 @@ const ALL_25_TABS: TabDefinition[] = [
   { id: 'backup_vault', label: 'Tenant Backups & Restore Hub', category: 'System & Sync', icon: Archive, description: 'Upload, manage & 1-click restore encrypted SQLite/IndexedDB backups for each company' },
 
   // 4. Commerce & CMS
+  { id: 'homepage_popup', label: 'Home Page Public Popup', category: 'Commerce & CMS', icon: Sparkles, description: 'Manage separate public announcement popup, banners, offers & notifications for Landing / Home Page visitors only' },
   { id: 'database', label: 'Database & Catalog Seeder', category: 'Commerce & CMS', icon: Database, description: '15,000+ Pakistani pharma catalog & DDL migrations' },
   { id: 'site_cms', label: 'Public Site & CMS Editor', category: 'Commerce & CMS', icon: Globe, description: 'Landing page editor, banners & announcements' },
   { id: 'printer_templates', label: 'Master Printer Presets', category: 'Commerce & CMS', icon: Printer, description: '80mm/58mm thermal receipts & A4 tax invoices' },
@@ -135,6 +138,9 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
       try {
         const params = new URLSearchParams(window.location.search);
         const urlTab = params.get('tab');
+        if (urlTab === 'homepage_popup' || urlTab === 'home_popup' || urlTab === 'landing_popup' || urlTab === 'public_popup') {
+          return 'homepage_popup';
+        }
         if (urlTab === 'broadcast' || urlTab === 'user_broadcasts' || urlTab === 'broadcasts' || urlTab === 'popups') {
           return 'user_broadcasts';
         }
@@ -543,6 +549,8 @@ export function MasterServerHub({ initialTab }: { initialTab?: ServerTabKey } = 
         return <MasterControlSection onNotify={handleNotify} />;
       case 'user_broadcasts':
         return <MasterBroadcastCenterTab isDarkMode={theme === 'dark'} />;
+      case 'homepage_popup':
+        return <MasterHomePagePopupTab isDarkMode={theme === 'dark'} />;
       case 'lan_hub':
         return <LanMultiTerminalHub onNotify={handleNotify} />;
       case 'users_control':

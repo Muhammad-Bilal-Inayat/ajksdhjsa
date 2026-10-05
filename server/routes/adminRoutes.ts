@@ -17,7 +17,9 @@ import {
   markBroadcastSeenController,
   getBroadcastReceiptsController,
   resendBroadcastController,
-  deleteBroadcastController
+  deleteBroadcastController,
+  getHomePagePopupController,
+  saveHomePagePopupController
 } from '../controllers/broadcastController';
 import {
   getCatalogMedicinesController,
@@ -1869,6 +1871,8 @@ adminRouter.post('/broadcasts/:id/seen', markBroadcastSeenController);
 adminRouter.post('/notifications/:id/mark-seen', markBroadcastSeenController);
 adminRouter.delete('/broadcast/:id', deleteBroadcastController);
 adminRouter.delete('/broadcasts/:id', deleteBroadcastController);
+adminRouter.get('/homepage-popup', getHomePagePopupController);
+adminRouter.post('/homepage-popup', saveHomePagePopupController);
 
 /**
  * Devices Management API

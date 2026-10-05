@@ -33,7 +33,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
   const [ownerName, setOwnerName] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('Sargodha');
+  const [city, setCity] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -63,6 +63,10 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
     }
     if (!phone.trim()) {
       setError('Please enter your WhatsApp or Mobile Number.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please enter a valid Email address.');
       return;
     }
     if (!password.trim()) {
@@ -368,12 +372,13 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-0.5 block">
-                    Email Address <span className="text-slate-400 font-normal text-[10px]">(Optional)</span>
+                    Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="store@domain.com"

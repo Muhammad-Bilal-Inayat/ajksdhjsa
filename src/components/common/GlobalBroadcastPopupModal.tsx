@@ -168,9 +168,24 @@ export function GlobalBroadcastPopupModal() {
   };
 
   const checkPendingBroadcasts = async () => {
-    // Suppress popups ONLY on the Master Infrastructure console (/server & /master)
+    // Suppress in-app tenant/user popups on Public Pages (Home, Landing, Login, Register, Checkout, Blog) and Master Console (/server, /master)
     const path = window.location.pathname.toLowerCase();
-    if (path.startsWith('/server') || path.startsWith('/master')) {
+    const isPublicOrServerRoute = 
+      path === '' ||
+      path === '/' || 
+      path === '/home' || 
+      path === '/site' || 
+      path === '/landing' || 
+      path === '/plans' || 
+      path === '/checkout' || 
+      path === '/login' || 
+      path === '/register' || 
+      path.startsWith('/blog') ||
+      path.startsWith('/server') || 
+      path.startsWith('/master');
+
+    if (isPublicOrServerRoute) {
+      if (activeBroadcast) setActiveBroadcast(null);
       return;
     }
 
@@ -218,12 +233,24 @@ export function GlobalBroadcastPopupModal() {
     const handleSseBroadcast = (e: CustomEvent<BroadcastPayload>) => {
       const b = e.detail;
       if (!b || !b.id) return;
+      if ((b as any).entity === 'homepage_popup' || (b as any).type === 'HOMEPAGE_POPUP_UPDATED') return;
 
       const path = window.location.pathname.toLowerCase();
-      // Suppress only on server or master console
-      if (path.startsWith('/server') || path.startsWith('/master')) {
-        return;
-      }
+      const isPublicOrServerRoute = 
+        path === '' ||
+        path === '/' || 
+        path === '/home' || 
+        path === '/site' || 
+        path === '/landing' || 
+        path === '/plans' || 
+        path === '/checkout' || 
+        path === '/login' || 
+        path === '/register' || 
+        path.startsWith('/blog') ||
+        path.startsWith('/server') || 
+        path.startsWith('/master');
+
+      if (isPublicOrServerRoute) return;
 
       const ackKey = `mbi_bcast_ack_${b.id}`;
       const seenKey = `mbi_broadcast_seen_${b.id}`;
@@ -246,8 +273,18 @@ export function GlobalBroadcastPopupModal() {
     };
   }, []);
 
-  // Suppress display only on master admin console
+  // Suppress display on Home Page, Public Landing Pages, and Master Admin Console
   const isExcludedRoute = 
+    currentRoute === '' ||
+    currentRoute === '/' || 
+    currentRoute === '/home' || 
+    currentRoute === '/site' || 
+    currentRoute === '/landing' || 
+    currentRoute === '/plans' || 
+    currentRoute === '/checkout' || 
+    currentRoute === '/login' || 
+    currentRoute === '/register' || 
+    currentRoute.startsWith('/blog') ||
     currentRoute.startsWith('/server') || 
     currentRoute.startsWith('/master');
 

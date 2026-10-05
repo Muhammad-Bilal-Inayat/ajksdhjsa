@@ -592,3 +592,172 @@ export async function deleteBroadcastController(req: Request, res: Response): Pr
     res.status(500).json({ success: false, error: err?.message || 'Failed to delete broadcast' });
   }
 }
+
+/**
+ * GET /api/homepage-popup & /api/master/homepage-popup
+ * Fetch dedicated Home Page / Landing Page Popup configuration
+ */
+export async function getHomePagePopupController(req: Request, res: Response): Promise<void> {
+  try {
+    let popupConfig: any = null;
+
+    // 1. Check SQLite Master Hub
+    try {
+      const masterDb = getMasterVault();
+      const row: any = masterDb.prepare('SELECT * FROM mbi_homepage_popup ORDER BY updated_at DESC LIMIT 1;').get();
+      if (row) {
+        popupConfig = {
+          id: row.id,
+          enabled: Boolean(row.enabled),
+          title: row.title,
+          subtitle: row.subtitle || '',
+          body: row.body,
+          badgeText: row.badge_text || 'SPECIAL ANNOUNCEMENT',
+          imageUrl: row.image_url || '',
+          ctaLabel: row.cta_label || 'Get Started Now',
+          ctaUrl: row.cta_url || '/register',
+          type: row.type || 'special_offer',
+          autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
+          updatedAt: row.updated_at
+        };
+      }
+    } catch (e) {}
+
+    // 2. Fallback to local sync data
+    if (!popupConfig) {
+      const fallback = getLocalData();
+      if (fallback.homepage_popup) {
+        popupConfig = fallback.homepage_popup;
+      }
+    }
+
+    // Default configuration if none set yet
+    if (!popupConfig) {
+      popupConfig = {
+        id: 'hp_default_notice',
+        enabled: true,
+        title: 'Welcome to MBI INVENTRA Cloud POS',
+        subtitle: 'Experience 0ms Ultra-Fast Pharmacy Billing & Management',
+        body: 'Start your 10-day full access free trial with automated FEFO batching, thermal printing, and 100% offline desktop sync mode.',
+        badgeText: 'FREE 10-DAY TRIAL',
+        imageUrl: '',
+        ctaLabel: 'Claim 10-Day Free Trial',
+        ctaUrl: '/register',
+        type: 'special_offer',
+        autoShowDelayMs: 1500,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    res.json({
+      success: true,
+      popup: popupConfig
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to fetch homepage popup' });
+  }
+}
+
+/**
+ * POST /api/master/homepage-popup & /api/admin/homepage-popup
+ * Save / Update dedicated Home Page / Landing Page Popup configuration
+ */
+export async function saveHomePagePopupController(req: Request, res: Response): Promise<void> {
+  try {
+    const { 
+      id,
+      enabled = true, 
+      title, 
+      subtitle = '', 
+      body, 
+      badgeText = 'SPECIAL ANNOUNCEMENT',
+      imageUrl = '', 
+      ctaLabel = 'Get Started Now', 
+      ctaUrl = '/register', 
+      type = 'special_offer',
+      autoShowDelayMs = 1200
+    } = req.body || {};
+
+    if (!title || !body) {
+      res.status(400).json({ success: false, error: 'Title and body are required for Home Page popup' });
+      return;
+    }
+
+    const popupId = id || `hp_pop_${Date.now()}`;
+    const cleanEnabled = enabled === true || enabled === 1 || enabled === 'true' ? 1 : 0;
+    const updatedAt = new Date().toISOString();
+
+    const popupRecord = {
+      id: popupId,
+      enabled: Boolean(cleanEnabled),
+      title: String(title).trim(),
+      subtitle: String(subtitle || '').trim(),
+      body: String(body).trim(),
+      badgeText: String(badgeText || 'SPECIAL ANNOUNCEMENT').trim(),
+      imageUrl: String(imageUrl || '').trim(),
+      ctaLabel: String(ctaLabel || 'Get Started Now').trim(),
+      ctaUrl: String(ctaUrl || '/register').trim(),
+      type: String(type || 'special_offer'),
+      autoShowDelayMs: Number(autoShowDelayMs) || 1200,
+      updatedAt
+    };
+
+    // 1. Save to SQLite Master Vault
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_homepage_popup (
+          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, type, auto_show_delay_ms, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          enabled = excluded.enabled,
+          title = excluded.title,
+          subtitle = excluded.subtitle,
+          body = excluded.body,
+          badge_text = excluded.badge_text,
+          image_url = excluded.image_url,
+          cta_label = excluded.cta_label,
+          cta_url = excluded.cta_url,
+          type = excluded.type,
+          auto_show_delay_ms = excluded.auto_show_delay_ms,
+          updated_at = datetime('now');
+      `).run(
+        popupRecord.id,
+        cleanEnabled,
+        popupRecord.title,
+        popupRecord.subtitle,
+        popupRecord.body,
+        popupRecord.badgeText,
+        popupRecord.imageUrl,
+        popupRecord.ctaLabel,
+        popupRecord.ctaUrl,
+        popupRecord.type,
+        popupRecord.autoShowDelayMs
+      );
+    } catch (sqliteErr) {
+      console.warn('[SQLite Vault save homepage popup warning]:', sqliteErr);
+    }
+
+    // 2. Save to local sync fallback
+    const fallback = getLocalData();
+    fallback.homepage_popup = popupRecord;
+    saveLocalData(fallback);
+
+    // 3. Broadcast real-time SSE update specifically for homepage listeners
+    try {
+      broadcastGlobalEvent({
+        type: 'HOMEPAGE_POPUP_UPDATED',
+        entity: 'homepage_popup',
+        payload: popupRecord
+      });
+    } catch (e) {}
+
+    res.json({
+      success: true,
+      message: 'Home Page Public Popup saved & published successfully!',
+      popup: popupRecord
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save homepage popup' });
+  }
+}

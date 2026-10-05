@@ -94,7 +94,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
   const [ownerName, setOwnerName] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('Lahore');
+  const [city, setCity] = useState('');
   const [email, setEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -217,6 +217,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
     }
     if (!phone.trim()) {
       setRegisterError('Please enter your WhatsApp or Mobile Number.');
+      return;
+    }
+    if (!email.trim()) {
+      setRegisterError('Please enter a valid Email address.');
       return;
     }
     if (!registerPassword.trim()) {
@@ -667,12 +671,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
                 {/* 6. Email Address */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Email Address
+                    Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
+                      required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="store@example.com"

@@ -6,9 +6,55 @@ import {
   ShieldCheck, Smartphone, Search, Plus, Bell, User, Check
 } from 'lucide-react';
 
+// Direct asset imports guaranteeing 100% Vite build resolution & zero 404s
+import dashboardLightImg from '../../assets/landing/dashboard-light.png';
+import dashboardDarkImg from '../../assets/landing/dashboard-dark.png';
+import mobileLightImg from '../../assets/landing/mobile-light.png';
+import mobileDarkImg from '../../assets/landing/mobile-dark.png';
+
 export const HeroSection: React.FC = () => {
+  // Real-time reactive theme synchronization
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return document.documentElement.classList.contains('dark') || 
+             document.body.classList.contains('dark') ||
+             localStorage.getItem('theme') === 'dark' ||
+             localStorage.getItem('mbi_landing_theme') === 'dark';
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const updateThemeState = () => {
+      const isDomDark = document.documentElement.classList.contains('dark') || 
+                        document.body.classList.contains('dark') ||
+                        localStorage.getItem('theme') === 'dark' ||
+                        localStorage.getItem('mbi_landing_theme') === 'dark';
+      setIsDark(isDomDark);
+    };
+
+    updateThemeState();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.attributeName === 'class') {
+          updateThemeState();
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('storage', updateThemeState);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('storage', updateThemeState);
+    };
+  }, []);
+
   // Live dynamic ticker for sales badge (simulating real-time engine)
-  const [liveSales, setLiveSales] = useState(1694);
+  const [liveSales, setLiveSales] = useState(1882);
   const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
@@ -182,22 +228,20 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 {/* Laptop Screen Inner Canvas with Actual Screenshots */}
-                <div className="relative bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800">
+                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800 flex items-center justify-center">
                   
-                  {/* Light Mode Dashboard Screenshot (Visible only in Light Mode) */}
+                  {/* Active Web Dashboard Screenshot (Dark / Light) */}
                   <img 
-                    src="/assets/landing/dashboard-light.png" 
-                    alt="MBI INVENTRA Web Dashboard Light Mode" 
-                    className="w-full h-auto object-cover block dark:hidden rounded-b-xl transition-opacity duration-300"
+                    key={isDark ? 'dashboard-dark' : 'dashboard-light'}
+                    src={isDark ? dashboardDarkImg : dashboardLightImg} 
+                    alt={isDark ? "MBI INVENTRA Web Dashboard Dark Mode" : "MBI INVENTRA Web Dashboard Light Mode"} 
+                    className="w-full h-auto block object-cover rounded-b-xl transition-all duration-300 select-none"
                     loading="eager"
-                  />
-
-                  {/* Dark Mode Dashboard Screenshot (Visible only in Dark Mode) */}
-                  <img 
-                    src="/assets/landing/dashboard-dark.png" 
-                    alt="MBI INVENTRA Web Dashboard Dark Mode" 
-                    className="w-full h-auto object-cover hidden dark:block rounded-b-xl transition-opacity duration-300"
-                    loading="eager"
+                    onError={(e) => {
+                      // Fallback in case of runtime path resolution
+                      const target = e.target as HTMLImageElement;
+                      target.src = isDark ? '/landing/dashboard-dark.png' : '/landing/dashboard-light.png';
+                    }}
                   />
 
                   {/* Glass Sheen Gradient Overlay on Screen */}
@@ -224,22 +268,20 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 {/* Phone Screen Canvas with Actual Mobile App Screenshots */}
-                <div className="relative bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner">
+                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
                   
-                  {/* Light Mode Mobile Screenshot (Visible in Light Mode) */}
+                  {/* Active Mobile App Screenshot (Dark / Light) */}
                   <img 
-                    src="/assets/landing/mobile-light.png" 
-                    alt="MBI INVENTRA Mobile App Light Mode" 
-                    className="w-full h-auto object-cover block dark:hidden rounded-[1.6rem] transition-opacity duration-300"
+                    key={isDark ? 'mobile-dark' : 'mobile-light'}
+                    src={isDark ? mobileDarkImg : mobileLightImg} 
+                    alt={isDark ? "MBI INVENTRA Mobile App Dark Mode" : "MBI INVENTRA Mobile App Light Mode"} 
+                    className="w-full h-auto block object-cover rounded-[1.6rem] transition-all duration-300 select-none"
                     loading="eager"
-                  />
-
-                  {/* Dark Mode Mobile Screenshot (Visible in Dark Mode) */}
-                  <img 
-                    src="/assets/landing/mobile-dark.png" 
-                    alt="MBI INVENTRA Mobile App Dark Mode" 
-                    className="w-full h-auto object-cover hidden dark:block rounded-[1.6rem] transition-opacity duration-300"
-                    loading="eager"
+                    onError={(e) => {
+                      // Fallback in case of runtime path resolution
+                      const target = e.target as HTMLImageElement;
+                      target.src = isDark ? '/landing/mobile-dark.png' : '/landing/mobile-light.png';
+                    }}
                   />
 
                   {/* Phone Screen Glass Reflection */}

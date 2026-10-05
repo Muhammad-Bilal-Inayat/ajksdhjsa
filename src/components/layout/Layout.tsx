@@ -57,6 +57,7 @@ import {
 import { isPlanSufficient, getActiveTenantPlan } from '../../utils/planPermissions';
 import { useTransactionDock } from '../../contexts/TransactionDockContext';
 import { TransactionHostModalLayer } from './TransactionHostModalLayer';
+import toast from 'react-hot-toast';
 
 export const Layout: React.FC = () => {
   const { currentUser, activeRole, activeUser, business, tenant, tenantId, switchTenant, canPerform, canAccess, showTrialExpiredModal, setShowTrialExpiredModal } = useAuth();
@@ -225,15 +226,28 @@ export const Layout: React.FC = () => {
 
     const handleOpenSale = (e: Event) => {
       const customEvent = e as CustomEvent;
+      if (!canPerform('canCreateSale') && !canAccess('sale')) {
+        toast.error(`🔒 Sale Locked: Your role (${activeRole}) cannot create sale invoices.`);
+        return;
+      }
       openTransaction('Sale', customEvent.detail?.initialData);
     };
     const handleOpenPurchase = (e: Event) => {
       const customEvent = e as CustomEvent;
+      if (!canPerform('canCreatePurchase') && !canAccess('purchase')) {
+        toast.error(`🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`);
+        return;
+      }
       openTransaction('Purchase', customEvent.detail?.initialData);
     };
     const handleOpenGenericTx = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail?.type) {
+        const type = customEvent.detail.type;
+        if ((type === 'Purchase' || type === 'Purchase Return' || type === 'Purchase Order') && !canPerform('canCreatePurchase') && !canAccess('purchase')) {
+          toast.error(`🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase transactions.`);
+          return;
+        }
         openTransaction(customEvent.detail.type, customEvent.detail.initialData);
       }
     };
@@ -304,6 +318,11 @@ export const Layout: React.FC = () => {
       const pvtConfig = privateTransactionService.getConfig(tenantId || 'default');
       if (pvtConfig.enabled && !isServerRoute) {
         if (matchesKeyboardEvent(e, pvtConfig.shortcutKey || 'Alt+P') || (e.altKey && (e.key === 'p' || e.key === 'P'))) {
+          if (!canPerform('canCreateSale') && !canPerform('canCreatePurchase') && activeRole !== 'Primary Admin' && activeRole !== 'Secondary Admin' && activeRole !== 'Admin' && activeRole !== 'Store Manager') {
+            e.preventDefault();
+            toast.error(`🔒 Quick Panel Locked: Your role (${activeRole}) does not have access.`);
+            return;
+          }
           e.preventDefault();
           setIsQuickTransactionOpen(prev => !prev);
           return;
@@ -325,6 +344,53 @@ export const Layout: React.FC = () => {
         if (matched.requiredPlan && !isPlanSufficient(activePlanTier, matched.requiredPlan)) {
           return; // Block execution if plan does not permit this feature
         }
+
+        // Strict Sub-User Role Enforcement for Keyboard Shortcuts
+        if (matched.category === 'purchase' || matched.id.includes('purchase')) {
+          const isAllowedPurchase = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canCreatePurchase') || canAccess('purchase');
+          if (!isAllowedPurchase) {
+            e.preventDefault();
+            toast.error(`🔒 Shortcut Locked: Your role (${activeRole}) cannot access purchase actions.`);
+            return;
+          }
+        }
+
+        if (matched.category === 'accounts' || matched.id.includes('bank') || matched.id.includes('cash-in-hand')) {
+          const isAllowedBank = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canManageBankAccounts') || canAccess('bank');
+          if (!isAllowedBank) {
+            e.preventDefault();
+            toast.error(`🔒 Shortcut Locked: Your role (${activeRole}) cannot access accounts & banking.`);
+            return;
+          }
+        }
+
+        if (matched.category === 'reports' || matched.id.includes('report')) {
+          const isAllowedReports = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canViewFinancialReports') || canAccess('reports');
+          if (!isAllowedReports) {
+            e.preventDefault();
+            toast.error(`🔒 Shortcut Locked: Your role (${activeRole}) cannot view financial reports.`);
+            return;
+          }
+        }
+
+        if (matched.category === 'inventory' || matched.id.includes('item')) {
+          const isAllowedInventory = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canAddEditItems') || canAccess('items');
+          if (!isAllowedInventory) {
+            e.preventDefault();
+            toast.error(`🔒 Shortcut Locked: Your role (${activeRole}) cannot manage inventory items.`);
+            return;
+          }
+        }
+
+        if (matched.id.includes('expense')) {
+          const isAllowedExpense = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canManageExpenses') || canAccess('expenses');
+          if (!isAllowedExpense) {
+            e.preventDefault();
+            toast.error(`🔒 Shortcut Locked: Your role (${activeRole}) cannot manage expenses.`);
+            return;
+          }
+        }
+
         e.preventDefault();
         executeShortcutAction(matched, navigate);
         return;
@@ -343,7 +409,7 @@ export const Layout: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('open-audit-log-modal', handleOpenAuditModal);
     };
-  }, [navigate]);
+  }, [navigate, activeRole, canPerform, canAccess, tenantId, isServerRoute]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[#f1f5f9] dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans relative transition-colors duration-150">

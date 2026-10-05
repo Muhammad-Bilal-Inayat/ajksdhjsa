@@ -7,6 +7,9 @@ import {
   Home, Boxes, Users, Layers, Package
 } from 'lucide-react';
 
+import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
+
 interface MobileBottomNavProps {
   onOpenMobileMenu?: () => void;
   onOpenQuickMenu?: () => void;
@@ -17,15 +20,34 @@ interface MobileBottomNavProps {
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ 
   onOpenMobileMenu
 }) => {
+  const { activeRole, canPerform, canAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  const isHomeActive = location.pathname === '/user' || location.pathname === '/' || location.pathname === '/dashboard';
-  const isInventoryActive = location.pathname.startsWith('/items') || location.pathname.startsWith('/inventory') || location.pathname.startsWith('/top-products');
-  const isPartiesActive = location.pathname.startsWith('/parties') || location.pathname.startsWith('/accounts/ledgers');
+  const isPurchaseRoleAllowed = 
+    activeRole === 'Primary Admin' ||
+    activeRole === 'Secondary Admin' ||
+    activeRole === 'Admin' ||
+    activeRole === 'Store Manager' ||
+    activeRole === 'Pharmacist' ||
+    canPerform('canCreatePurchase') ||
+    canAccess('purchase');
 
-  const handleAction = (path: string, eventName?: string) => {
+  const isItemRoleAllowed =
+    activeRole === 'Primary Admin' ||
+    activeRole === 'Secondary Admin' ||
+    activeRole === 'Admin' ||
+    activeRole === 'Store Manager' ||
+    activeRole === 'Pharmacist' ||
+    canPerform('canAddEditItems') ||
+    canAccess('items');
+
+  const handleAction = (path: string, eventName?: string, isAllowed: boolean = true, lockMessage?: string) => {
+    if (!isAllowed) {
+      toast.error(lockMessage || `🔒 Action Locked: Your role (${activeRole}) cannot access this action.`);
+      return;
+    }
     setIsSheetOpen(false);
     navigate(path);
     if (eventName) {
@@ -168,21 +190,35 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 {/* + Purchase */}
                 <button
                   type="button"
-                  onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-transform cursor-pointer"
+                  onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-2xl text-white shadow-md active:scale-95 transition-transform cursor-pointer ${
+                    !isPurchaseRoleAllowed
+                      ? 'bg-gradient-to-b from-slate-500 to-slate-600 opacity-75'
+                      : 'bg-gradient-to-b from-blue-500 to-indigo-600 shadow-blue-500/25'
+                  }`}
                 >
-                  <ShoppingCart className="w-5 h-5 mb-1 stroke-[2.2]" />
-                  <span className="text-[11px] font-black tracking-tight">+ Purchase</span>
+                  <div className="relative">
+                    <ShoppingCart className="w-5 h-5 mb-1 stroke-[2.2]" />
+                    {!isPurchaseRoleAllowed && <span className="absolute -top-1.5 -right-2 text-[10px]">🔒</span>}
+                  </div>
+                  <span className="text-[11px] font-black tracking-tight">{!isPurchaseRoleAllowed ? '+ Purchase 🔒' : '+ Purchase'}</span>
                 </button>
 
                 {/* + Item */}
                 <button
                   type="button"
-                  onClick={() => handleAction('/items?action=add')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25 active:scale-95 transition-transform cursor-pointer"
+                  onClick={() => handleAction('/items?action=add', undefined, isItemRoleAllowed, `🔒 Item Locked: Your role (${activeRole}) cannot add inventory items.`)}
+                  className={`flex flex-col items-center justify-center p-2.5 rounded-2xl text-white shadow-md active:scale-95 transition-transform cursor-pointer ${
+                    !isItemRoleAllowed
+                      ? 'bg-gradient-to-b from-slate-500 to-slate-600 opacity-75'
+                      : 'bg-gradient-to-b from-emerald-500 to-teal-600 shadow-emerald-500/25'
+                  }`}
                 >
-                  <PackagePlus className="w-5 h-5 mb-1 stroke-[2.2]" />
-                  <span className="text-[11px] font-black tracking-tight">+ Item</span>
+                  <div className="relative">
+                    <PackagePlus className="w-5 h-5 mb-1 stroke-[2.2]" />
+                    {!isItemRoleAllowed && <span className="absolute -top-1.5 -right-2 text-[10px]">🔒</span>}
+                  </div>
+                  <span className="text-[11px] font-black tracking-tight">{!isItemRoleAllowed ? '+ Item 🔒' : '+ Item'}</span>
                 </button>
               </div>
 
@@ -329,15 +365,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Purchase */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase')}
+                    onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-2xs group-active:scale-90 transition-transform shrink-0 relative ${
+                      !isPurchaseRoleAllowed
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                        : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-900/40'
+                    }`}>
                       <ShoppingCart className="w-5.5 h-5.5 stroke-[1.8]" />
+                      {!isPurchaseRoleAllowed && <span className="absolute -top-1 -right-1 text-[10px]">🔒</span>}
                     </div>
                     <div className="w-full mt-1.5 px-0.5 min-h-[28px] flex items-start justify-center">
                       <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-[1.25] break-words line-clamp-2">
-                        Purchase Bills
+                        {!isPurchaseRoleAllowed ? 'Purchase 🔒' : 'Purchase Bills'}
                       </span>
                     </div>
                   </button>
@@ -345,18 +386,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Payment-Out */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/purchase/payment-out?action=add', 'mbi-open-payment-out')}
+                    onClick={() => handleAction('/purchase/payment-out?action=add', 'mbi-open-payment-out', isPurchaseRoleAllowed, `🔒 Payment-Out Locked: Your role (${activeRole}) cannot create payment vouchers.`)}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-2xs group-active:scale-90 transition-transform shrink-0 relative ${
+                      !isPurchaseRoleAllowed
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                        : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/40'
+                    }`}>
                       <div className="relative flex items-center justify-center">
                         <IndianRupee className="w-5 h-5 stroke-[1.8]" />
-                        <ArrowUpRight className="w-3 h-3 stroke-[2.5] absolute -top-1 -right-1 text-rose-600 dark:text-rose-400" />
+                        <ArrowUpRight className="w-3 h-3 stroke-[2.5] absolute -top-1 -right-1" />
                       </div>
+                      {!isPurchaseRoleAllowed && <span className="absolute -top-1 -right-1 text-[10px]">🔒</span>}
                     </div>
                     <div className="w-full mt-1.5 px-0.5 min-h-[28px] flex items-start justify-center">
                       <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-[1.25] break-words line-clamp-2">
-                        Payment-Out
+                        {!isPurchaseRoleAllowed ? 'Payment 🔒' : 'Payment-Out'}
                       </span>
                     </div>
                   </button>
@@ -364,15 +410,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Dr. Note/ Purchase Return */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/purchase/return?action=add')}
+                    onClick={() => handleAction('/purchase/return?action=add', undefined, isPurchaseRoleAllowed, `🔒 Purchase Return Locked: Your role (${activeRole}) cannot create purchase returns.`)}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-2xs group-active:scale-90 transition-transform shrink-0 relative ${
+                      !isPurchaseRoleAllowed
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/40'
+                    }`}>
                       <RotateCw className="w-5.5 h-5.5 stroke-[1.8]" />
+                      {!isPurchaseRoleAllowed && <span className="absolute -top-1 -right-1 text-[10px]">🔒</span>}
                     </div>
                     <div className="w-full mt-1.5 px-0.5 min-h-[28px] flex items-start justify-center">
                       <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-[1.25] break-words line-clamp-2">
-                        Purchase Return
+                        {!isPurchaseRoleAllowed ? 'Return 🔒' : 'Purchase Return'}
                       </span>
                     </div>
                   </button>
@@ -380,15 +431,20 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Purchase Order */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/purchase/order?action=add')}
+                    onClick={() => handleAction('/purchase/order?action=add', undefined, isPurchaseRoleAllowed, `🔒 Purchase Order Locked: Your role (${activeRole}) cannot create purchase orders.`)}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-100 dark:border-teal-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-2xs group-active:scale-90 transition-transform shrink-0 relative ${
+                      !isPurchaseRoleAllowed
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                        : 'bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border-teal-100 dark:border-teal-900/40'
+                    }`}>
                       <PackagePlus className="w-5.5 h-5.5 stroke-[1.8]" />
+                      {!isPurchaseRoleAllowed && <span className="absolute -top-1 -right-1 text-[10px]">🔒</span>}
                     </div>
                     <div className="w-full mt-1.5 px-0.5 min-h-[28px] flex items-start justify-center">
                       <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-[1.25] break-words line-clamp-2">
-                        Purchase Order
+                        {!isPurchaseRoleAllowed ? 'PO 🔒' : 'Purchase Order'}
                       </span>
                     </div>
                   </button>
@@ -408,7 +464,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Expenses */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/expenses?action=add', 'mbi-open-add-expense')}
+                    onClick={() => {
+                      const isAllowedExpense = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Store Manager' || activeRole === 'Pharmacist' || canPerform('canManageExpenses') || canAccess('expenses');
+                      handleAction('/expenses?action=add', 'mbi-open-add-expense', isAllowedExpense, `🔒 Expenses Locked: Your role (${activeRole}) cannot manage expenses.`);
+                    }}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
                     <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-100 dark:border-orange-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">

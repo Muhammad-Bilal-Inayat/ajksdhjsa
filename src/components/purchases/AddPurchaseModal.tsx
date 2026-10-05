@@ -153,7 +153,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
   onMinimizeChange,
   onSummaryChange
 }) => {
-  const { business, activeUser, tenant, tenantId } = useAuth();
+  const { business, activeUser, activeRole, canPerform, canAccess, tenant, tenantId } = useAuth();
   const { settings } = useSettings();
   let dockCtx: ReturnType<typeof useTransactionDock> | null = null;
   try {
@@ -907,6 +907,20 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
   // 7. Save Purchase Inward & Backend Engine
   const handleSavePurchase = async (mode: 'save' | 'save_and_new' | 'save_and_print' = 'save') => {
     if (!currentTab) return;
+
+    const isAllowed = 
+      activeRole === 'Primary Admin' ||
+      activeRole === 'Secondary Admin' ||
+      activeRole === 'Admin' ||
+      activeRole === 'Store Manager' ||
+      activeRole === 'Pharmacist' ||
+      canPerform('canCreatePurchase') ||
+      canAccess('purchase');
+
+    if (!isAllowed) {
+      emitToast(`🔒 Access Denied: Your role (${activeRole}) cannot save purchase bills.`, 'error');
+      return;
+    }
 
     const validItems = currentTab.items.filter(it => it.name && it.name.trim() !== '' && (Number(it.quantity) > 0 || Number(it.freeQuantity) > 0));
 

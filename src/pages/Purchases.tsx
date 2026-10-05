@@ -81,10 +81,22 @@ const PURCHASE_SUBMENUS: PurchaseSubMenuConfig[] = [
 ];
 
 export const Purchases: React.FC = () => {
-  const { business } = useAuth();
+  const { business, activeRole, canPerform, canAccess } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const isPurchaseRoleAllowed = useMemo(() => {
+    return (
+      activeRole === 'Primary Admin' ||
+      activeRole === 'Secondary Admin' ||
+      activeRole === 'Admin' ||
+      activeRole === 'Store Manager' ||
+      activeRole === 'Pharmacist' ||
+      canPerform('canCreatePurchase') ||
+      canAccess('purchase')
+    );
+  }, [activeRole, canPerform, canAccess]);
 
   // Orders, payments and master data state
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -244,6 +256,15 @@ export const Purchases: React.FC = () => {
   const actionParam = searchParams.get('action');
   useEffect(() => {
     if (actionParam === 'add') {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('action');
+      setSearchParams(newParams, { replace: true });
+
+      if (!isPurchaseRoleAllowed) {
+        showToast(`🔒 Access Restricted: Your role (${activeRole}) is not permitted to create purchase transactions.`);
+        return;
+      }
+
       if (activeSubView === 'payment-out') {
         setPrefillSupplierId(undefined);
         setPrefillSupplierName(undefined);
@@ -254,19 +275,20 @@ export const Purchases: React.FC = () => {
         setEditingOrder(null);
         setIsAddModalOpen(true);
       }
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('action');
-      setSearchParams(newParams, { replace: true });
     }
 
     const handleOpenPurchase = () => {
+      if (!isPurchaseRoleAllowed) {
+        showToast(`🔒 Access Restricted: Your role (${activeRole}) is not permitted to create purchase bills.`);
+        return;
+      }
       setEditingOrder(null);
       setIsAddModalOpen(true);
     };
 
     window.addEventListener('mbi-open-add-purchase', handleOpenPurchase);
     return () => window.removeEventListener('mbi-open-add-purchase', handleOpenPurchase);
-  }, [actionParam, activeSubView]);
+  }, [actionParam, activeSubView, isPurchaseRoleAllowed, activeRole]);
 
   useEffect(() => {
     loadAllData();
@@ -1010,10 +1032,14 @@ export const Purchases: React.FC = () => {
               )}
             </div>
 
-            {/* Dynamic Primary "+ Add" Button */}
+            {/* Dynamic Primary "+ Add" Button with Role Lock */}
             <button
               type="button"
               onClick={() => {
+                if (!isPurchaseRoleAllowed) {
+                  showToast(`🔒 Action Locked: Your role (${activeRole}) cannot create purchase transactions.`);
+                  return;
+                }
                 if (activeSubView === 'payment-out') {
                   setPrefillSupplierId(undefined);
                   setPrefillSupplierName(undefined);
@@ -1026,13 +1052,20 @@ export const Purchases: React.FC = () => {
                 }
               }}
               className={`inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-black shadow-md hover:shadow-lg focus:outline-none focus:ring-2 transition-all active:scale-95 cursor-pointer text-white shrink-0 ml-auto sm:ml-0 whitespace-nowrap ${
-                activeSubView === 'payment-out' 
-                  ? 'bg-rose-600 hover:bg-rose-700 focus:ring-rose-500' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                !isPurchaseRoleAllowed
+                  ? 'bg-slate-500 hover:bg-slate-600 focus:ring-slate-400 opacity-80 cursor-not-allowed'
+                  : activeSubView === 'payment-out' 
+                    ? 'bg-rose-600 hover:bg-rose-700 focus:ring-rose-500' 
+                    : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
               }`}
+              title={!isPurchaseRoleAllowed ? `🔒 Locked for ${activeRole}` : currentSubMenu.btnLabel}
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>{currentSubMenu.btnLabel}</span>
+              {!isPurchaseRoleAllowed ? (
+                <span className="text-xs">🔒</span>
+              ) : (
+                <Plus className="w-4 h-4 stroke-[3]" />
+              )}
+              <span>{!isPurchaseRoleAllowed ? `${currentSubMenu.btnLabel} (Locked)` : currentSubMenu.btnLabel}</span>
             </button>
           </div>
 

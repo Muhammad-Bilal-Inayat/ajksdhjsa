@@ -14,6 +14,7 @@ import {
   saveStoredCategories, 
   saveStoredExpenseItems 
 } from '../lib/expenseDefaults';
+import { useAuth } from '../contexts/AuthContext';
 import { AddExpenseModal } from '../components/expenses/AddExpenseModal';
 import { ExpensePrintModal } from '../components/expenses/ExpensePrintModal';
 import { ExpenseShareModal } from '../components/expenses/ExpenseShareModal';
@@ -24,6 +25,20 @@ import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
 
 export const Expenses: React.FC = () => {
+  const { activeRole, canPerform, canAccess } = useAuth();
+  
+  const isExpenseRoleAllowed = useMemo(() => {
+    return (
+      activeRole === 'Primary Admin' ||
+      activeRole === 'Secondary Admin' ||
+      activeRole === 'Admin' ||
+      activeRole === 'Store Manager' ||
+      activeRole === 'Pharmacist' ||
+      canPerform('canManageExpenses') ||
+      canAccess('expenses')
+    );
+  }, [activeRole, canPerform, canAccess]);
+
   // Main state
   const [activeTab, setActiveTab] = useState<'CATEGORY' | 'ITEMS'>('CATEGORY');
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -61,21 +76,30 @@ export const Expenses: React.FC = () => {
   const actionParam = searchParams.get('action');
   useEffect(() => {
     if (actionParam === 'add') {
-      setEditingExpense(null);
-      setIsAddExpenseOpen(true);
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('action');
       setSearchParams(newParams, { replace: true });
+
+      if (!isExpenseRoleAllowed) {
+        showToast(`🔒 Access Restricted: Your role (${activeRole}) cannot manage expenses.`);
+        return;
+      }
+      setEditingExpense(null);
+      setIsAddExpenseOpen(true);
     }
 
     const handleOpenExpense = () => {
+      if (!isExpenseRoleAllowed) {
+        showToast(`🔒 Access Restricted: Your role (${activeRole}) cannot create expenses.`);
+        return;
+      }
       setEditingExpense(null);
       setIsAddExpenseOpen(true);
     };
 
     window.addEventListener('mbi-open-add-expense', handleOpenExpense);
     return () => window.removeEventListener('mbi-open-add-expense', handleOpenExpense);
-  }, [actionParam]);
+  }, [actionParam, isExpenseRoleAllowed, activeRole]);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -486,16 +510,29 @@ export const Expenses: React.FC = () => {
                 />
               </div>
 
-              {/* High-Contrast Accessible Button: + Add Expense */}
+              {/* High-Contrast Accessible Button: + Add Expense with Role Lock */}
               <button
                 onClick={() => {
+                  if (!isExpenseRoleAllowed) {
+                    showToast(`🔒 Action Locked: Your role (${activeRole}) cannot add expenses.`);
+                    return;
+                  }
                   setEditingExpense(null);
                   setIsAddExpenseOpen(true);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-black rounded-xl shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all whitespace-nowrap cursor-pointer"
+                className={`flex items-center gap-2 px-4 py-2 text-white text-xs font-black rounded-xl shadow-md transition-all whitespace-nowrap cursor-pointer ${
+                  !isExpenseRoleAllowed
+                    ? 'bg-slate-500 hover:bg-slate-600 opacity-80 cursor-not-allowed'
+                    : 'bg-rose-600 hover:bg-rose-700 active:scale-95 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-rose-500'
+                }`}
+                title={!isExpenseRoleAllowed ? `🔒 Locked for ${activeRole}` : 'Add Expense'}
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Add Expense</span>
+                {!isExpenseRoleAllowed ? (
+                  <span className="text-xs">🔒</span>
+                ) : (
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                )}
+                <span>{!isExpenseRoleAllowed ? 'Add Expense (Locked)' : 'Add Expense'}</span>
               </button>
 
             </div>
@@ -625,17 +662,25 @@ export const Expenses: React.FC = () => {
             )}
           </div>
 
-          {/* Bottom helper button to add custom category / item */}
+          {/* Bottom helper button to add custom category / item with Role Lock */}
           <div className="p-3 bg-slate-50 border-t border-slate-200">
             <button
               onClick={() => {
+                if (!isExpenseRoleAllowed) {
+                  showToast(`🔒 Action Locked: Your role (${activeRole}) cannot create expense categories.`);
+                  return;
+                }
                 setEditingCategory(null);
                 setIsAddCategoryOpen(true);
               }}
-              className="w-full py-2 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+              className={`w-full py-2 border text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors ${
+                !isExpenseRoleAllowed
+                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700 cursor-pointer'
+              }`}
             >
               <FolderPlus className="w-4 h-4 text-blue-600" />
-              <span>+ Create New Category</span>
+              <span>{!isExpenseRoleAllowed ? '+ Create Category (Locked 🔒)' : '+ Create New Category'}</span>
             </button>
           </div>
 

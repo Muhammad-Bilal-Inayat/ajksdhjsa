@@ -23,7 +23,7 @@ export const PurchaseInvoicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { business, currentUser, activeUser } = useAuth();
+  const { business, currentUser, activeUser, activeRole, canPerform, canAccess } = useAuth();
   const { settings } = useSettings();
 
   // Suppliers & Catalog
@@ -238,6 +238,20 @@ export const PurchaseInvoicePage: React.FC = () => {
 
   // Save Inward Purchase
   const handleSavePurchase = async (shouldPrint: boolean = false, resetAfter: boolean = false) => {
+    const isAllowed = 
+      activeRole === 'Primary Admin' ||
+      activeRole === 'Secondary Admin' ||
+      activeRole === 'Admin' ||
+      activeRole === 'Store Manager' ||
+      activeRole === 'Pharmacist' ||
+      canPerform('canCreatePurchase') ||
+      canAccess('purchase');
+
+    if (!isAllowed) {
+      alert(`🔒 Access Denied: Your role (${activeRole}) cannot save purchase bills.`);
+      return;
+    }
+
     const validItems = items.filter(it => it.name && it.name.trim().length > 0);
     if (validItems.length === 0) {
       alert('Please add at least 1 medicine / item to the purchase bill.');

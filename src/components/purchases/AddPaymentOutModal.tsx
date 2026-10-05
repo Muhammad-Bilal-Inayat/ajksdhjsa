@@ -5,6 +5,7 @@ import { dbSuppliers, dbPartyPayments, dbPurchaseOrders, dbAuditLogs } from '../
 import { v4 as uuidv4 } from 'uuid';
 import { formatCurrency } from '../../lib/utils';
 import { AddPartyModal } from '../parties/AddPartyModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AddPaymentOutModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const AddPaymentOutModal: React.FC<AddPaymentOutModalProps> = ({
   initialAmount,
   initialPurchaseOrderId
 }) => {
+  const { activeRole, canPerform, canAccess } = useAuth();
   const [suppliers, setSuppliers] = useState<Party[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Party | null>(null);
   const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
@@ -129,6 +131,20 @@ export const AddPaymentOutModal: React.FC<AddPaymentOutModalProps> = ({
 
     if (!amount || amount <= 0) {
       alert('Please enter a valid Payment Out amount greater than 0.');
+      return;
+    }
+
+    const isAllowed = 
+      activeRole === 'Primary Admin' ||
+      activeRole === 'Secondary Admin' ||
+      activeRole === 'Admin' ||
+      activeRole === 'Store Manager' ||
+      activeRole === 'Pharmacist' ||
+      canPerform('canCreatePurchase') ||
+      canAccess('purchase');
+
+    if (!isAllowed) {
+      alert(`🔒 Access Denied: Your role (${activeRole}) cannot save Payment Out vouchers.`);
       return;
     }
 

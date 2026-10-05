@@ -14,7 +14,8 @@ import {
   dbInvoices, dbPurchaseOrders, dbExpenses, 
   dbSuppliers, dbMedicines, dbPartyPayments 
 } from '../../lib/db';
-import { Invoice, PurchaseOrder, Expense, Supplier, Medicine, PartyPayment } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 export interface SoftwareFunctionItem {
   id: string;
@@ -50,6 +51,7 @@ export interface SearchResultItem {
 }
 
 export const TransactionSearch: React.FC = () => {
+  const { activeRole, canPerform, canAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isServerRoute = location.pathname.startsWith('/server');
@@ -57,6 +59,33 @@ export const TransactionSearch: React.FC = () => {
   const [query, setQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'functions' | 'item' | 'category' | 'amount' | 'sale' | 'purchase' | 'expense' | 'party'>('all');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const isAllowedPurchase = 
+    activeRole === 'Primary Admin' ||
+    activeRole === 'Secondary Admin' ||
+    activeRole === 'Admin' ||
+    activeRole === 'Store Manager' ||
+    activeRole === 'Pharmacist' ||
+    canPerform('canCreatePurchase') ||
+    canAccess('purchase');
+
+  const isAllowedExpense = 
+    activeRole === 'Primary Admin' ||
+    activeRole === 'Secondary Admin' ||
+    activeRole === 'Admin' ||
+    activeRole === 'Store Manager' ||
+    activeRole === 'Pharmacist' ||
+    canPerform('canManageExpenses') ||
+    canAccess('expenses');
+
+  const isAllowedItem = 
+    activeRole === 'Primary Admin' ||
+    activeRole === 'Secondary Admin' ||
+    activeRole === 'Admin' ||
+    activeRole === 'Store Manager' ||
+    activeRole === 'Pharmacist' ||
+    canPerform('canAddEditItems') ||
+    canAccess('items');
 
   // Cached data sets
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -313,43 +342,57 @@ export const TransactionSearch: React.FC = () => {
       },
       {
         id: 'fn-add-purchase',
-        title: 'Add Purchase Bill / Inward Stock...',
-        subtitle: 'Record supplier stock invoice, batch numbers, expiry dates & purchase rates',
+        title: isAllowedPurchase ? 'Add Purchase Bill / Inward Stock...' : 'Add Purchase Bill (Locked 🔒)',
+        subtitle: isAllowedPurchase ? 'Record supplier stock invoice, batch numbers, expiry dates & purchase rates' : `Action locked for role: ${activeRole}`,
         category: 'Action',
         keywords: ['add purchase', 'new purchase', 'purchase bill', 'inward bill', 'supplier bill', 'mal khareed'],
         icon: ShoppingCart,
-        iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-700',
+        iconBg: isAllowedPurchase ? 'bg-blue-100' : 'bg-slate-100',
+        iconColor: isAllowedPurchase ? 'text-blue-700' : 'text-slate-400',
         shortcut: 'Alt + P',
-        badge: 'Purchase',
+        badge: isAllowedPurchase ? 'Purchase' : 'Locked 🔒',
         action: () => {
+          if (!isAllowedPurchase) {
+            toast.error(`🔒 Action Locked: Your role (${activeRole}) cannot create purchase bills.`);
+            return;
+          }
           navigate('/purchase?action=add');
         }
       },
       {
         id: 'fn-add-expense',
-        title: 'Add Expense / Petty Cash Payout...',
-        subtitle: 'Record store electricity bills, staff tea, rent, maintenance or courier costs',
+        title: isAllowedExpense ? 'Add Expense / Petty Cash Payout...' : 'Add Expense (Locked 🔒)',
+        subtitle: isAllowedExpense ? 'Record store electricity bills, staff tea, rent, maintenance or courier costs' : `Action locked for role: ${activeRole}`,
         category: 'Action',
         keywords: ['add expense', 'expense', 'petty cash', 'kharcha', 'bill payout', 'tea expense', 'rent'],
         icon: Wallet,
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-700',
+        iconBg: isAllowedExpense ? 'bg-purple-100' : 'bg-slate-100',
+        iconColor: isAllowedExpense ? 'text-purple-700' : 'text-slate-400',
         shortcut: 'Alt + E',
+        badge: isAllowedExpense ? undefined : 'Locked 🔒',
         action: () => {
+          if (!isAllowedExpense) {
+            toast.error(`🔒 Action Locked: Your role (${activeRole}) cannot manage expenses.`);
+            return;
+          }
           navigate('/expenses?action=add');
         }
       },
       {
         id: 'fn-add-product',
-        title: 'Add New Medicine / Inventory Item...',
-        subtitle: 'Create new product with batch, expiry date, barcode, salt formula & rack location',
+        title: isAllowedItem ? 'Add New Medicine / Inventory Item...' : 'Add Medicine Item (Locked 🔒)',
+        subtitle: isAllowedItem ? 'Create new product with batch, expiry date, barcode, salt formula & rack location' : `Action locked for role: ${activeRole}`,
         category: 'Action',
         keywords: ['add item', 'add medicine', 'add product', 'new item', 'dawa add', 'stock add', 'item master'],
         icon: Package,
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-700',
+        iconBg: isAllowedItem ? 'bg-amber-100' : 'bg-slate-100',
+        iconColor: isAllowedItem ? 'text-amber-700' : 'text-slate-400',
+        badge: isAllowedItem ? undefined : 'Locked 🔒',
         action: () => {
+          if (!isAllowedItem) {
+            toast.error(`🔒 Action Locked: Your role (${activeRole}) cannot add inventory items.`);
+            return;
+          }
           navigate('/inventory?action=add');
         }
       },

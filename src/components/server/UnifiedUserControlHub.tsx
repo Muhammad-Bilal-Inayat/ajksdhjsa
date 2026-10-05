@@ -88,14 +88,14 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // Strict Helper: Exclude Primary Admins & Owners (Show ONLY Sub-Users)
   const isPrimaryAdminOrOwner = (u: any) => {
     const roleStr = String(u.role || '').toLowerCase().trim();
-    return roleStr.includes('primary admin') || 
-           roleStr.includes('primary owner') || 
-           roleStr === 'owner' || 
-           roleStr === 'primary_admin' || 
-           roleStr === 'primary_owner' || 
-           Boolean(u.isPrimaryOwner) || 
-           Boolean(u.is_primary_owner) || 
-           Boolean(u.isPrimaryAdmin);
+    return roleStr.includes('primary admin') ||
+      roleStr.includes('primary owner') ||
+      roleStr === 'owner' ||
+      roleStr === 'primary_admin' ||
+      roleStr === 'primary_owner' ||
+      Boolean(u.isPrimaryOwner) ||
+      Boolean(u.is_primary_owner) ||
+      Boolean(u.isPrimaryAdmin);
   };
 
   // Distinct Sub-Users list (excluding root owners/primary admins)
@@ -155,7 +155,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           return;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     setUsers(getMasterActiveUsers());
   };
 
@@ -257,7 +257,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           const data = await res.json();
           if (data.token) shadowToken = data.token;
         }
-      } catch {}
+      } catch { }
 
       localStorage.setItem('mbi_shadow_token', shadowToken);
       localStorage.setItem('mbi_active_token', shadowToken);
@@ -367,7 +367,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         tenantId: user.tenantId,
         isSilentMonitored: nextSilentState
       })
-    }).catch(() => {});
+    }).catch(() => { });
 
     logMasterAudit(
       nextSilentState ? 'Silent Monitoring Engaged' : 'Silent Monitoring Disengaged',
@@ -376,7 +376,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       user.storeName
     );
 
-    onNotify(nextSilentState 
+    onNotify(nextSilentState
       ? `🔕 Silent Monitoring Activated: Sub-User ${user.name}'s actions will be stealth audited.`
       : `🔔 Silent Monitoring Deactivated: ${user.name} returned to standard alert mode.`
     );
@@ -405,7 +405,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
         userId: user.id,
         isKilled: nextKillState
       })
-    }).catch(() => {});
+    }).catch(() => { });
 
     logMasterAudit(
       nextKillState ? 'Sub-User Kill Switch Activated' : 'Sub-User Kill Switch Released',
@@ -414,7 +414,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       user.storeName
     );
 
-    onNotify(nextKillState 
+    onNotify(nextKillState
       ? `🛑 KILL SWITCH EXECUTED: Sub-User ${user.name} account is locked out and suspended.`
       : `✅ Sub-User Unlocked: ${user.name}'s account access restored.`
     );
@@ -435,7 +435,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
     const res = resetMasterUserPasscode(changePassUser.id, newPasscode.trim());
     if (res.success) {
       setUsers(prev => prev.map(u => u.id === changePassUser.id ? { ...u, passcode: newPasscode.trim() } : u));
-      
+
       fetch('/api/fleet/users/passcode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -443,7 +443,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           userId: changePassUser.id,
           newPasscode: newPasscode.trim()
         })
-      }).catch(() => {});
+      }).catch(() => { });
 
       onNotify(`🔑 Passcode for Sub-User ${changePassUser.name} updated successfully!`);
       setChangePassUser(null);
@@ -457,7 +457,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // ACTION 4: EDIT SUB-USER DETAILS
   const handleSaveEditUser = async () => {
     if (!editUser) return;
-    
+
     updateMasterUserCredentials(editUser.id, {
       name: editUser.name,
       emailOrPhone: editUser.emailOrPhone,
@@ -484,7 +484,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           status: editUser.status
         })
       });
-    } catch {}
+    } catch { }
 
     onNotify(`✨ Sub-User ${editUser.name} (${editUser.role}) updated successfully.`);
     setEditUser(null);
@@ -493,7 +493,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   // ACTION 5: FORCE SYNC TERMINAL
   const handleForceSyncUser = async (user: MasterActiveUser) => {
     setSyncingUserId(user.id);
-    
+
     try {
       await fetch('/api/sync/record', {
         method: 'POST',
@@ -577,7 +577,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           tenantId: cleanTenantId
         })
       });
-    } catch {}
+    } catch { }
 
     onNotify(`✅ Sub-User ${createdUser.name} (${createdUser.role} - ${cleanStoreName}) successfully created.`);
     setShowAddUserModal(false);
@@ -665,22 +665,20 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${
-                statusFilter === 'all'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${statusFilter === 'all'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               All ({subUsersList.length})
             </button>
 
             <button
               onClick={() => setStatusFilter('online')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
-                statusFilter === 'online'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${statusFilter === 'online'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Online Now</span>
@@ -688,11 +686,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
             <button
               onClick={() => setStatusFilter('silent')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
-                statusFilter === 'silent'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${statusFilter === 'silent'
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               <VolumeX className="w-3.5 h-3.5" />
               <span>Silent Monitored ({silentCount})</span>
@@ -700,11 +697,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
             <button
               onClick={() => setStatusFilter('killed')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${
-                statusFilter === 'killed'
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 ${statusFilter === 'killed'
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
-              }`}
+                }`}
             >
               <Power className="w-3.5 h-3.5" />
               <span>Killed / Suspended ({killedCount})</span>
@@ -775,18 +771,16 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                   return (
                     <tr
                       key={user.id}
-                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
-                        isKilled ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
-                      }`}
+                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${isKilled ? 'bg-rose-50/30 dark:bg-rose-950/10' : ''
+                        }`}
                     >
                       {/* 1. Sub-User & Company Attribution */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
-                            isKilled 
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${isKilled
                               ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700'
                               : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700'
-                          }`}>
+                            }`}>
                             {user.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
@@ -800,7 +794,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                                 </span>
                               )}
                             </div>
-                            
+
                             {/* Prominent Company & Owner Attribution Badges */}
                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40">
@@ -819,15 +813,14 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                       {/* 2. Role & Terminal */}
                       <td className="px-4 py-3.5">
                         <div>
-                          <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                            user.role === 'Store Manager'
+                          <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${user.role === 'Store Manager'
                               ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                               : user.role === 'Cashier'
-                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : user.role === 'Pharmacist'
-                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                          }`}>
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                : user.role === 'Pharmacist'
+                                  ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                            }`}>
                             {user.role}
                           </span>
                           <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1">
@@ -914,11 +907,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                           {/* 3. Silent Monitoring Mode Toggle */}
                           <button
                             onClick={() => handleToggleSilentSwitch(user)}
-                            className={`px-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                              isSilent
+                            className={`px-2 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${isSilent
                                 ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800'
                                 : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
-                            }`}
+                              }`}
                             title={isSilent ? 'Disable Silent Stealth Monitoring' : 'Enable Silent Stealth Monitoring'}
                           >
                             <VolumeX className="w-3.5 h-3.5" />
@@ -951,11 +943,10 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                           {/* 6. Kill Switch / Remote Deactivate */}
                           <button
                             onClick={() => handleToggleKillSwitch(user)}
-                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                              isKilled
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${isKilled
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                                 : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950 dark:hover:bg-rose-900 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800'
-                            }`}
+                              }`}
                             title={isKilled ? 'Reactivate & Unlock Sub-User Account' : 'Emergency Suspend / Lock Sub-User Account'}
                           >
                             <Power className="w-3.5 h-3.5" />
@@ -966,9 +957,8 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                           <button
                             onClick={() => handleForceSyncUser(user)}
                             disabled={isCurrentlySyncing}
-                            className={`p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer ${
-                              isCurrentlySyncing ? 'opacity-50' : ''
-                            }`}
+                            className={`p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer ${isCurrentlySyncing ? 'opacity-50' : ''
+                              }`}
                             title="Force Instant Terminal Sync"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isCurrentlySyncing ? 'animate-spin' : ''}`} />

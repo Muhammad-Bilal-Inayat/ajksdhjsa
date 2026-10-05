@@ -43,15 +43,15 @@ const dummyPool: any = {
   query: async () => [[]],
   execute: async () => [[]],
   getConnection: async () => ({
-    release: () => {},
+    release: () => { },
     query: async () => [[]],
     execute: async () => [[]],
-    beginTransaction: async () => {},
-    commit: async () => {},
-    rollback: async () => {},
+    beginTransaction: async () => { },
+    commit: async () => { },
+    rollback: async () => { },
   }),
-  end: async () => {},
-  on: () => {},
+  end: async () => { },
+  on: () => { },
 };
 
 export function getMariaDbPool(): any {

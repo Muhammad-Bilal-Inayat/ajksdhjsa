@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  ShieldCheck, AlertTriangle, FileSpreadsheet, ArrowRight, 
+import {
+  ShieldCheck, AlertTriangle, FileSpreadsheet, ArrowRight,
   Sparkles, CheckCircle2, RotateCcw, Clock, Building2, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -154,7 +154,7 @@ export const AiExpiryLossPreventionWidget: React.FC<AiExpiryLossPreventionWidget
             </div>
           ) : (
             items.map((item) => (
-              <div 
+              <div
                 key={item.id}
                 className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 hover:border-emerald-200 transition-colors"
               >
@@ -175,11 +175,10 @@ export const AiExpiryLossPreventionWidget: React.FC<AiExpiryLossPreventionWidget
                   type="button"
                   onClick={() => handleCreateDebitNote(item.id)}
                   disabled={createdDebitIds.has(item.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs ${
-                    createdDebitIds.has(item.id)
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs ${createdDebitIds.has(item.id)
                       ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
                       : 'bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                  }`}
+                    }`}
                 >
                   {createdDebitIds.has(item.id) ? (
                     <>

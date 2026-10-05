@@ -407,7 +407,7 @@ async function startServer() {
       if (Array.isArray(data.auditLogs)) {
         serverLogCount += data.auditLogs.length;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const dbStatus = await testMariaDbConnection().catch(() => ({ connected: false }));
     const endTime = Date.now();
@@ -449,7 +449,7 @@ async function startServer() {
     }
     if (search) {
       const q = String(search).toLowerCase();
-      filtered = filtered.filter(l => 
+      filtered = filtered.filter(l =>
         l.message.toLowerCase().includes(q) ||
         l.category.toLowerCase().includes(q) ||
         (l.sourceEndpoint && l.sourceEndpoint.toLowerCase().includes(q))
@@ -521,10 +521,10 @@ async function startServer() {
             const ex = existing[entityType][existingIndex];
             const { winner } = resolveRecordConflict(ex, record);
             existing[entityType][existingIndex] = winner;
-            syncRecordToMariaDb(entityType, winner).catch(() => {});
+            syncRecordToMariaDb(entityType, winner).catch(() => { });
           } else {
             existing[entityType].unshift(record);
-            syncRecordToMariaDb(entityType, record).catch(() => {});
+            syncRecordToMariaDb(entityType, record).catch(() => { });
           }
         }
         updatedCount++;
@@ -562,8 +562,8 @@ async function startServer() {
       const syncData = loadSyncData();
       const parties = syncData['suppliers'] || [];
       const { type } = req.query;
-      const filtered = type 
-        ? parties.filter((p: any) => p && (p.type === type || p.partyType?.toLowerCase() === (type as string).toLowerCase())) 
+      const filtered = type
+        ? parties.filter((p: any) => p && (p.type === type || p.partyType?.toLowerCase() === (type as string).toLowerCase()))
         : parties;
       res.json({ success: true, data: filtered });
     } catch (err: any) {
@@ -591,7 +591,7 @@ async function startServer() {
       } else {
         syncData['suppliers'].unshift(partyRecord);
       }
-      syncRecordToMariaDb('suppliers', partyRecord).catch(() => {});
+      syncRecordToMariaDb('suppliers', partyRecord).catch(() => { });
       scheduleDebouncedSyncFlush(200, 1000);
       res.json({ success: true, data: partyRecord });
     } catch (err: any) {
@@ -644,11 +644,11 @@ async function startServer() {
               } else {
                 conflictStats.preserved++;
               }
-              syncRecordToMariaDb(key, winner).catch(() => {});
+              syncRecordToMariaDb(key, winner).catch(() => { });
             } else {
               existingMap.set(inc.id, inc);
               conflictStats.accepted++;
-              syncRecordToMariaDb(key, inc).catch(() => {});
+              syncRecordToMariaDb(key, inc).catch(() => { });
             }
           }
 
@@ -740,7 +740,7 @@ async function startServer() {
         }
 
         // Persist to MariaDB (phpMyAdmin / MySQL)
-        syncRecordToMariaDb(entityType, recordToPersist).catch(() => {});
+        syncRecordToMariaDb(entityType, recordToPersist).catch(() => { });
 
         // Real-time broadcast update to all connected browsers & mobile devices
         broadcastSyncEvent({
@@ -807,7 +807,7 @@ async function startServer() {
       } else {
         data.registration_leads.unshift(lead);
       }
-      syncRecordToMariaDb('registration_leads', lead).catch(() => {});
+      syncRecordToMariaDb('registration_leads', lead).catch(() => { });
 
       // Save/Merge Tenant if provided
       if (tenant && tenant.id) {
@@ -817,7 +817,7 @@ async function startServer() {
         } else {
           data.tenants.unshift(tenant);
         }
-        syncRecordToMariaDb('tenants', tenant).catch(() => {});
+        syncRecordToMariaDb('tenants', tenant).catch(() => { });
       }
 
       // Save/Merge License if provided
@@ -828,7 +828,7 @@ async function startServer() {
         } else {
           data.client_licenses.unshift(license);
         }
-        syncRecordToMariaDb('client_licenses', license).catch(() => {});
+        syncRecordToMariaDb('client_licenses', license).catch(() => { });
       }
 
       // Save/Merge User if provided
@@ -839,7 +839,7 @@ async function startServer() {
         } else {
           data.appUsers.unshift(user);
         }
-        syncRecordToMariaDb('appUsers', user).catch(() => {});
+        syncRecordToMariaDb('appUsers', user).catch(() => { });
       }
 
       // Flush immediately to disk for cross-browser live visibility
@@ -1368,7 +1368,7 @@ async function startServer() {
   if (!fs.existsSync(masterBackupsDir)) {
     try {
       fs.mkdirSync(masterBackupsDir, { recursive: true });
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Helper function to read/write JSON files safely
@@ -1377,14 +1377,14 @@ async function startServer() {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       }
-    } catch (e) {}
+    } catch (e) { }
     return fallback;
   }
 
   function writeJsonFile(filePath: string, data: any): void {
     try {
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Hash password using SHA-256 with salt
@@ -1479,7 +1479,7 @@ async function startServer() {
         targetClient: targetClient || 'SYSTEM'
       });
       writeJsonFile(masterAuditLogsFile, logs.slice(0, 500));
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Server-Side Master Admin Authentication Middleware
@@ -1985,8 +1985,8 @@ async function startServer() {
       const plan = (rawPlan.includes('Premium') || rawPlan.includes('Enterprise') || rawPlan.includes('Platinum'))
         ? 'Enterprise'
         : (rawPlan.includes('Business') || rawPlan.includes('Gold') || rawPlan.includes('Pro'))
-        ? 'Business'
-        : 'Basic';
+          ? 'Business'
+          : 'Basic';
 
       let maxAllowed = 2; // default 2 firms
       if (type === 'firms') {
@@ -2034,10 +2034,10 @@ async function startServer() {
   // BACKEND OPERATION PERMISSION & RESTRICTION ENFORCEMENT ENDPOINT
   app.post('/api/security/enforce-operation', (req, res) => {
     try {
-      const { 
-        userId, 
-        role = 'Cashier', 
-        tenantId = 'tenant_default', 
+      const {
+        userId,
+        role = 'Cashier',
+        tenantId = 'tenant_default',
         operation, // e.g. 'create_purchase', 'edit_master_settings', 'view_reports', 'delete_invoice'
         userOverridePermissions = {}
       } = req.body;
@@ -2216,7 +2216,7 @@ async function startServer() {
       const users = readJsonFile<any[]>(masterUsersFile, []);
       const nowIso = new Date().toISOString();
       const idx = users.findIndex(u => u.id === user.id || (u.emailOrPhone && user.emailOrPhone && u.emailOrPhone === user.emailOrPhone));
-      
+
       const updatedRecord = {
         id: user.id,
         name: user.name || 'Active User',
@@ -2262,7 +2262,7 @@ async function startServer() {
         isOnline: true,
         updatedAt: new Date().toISOString()
       };
-      
+
       const cleanUsers = [primaryAdmin];
       writeJsonFile(masterUsersFile, cleanUsers);
       logServerAudit('Ghost Users Wiped', 'SECURITY', 'Master user database wiped and reset to Primary Admin only', 'SYSTEM');
@@ -2612,7 +2612,7 @@ async function startServer() {
 
       // If tenantId is specified, apply strict customer tenant isolation
       if (tenantId && tenantId !== 'master' && tenantId !== 'all') {
-        list = list.filter(m => 
+        list = list.filter(m =>
           (m.assignedTenantIds && Array.isArray(m.assignedTenantIds) && m.assignedTenantIds.includes(tenantId)) ||
           m.sourceTenantId === tenantId
         );
@@ -2624,7 +2624,7 @@ async function startServer() {
 
       if (search && search.trim()) {
         const q = search.toLowerCase().trim();
-        list = list.filter(m => 
+        list = list.filter(m =>
           m.name?.toLowerCase().includes(q) ||
           m.brandName?.toLowerCase().includes(q) ||
           m.company?.toLowerCase().includes(q) ||
@@ -2670,7 +2670,7 @@ async function startServer() {
     try {
       const { tenantId } = req.params;
       const list = readJsonFile<any[]>(centralMedicinesFile, []);
-      const assigned = list.filter(m => 
+      const assigned = list.filter(m =>
         (m.assignedTenantIds && Array.isArray(m.assignedTenantIds) && m.assignedTenantIds.includes(tenantId)) ||
         m.sourceTenantId === tenantId
       );
@@ -2693,8 +2693,8 @@ async function startServer() {
       const cleanCompany = (item.company || item.brandName || item.manufacturer || '').trim().toLowerCase();
 
       // Check duplicate
-      const exists = list.find(m => 
-        m.name?.trim().toLowerCase() === cleanName && 
+      const exists = list.find(m =>
+        m.name?.trim().toLowerCase() === cleanName &&
         (m.company || m.brandName || '').trim().toLowerCase() === cleanCompany
       );
 
@@ -2779,12 +2779,12 @@ async function startServer() {
   app.get('/api/master/license/verify', (req, res) => {
     try {
       const { key, installationId, clientName } = req.query as { key?: string; installationId?: string; clientName?: string };
-      
+
       let licenses: any[] = [];
       if (fs.existsSync(masterLicensesFile)) {
         try {
           licenses = JSON.parse(fs.readFileSync(masterLicensesFile, 'utf-8'));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       if (!key) {
@@ -2792,7 +2792,7 @@ async function startServer() {
       }
 
       const match = licenses.find((l: any) => l.licenseKey === key || l.key === key);
-      
+
       if (!match) {
         // Fallback for default seed license if not yet customized
         if (key === 'MBI-PRO-2026-8812' || key.startsWith('MBI-')) {
@@ -2843,7 +2843,7 @@ async function startServer() {
       if (fs.existsSync(masterHeartbeatsFile)) {
         try {
           heartbeats = JSON.parse(fs.readFileSync(masterHeartbeatsFile, 'utf-8'));
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || ip || '127.0.0.1';
@@ -2885,7 +2885,7 @@ async function startServer() {
 
       const payload = backupPayload || {};
       const dataObj = payload.data || {};
-      
+
       // Calculate server-side record verification stats
       const totalVerifiedRecords: number = (Object.values(dataObj) as any[]).reduce((acc: number, val: any): number => {
         return acc + (Array.isArray(val) ? val.length : 0);
@@ -2919,10 +2919,10 @@ async function startServer() {
           const sorted = allFiles.map(f => ({ name: f, time: fs.statSync(path.join(masterBackupsDir, f)).mtimeMs }))
             .sort((a, b) => b.time - a.time);
           for (const oldFile of sorted.slice(50)) {
-            try { fs.unlinkSync(path.join(masterBackupsDir, oldFile.name)); } catch (e) {}
+            try { fs.unlinkSync(path.join(masterBackupsDir, oldFile.name)); } catch (e) { }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       res.json({
         success: true,
@@ -2948,7 +2948,7 @@ async function startServer() {
 
       const parsed = typeof backupPayload === 'string' ? JSON.parse(backupPayload) : backupPayload;
       const data = parsed.data || {};
-      
+
       const counts: Record<string, number> = {};
       let total = 0;
       for (const [key, val] of Object.entries(data)) {
@@ -3089,7 +3089,7 @@ async function startServer() {
     let indexHtml = '';
     try {
       indexHtml = fs.readFileSync(indexPath, 'utf-8');
-    } catch {}
+    } catch { }
 
     // 1. Serve root dist directory (covers /assets, /registerSW.js, manifest, etc.)
     app.use(express.static(distPath, {
@@ -3147,11 +3147,11 @@ async function startServer() {
 
   const server = isNamedPipe
     ? app.listen(PORT, () => {
-        console.log(`Server running on pipe/socket: ${PORT} (Node: ${process.version})`);
-      })
+      console.log(`Server running on pipe/socket: ${PORT} (Node: ${process.version})`);
+    })
     : app.listen(PORT as number, HOST, () => {
-        console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);
-      });
+      console.log(`Server running on http://${HOST}:${PORT} (Node: ${process.version})`);
+    });
 
   process.on('SIGTERM', () => {
     server.close(() => {

@@ -1,23 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  ShieldCheck, Zap, Sparkles, Check, ArrowRight, 
-  Phone, MessageSquare, Mail, MapPin, Clock, 
-  Printer, QrCode, HardDrive, Smartphone, Lock, User, 
-  Key, AlertCircle, RefreshCw, Star, HelpCircle, 
-  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CheckCircle2, Layers, Sun, Moon, 
-  Award, Activity, Database, Cpu, Receipt, 
-  CreditCard, BarChart3, Users, Building2, WifiOff,
-  TrendingUp, XCircle, ArrowUpRight, Play, CheckCircle,
-  FileText, ShoppingBag, Truck, DollarSign, PieChart,
-  Shield, Laptop, Compass, HeartHandshake, Eye, Search,
-  Send, ArrowUp, Share2, Globe, ThumbsUp, Quote, ExternalLink,
-  Briefcase, Camera, Menu, X, Calculator
-} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { HeroSection } from '../components/landing/HeroSection';
-import { AnimatedHeroGraphs } from '../components/landing/AnimatedHeroGraphs';
 import { AnimatedFeatureCards } from '../components/landing/AnimatedFeatureCards';
 import { FefoRadarGraphic } from '../components/landing/FefoRadarGraphic';
 import { PosSpeedVisualWidget } from '../components/landing/PosSpeedVisualWidget';
@@ -27,17 +13,11 @@ import { FloatingWhatsApp } from '../components/landing/FloatingWhatsApp';
 import { PricingSection } from '../components/landing/PricingSection';
 import { ClientTestimonialsSection } from '../components/landing/ClientTestimonialsSection';
 import { PWAInstallBanner } from '../components/pwa/PWAInstallBanner';
-import { useAuth } from '../contexts/AuthContext';
 import { getSiteCmsConfig, SiteCmsConfig, fetchSiteCmsFromServer } from '../lib/siteCmsService';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
-  
   const [cmsConfig, setCmsConfig] = useState<SiteCmsConfig>(() => getSiteCmsConfig());
-
-  // Pricing Interval Toggle: 'monthly' | 'annual'
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
 
   // FAQ open item
   const [openFaqId, setOpenFaqId] = useState<string | null>('faq-1');
@@ -117,8 +97,35 @@ export const Home: React.FC = () => {
   }, []);
 
   return (
-    <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 w-full max-w-full overflow-x-hidden">
+    <div className="landing-theme-root min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200 bg-slate-50 dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 w-full max-w-full overflow-x-hidden relative">
       <PWAInstallBanner />
+
+      {/* ─────────────────────────────────────────────────────────────
+          SMOOTH FLOATING NEBULA ORBS (GPU-Accelerated Ambient Glow Background)
+      ───────────────────────────────────────────────────────────── */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 select-none">
+        {/* Top-Left Electric Nebula Orb */}
+        <div 
+          className="absolute -top-32 -left-32 w-[420px] sm:w-[680px] h-[420px] sm:h-[680px] rounded-full bg-gradient-to-br from-blue-600/15 via-sky-500/10 to-transparent dark:from-cyan-500/15 dark:via-blue-600/10 dark:to-transparent blur-[90px] sm:blur-[140px] animate-pulse will-change-transform" 
+          style={{ animationDuration: '8s' }} 
+        />
+
+        {/* Top-Right Cyan Nebula Orb */}
+        <div 
+          className="absolute top-1/4 -right-32 w-[380px] sm:w-[620px] h-[380px] sm:h-[620px] rounded-full bg-gradient-to-bl from-cyan-500/15 via-teal-400/10 to-transparent dark:from-blue-500/20 dark:via-indigo-500/15 dark:to-transparent blur-[90px] sm:blur-[140px] animate-pulse will-change-transform" 
+          style={{ animationDuration: '10s' }} 
+        />
+
+        {/* Middle Soft Indigo Glow */}
+        <div 
+          className="absolute top-1/2 left-1/4 -translate-x-1/2 w-[400px] sm:w-[700px] h-[300px] sm:h-[450px] rounded-full bg-indigo-500/10 dark:bg-purple-600/10 blur-[100px] sm:blur-[160px] will-change-transform" 
+        />
+
+        {/* Bottom Ambient Glow */}
+        <div 
+          className="absolute bottom-10 right-1/4 w-[350px] sm:w-[550px] h-[250px] sm:h-[400px] rounded-full bg-sky-400/10 dark:bg-cyan-400/10 blur-[90px] sm:blur-[130px] will-change-transform" 
+        />
+      </div>
 
       {/* Floating WhatsApp Chat Button */}
       <FloatingWhatsApp />

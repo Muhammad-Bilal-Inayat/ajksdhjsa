@@ -1,407 +1,437 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Sparkles, ArrowRight, Play, CheckCircle2, Zap, 
-  TrendingUp, Activity, Monitor, Package, Users, BarChart3,
-  ShieldCheck, Smartphone, Search, Plus, Bell, User, Check
+import {
+  ArrowRight, Play, CheckCircle2, Zap,
+  TrendingUp, Monitor, Package, Users, BarChart3,
+  ShieldCheck, Search, Clock, Lock, Receipt, Sparkles, Activity
 } from 'lucide-react';
 
-// Direct asset imports guaranteeing 100% Vite build resolution & zero 404s
-import dashboardLightImg from '../../assets/landing/dashboard-light.png';
-import dashboardDarkImg from '../../assets/landing/dashboard-dark.png';
-import mobileLightImg from '../../assets/landing/mobile-light.png';
-import mobileDarkImg from '../../assets/landing/mobile-dark.png';
-
 export const HeroSection: React.FC = () => {
-  // Real-time reactive theme synchronization
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof document !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || 
-             document.body.classList.contains('dark') ||
-             localStorage.getItem('theme') === 'dark' ||
-             localStorage.getItem('mbi_landing_theme') === 'dark';
-    }
-    return true;
-  });
-
-  useEffect(() => {
-    const updateThemeState = () => {
-      const isDomDark = document.documentElement.classList.contains('dark') || 
-                        document.body.classList.contains('dark') ||
-                        localStorage.getItem('theme') === 'dark' ||
-                        localStorage.getItem('mbi_landing_theme') === 'dark';
-      setIsDark(isDomDark);
-    };
-
-    updateThemeState();
-
-    const observer = new MutationObserver(() => {
-      updateThemeState();
-    });
-
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    if (document.body) {
-      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    }
-    window.addEventListener('storage', updateThemeState);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('storage', updateThemeState);
-    };
-  }, []);
-
-  // 3D Interactive Mouse Parallax & Dynamic Tilt
+  const [activeTab, setActiveTab] = useState<'pos' | 'fefo' | 'reports'>('pos');
+  
+  // 3D Parallax Tilt (GPU-Accelerated & 60FPS Smooth)
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
+  const rafRef = useRef<number | null>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({
-      x: Number((x * 12).toFixed(2)),
-      y: Number((-y * 12).toFixed(2))
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const currentTarget = e.currentTarget;
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+
+    rafRef.current = requestAnimationFrame(() => {
+      const rect = currentTarget.getBoundingClientRect();
+      const x = (clientX - rect.left) / rect.width - 0.5;
+      const y = (clientY - rect.top) / rect.height - 0.5;
+      setTilt({
+        x: Number((x * 8).toFixed(1)),
+        y: Number((-y * 8).toFixed(1))
+      });
     });
   };
 
   const handleMouseLeave = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     setIsHovered(false);
     setTilt({ x: 0, y: 0 });
   };
 
-  // Live dynamic ticker for sales badge (simulating real-time engine)
-  const [liveSales, setLiveSales] = useState(1882);
-  const [pulse, setPulse] = useState(false);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      setLiveSales(prev => prev + Math.floor(Math.random() * 85) + 15);
-      setPulse(true);
-      setTimeout(() => setPulse(false), 700);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
-    <section className="relative pt-6 sm:pt-10 lg:pt-12 pb-14 sm:pb-20 overflow-hidden w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 select-none">
+    <section className="relative pt-6 sm:pt-10 lg:pt-14 pb-12 sm:pb-18 overflow-hidden w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 select-none">
+      
       {/* ─────────────────────────────────────────────────────────────
-          AMBIENT GLOW BACKGROUND ORBS (GPU-Accelerated Subtle Light)
+          SPARKLING BRUSH GLOW BACKGROUND (Light Mode: Blue / Dark Mode: White & Cyan)
       ───────────────────────────────────────────────────────────── */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[450px] bg-blue-600/15 dark:bg-blue-600/25 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute top-1/3 right-1/4 w-[280px] sm:w-[420px] h-[260px] sm:h-[380px] bg-cyan-500/15 dark:bg-cyan-500/25 rounded-full blur-3xl pointer-events-none animate-float-slow" />
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[450px] sm:w-[700px] h-[180px] bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+      {/* Glowing Brush Orbs */}
+      <div className="absolute top-8 left-1/4 -translate-x-1/2 w-[340px] sm:w-[560px] h-[340px] sm:h-[520px] bg-gradient-to-br from-blue-500/15 via-sky-400/10 to-transparent dark:from-white/10 dark:via-cyan-400/15 dark:to-transparent rounded-full blur-3xl pointer-events-none transition-colors duration-500" />
+      <div className="absolute top-16 right-1/5 w-[280px] sm:w-[480px] h-[280px] sm:h-[440px] bg-gradient-to-bl from-cyan-500/15 via-blue-400/10 to-transparent dark:from-cyan-300/15 dark:via-white/10 dark:to-transparent rounded-full blur-3xl pointer-events-none transition-colors duration-500" />
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[420px] sm:w-[720px] h-[160px] bg-indigo-500/10 dark:bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full relative z-10 space-y-12 sm:space-y-16">
-        
-        {/* ─────────────────────────────────────────────────────────────
-            HERO MAIN GRID: LEFT COPY + RIGHT DUAL-DEVICE SHOWCASE
-        ───────────────────────────────────────────────────────────── */}
+      {/* Floating Sparkles & Glowing Stars */}
+      <div className="absolute top-12 left-10 pointer-events-none animate-pulse text-blue-500/60 dark:text-white/80 transition-opacity duration-300">
+        <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" style={{ animationDuration: '12s' }} />
+      </div>
+      <div className="absolute top-1/3 left-6 sm:left-12 pointer-events-none animate-bounce text-cyan-500/70 dark:text-cyan-200/90 text-sm font-bold" style={{ animationDuration: '4s' }}>
+        ✦
+      </div>
+      <div className="absolute top-20 right-14 pointer-events-none animate-pulse text-blue-400/60 dark:text-white/90">
+        <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" style={{ animationDuration: '8s' }} />
+      </div>
+      <div className="absolute bottom-24 right-8 sm:right-20 pointer-events-none animate-bounce text-sky-400/70 dark:text-cyan-300/80 text-base" style={{ animationDuration: '5s' }}>
+        ✦
+      </div>
+      <div className="absolute top-2/3 left-1/3 pointer-events-none animate-pulse text-blue-400/40 dark:text-white/60 text-xs">
+        ✦
+      </div>
+
+      <div className="w-full relative z-10 space-y-10 sm:space-y-14">
+
+        {/* ================= HERO MAIN GRID ================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-          
-          {/* ================= LEFT COLUMN: HERO HEADLINE & CTAS ================= */}
-          <div className="lg:col-span-5 text-center lg:text-left space-y-5 sm:space-y-6">
-            
-            {/* Top Eyebrow Tag */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-extrabold tracking-wide uppercase shadow-xs bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+
+          {/* ================= LEFT COLUMN: HEADLINE & ACTIONS ================= */}
+          <div className="lg:col-span-6 text-center lg:text-left space-y-4 sm:space-y-6">
+
+            {/* Top Eyebrow Tag with Glowing Badge */}
+            <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full border text-[11px] sm:text-xs font-black tracking-wide uppercase shadow-xs bg-blue-50/90 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-cyan-300 mx-auto lg:mx-0 backdrop-blur-md">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
               </span>
               <span>Next-Gen Pharmacy POS &amp; Cloud ERP</span>
+              <Sparkles className="w-3 h-3 text-cyan-500 dark:text-cyan-300" />
             </div>
 
-            {/* Main Headline with Guaranteed Glowing Contrast */}
-            <h1 className="text-3.5xl sm:text-5xl lg:text-[3.25rem] xl:text-[3.6rem] font-black tracking-tight text-slate-900 dark:text-white leading-[1.08] break-words">
+            {/* Main Headline */}
+            <h1 className="text-[2.1rem] sm:text-5xl lg:text-[3.25rem] xl:text-[3.5rem] font-black tracking-tight text-slate-900 dark:text-white leading-[1.12] sm:leading-[1.08] break-words">
               Smart Pharmacy.<br />
-              <span 
-                className="inline-block font-black bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-400 dark:from-sky-300 dark:via-cyan-200 dark:to-blue-300 bg-clip-text text-transparent"
-                style={{
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 2px 18px rgba(56, 189, 248, 0.5))'
-                }}
-              >
+              <span className="text-cyan-500 dark:text-cyan-300">
                 Smarter Business.
               </span>
             </h1>
 
             {/* Subtitle Description */}
-            <p className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0">
-              Complete Pharmacy POS &amp; ERP for modern businesses. Master retail &amp; wholesale billing in 0.2 seconds, eliminate near-expiry losses with FEFO radar, and operate 100% offline.
+            <p className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 px-2 sm:px-0">
+              Master retail &amp; wholesale billing in 0.2s, eliminate near-expiry losses with FEFO radar, and manage multi-branch stock 100% offline.
             </p>
 
-            {/* High-Converting CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-1 w-full max-w-md mx-auto lg:mx-0">
+            {/* Action CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-2.5 sm:gap-3 pt-1 w-full max-w-md mx-auto lg:mx-0 px-1 sm:px-0">
               <Link
                 to="/register"
-                className="w-full sm:w-auto text-sm font-extrabold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white cursor-pointer"
+                className="w-full sm:w-auto text-sm font-black px-6 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 hover:from-blue-500 hover:to-cyan-500 text-white cursor-pointer"
               >
-                <span>Get Started</span>
+                <span>Start Free 10-Day Trial</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
 
               <a
-                href="https://wa.me/923281302636?text=Salam!%20I%20would%20like%20a%20live%20video%20demo%20of%20MBI%20INVENTRA."
+                href="https://wa.me/923281302636?text=Salam!%20I%20would%20like%20a%20live%20demo%20of%20MBI%20INVENTRA."
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto text-sm font-extrabold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-xs border border-slate-300 dark:border-slate-700/80 bg-white dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/90 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto text-sm font-extrabold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-xs border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-blue-400 dark:hover:border-blue-500 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 text-cyan-500 fill-cyan-500" />
-                <span>Watch Demo</span>
+                <span>Watch Video Demo</span>
               </a>
             </div>
 
-            {/* Trust Markers Below Buttons */}
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 pt-1">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>256-Bit SQLite Vault</span>
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">•</span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                <span>0ms Offline Ready</span>
-              </span>
-              <span className="text-slate-300 dark:text-slate-700">•</span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-                <span>10-Day Free Trial</span>
-              </span>
+            {/* Mobile-Optimized Trust Badges */}
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap items-center justify-center lg:justify-start pt-1.5 max-w-md mx-auto lg:mx-0">
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
+                <span className="truncate">256-Bit Vault</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500 shrink-0" />
+                <span className="truncate">0ms Offline</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-500 shrink-0" />
+                <span className="truncate">Free Trial</span>
+              </div>
             </div>
 
           </div>
 
-          {/* ================= RIGHT COLUMN: DUAL-DEVICE 3D INTERACTIVE SHOWCASE ================= */}
+          {/* ================= RIGHT COLUMN: INTERACTIVE LIVE PREVIEW WITH FLOATING BADGES ================= */}
           <div 
-            className="lg:col-span-7 relative flex items-center justify-center lg:justify-end mt-6 lg:mt-0"
+            className="lg:col-span-6 relative"
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={handleMouseLeave}
           >
-            
-            {/* 3D Container with GPU-accelerated Perspective, Dynamic Tilt & Ambient Backlight */}
+
+            {/* FLOATING BADGE 1: Top-Right (0ms Speed • SQLite Cloud Sync) */}
+            <div className="hidden sm:flex absolute -top-4 -right-2 z-20 items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-cyan-500/40 dark:border-cyan-400/50 shadow-lg shadow-cyan-500/10 text-slate-900 dark:text-white backdrop-blur-md animate-bounce" style={{ animationDuration: '6s' }}>
+              <div className="p-1 rounded-lg bg-cyan-500 text-white shadow-xs">
+                <Zap className="w-3 h-3 fill-white" />
+              </div>
+              <div>
+                <span className="text-[11px] font-black text-cyan-600 dark:text-cyan-400 block leading-tight">0ms Cloud Sync</span>
+                <span className="text-[9px] font-extrabold text-slate-500 dark:text-slate-400">Zero Cloud Bills</span>
+              </div>
+            </div>
+
+            {/* FLOATING BADGE 2: Bottom-Left (FEFO Expiry Radar Protected) */}
+            <div className="hidden sm:flex absolute -bottom-3 -left-3 z-20 items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-emerald-500/40 dark:border-emerald-400/50 shadow-lg shadow-emerald-500/10 text-slate-900 dark:text-white backdrop-blur-md animate-pulse" style={{ animationDuration: '4s' }}>
+              <div className="p-1 rounded-lg bg-emerald-500 text-white shadow-xs">
+                <ShieldCheck className="w-3 h-3" />
+              </div>
+              <div>
+                <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 block leading-tight">FEFO Radar Active</span>
+                <span className="text-[9px] font-extrabold text-slate-500 dark:text-slate-400">0% Expiry Losses</span>
+              </div>
+            </div>
+
+            {/* 3D Container with Parallax Perspective */}
             <div 
-              className="relative w-full max-w-[580px] xl:max-w-[640px] transition-transform duration-300 ease-out will-change-transform"
+              className="relative transition-transform duration-200 ease-out will-change-transform"
               style={{
-                perspective: '1200px',
-                transform: isHovered 
-                  ? `rotateY(${tilt.x}deg) rotateX(${tilt.y}deg) scale3d(1.02, 1.02, 1.02)` 
+                perspective: '1000px',
+                transform: isHovered
+                  ? `rotateY(${tilt.x}deg) rotateX(${tilt.y}deg) scale3d(1.01, 1.01, 1.01)`
                   : 'rotateY(0deg) rotateX(0deg) scale3d(1, 1, 1)'
               }}
             >
-              
-              {/* Backlight Ambient Glow behind devices */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/30 via-cyan-500/30 to-indigo-600/30 rounded-3xl blur-2xl -z-10 transform scale-95" />
+              {/* Ambient Backlight Glow */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 via-cyan-500/20 to-indigo-600/20 rounded-3xl blur-2xl -z-10" />
 
-              {/* ─────────────────────────────────────────────────────────────
-                  FLOATING 3D BADGE 1: 0ms Speed • SQLite Cloud Sync (Top Left)
-              ───────────────────────────────────────────────────────────── */}
-              <div 
-                className="absolute -top-5 sm:-top-7 -left-2 sm:left-4 z-40 flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 dark:border-cyan-400/50 shadow-2xl shadow-cyan-500/20 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none"
-                style={{
-                  transform: isHovered ? `translate3d(${tilt.x * 0.8}px, ${tilt.y * 0.8}px, 30px)` : undefined
-                }}
-              >
-                <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30">
-                  <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs sm:text-sm font-black text-cyan-600 dark:text-cyan-400">0ms Speed</span>
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              {/* Main Terminal Box */}
+              <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden transition-all duration-200">
+
+                {/* Header Bar */}
+                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1.5 font-mono text-[10px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 ml-2">
+                      <Lock className="w-2.5 h-2.5 text-emerald-500" />
+                      <span>mbiinventra.com</span>
+                    </div>
+                  </div>
+
+                  {/* Status Telemetry */}
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>0ms Offline Ready</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-[10px] font-bold border border-blue-200 dark:border-blue-800">
+                      <Zap className="w-3 h-3" />
+                      <span>Secure</span>
                     </span>
                   </div>
-                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400">SQLite Cloud Sync</p>
+                </div>
+
+                {/* Navigation Tabs */}
+                <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 px-3 pt-2 gap-1.5 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('pos')}
+                    className={`px-3 py-1.5 rounded-t-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'pos'
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 border-t-2 border-t-blue-500 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span>0.2s POS Billing</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('fefo')}
+                    className={`px-3 py-1.5 rounded-t-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'fefo'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-t-2 border-t-emerald-500 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>FEFO Expiry Radar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('reports')}
+                    className={`px-3 py-1.5 rounded-t-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      activeTab === 'reports'
+                        ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border-t-2 border-t-purple-500 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>Live Telemetry</span>
+                  </button>
+                </div>
+
+                {/* Dynamic Tab Body */}
+                <div className="p-4 sm:p-5 min-h-[260px]">
+
+                  {/* TAB 1: POS BILLING LIVE SIMULATOR */}
+                  {activeTab === 'pos' && (
+                    <div className="space-y-3.5">
+                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium flex-1">
+                          <Search className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200">Augmentin 625mg Tab</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold">
+                          Alt+S / F2
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-xs font-semibold">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                          <div>
+                            <p className="text-slate-900 dark:text-white font-bold">Augmentin 625mg (Co-Amoxiclav)</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Batch: AUG-8820 • Exp: 04/2027 • Qty: 2</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-900 dark:text-white font-bold">Rs 840</span>
+                            <span className="block text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">FEFO #1</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                          <div>
+                            <p className="text-slate-900 dark:text-white font-bold">Panadol Extra 500mg</p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">Batch: PAN-1099 • Exp: 11/2026 • Qty: 4</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-slate-900 dark:text-white font-bold">Rs 380</span>
+                            <span className="block text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">FEFO #1</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold uppercase tracking-wider">Total Bill</span>
+                          <span className="text-lg font-black text-blue-600 dark:text-cyan-400">Rs 1,220.00</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-extrabold shadow-md flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Receipt className="w-3.5 h-3.5" />
+                          <span>Print Bill (0.2s)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 2: FEFO EXPIRY RADAR */}
+                  {activeTab === 'fefo' && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">FEFO Expiry Protection</span>
+                        <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          Zero Wastage Active
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-center font-semibold text-xs">
+                        <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50">
+                          <span className="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">0-30 Days</span>
+                          <span className="text-base font-black text-rose-700 dark:text-rose-300">2 Batches</span>
+                          <span className="text-[9px] text-rose-500 block mt-0.5">Return to Vendor</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50">
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">31-60 Days</span>
+                          <span className="text-base font-black text-amber-700 dark:text-amber-300">5 Batches</span>
+                          <span className="text-[9px] text-amber-500 block mt-0.5">Priority Counter</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50">
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">Safe Stock</span>
+                          <span className="text-base font-black text-emerald-700 dark:text-emerald-300">4,820 Items</span>
+                          <span className="text-[9px] text-emerald-500 block mt-0.5">100% Protected</span>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 font-medium flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span>FEFO automatically rotates nearest expiring medicine to cashier counter during fast search.</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: LIVE TELEMETRY & MULTI-STORE */}
+                  {activeTab === 'reports' && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50">
+                          <span className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400 block">Today Net Sales</span>
+                          <span className="text-lg font-black text-slate-900 dark:text-white">Rs 48,920</span>
+                          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                            <TrendingUp className="w-3 h-3" /> +18.4% vs Yesterday
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50">
+                          <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 block">Today Gross Profit</span>
+                          <span className="text-lg font-black text-slate-900 dark:text-white">Rs 11,480</span>
+                          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                            <CheckCircle2 className="w-3 h-3" /> 23.4% Profit Margin
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-semibold">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></div>
+                          <span className="text-slate-800 dark:text-slate-200">Terminal #1 &amp; Mobile POS Synced</span>
+                        </div>
+                        <span className="text-blue-600 dark:text-cyan-400 font-mono text-[11px] font-bold">WAL Delta 0ms</span>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
-
-              {/* ─────────────────────────────────────────────────────────────
-                  FLOATING 3D BADGE 2: Live Today Sales (Top Right)
-              ───────────────────────────────────────────────────────────── */}
-              <div 
-                className="absolute -top-4 sm:-top-6 right-2 sm:right-20 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-400/50 shadow-2xl shadow-blue-500/20 text-slate-900 dark:text-white animate-float-gentle transform hover:scale-105 transition-transform select-none"
-                style={{
-                  transform: isHovered ? `translate3d(${-tilt.x * 0.6}px, ${tilt.y * 0.6}px, 35px)` : undefined
-                }}
-              >
-                <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                  <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                </div>
-                <div>
-                  <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-400 block leading-tight">Live Today Sales</span>
-                  <span className={`text-xs sm:text-sm font-black font-mono text-blue-600 dark:text-blue-400 transition-colors ${pulse ? 'text-emerald-500' : ''}`}>
-                    Rs {liveSales.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* ─────────────────────────────────────────────────────────────
-                  FLOATING 3D BADGE 3: Inventory Turnover (Bottom Left)
-              ───────────────────────────────────────────────────────────── */}
-              <div 
-                className="hidden sm:flex absolute -bottom-4 left-4 z-40 items-center gap-3 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-emerald-500/40 dark:border-emerald-400/50 shadow-2xl shadow-emerald-500/20 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none"
-                style={{
-                  transform: isHovered ? `translate3d(${tilt.x * 0.5}px, ${-tilt.y * 0.5}px, 25px)` : undefined
-                }}
-              >
-                <div>
-                  <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 block">Inventory Turnover</span>
-                  <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">+98.4% Optimal</span>
-                </div>
-                <svg className="w-16 sm:w-20 h-6 text-emerald-500" viewBox="0 0 100 30" fill="none">
-                  <path d="M0 24 C 20 24, 30 6, 50 16 C 70 26, 80 6, 100 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                </svg>
-              </div>
-
-              {/* ─────────────────────────────────────────────────────────────
-                  REALISTIC MACBOOK LAPTOP CONTAINER WITH REAL DASHBOARD
-              ───────────────────────────────────────────────────────────── */}
-              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-cyan-500/40 shadow-cyan-600/10 dark:shadow-cyan-500/20">
-                
-                {/* Laptop Top Bezel with Camera & Glossy Chrome Edge */}
-                <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950 rounded-t-xl border-b border-slate-800 text-slate-400 text-[10px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90 inline-block shadow-xs"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/90 inline-block shadow-xs"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90 inline-block shadow-xs"></span>
-                  </div>
-                  
-                  {/* Browser URL bar */}
-                  <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-300 bg-slate-900/90 px-3.5 py-0.5 rounded-md border border-slate-700/80 shadow-inner">
-                    <span className="text-emerald-400 text-xs">🔒</span>
-                    <span className="font-semibold">app.mbiinventra.com/dashboard</span>
-                  </div>
-
-                  <div className="w-2 h-2 rounded-full bg-slate-800 border border-slate-700"></div>
-                </div>
-
-                {/* Laptop Screen Inner Canvas with Actual Screenshots */}
-                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800 flex items-center justify-center min-h-[160px]">
-                  
-                  {/* Responsive Dynamic Web Dashboard Screenshot (Dark / Light) */}
-                  <img 
-                    key={isDark ? 'hero-dash-dark' : 'hero-dash-light'}
-                    src={isDark ? dashboardDarkImg : dashboardLightImg} 
-                    alt={isDark ? "MBI INVENTRA Web Dashboard Dark Mode" : "MBI INVENTRA Web Dashboard Light Mode"} 
-                    className="w-full h-auto block object-cover rounded-b-xl transition-all duration-300 select-none filter brightness-105 contrast-105"
-                    loading="eager"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = isDark ? '/landing/dashboard-dark.png' : '/landing/dashboard-light.png';
-                    }}
-                  />
-
-                  {/* Glass Sheen Gradient Overlay on Screen */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none rounded-b-xl" />
-                </div>
-
-                {/* Laptop Bottom Aluminum Base & Hinge Deck */}
-                <div className="relative mt-1">
-                  <div className="h-3 sm:h-3.5 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-b-xl mx-4 sm:mx-8 shadow-md border-t border-slate-600/50 flex items-center justify-center">
-                    <div className="w-14 sm:w-20 h-1 bg-slate-950/70 rounded-full"></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ─────────────────────────────────────────────────────────────
-                  SYNCHRONIZED SMARTPHONE FRAME (Overlapped on Right Corner)
-              ───────────────────────────────────────────────────────────── */}
-              <div 
-                className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-cyan-500/50 shadow-2xl shadow-black/80 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300"
-                style={{
-                  transform: isHovered ? `rotate(1deg) translate3d(${-tilt.x * 0.4}px, ${-tilt.y * 0.4}px, 40px)` : undefined
-                }}
-              >
-                
-                {/* Dynamic Island Notch */}
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-14 sm:w-16 h-3 bg-slate-950 rounded-full z-20 flex items-center justify-center border border-slate-800">
-                  <div className="w-2 h-2 rounded-full bg-blue-950 border border-blue-600/40 mr-1"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-900"></div>
-                </div>
-
-                {/* Phone Screen Canvas with Actual Mobile App Screenshots */}
-                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center min-h-[120px]">
-                  
-                  {/* Responsive Dynamic Mobile App Screenshot (Dark / Light) */}
-                  <img 
-                    key={isDark ? 'hero-mob-dark' : 'hero-mob-light'}
-                    src={isDark ? mobileDarkImg : mobileLightImg} 
-                    alt={isDark ? "MBI INVENTRA Mobile POS App Dark Mode" : "MBI INVENTRA Mobile POS App Light Mode"} 
-                    className="w-full h-auto block object-cover rounded-[1.6rem] transition-all duration-300 select-none filter brightness-105 contrast-105"
-                    loading="eager"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = isDark ? '/landing/mobile-dark.png' : '/landing/mobile-light.png';
-                    }}
-                  />
-
-                  {/* Phone Screen Glass Reflection */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none rounded-[1.6rem]" />
-                </div>
-              </div>
-
             </div>
 
           </div>
 
         </div>
 
-        {/* ─────────────────────────────────────────────────────────────
-            4 BOTTOM HIGH-CONTRAST GLASSMORPHIC FEATURE CARDS
-        ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 pt-4">
-          
-          {/* Card 1: POS & Billing */}
-          <div className="group p-5 rounded-2xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all duration-300 transform hover:-translate-y-1">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3.5 group-hover:scale-110 transition-transform">
+        {/* ================= 4 BOTTOM CORE VALUE PROPOSITION CARDS (Desktop & Tablet Only) ================= */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 pt-2">
+
+          {/* Card 1 */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
               <Monitor className="w-5 h-5" />
             </div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-              POS &amp; Billing
+              0.2s Counter POS
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-              Complete high-speed 0.2s counter checkout, barcode scanner, thermal prints &amp; WhatsApp invoices.
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+              High-speed barcode checkout, thermal 80mm &amp; 58mm receipts with WhatsApp bill sharing.
             </p>
           </div>
 
-          {/* Card 2: Inventory Management */}
-          <div className="group p-5 rounded-2xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all duration-300 transform hover:-translate-y-1">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3.5 group-hover:scale-110 transition-transform">
+          {/* Card 2 */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
               <Package className="w-5 h-5" />
             </div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Inventory Management
+              FEFO Expiry Radar
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-              FEFO batch expiry radar, automated low-stock warnings &amp; computerized supplier purchase orders.
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+              Automated near-expiry alerts (30/60/90 days) to return stock before financial loss.
             </p>
           </div>
 
-          {/* Card 3: Multi-Branch Management */}
-          <div className="group p-5 rounded-2xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-purple-500/50 dark:hover:border-purple-500/50 transition-all duration-300 transform hover:-translate-y-1">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3.5 group-hover:scale-110 transition-transform">
+          {/* Card 3 */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3">
               <Users className="w-5 h-5" />
             </div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Multi-Branch Management
+              Multi-Store Sync
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-              Centralized inventory visibility across all pharmacy branches with inter-store transfer tracking.
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+              Real-time stock transfers, centralized inventory visibility, and role-based staff permissions.
             </p>
           </div>
 
-          {/* Card 4: Reports & Analytics */}
-          <div className="group p-5 rounded-2xl bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-amber-500/50 dark:hover:border-amber-500/50 transition-all duration-300 transform hover:-translate-y-1">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3.5 group-hover:scale-110 transition-transform">
+          {/* Card 4 */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
               <BarChart3 className="w-5 h-5" />
             </div>
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Reports &amp; Analytics
+              Daily Profit &amp; Loss
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1.5 leading-relaxed">
-              Live profit &amp; loss charts, daily cashier shift closing sheets, customer khata &amp; audit trails.
+            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-1 leading-relaxed">
+              Item-wise margins, daily cashier shift closing, customer khata balances, and audit trails.
             </p>
           </div>
 

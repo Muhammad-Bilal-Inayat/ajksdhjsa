@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  AlertCircle, Plus, Search, ShoppingCart, TrendingDown, 
+import {
+  AlertCircle, Plus, Search, ShoppingCart, TrendingDown,
   CheckCircle2, ArrowRight, Sparkles, Clock, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -146,7 +146,7 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
             </div>
           ) : (
             items.map((item) => (
-              <div 
+              <div
                 key={item.id}
                 className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 hover:border-rose-200 transition-colors"
               >
@@ -165,11 +165,10 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
                   type="button"
                   onClick={() => handleAddToPO(item.id)}
                   disabled={addedIds.has(item.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs ${
-                    addedIds.has(item.id)
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs ${addedIds.has(item.id)
                       ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 cursor-not-allowed'
                       : 'bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                  }`}
+                    }`}
                 >
                   {addedIds.has(item.id) ? (
                     <>

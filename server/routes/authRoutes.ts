@@ -1,6 +1,11 @@
 import express, { Response } from 'express';
 import { requireAuth, requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
-import { loginController, registerTrialController } from '../controllers/authController';
+import { 
+  loginController, 
+  registerTrialController,
+  forgotPasswordController,
+  verifyResetOtpController
+} from '../controllers/authController';
 import { signJwt } from '../auth/jwt';
 
 export const authRouter = express.Router();
@@ -10,6 +15,18 @@ export const authRouter = express.Router();
  * Authenticates user credentials directly from mbi_users MariaDB table and issues a JWT with device tracking & SSE broadcast
  */
 authRouter.post('/login', loginController);
+
+/**
+ * POST /api/auth/forgot-password
+ * Initiates automated password recovery via registered email OTP dispatch
+ */
+authRouter.post('/forgot-password', forgotPasswordController);
+
+/**
+ * POST /api/auth/verify-reset-otp
+ * Verifies the 6-digit email OTP and updates the user's password/passcode
+ */
+authRouter.post('/verify-reset-otp', verifyResetOtpController);
 
 /**
  * GET /api/auth/me
@@ -47,3 +64,4 @@ authRouter.post('/master-login', requireMasterAuth, (req: TenantRequest, res: Re
     expiresIn: '12h'
   });
 });
+

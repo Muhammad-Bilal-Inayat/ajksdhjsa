@@ -369,6 +369,56 @@ export async function sendPasswordResetEmail(resetData: {
 }
 
 /**
+ * 4b. Automated Password Reset OTP Verification Email
+ */
+export async function sendPasswordResetOtpEmail(otpData: {
+  toEmail: string;
+  userName: string;
+  otpCode: string;
+  expiresMinutes?: number;
+}) {
+  if (!otpData.toEmail || !otpData.toEmail.includes('@')) return { success: false, error: 'Invalid email address' };
+
+  const validity = otpData.expiresMinutes || 15;
+  const html = `
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #1e3a8a, #2563eb); padding: 25px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 22px; font-weight: 800;">🔐 Password Recovery Code</h2>
+          <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Cloud POS & ERP Security</p>
+        </div>
+        <div style="padding: 25px;">
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${otpData.userName}</strong>,</p>
+          <p style="font-size: 13px; color: #475569; line-height: 1.6;">
+            We received a request to reset your password for your MBI INVENTRA workspace account. Please use the following 6-digit verification code to proceed:
+          </p>
+          
+          <div style="background: #eff6ff; border: 2px dashed #93c5fd; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+            <p style="margin: 0; font-size: 11px; color: #1e40af; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Your 6-Digit Verification Code</p>
+            <p style="margin: 8px 0 0 0; font-size: 34px; font-family: monospace; font-weight: 900; color: #1d4ed8; letter-spacing: 6px;">${otpData.otpCode}</p>
+            <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">(Valid for ${validity} minutes)</p>
+          </div>
+
+          <p style="font-size: 12px; color: #64748b; line-height: 1.5;">
+            If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+          </p>
+        </div>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 14px; text-align: center; font-size: 11px; color: #94a3b8;">
+          MBI INVENTRA Security Engine • Need help? Contact +92 328 1302636 / +92 336 4585863
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: otpData.toEmail,
+    subject: `🔐 [MBI INVENTRA] Password Recovery Code: ${otpData.otpCode}`,
+    html
+  });
+}
+
+
+/**
  * 5. Custom Announcement / Broadcast / Notice Email to Tenant(s)
  */
 export async function sendCustomTenantEmail(payload: {

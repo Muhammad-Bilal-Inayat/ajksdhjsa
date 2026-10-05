@@ -6,7 +6,7 @@ import { TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastAdminEvent, broadcastFleetActivity } from '../routes/adminRoutes';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import { getFallbackUsers } from './userController';
-import { sendAdminAlertNewTenant, sendTenantWelcomeEmail } from '../services/emailService';
+import { sendAdminAlertNewTenant, sendTenantWelcomeEmail, sendPasswordResetOtpEmail } from '../services/emailService';
 import fs from 'fs';
 import path from 'path';
 
@@ -921,3 +921,215 @@ export async function registerTrialController(req: TenantRequest, res: Response)
 }
 
 export const registerController = registerTrialController;
+
+// In-memory OTP registry for Password Reset
+interface PasswordResetOtpEntry {
+  email: string;
+  username: string;
+  userName: string;
+  otp: string;
+  expiresAt: number;
+  userId?: string;
+  tenantId?: string;
+}
+
+const passwordResetOtpMap = new Map<string, PasswordResetOtpEntry>();
+
+function maskEmail(email: string): string {
+  const parts = email.split('@');
+  if (parts.length !== 2) return email;
+  const name = parts[0];
+  const domain = parts[1];
+  const maskedName = name.length <= 2 ? name + '***' : name.slice(0, 2) + '***' + name.slice(-1);
+  return `${maskedName}@${domain}`;
+}
+
+/**
+ * Controller: Request Password Reset OTP via Email
+ * POST /api/auth/forgot-password
+ */
+export async function forgotPasswordController(req: TenantRequest, res: Response): Promise<void> {
+  try {
+    const { identifier } = req.body;
+    const cleanId = (identifier || '').trim().toLowerCase();
+
+    if (!cleanId) {
+      res.status(400).json({ success: false, error: 'Please enter your registered Email, Username, or Mobile.' });
+      return;
+    }
+
+    let targetEmail = '';
+    let targetUserName = 'User';
+    let targetUserId = '';
+    let targetTenantId = '';
+    let targetUsername = cleanId;
+
+    // 1. Check Master SQLite Vault
+    try {
+      const master = getMasterVault();
+      const user: any = master.prepare(`
+        SELECT * FROM mbi_users 
+        WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ? OR id = ?
+        LIMIT 1
+      `).get(cleanId, cleanId, cleanId, cleanId);
+
+      if (user) {
+        targetEmail = user.email || '';
+        targetUserName = user.name || user.username || 'User';
+        targetUserId = user.id;
+        targetTenantId = user.tenant_id;
+        targetUsername = user.username || cleanId;
+      }
+    } catch (e) {}
+
+    // 2. Check Tenants table if user email not found
+    if (!targetEmail) {
+      try {
+        const master = getMasterVault();
+        const tenant: any = master.prepare(`
+          SELECT * FROM mbi_tenants
+          WHERE LOWER(owner_email) = ? OR LOWER(primary_admin_email) = ? OR LOWER(username) = ? OR owner_phone = ?
+          LIMIT 1
+        `).get(cleanId, cleanId, cleanId, cleanId);
+
+        if (tenant) {
+          targetEmail = tenant.owner_email || tenant.primary_admin_email || '';
+          targetUserName = tenant.owner_name || tenant.name || 'Owner';
+          targetTenantId = tenant.tenant_id;
+          targetUsername = tenant.username || cleanId;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback: If user typed an email directly
+    if (!targetEmail && cleanId.includes('@')) {
+      targetEmail = cleanId;
+      targetUserName = cleanId.split('@')[0];
+    }
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+      res.status(404).json({
+        success: false,
+        noEmail: true,
+        error: 'No registered email found for this account. Please use WhatsApp Direct Support (+92 328 1302636) to recover your credentials.'
+      });
+      return;
+    }
+
+    // Generate 6-digit secure numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+    const otpEntry: PasswordResetOtpEntry = {
+      email: targetEmail.toLowerCase().trim(),
+      username: targetUsername,
+      userName: targetUserName,
+      otp,
+      expiresAt,
+      userId: targetUserId,
+      tenantId: targetTenantId
+    };
+
+    passwordResetOtpMap.set(targetEmail.toLowerCase().trim(), otpEntry);
+    if (targetUsername) {
+      passwordResetOtpMap.set(targetUsername.toLowerCase().trim(), otpEntry);
+    }
+
+    // Dispatch OTP Email
+    const emailResult = await sendPasswordResetOtpEmail({
+      toEmail: targetEmail,
+      userName: targetUserName,
+      otpCode: otp,
+      expiresMinutes: 15
+    });
+
+    if (!emailResult.success) {
+      console.warn('[FORGOT PASSWORD EMAIL NOTICE]: Could not send email directly:', emailResult.error);
+    }
+
+    res.json({
+      success: true,
+      message: `A 6-digit password recovery code has been sent to ${maskEmail(targetEmail)}.`,
+      maskedEmail: maskEmail(targetEmail),
+      targetEmail: targetEmail
+    });
+  } catch (err: any) {
+    console.error('[FORGOT PASSWORD CONTROLLER ERROR]:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Failed to process password recovery request' });
+  }
+}
+
+/**
+ * Controller: Verify OTP & Set New Password
+ * POST /api/auth/verify-reset-otp
+ */
+export async function verifyResetOtpController(req: TenantRequest, res: Response): Promise<void> {
+  try {
+    const { identifier, otp, newPassword } = req.body;
+    const cleanId = (identifier || '').trim().toLowerCase();
+    const cleanOtp = (otp || '').trim();
+    const cleanPass = (newPassword || '').trim();
+
+    if (!cleanId || !cleanOtp || !cleanPass) {
+      res.status(400).json({ success: false, error: 'Verification code and new password are required.' });
+      return;
+    }
+
+    if (cleanPass.length < 4) {
+      res.status(400).json({ success: false, error: 'New password must be at least 4 characters long.' });
+      return;
+    }
+
+    const entry = passwordResetOtpMap.get(cleanId);
+    if (!entry) {
+      res.status(400).json({ success: false, error: 'Invalid or expired recovery session. Please request a new code.' });
+      return;
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      passwordResetOtpMap.delete(cleanId);
+      res.status(400).json({ success: false, error: 'Verification code has expired. Please request a new code.' });
+      return;
+    }
+
+    if (entry.otp !== cleanOtp) {
+      res.status(400).json({ success: false, error: 'Invalid 6-digit verification code. Please check your email and try again.' });
+      return;
+    }
+
+    // Update password in SQLite Master Vault
+    try {
+      const master = getMasterVault();
+      master.prepare(`
+        UPDATE mbi_users 
+        SET passcode = ?, pin = ?
+        WHERE LOWER(email) = ? OR LOWER(username) = ? OR id = ?
+      `).run(cleanPass, cleanPass, entry.email.toLowerCase(), entry.username.toLowerCase(), entry.userId || '');
+    } catch (dbErr) {}
+
+    // Update in individual tenant vault if tenant exists
+    if (entry.tenantId) {
+      try {
+        const tenantDb = getTenantVault(entry.tenantId);
+        tenantDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?
+          WHERE LOWER(email) = ? OR LOWER(username) = ? OR id = ?
+        `).run(cleanPass, cleanPass, entry.email.toLowerCase(), entry.username.toLowerCase(), entry.userId || '');
+      } catch (tDbErr) {}
+    }
+
+    // Clean up OTP session
+    passwordResetOtpMap.delete(cleanId);
+    if (entry.email) passwordResetOtpMap.delete(entry.email.toLowerCase().trim());
+    if (entry.username) passwordResetOtpMap.delete(entry.username.toLowerCase().trim());
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully! You can now log in with your new password.'
+    });
+  } catch (err: any) {
+    console.error('[VERIFY RESET OTP ERROR]:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Failed to reset password' });
+  }
+}

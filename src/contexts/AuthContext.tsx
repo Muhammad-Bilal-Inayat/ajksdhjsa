@@ -1276,27 +1276,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             maxDevices: 5,
             licenseId: sTenantId,
             featureToggles: {
-              canUsePos: true,
-              canManageInventory: true,
-              canManageShortages: true,
-              canExportData: sRole === 'Primary Admin' || sRole === 'Admin',
-              canViewReports: sRole === 'Primary Admin' || sRole === 'Admin' || sRole === 'Pharmacist',
-              canSyncCloud: true,
-              canManageOnlineStore: true,
-              canUseMobileApp: true,
-              canUseMultiCounter: true,
-              canUseWhatsappAlerts: true,
-              canUseAdvancedAudit: true,
-              canUseControlledDrugs: true,
-              canUseAutoShortage: true,
-              canUseMultiBatch: true,
-              canUseBarcodeLabelPrinting: true,
-              canUseLoyaltyPoints: true,
-              canUseCustomPermissions: true,
-              canUseAiAnalytics: true,
-              canUseRemoteBranchSync: true,
-              canUseCloudVaultBackup: true,
-              canUseFbrIntegration: true
+              ...DEFAULT_TENANT_FEATURE_TOGGLES,
+              dataExport: sRole === 'Primary Admin' || sRole === 'Admin',
+              reports: sRole === 'Primary Admin' || sRole === 'Admin' || sRole === 'Pharmacist',
+              advancedReports: sRole === 'Primary Admin' || sRole === 'Admin' || sRole === 'Pharmacist'
             }
           };
 

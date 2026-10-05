@@ -15,7 +15,7 @@ export interface BroadcastPayload {
   image_url?: string;
   type?: 'info' | 'success' | 'urgent';
   priority?: 'feature_update' | 'special_offer' | 'critical_notice' | 'urgent' | 'alert' | 'notice' | 'info' | 'success';
-  targetType?: 'global' | 'store' | 'user' | 'plan';
+  targetType?: 'global' | 'store' | 'user' | 'plan' | 'homepage';
   targetStoreId?: string;
   targetUserId?: string;
   targetPlan?: string;
@@ -151,6 +151,11 @@ export function GlobalBroadcastPopupModal() {
       localStorage.getItem('mbi_current_user_id') || 
       localStorage.getItem('mbi_user_id') || '';
 
+    // Strictly ignore Public Home Page broadcasts on in-app / workspace terminals
+    if (b.targetType === 'homepage' || (b as any).target_type === 'homepage') {
+      return false;
+    }
+
     // Target Check
     if (b.targetType === 'store' && b.targetStoreId) {
       if (currentTenant && b.targetStoreId !== currentTenant && b.targetStoreId !== 'all') {
@@ -233,7 +238,7 @@ export function GlobalBroadcastPopupModal() {
     const handleSseBroadcast = (e: CustomEvent<BroadcastPayload>) => {
       const b = e.detail;
       if (!b || !b.id) return;
-      if ((b as any).entity === 'homepage_popup' || (b as any).type === 'HOMEPAGE_POPUP_UPDATED') return;
+      if ((b as any).entity === 'homepage_popup' || (b as any).type === 'HOMEPAGE_POPUP_UPDATED' || b.targetType === 'homepage' || (b as any).target_type === 'homepage') return;
 
       const path = window.location.pathname.toLowerCase();
       const isPublicOrServerRoute = 

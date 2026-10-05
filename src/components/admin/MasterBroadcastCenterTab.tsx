@@ -3,7 +3,7 @@ import {
   Megaphone, Send, Radio, Users, Building2, User, 
   Crown, Sparkles, AlertTriangle, Info, Clock, Trash2, 
   RefreshCw, CheckCircle2, Check, ExternalLink, Search, 
-  Eye, BarChart3, Filter, MessageSquare, ArrowRight, ShieldAlert,
+  Eye, BarChart3, Filter, MessageSquare, ArrowRight, ShieldAlert, ShieldCheck,
   Smartphone, Layers, CheckCheck, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { emitToast } from '../../contexts/ToastContext';
@@ -55,7 +55,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
   const [searchArchive, setSearchArchive] = useState('');
 
   // Compose Form State
-  const [targetType, setTargetType] = useState<'global' | 'store' | 'user' | 'plan'>('global');
+  const [targetType, setTargetType] = useState<'global' | 'store' | 'user' | 'plan' | 'homepage'>('global');
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<string>('Gold');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -193,6 +193,15 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
       setPriority('critical_notice');
       setCtaLabel('View System Health');
       setCtaUrl('/utilities');
+    } else if ((type as string) === 'trial') {
+      setTargetType('homepage');
+      setTitle('Welcome to MBI INVENTRA Cloud POS');
+      setSubtitle('Experience 0ms Ultra-Fast Pharmacy Billing & Management');
+      setBody('Start your 10-day full access free trial with automated FEFO batching, thermal printing, and 100% offline desktop sync mode.');
+      setImageUrl('');
+      setPriority('special_offer');
+      setCtaLabel('Claim 10-Day Free Trial');
+      setCtaUrl('/register');
     }
   };
 
@@ -231,6 +240,56 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
 
     setIsSending(true);
     try {
+      if (targetType === 'homepage') {
+        const hpPayload = {
+          id: `hp_pop_${Date.now()}`,
+          enabled: true,
+          title: title.trim(),
+          subtitle: subtitle.trim() || undefined,
+          body: body.trim(),
+          badgeText: priority === 'critical_notice' ? 'CRITICAL SYSTEM NOTICE' : priority === 'special_offer' ? 'SPECIAL OFFER' : 'FREE 10-DAY TRIAL',
+          imageUrl: imageUrl.trim() || undefined,
+          ctaLabel: ctaLabel.trim() || 'Claim 10-Day Free Trial',
+          ctaUrl: ctaUrl.trim() || '/register',
+          type: priority,
+          autoShowDelayMs: 1500
+        };
+
+        const res = await fetch('/api/admin/homepage-popup', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(hpPayload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          emitToast('✨ Home Page Isolated Popup published live! Visible strictly on Home Page only.', 'success');
+          // Also save in broadcast history for audit record
+          await fetch('/api/master/broadcast', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(payload)
+          }).catch(() => {});
+
+          window.dispatchEvent(new CustomEvent('mbi-homepage-popup-updated', { detail: hpPayload }));
+          localStorage.removeItem(`mbi_home_popup_dismissed_${hpPayload.id}`);
+          sessionStorage.removeItem(`mbi_home_popup_dismissed_${hpPayload.id}`);
+
+          setTitle('');
+          setSubtitle('');
+          setBody('');
+          setImageUrl('');
+          setCtaLabel('');
+          setCtaUrl('');
+          fetchBroadcastHistory();
+          setSubView('analytics');
+          return;
+        } else {
+          emitToast(data.error || 'Failed to publish Home Page popup', 'error');
+          return;
+        }
+      }
+
       let res = await fetch('/api/master/broadcast', {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -397,7 +456,7 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   1. Target Audience
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setTargetType('global')}
@@ -449,7 +508,33 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                     <User className="w-4 h-4" />
                     <span>Specific User</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTargetType('homepage')}
+                    className={`p-3 rounded-2xl border text-xs font-bold flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                      targetType === 'homepage'
+                        ? 'bg-purple-50 dark:bg-purple-950/50 border-purple-600 text-purple-600 dark:text-purple-400 ring-2 ring-purple-500/20 shadow-sm'
+                        : 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300 hover:bg-purple-100/60'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+                    <span>🌐 Home Page Only</span>
+                  </button>
                 </div>
+
+                {/* Sub Target Dropdowns & Isolation Details */}
+                {targetType === 'homepage' && (
+                  <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-purple-50/90 to-indigo-50/90 dark:from-purple-950/50 dark:to-indigo-950/50 border border-purple-200 dark:border-purple-800/60 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-black text-purple-900 dark:text-purple-200">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Strict Public Home Page Isolation Guaranteed</span>
+                    </div>
+                    <p className="text-[11px] text-purple-700 dark:text-purple-300 leading-relaxed">
+                      This broadcast popup will <strong>ONLY</strong> be displayed to visitors on the Public Home / Landing Page (<code>/</code>, <code>/home</code>, <code>/site</code>, <code>/landing</code>). It is completely isolated and will <strong>NEVER</strong> appear inside client POS billing, cashier shifts, or back-office workspaces.
+                    </p>
+                  </div>
+                )}
 
                 {/* Sub Target Dropdowns */}
                 {targetType === 'store' && (
@@ -853,6 +938,15 @@ export const MasterBroadcastCenterTab: React.FC<{ isDarkMode?: boolean }> = ({ i
                 >
                   <span className="text-xs font-black text-rose-700 dark:text-rose-300 block">⚠️ Scheduled Midnight Maintenance</span>
                   <span className="text-[10px] text-slate-500 dark:text-slate-400">Database indexing reminder for cashiers</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyTemplate('trial' as any)}
+                  className="w-full p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 text-left hover:bg-purple-100/60 transition-all cursor-pointer"
+                >
+                  <span className="text-xs font-black text-purple-700 dark:text-purple-300 block">🌐 Public 10-Day Trial Offer</span>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">Auto-fills 10-Day Free Trial for Home Page</span>
                 </button>
               </div>
             </div>

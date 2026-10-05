@@ -8105,42 +8105,44 @@ async function registerTrialController(req, res) {
       submittedAt: registrationDate,
       activatedAt: registrationDate
     };
-    try {
-      let syncData = {};
-      if (import_fs9.default.existsSync(syncFile7)) {
-        const raw = import_fs9.default.readFileSync(syncFile7, "utf-8");
-        syncData = JSON.parse(raw);
+    setImmediate(() => {
+      try {
+        let syncData = {};
+        if (import_fs9.default.existsSync(syncFile7)) {
+          const raw = import_fs9.default.readFileSync(syncFile7, "utf-8");
+          syncData = JSON.parse(raw);
+        }
+        if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
+        if (!syncData.mbi_tenants) syncData.mbi_tenants = [];
+        if (!syncData.mbi_users) syncData.mbi_users = [];
+        if (!syncData.appUsers) syncData.appUsers = [];
+        if (!syncData.tenants) syncData.tenants = [];
+        if (!syncData.client_licenses) syncData.client_licenses = [];
+        if (!syncData.registration_leads) syncData.registration_leads = [];
+        if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
+        syncData.mbi_licenses.push(newLicense);
+        syncData.client_licenses.push(newLicense);
+        syncData.mbi_tenants.push(newTenant);
+        syncData.tenants.push(newTenant);
+        syncData.mbi_users.push(newUser);
+        syncData.appUsers.push(newUser);
+        syncData.registration_leads.push(newLead);
+        syncData.mbi_registration_leads.push(newLead);
+        import_fs9.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
+      } catch (fsErr) {
       }
-      if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
-      if (!syncData.mbi_tenants) syncData.mbi_tenants = [];
-      if (!syncData.mbi_users) syncData.mbi_users = [];
-      if (!syncData.appUsers) syncData.appUsers = [];
-      if (!syncData.tenants) syncData.tenants = [];
-      if (!syncData.client_licenses) syncData.client_licenses = [];
-      if (!syncData.registration_leads) syncData.registration_leads = [];
-      if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
-      syncData.mbi_licenses.push(newLicense);
-      syncData.client_licenses.push(newLicense);
-      syncData.mbi_tenants.push(newTenant);
-      syncData.tenants.push(newTenant);
-      syncData.mbi_users.push(newUser);
-      syncData.appUsers.push(newUser);
-      syncData.registration_leads.push(newLead);
-      syncData.mbi_registration_leads.push(newLead);
-      import_fs9.default.writeFileSync(syncFile7, JSON.stringify(syncData, null, 2), "utf-8");
-    } catch (fsErr) {
-    }
-    try {
-      const masterUsersFile2 = import_path9.default.resolve(process.cwd(), ".master_users.json");
-      let masterUsers = [];
-      if (import_fs9.default.existsSync(masterUsersFile2)) {
-        masterUsers = JSON.parse(import_fs9.default.readFileSync(masterUsersFile2, "utf-8"));
+      try {
+        const masterUsersFile2 = import_path9.default.resolve(process.cwd(), ".master_users.json");
+        let masterUsers = [];
+        if (import_fs9.default.existsSync(masterUsersFile2)) {
+          masterUsers = JSON.parse(import_fs9.default.readFileSync(masterUsersFile2, "utf-8"));
+        }
+        masterUsers = masterUsers.filter((u) => u.id !== userId);
+        masterUsers.push(newUser);
+        import_fs9.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
+      } catch (muErr) {
       }
-      masterUsers = masterUsers.filter((u) => u.id !== userId);
-      masterUsers.push(newUser);
-      import_fs9.default.writeFileSync(masterUsersFile2, JSON.stringify(masterUsers, null, 2), "utf-8");
-    } catch (muErr) {
-    }
+    });
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;
     const devRecord = {
       id: deviceKey,
@@ -13887,33 +13889,35 @@ licenseRouter.post("/register-trial", async (req, res) => {
       } catch (dbErr) {
       }
     }
-    try {
-      let syncData = {};
-      if (import_fs14.default.existsSync(syncFile9)) {
-        syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
+    setImmediate(() => {
+      try {
+        let syncData = {};
+        if (import_fs14.default.existsSync(syncFile9)) {
+          syncData = JSON.parse(import_fs14.default.readFileSync(syncFile9, "utf-8"));
+        }
+        if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
+        if (!syncData.client_licenses) syncData.client_licenses = [];
+        const licObj = {
+          id: licenseId,
+          tenantId,
+          licenseKey,
+          clientName: cleanStoreName,
+          ownerName: cleanOwnerName,
+          phone: cleanPhone,
+          city: cleanCity,
+          plan: "Basic",
+          status: "Active",
+          issueDate,
+          expiryDate,
+          maxDevices: 10,
+          boundHardwareIds: [clientHwid]
+        };
+        syncData.mbi_licenses.push(licObj);
+        syncData.client_licenses.push(licObj);
+        import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
+      } catch (e) {
       }
-      if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
-      if (!syncData.client_licenses) syncData.client_licenses = [];
-      const licObj = {
-        id: licenseId,
-        tenantId,
-        licenseKey,
-        clientName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        plan: "Basic",
-        status: "Active",
-        issueDate,
-        expiryDate,
-        maxDevices: 10,
-        boundHardwareIds: [clientHwid]
-      };
-      syncData.mbi_licenses.push(licObj);
-      syncData.client_licenses.push(licObj);
-      import_fs14.default.writeFileSync(syncFile9, JSON.stringify(syncData, null, 2), "utf-8");
-    } catch (e) {
-    }
+    });
     res.json({
       success: true,
       message: "10-Day Free Trial successfully activated with Device #1 auto-bound!",

@@ -768,44 +768,47 @@ export async function registerTrialController(req: TenantRequest, res: Response)
       activatedAt: registrationDate
     };
 
-    try {
-      let syncData: any = {};
-      if (fs.existsSync(syncFile)) {
-        const raw = fs.readFileSync(syncFile, 'utf-8');
-        syncData = JSON.parse(raw);
-      }
-      if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
-      if (!syncData.mbi_tenants) syncData.mbi_tenants = [];
-      if (!syncData.mbi_users) syncData.mbi_users = [];
-      if (!syncData.appUsers) syncData.appUsers = [];
-      if (!syncData.tenants) syncData.tenants = [];
-      if (!syncData.client_licenses) syncData.client_licenses = [];
-      if (!syncData.registration_leads) syncData.registration_leads = [];
-      if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
+    // Non-blocking background sync for legacy JSON files
+    setImmediate(() => {
+      try {
+        let syncData: any = {};
+        if (fs.existsSync(syncFile)) {
+          const raw = fs.readFileSync(syncFile, 'utf-8');
+          syncData = JSON.parse(raw);
+        }
+        if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
+        if (!syncData.mbi_tenants) syncData.mbi_tenants = [];
+        if (!syncData.mbi_users) syncData.mbi_users = [];
+        if (!syncData.appUsers) syncData.appUsers = [];
+        if (!syncData.tenants) syncData.tenants = [];
+        if (!syncData.client_licenses) syncData.client_licenses = [];
+        if (!syncData.registration_leads) syncData.registration_leads = [];
+        if (!syncData.mbi_registration_leads) syncData.mbi_registration_leads = [];
 
-      syncData.mbi_licenses.push(newLicense);
-      syncData.client_licenses.push(newLicense);
-      syncData.mbi_tenants.push(newTenant);
-      syncData.tenants.push(newTenant);
-      syncData.mbi_users.push(newUser);
-      syncData.appUsers.push(newUser);
-      syncData.registration_leads.push(newLead);
-      syncData.mbi_registration_leads.push(newLead);
+        syncData.mbi_licenses.push(newLicense);
+        syncData.client_licenses.push(newLicense);
+        syncData.mbi_tenants.push(newTenant);
+        syncData.tenants.push(newTenant);
+        syncData.mbi_users.push(newUser);
+        syncData.appUsers.push(newUser);
+        syncData.registration_leads.push(newLead);
+        syncData.mbi_registration_leads.push(newLead);
 
-      fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
-    } catch (fsErr) {}
+        fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+      } catch (fsErr) {}
 
-    // Update .master_users.json for Master Governance Hub
-    try {
-      const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
-      let masterUsers: any[] = [];
-      if (fs.existsSync(masterUsersFile)) {
-        masterUsers = JSON.parse(fs.readFileSync(masterUsersFile, 'utf-8'));
-      }
-      masterUsers = masterUsers.filter(u => u.id !== userId);
-      masterUsers.push(newUser);
-      fs.writeFileSync(masterUsersFile, JSON.stringify(masterUsers, null, 2), 'utf-8');
-    } catch (muErr) {}
+      // Update .master_users.json for Master Governance Hub
+      try {
+        const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
+        let masterUsers: any[] = [];
+        if (fs.existsSync(masterUsersFile)) {
+          masterUsers = JSON.parse(fs.readFileSync(masterUsersFile, 'utf-8'));
+        }
+        masterUsers = masterUsers.filter(u => u.id !== userId);
+        masterUsers.push(newUser);
+        fs.writeFileSync(masterUsersFile, JSON.stringify(masterUsers, null, 2), 'utf-8');
+      } catch (muErr) {}
+    });
 
     // 3. Auto-Register First Device in Live Telemetry
     const deviceKey = `dev_${userId}_${clientHwid.slice(-6)}`;

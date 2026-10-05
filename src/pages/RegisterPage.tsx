@@ -115,30 +115,13 @@ export const RegisterPage: React.FC = () => {
       };
 
       const result = await authService.registerPharmacy(payload);
+      if (result && !result.success) {
+        throw new Error(result.error || 'Registration failed. Please check your credentials.');
+      }
       const effectiveTenantId = result?.user?.tenantId || `tenant_${Date.now()}`;
 
       // Initialize Basic Plan trial features & licensing
       planService.initializeBasicTrialFeatures(effectiveTenantId);
-      await licenseService.startTrial({
-        tenantId: effectiveTenantId,
-        storeName: storeName.trim(),
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || `${phone.trim()}@inventra.local`,
-        city: city.trim()
-      });
-
-      try {
-        await registerTenant({
-          storeName: storeName.trim(),
-          ownerName: ownerName.trim(),
-          city: city.trim(),
-          phone: phone.trim(),
-          email: email.trim() || `${phone.trim()}@inventra.local`
-        });
-      } catch (localErr) {
-        console.warn('Local registerTenant context init:', localErr);
-      }
 
       emitToast('🎉 10-Day Free Trial Activated!', 'success');
       navigate('/user', { replace: true });

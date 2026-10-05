@@ -257,28 +257,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login' }) => 
         plan: 'Basic'
       });
 
-      // 2. Initialize 10-Day Free Trial Engine via licenseService
-      await licenseService.startTrial({
-        tenantId: res?.user?.tenantId,
-        storeName: storeName.trim(),
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        city: city.trim()
-      });
-
-      // 3. Fallback registerTenant sync for AuthContext session
-      try {
-        await registerTenant({
-          storeName: storeName.trim(),
-          ownerName: ownerName.trim(),
-          city: city.trim(),
-          phone: phone.trim(),
-          email: email.trim() || `${phone.trim()}@inventra.local`,
-          password: registerPassword.trim()
-        });
-      } catch (authCtxErr) {
-        console.warn('AuthContext registerTenant sync warning:', authCtxErr);
+      if (res && !res.success) {
+        throw new Error(res.error || 'Registration failed. Please check your credentials.');
       }
 
       emitToast('✨ 10-Day Free Trial Activated! Welcome to MBI INVENTRA.', 'success');

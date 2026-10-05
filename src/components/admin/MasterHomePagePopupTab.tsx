@@ -431,19 +431,27 @@ export const MasterHomePagePopupTab: React.FC<{ isDarkMode?: boolean }> = ({ isD
                 </p>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10.5px] font-semibold`}>
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>100% Free Trial</span>
+                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10px] font-bold`}>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>100% Free Full Access</span>
                   </div>
-                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10.5px] font-semibold`}>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
-                    <span>0ms Offline POS</span>
+                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10px] font-bold`}>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>0ms Offline POS Sync</span>
+                  </div>
+                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10px] font-bold`}>
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                    <span>No Card Required</span>
+                  </div>
+                  <div className={`p-2 rounded-lg ${previewDark ? 'bg-slate-800/60 border-slate-700/60 text-slate-300' : 'bg-slate-50 border-slate-100 text-slate-700'} border flex items-center gap-1.5 text-[10px] font-bold`}>
+                    <Check className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>Thermal &amp; A4 Print</span>
                   </div>
                 </div>
 
                 <div className="pt-1">
-                  <div className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-600/20">
-                    <span>{ctaLabel || 'Get Started Now'}</span>
+                  <div className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-indigo-600/25">
+                    <span>{ctaLabel || 'Claim 10-Day Free Trial'}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>

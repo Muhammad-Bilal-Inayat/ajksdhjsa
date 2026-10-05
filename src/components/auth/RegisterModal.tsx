@@ -102,33 +102,14 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
         hwid: clientHwid
       });
 
+      if (res && !res.success) {
+        throw new Error(res.error || 'Registration failed. Please verify your details.');
+      }
+
       const effectiveTenantId = res?.user?.tenantId || `tenant_${Date.now()}`;
 
       // 2. Initialize Basic (Silver) Plan features
       planService.initializeBasicTrialFeatures(effectiveTenantId);
-
-      // 3. Initialize 10-Day Free Trial Engine via licenseService
-      await licenseService.startTrial({
-        tenantId: effectiveTenantId,
-        storeName: storeName.trim(),
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        email: email.trim() || `${phone.trim()}@inventra.local`,
-        city: city.trim()
-      });
-
-      // 4. Initialize local AuthContext session
-      try {
-        await registerTenant({
-          storeName: storeName.trim(),
-          ownerName: ownerName.trim(),
-          city: city.trim(),
-          phone: phone.trim(),
-          email: email.trim() || `${phone.trim()}@inventra.local`
-        });
-      } catch (localCtxErr) {
-        console.warn('Local registerTenant context init:', localCtxErr);
-      }
 
       emitToast(`🎉 Welcome! 10-Day Free Trial activated for ${storeName}`, 'success');
       onClose();

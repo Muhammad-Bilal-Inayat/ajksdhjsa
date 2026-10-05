@@ -121,17 +121,18 @@ export const ServerOverviewPage: React.FC = () => {
   const { tenant, business, setActiveUser, setActiveRole } = useAuth();
 
   // Active Server Tab State
-  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'email_notifications' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>(() => {
+  const [activeServerTab, setActiveServerTab] = useState<'clients' | 'homepage_popup' | 'email_notifications' | 'medicines_studio' | 'broadcast' | 'ai_support' | 'whatsapp_leads' | 'checkout_orders' | 'site_cms' | 'security_alerts' | 'security_audit' | 'sales_revenue' | 'backup_restore' | 'storage' | 'sync_health' | 'sync_conflicts' | 'sync_stream' | 'pricing_manager' | 'seo_strategy' | 'cloud_health' | 'docs' | 'master_control' | 'users' | 'database' | 'devices' | 'developer_vault' | 'printer_templates' | 'activity'>(() => {
     if (typeof window !== 'undefined') {
       try {
         const params = new URLSearchParams(window.location.search);
         const urlTab = params.get('tab');
+        if (urlTab === 'homepage_popup' || urlTab === 'home_popup' || urlTab === 'landing_popup' || urlTab === 'public_popup') return 'homepage_popup';
         if (urlTab === 'user_broadcasts' || urlTab === 'broadcast' || urlTab === 'broadcasts' || urlTab === 'popups') return 'broadcast';
         if (urlTab === 'master_control' || urlTab === 'switchboard' || urlTab === 'master_super') return 'master_control';
         if (urlTab === 'medicines_studio' || urlTab === 'medicines') return 'medicines_studio';
         if (urlTab === 'email_notifications' || urlTab === 'emails') return 'email_notifications';
         if (urlTab === 'whatsapp_leads' || urlTab === 'leads') return 'whatsapp_leads';
-        if (urlTab && ['clients', 'email_notifications', 'medicines_studio', 'broadcast', 'ai_support', 'whatsapp_leads', 'checkout_orders', 'site_cms', 'security_alerts', 'security_audit', 'sales_revenue', 'backup_restore', 'storage', 'sync_health', 'sync_conflicts', 'sync_stream', 'pricing_manager', 'seo_strategy', 'cloud_health', 'docs', 'master_control', 'users', 'database', 'devices', 'developer_vault', 'printer_templates', 'activity'].includes(urlTab)) {
+        if (urlTab && ['clients', 'homepage_popup', 'email_notifications', 'medicines_studio', 'broadcast', 'ai_support', 'whatsapp_leads', 'checkout_orders', 'site_cms', 'security_alerts', 'security_audit', 'sales_revenue', 'backup_restore', 'storage', 'sync_health', 'sync_conflicts', 'sync_stream', 'pricing_manager', 'seo_strategy', 'cloud_health', 'docs', 'master_control', 'users', 'database', 'devices', 'developer_vault', 'printer_templates', 'activity'].includes(urlTab)) {
           return urlTab as any;
         }
       } catch (e) {}
@@ -1145,6 +1146,21 @@ export const ServerOverviewPage: React.FC = () => {
             </button>
 
             <button
+              onClick={() => setActiveServerTab('homepage_popup')}
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                activeServerTab === 'homepage_popup'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30 ring-2 ring-purple-400'
+                  : 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 hover:bg-purple-100 dark:hover:bg-purple-900/50'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+              <span>🌐 Home Page Popup (Public Trial)</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-purple-500 text-white">
+                PUBLIC
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveServerTab('checkout_orders')}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeServerTab === 'checkout_orders'
@@ -1394,18 +1410,6 @@ export const ServerOverviewPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveServerTab('homepage_popup' as any)}
-              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                (activeServerTab as string) === 'homepage_popup'
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>🌐 Home Page Popup</span>
-            </button>
-
-            <button
               onClick={() => setActiveServerTab('pricing_manager')}
               className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                 activeServerTab === 'pricing_manager'
@@ -1464,7 +1468,7 @@ export const ServerOverviewPage: React.FC = () => {
       )}
 
       {/* RENDER TAB: 🌐 HOME PAGE PUBLIC POPUP CENTER */}
-      {(activeServerTab as string) === 'homepage_popup' && (
+      {activeServerTab === 'homepage_popup' && (
         <div className="w-full animate-in fade-in duration-150">
           <MasterHomePagePopupTab />
         </div>

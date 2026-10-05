@@ -70,34 +70,36 @@ licenseRouter.post('/register-trial', async (req: TenantRequest, res: Response):
       }
     }
 
-    // Update local JSON cache for fallback resilience
-    try {
-      let syncData: any = {};
-      if (fs.existsSync(syncFile)) {
-        syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
-      }
-      if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
-      if (!syncData.client_licenses) syncData.client_licenses = [];
+    // Update local JSON cache for fallback resilience (non-blocking)
+    setImmediate(() => {
+      try {
+        let syncData: any = {};
+        if (fs.existsSync(syncFile)) {
+          syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
+        }
+        if (!syncData.mbi_licenses) syncData.mbi_licenses = [];
+        if (!syncData.client_licenses) syncData.client_licenses = [];
 
-      const licObj = {
-        id: licenseId,
-        tenantId,
-        licenseKey,
-        clientName: cleanStoreName,
-        ownerName: cleanOwnerName,
-        phone: cleanPhone,
-        city: cleanCity,
-        plan: 'Basic',
-        status: 'Active',
-        issueDate,
-        expiryDate,
-        maxDevices: 10,
-        boundHardwareIds: [clientHwid]
-      };
-      syncData.mbi_licenses.push(licObj);
-      syncData.client_licenses.push(licObj);
-      fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
-    } catch (e) {}
+        const licObj = {
+          id: licenseId,
+          tenantId,
+          licenseKey,
+          clientName: cleanStoreName,
+          ownerName: cleanOwnerName,
+          phone: cleanPhone,
+          city: cleanCity,
+          plan: 'Basic',
+          status: 'Active',
+          issueDate,
+          expiryDate,
+          maxDevices: 10,
+          boundHardwareIds: [clientHwid]
+        };
+        syncData.mbi_licenses.push(licObj);
+        syncData.client_licenses.push(licObj);
+        fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+      } catch (e) {}
+    });
 
     res.json({
       success: true,

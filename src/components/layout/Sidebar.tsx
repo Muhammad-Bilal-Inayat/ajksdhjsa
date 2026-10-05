@@ -529,7 +529,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
 
     return SETTINGS_TABS.filter(tab => {
-      const allowedRoles = tab.roles || ['Primary Admin'];
+      const allowedRoles = (tab as any).roles || ['Primary Admin'];
       const hasRoleAccess = isPrimaryOwner(activeUser || currentUser) || 
         activeRole === 'Primary Admin' || 
         (activeUser as any)?.is_primary_owner === true ||

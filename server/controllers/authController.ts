@@ -964,14 +964,28 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
     let targetTenantId = '';
     let targetUsername = cleanId;
 
-    // 1. Check Master SQLite Vault
+    // Resilient digits for phone matching
+    const rawDigits = cleanId.replace(/\D/g, '');
+    const searchDigits = rawDigits.length >= 7 ? rawDigits.slice(-10) : '';
+
+    // 1. Check Master SQLite Vault mbi_users
     try {
       const master = getMasterVault();
-      const user: any = master.prepare(`
-        SELECT * FROM mbi_users 
-        WHERE LOWER(username) = ? OR LOWER(email) = ? OR phone = ? OR id = ?
-        LIMIT 1
-      `).get(cleanId, cleanId, cleanId, cleanId);
+      const allUsers: any[] = master.prepare(`
+        SELECT * FROM mbi_users
+      `).all();
+
+      const user = allUsers.find(u => {
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const uUser = (u.username || '').toLowerCase().trim();
+        const uPhone = (u.phone || '').replace(/\D/g, '');
+        const uName = (u.name || '').toLowerCase().trim();
+        const uId = (u.id || '').toLowerCase().trim();
+
+        if (uEmail === cleanId || uUser === cleanId || uName === cleanId || uId === cleanId) return true;
+        if (searchDigits && uPhone && (uPhone.endsWith(searchDigits) || searchDigits.endsWith(uPhone))) return true;
+        return false;
+      });
 
       if (user) {
         targetEmail = user.email || '';
@@ -986,11 +1000,19 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
     if (!targetEmail) {
       try {
         const master = getMasterVault();
-        const tenant: any = master.prepare(`
-          SELECT * FROM mbi_tenants
-          WHERE LOWER(owner_email) = ? OR LOWER(primary_admin_email) = ? OR LOWER(username) = ? OR owner_phone = ?
-          LIMIT 1
-        `).get(cleanId, cleanId, cleanId, cleanId);
+        const allTenants: any[] = master.prepare(`SELECT * FROM mbi_tenants`).all();
+
+        const tenant = allTenants.find(t => {
+          const tEmail = (t.owner_email || t.primary_admin_email || '').toLowerCase().trim();
+          const tUser = (t.username || '').toLowerCase().trim();
+          const tPhone = (t.owner_phone || '').replace(/\D/g, '');
+          const tName = (t.name || t.owner_name || '').toLowerCase().trim();
+          const tId = (t.tenant_id || '').toLowerCase().trim();
+
+          if (tEmail === cleanId || tUser === cleanId || tName === cleanId || tId === cleanId) return true;
+          if (searchDigits && tPhone && (tPhone.endsWith(searchDigits) || searchDigits.endsWith(tPhone))) return true;
+          return false;
+        });
 
         if (tenant) {
           targetEmail = tenant.owner_email || tenant.primary_admin_email || '';
@@ -1001,7 +1023,39 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
       } catch (e) {}
     }
 
-    // 3. Fallback: If user typed an email directly
+    // 3. Check individual Tenant Vaults
+    if (!targetEmail) {
+      try {
+        const master = getMasterVault();
+        const allTenants: any[] = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
+        for (const t of allTenants) {
+          try {
+            const vaultUsers = listTenantUsers(t.tenant_id);
+            const matched = vaultUsers.find(u => {
+              const uEmail = (u.email || u.emailOrPhone || '').toLowerCase().trim();
+              const uUser = (u.username || '').toLowerCase().trim();
+              const uPhone = (u.phone || '').replace(/\D/g, '');
+              const uName = (u.name || '').toLowerCase().trim();
+
+              if (uEmail === cleanId || uUser === cleanId || uName === cleanId) return true;
+              if (searchDigits && uPhone && (uPhone.endsWith(searchDigits) || searchDigits.endsWith(uPhone))) return true;
+              return false;
+            });
+
+            if (matched) {
+              targetEmail = matched.email || (matched.emailOrPhone && matched.emailOrPhone.includes('@') ? matched.emailOrPhone : '');
+              targetUserName = matched.name || matched.username || 'User';
+              targetUserId = matched.id;
+              targetTenantId = t.tenant_id;
+              targetUsername = matched.username || cleanId;
+              break;
+            }
+          } catch (tErr) {}
+        }
+      } catch (e) {}
+    }
+
+    // 4. Fallback: If user typed an email directly
     if (!targetEmail && cleanId.includes('@')) {
       targetEmail = cleanId;
       targetUserName = cleanId.split('@')[0];
@@ -1011,7 +1065,7 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
       res.status(404).json({
         success: false,
         noEmail: true,
-        error: 'No registered email found for this account. Please use WhatsApp Direct Support (+92 328 1302636) to recover your credentials.'
+        error: 'No registered email found for this account/number. Please use WhatsApp Support (+92 328 1302636) to recover your account.'
       });
       return;
     }
@@ -1034,6 +1088,9 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
     if (targetUsername) {
       passwordResetOtpMap.set(targetUsername.toLowerCase().trim(), otpEntry);
     }
+    if (cleanId) {
+      passwordResetOtpMap.set(cleanId, otpEntry);
+    }
 
     // Dispatch OTP Email
     const emailResult = await sendPasswordResetOtpEmail({
@@ -1053,6 +1110,7 @@ export async function forgotPasswordController(req: TenantRequest, res: Response
       maskedEmail: maskEmail(targetEmail),
       targetEmail: targetEmail
     });
+
   } catch (err: any) {
     console.error('[FORGOT PASSWORD CONTROLLER ERROR]:', err);
     res.status(500).json({ success: false, error: err?.message || 'Failed to process password recovery request' });

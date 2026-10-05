@@ -2285,98 +2285,7 @@ export function unlockRemoteInstance(installationId: string): ClientInstanceHear
  * Seed initial sample tenants if empty (Zero dummy data for clean live testing)
  */
 function getInitialTenants(): Tenant[] {
-  return [
-    {
-      id: 'tenant_001',
-      tenantId: 'tenant_001',
-      organizationId: 'org_001',
-      licenseId: 'lic_abc_pharma_pro',
-      name: 'ABC Pharma',
-      ownerName: 'Muhammad Bilal Inayat',
-      ownerEmail: 'bilal@abcpharma.com',
-      ownerPhone: '03364585863',
-      city: 'Lahore',
-      address: 'Main Boulevard, Gulberg III, Lahore',
-      plan: 'Pharmacy Pro',
-      status: 'Active',
-      primaryAdminId: 'usr_001_admin',
-      primaryAdminEmail: 'bilal@abcpharma.com',
-      trialStartDate: new Date(Date.now() - 30 * 86400000).toISOString(),
-      trialExpiryDate: 'Never (Lifetime License)',
-      isTrialActive: false,
-      trialExpired: false,
-      paidLicenseActive: true,
-      maxDevices: 5,
-      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-      apiKey: 'mbi_live_key_001_8F9A2C7E',
-      totalInvoicesCount: 1420,
-      totalProductsCount: 850,
-      totalPartiesCount: 45,
-      lastSyncAt: new Date().toISOString(),
-      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'tenant_002',
-      tenantId: 'tenant_002',
-      organizationId: 'org_002',
-      licenseId: 'lic_city_medicos_biz',
-      name: 'City Medicos',
-      ownerName: 'Tariq Mahmood',
-      ownerEmail: 'tariq@citymedicos.pk',
-      ownerPhone: '03001234567',
-      city: 'Rawalpindi',
-      address: 'Saddar Road, Rawalpindi',
-      plan: 'Pharmacy Pro',
-      status: 'Active',
-      primaryAdminId: 'usr_002_admin',
-      primaryAdminEmail: 'tariq@citymedicos.pk',
-      trialStartDate: new Date(Date.now() - 15 * 86400000).toISOString(),
-      trialExpiryDate: 'Never (Lifetime License)',
-      isTrialActive: false,
-      trialExpired: false,
-      paidLicenseActive: true,
-      maxDevices: 3,
-      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-      apiKey: 'mbi_live_key_002_4E1D7B3A',
-      totalInvoicesCount: 890,
-      totalProductsCount: 620,
-      totalPartiesCount: 28,
-      lastSyncAt: new Date().toISOString(),
-      createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'tenant_003',
-      tenantId: 'tenant_003',
-      organizationId: 'org_003',
-      licenseId: 'lic_alshifa_ent',
-      name: 'Al-Shifa Pharmacy',
-      ownerName: 'Dr. Salman Akram',
-      ownerEmail: 'salman@alshifapharmacy.com',
-      ownerPhone: '03217654321',
-      city: 'Islamabad',
-      address: 'F-10 Markaz, Islamabad',
-      plan: 'Enterprise Multi-Branch',
-      status: 'Active',
-      primaryAdminId: 'usr_003_admin',
-      primaryAdminEmail: 'salman@alshifapharmacy.com',
-      trialStartDate: new Date(Date.now() - 5 * 86400000).toISOString(),
-      trialExpiryDate: 'Never (Lifetime License)',
-      isTrialActive: false,
-      trialExpired: false,
-      paidLicenseActive: true,
-      maxDevices: 10,
-      featureToggles: { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-      apiKey: 'mbi_live_key_003_9A3F1E6D',
-      totalInvoicesCount: 3150,
-      totalProductsCount: 1400,
-      totalPartiesCount: 80,
-      lastSyncAt: new Date().toISOString(),
-      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-  ];
+  return [];
 }
 
 let hasTriggeredTenantSync = false;
@@ -2394,6 +2303,12 @@ export function getAllTenants(): Tenant[] {
     const tid = String(t.tenantId || t.id || t.installationId || '').trim();
     if (!name && !tid) return;
     if (name === 'MBI INVENTRA' && !tid) return;
+    
+    // Filter out old legacy seed dummy companies
+    const lowerName = name.toLowerCase();
+    if (lowerName === 'abc pharma' || lowerName === 'city medicos' || lowerName === 'al-shifa pharmacy') {
+      if (tid === 'tenant_001' || tid === 'tenant_002' || tid === 'tenant_003') return;
+    }
 
     const key = (name || tid).toLowerCase();
     if (seenKeys.has(key)) return;
@@ -2523,12 +2438,6 @@ export function getAllTenants(): Tenant[] {
     }
   } catch (e) {
     console.error('Failed to aggregate tenants:', e);
-  }
-
-  // If still empty, inject standard defaults
-  if (aggregated.length === 0) {
-    const initial = getInitialTenants();
-    initial.forEach(addTenantIfValid);
   }
 
   // Persist aggregated list so all other components have synchronous access

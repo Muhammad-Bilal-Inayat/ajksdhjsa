@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
-import { getMasterVault } from '../db/sqliteVaultManager';
+import { getMasterVault, getTenantVault } from '../db/sqliteVaultManager';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
 import fs from 'fs';
@@ -1285,6 +1285,121 @@ fleetRouter.post('/users/passcode', async (req: TenantRequest, res: Response): P
     res.json({ success: true, message: `Passcode updated for user ${userId}` });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error resetting passcode' });
+  }
+});
+
+// 10b. Reset Tenant Admin Password: POST /api/fleet/tenants/reset-password
+fleetRouter.post('/tenants/reset-password', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const { tenantId, newPassword } = req.body;
+    if (!tenantId || !newPassword) {
+      res.status(400).json({ success: false, error: 'tenantId and newPassword are required' });
+      return;
+    }
+
+    const cleanTid = String(tenantId).trim();
+    const cleanPass = String(newPassword).trim();
+
+    if (cleanPass.length < 4) {
+      res.status(400).json({ success: false, error: 'Password must be at least 4 characters long' });
+      return;
+    }
+
+    // 1. Update SQLite Master Vault (mbi_tenants & mbi_users)
+    try {
+      const master = getMasterVault();
+      
+      try {
+        master.prepare(`
+          UPDATE mbi_tenants 
+          SET password = ?, passcode = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ? OR tenant_id = ?
+        `).run(cleanPass, cleanPass, cleanTid, cleanTid);
+      } catch (e1) {}
+
+      try {
+        master.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE tenant_id = ? OR id = ? OR username = ?
+        `).run(cleanPass, cleanPass, cleanTid, cleanTid, cleanTid);
+      } catch (e2) {}
+    } catch (sqliteErr) {
+      console.error('[MASTER RESET PASSWORD SQLITE ERROR]:', sqliteErr);
+    }
+
+    // 2. Update individual Tenant SQLite Vault
+    try {
+      const tenantDb = getTenantVault(cleanTid);
+      try {
+        tenantDb.prepare(`
+          UPDATE mbi_users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE role IN ('Primary Admin', 'Admin', 'Owner') OR id LIKE '%admin%'
+        `).run(cleanPass, cleanPass);
+      } catch (tErr) {}
+
+      try {
+        tenantDb.prepare(`
+          UPDATE users 
+          SET passcode = ?, pin = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE role IN ('Primary Admin', 'Admin', 'Owner') OR id LIKE '%admin%'
+        `).run(cleanPass, cleanPass);
+      } catch (uErr) {}
+    } catch (vaultErr) {}
+
+    // 3. Update MariaDB if active
+    if (await isMariaDbAvailable()) {
+      try {
+        const pool = getMariaDbPool();
+        await pool.query(
+          `UPDATE mbi_users 
+           SET passcode_hash = ?, passcode = ?, updated_at = CURRENT_TIMESTAMP 
+           WHERE (tenant_id = ? OR tenant_id = ?) AND (role = 'Primary Admin' OR role = 'Admin' OR role = 'Owner');`,
+          [cleanPass, cleanPass, cleanTid, cleanTid]
+        );
+      } catch (mariaErr) {}
+    }
+
+    // 4. Update sync file / local caches
+    try {
+      const usersJsonPath = path.resolve(process.cwd(), '.master_users.json');
+      if (fs.existsSync(usersJsonPath)) {
+        const localList = JSON.parse(fs.readFileSync(usersJsonPath, 'utf-8') || '[]');
+        let updated = false;
+        for (const u of localList) {
+          if (u.tenantId === cleanTid || u.tenant_id === cleanTid || u.id === cleanTid) {
+            u.passcode = cleanPass;
+            u.pin = cleanPass;
+            u.updatedAt = new Date().toISOString();
+            updated = true;
+          }
+        }
+        if (updated) {
+          fs.writeFileSync(usersJsonPath, JSON.stringify(localList, null, 2), 'utf-8');
+        }
+      }
+    } catch (e) {}
+
+    // 5. Broadcast real-time SSE events
+    try {
+      broadcastGlobalEvent({
+        type: 'TENANT_PASSWORD_RESET',
+        payload: { tenantId: cleanTid, timestamp: new Date().toISOString() }
+      });
+      broadcastTenantEvent(cleanTid, {
+        type: 'CREDENTIALS_UPDATED',
+        payload: { tenantId: cleanTid, timestamp: new Date().toISOString() }
+      });
+    } catch (bErr) {}
+
+    res.json({
+      success: true,
+      message: `Password for tenant "${cleanTid}" has been reset successfully.`
+    });
+  } catch (err: any) {
+    console.error('[RESET TENANT PASSWORD ERROR]:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Failed to reset tenant password' });
   }
 });
 

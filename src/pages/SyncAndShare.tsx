@@ -727,10 +727,24 @@ export const SyncAndShare: React.FC = () => {
     : normPlanLower.includes('enterprise') || normPlanLower.includes('platinum')
     ? 15
     : normPlanLower.includes('business') || normPlanLower.includes('gold')
-    ? 5
-    : 3;
-  const displayTenantId = tenantId ? (tenantId.startsWith('MBI-') ? tenantId : `MBI-TNT-${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '101'}`) : 'MBI-TNT-101';
-  const isStoreAdminOrOwner = isPrimaryUser(activeUser) || activeRole === 'Primary Admin' || activeRole === 'Admin' || activeRole === 'Secondary Admin' || (currentUser as any)?.isPrimaryOwner || !activeUser;
+  const isStaffOrSubUser = activeRole === 'Cashier' || 
+    activeRole === 'Biller' || 
+    activeRole === 'Salesman' || 
+    activeRole === 'Pharmacist' || 
+    activeRole === 'Stock Keeper' || 
+    activeRole === 'Viewer' || 
+    activeRole === 'Biller and Salesman' || 
+    activeRole === 'Sales Staff' || 
+    (activeUser && !isPrimaryUser(activeUser) && activeUser.role !== 'Primary Admin' && activeUser.role !== 'Admin');
+
+  const isStoreAdminOrOwner = !isStaffOrSubUser && (
+    isPrimaryUser(activeUser) || 
+    activeRole === 'Primary Admin' || 
+    activeRole === 'Admin' || 
+    activeRole === 'Secondary Admin' || 
+    Boolean((currentUser as any)?.isPrimaryOwner) || 
+    Boolean((currentUser as any)?.isPrimaryAdmin)
+  );
 
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">

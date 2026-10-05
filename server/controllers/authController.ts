@@ -52,37 +52,60 @@ export async function loginController(req: TenantRequest, res: Response): Promis
     let authenticatedUser: any = null;
     const requestedTenantId = (req.headers['x-tenant-id'] as string) || req.body.tenantId || '';
 
-    // 1. Direct SQLite Vault verification (0ms local latency, strictly isolated per tenant)
+    // 1. Direct SQLite Master Hub verification for exact tenant binding (0ms, unique tenant_id mapping)
     try {
       const master = getMasterVault();
-      const allTenants: any[] = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
-      const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map(t => t.tenant_id)));
+      const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+      const masterUser: any = master.prepare(`
+        SELECT * FROM mbi_users 
+        WHERE (LOWER(username) = ? OR LOWER(email) = ? OR phone = ? OR LOWER(name) = ? OR id = ?)
+          AND (passcode = ? OR pin = ?)
+          AND (status = 'Active' OR status = 'Joined' OR status IS NULL)
+        LIMIT 1
+      `).get(inputIdent, inputIdent, inputIdent, inputIdent, inputIdent, inputPasscode, inputPasscode);
 
-      for (const tId of tenantList) {
-        try {
-          const vaultUsers = listTenantUsers(tId);
-          const matched = vaultUsers.find(u => {
-            const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || '').toString().toLowerCase().trim();
-            const inputIdent = inputEmailOrPhone.toLowerCase().trim();
-            const identMatches = uIdent === inputIdent ||
-              (u.username && String(u.username).toLowerCase().trim() === inputIdent) ||
-              (u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent) ||
-              (u.email && String(u.email).toLowerCase().trim() === inputIdent) ||
-              (u.phone && String(u.phone).trim() === inputIdent);
-
-            const userPin = String(u.passcode || u.pin || '').trim();
-            const pinMatches = userPin === inputPasscode;
-
-            return identMatches && pinMatches && (u.status === 'Active' || u.status === 'Joined');
-          });
-
-          if (matched) {
-            authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
-            break;
-          }
-        } catch (vErr) {}
+      if (masterUser) {
+        authenticatedUser = {
+          ...masterUser,
+          tenant_id: masterUser.tenant_id,
+          tenantId: masterUser.tenant_id
+        };
       }
-    } catch (sqliteErr) {}
+    } catch (sqliteMasterErr) {}
+
+    // 1b. If not found in Master Vault mbi_users, check individual tenant vaults
+    if (!authenticatedUser) {
+      try {
+        const master = getMasterVault();
+        const allTenants: any[] = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
+        const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map(t => t.tenant_id)));
+
+        for (const tId of tenantList) {
+          try {
+            const vaultUsers = listTenantUsers(tId);
+            const matched = vaultUsers.find(u => {
+              const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || u.id || '').toString().toLowerCase().trim();
+              const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+              const identMatches = uIdent === inputIdent ||
+                (u.username && String(u.username).toLowerCase().trim() === inputIdent) ||
+                (u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent) ||
+                (u.email && String(u.email).toLowerCase().trim() === inputIdent) ||
+                (u.phone && String(u.phone).trim() === inputIdent);
+
+              const userPin = String(u.passcode || u.pin || '').trim();
+              const pinMatches = userPin === inputPasscode;
+
+              return identMatches && pinMatches && (u.status === 'Active' || u.status === 'Joined');
+            });
+
+            if (matched) {
+              authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
+              break;
+            }
+          } catch (vErr) {}
+        }
+      } catch (sqliteErr) {}
+    }
 
     // 2. Direct MariaDB verification if database is available
     if (!authenticatedUser && (await isMariaDbAvailable())) {
@@ -328,11 +351,63 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       }
     } catch (e) {}
 
+    const userRole = authenticatedUser.role || 'Cashier';
+    const isOwnerOrPrimaryAdmin = (userRole || '').toLowerCase() === 'owner' || 
+      (userRole || '').toLowerCase() === 'primary admin' || 
+      (userRole || '').toLowerCase() === 'admin' ||
+      authenticatedUser.is_primary_owner === 1;
+
+    // Role-based permission defaults (Staff/Cashiers NEVER get ALL_PERMISSIONS)
+    let resolvedPermissions: string[] = ['POS_BILLING', 'VIEW_SALES', 'CREATE_SALES', 'VIEW_PRODUCTS'];
+    let resolvedAllowedModules: Record<string, boolean> = {
+      dashboard: true,
+      parties: true,
+      items: true,
+      sale: true,
+      purchase: false,
+      expenses: false,
+      bank: false,
+      reports: false,
+      syncShare: false,
+      backup: false,
+      utilities: false,
+      settings: false,
+    };
+
+    if (isOwnerOrPrimaryAdmin) {
+      resolvedPermissions = ['ALL_PERMISSIONS'];
+      resolvedAllowedModules = {
+        dashboard: true,
+        parties: true,
+        items: true,
+        sale: true,
+        purchase: true,
+        expenses: true,
+        bank: true,
+        reports: true,
+        syncShare: true,
+        backup: true,
+        utilities: true,
+        settings: true,
+      };
+    } else if (authenticatedUser.permissions) {
+      resolvedPermissions = typeof authenticatedUser.permissions === 'string' 
+        ? JSON.parse(authenticatedUser.permissions) 
+        : authenticatedUser.permissions;
+    } else if (authenticatedUser.allowed_modules) {
+      const allowedArr = typeof authenticatedUser.allowed_modules === 'string'
+        ? JSON.parse(authenticatedUser.allowed_modules)
+        : authenticatedUser.allowed_modules;
+      if (Array.isArray(allowedArr)) {
+        resolvedPermissions = allowedArr;
+      }
+    }
+
     // Construct signed JWT payload
     const tokenPayload = {
       userId: authenticatedUser.id,
       tenantId,
-      role: authenticatedUser.role || 'Staff',
+      role: userRole,
       name: authenticatedUser.name,
       username: authenticatedUser.username || authenticatedUser.name,
       email: authenticatedUser.email_or_phone || authenticatedUser.email || authenticatedUser.phone,
@@ -340,8 +415,9 @@ export async function loginController(req: TenantRequest, res: Response): Promis
       deviceId: clientHwid,
       plan: tenantPlan,
       storeName: tenantStoreName,
-      isPrimaryAdmin: (authenticatedUser.role || '').toLowerCase().includes('admin') || (authenticatedUser.role || '').toLowerCase().includes('owner'),
-      permissions: authenticatedUser.permissions ? (typeof authenticatedUser.permissions === 'string' ? JSON.parse(authenticatedUser.permissions) : authenticatedUser.permissions) : (authenticatedUser.allowed_modules ? JSON.parse(authenticatedUser.allowed_modules) : ['ALL_PERMISSIONS'])
+      isPrimaryAdmin: isOwnerOrPrimaryAdmin,
+      permissions: resolvedPermissions,
+      allowedModules: resolvedAllowedModules
     };
 
     const token = signJwt(tokenPayload, 86400 * 7);
@@ -364,8 +440,9 @@ export async function loginController(req: TenantRequest, res: Response): Promis
         plan: tenantPlan,
         storeName: tenantStoreName,
         isPrimaryAdmin: tokenPayload.isPrimaryAdmin,
-        isPrimaryOwner: Boolean(authenticatedUser.is_primary_owner === 1 || authenticatedUser.role === 'Owner'),
+        isPrimaryOwner: Boolean(authenticatedUser.is_primary_owner === 1 || userRole === 'Owner'),
         permissions: tokenPayload.permissions,
+        allowedModules: resolvedAllowedModules,
         hwid: clientHwid
       }
     });

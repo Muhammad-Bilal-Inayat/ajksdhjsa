@@ -1221,9 +1221,114 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]).catch(() => {});
     }
 
-    let matchedUserRecord: AppUserRecord | null = null;
-    let authenticatedUserObj: any = null;
-    let matchedTenantObj: Tenant | null = null;
+    // 0. Primary Backend SQLite Vault & Multi-Tenant Login Verification
+    try {
+      const serverAuthResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_or_phone: cleanId, passcode: cleanPass })
+      });
+
+      if (serverAuthResponse.ok) {
+        const serverData = await serverAuthResponse.json();
+        if (serverData.success && serverData.user) {
+          const sUser = serverData.user;
+          const sTenantId = sUser.tenantId || sUser.tenant_id;
+          const sRole = normalizeUserRole(sUser.role);
+          const sStoreName = sUser.storeName || 'Pharmacy Store';
+
+          if (serverData.token) {
+            localStorage.setItem('auth_token', serverData.token);
+            localStorage.setItem('mbi_auth_token', serverData.token);
+          }
+
+          localStorage.setItem('mbi_active_tenant_id', sTenantId);
+          localStorage.setItem('tenant_id', sTenantId);
+          localStorage.setItem('mbi_user_role', sRole);
+          localStorage.setItem('mbi_active_plan_tier', sUser.plan || 'Basic');
+
+          const serverTenantObj: Tenant = {
+            id: sTenantId,
+            tenantId: sTenantId,
+            name: sStoreName,
+            ownerName: sUser.name,
+            ownerEmail: sUser.email,
+            ownerPhone: sUser.phone || '',
+            plan: (sUser.plan as any) || 'Basic',
+            status: 'active',
+            trialStartDate: new Date().toISOString(),
+            trialExpiryDate: new Date(Date.now() + 10 * 86400000).toISOString(),
+            licenseId: sTenantId,
+            allowedModules: sUser.allowedModules || (ROLE_DEFINITIONS[sRole]?.allowedModules) || (ROLE_DEFINITIONS['Cashier'].allowedModules),
+            features: {
+              canUsePos: true,
+              canManageInventory: true,
+              canManageShortages: true,
+              canExportData: sRole === 'Primary Admin' || sRole === 'Admin',
+              canViewReports: sRole === 'Primary Admin' || sRole === 'Admin' || sRole === 'Pharmacist',
+              canSyncCloud: true,
+              maxAllowedUsers: 5,
+              maxAllowedDevices: 5
+            }
+          };
+
+          setTenant(serverTenantObj);
+          matchedTenantObj = serverTenantObj;
+          localStorage.setItem('mbi_active_tenant_cache', JSON.stringify(serverTenantObj));
+
+          const serverBiz = {
+            id: sTenantId,
+            name: sStoreName,
+            phone: sUser.phone || '',
+            city: 'Pakistan',
+            address: '',
+            tenantId: sTenantId
+          };
+          setBusiness(serverBiz as any);
+          localStorage.setItem('mbi_business_profile', JSON.stringify(serverBiz));
+
+          authenticatedUserObj = {
+            uid: sUser.id || sUser.userId,
+            id: sUser.id || sUser.userId,
+            email: sUser.email || `${cleanId}@pharma.pk`,
+            displayName: sUser.name,
+            role: sRole,
+            tenantId: sTenantId,
+            storeName: sStoreName,
+            plan: sUser.plan || 'Basic',
+            isPrimaryAdmin: Boolean(sUser.isPrimaryAdmin),
+            isPrimaryOwner: Boolean(sUser.isPrimaryOwner),
+            permissions: sUser.permissions,
+            allowedModules: sUser.allowedModules
+          };
+
+          const appUserRecord: AppUserRecord = {
+            id: sUser.id || sUser.userId,
+            name: sUser.name,
+            emailOrPhone: sUser.email || sUser.phone || cleanId,
+            role: sRole,
+            passcode: cleanPass,
+            status: 'Joined',
+            tenantId: sTenantId,
+            allowed_modules: sUser.permissions
+          };
+          matchedUserRecord = appUserRecord;
+          setActiveUser(sRole === 'Primary Admin' ? null : appUserRecord);
+          setActiveRole(sRole);
+          await dbAppUsers.save(appUserRecord);
+        }
+      } else {
+        const errJson = await serverAuthResponse.json().catch(() => null);
+        if (errJson?.isUnauthorizedDevice || errJson?.isDeviceUnbound) {
+          throw new Error(errJson.error || 'Device Unauthorized: This account is locked to its registered primary device.');
+        }
+      }
+    } catch (serverAuthErr: any) {
+      if (serverAuthErr?.message?.includes('Device Unauthorized') || serverAuthErr?.message?.includes('Organization Suspended')) {
+        throw serverAuthErr;
+      }
+      // If server is offline, continue to local fallback
+    }
 
     // 1. Master Admin credentials check (Instant Local < 1ms)
     const isMasterAdmin = 

@@ -14,6 +14,10 @@ import {
   dbInvoices, dbPurchaseOrders, dbExpenses, 
   dbSuppliers, dbMedicines, dbPartyPayments 
 } from '../../lib/db';
+import { 
+  Invoice, PurchaseOrder, Expense, 
+  Supplier, Medicine 
+} from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 

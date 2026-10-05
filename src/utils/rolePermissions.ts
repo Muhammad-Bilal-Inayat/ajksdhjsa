@@ -62,7 +62,7 @@ export const ALL_SIDEBAR_MENUS: SidebarMenuDefinition[] = [
     description: 'Shift opening/closing, physical cash tally, float management & drawer handover',
     category: 'Core Operations',
     iconName: 'Clock',
-    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Cashier']
+    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Pharmacist', 'Cashier']
   },
   {
     id: 'expenses',
@@ -70,7 +70,7 @@ export const ALL_SIDEBAR_MENUS: SidebarMenuDefinition[] = [
     description: 'Daily operational expenses, utility bills, petty cash & category breakdown',
     category: 'Finance & Accounts',
     iconName: 'Wallet',
-    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Accountant']
+    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Pharmacist', 'Accountant']
   },
   {
     id: 'bank',
@@ -78,7 +78,7 @@ export const ALL_SIDEBAR_MENUS: SidebarMenuDefinition[] = [
     description: 'Bank balances, cash in hand, cheque register & inter-account fund transfers',
     category: 'Finance & Accounts',
     iconName: 'Landmark',
-    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Accountant', 'CA/Accountant']
+    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Pharmacist', 'Accountant', 'CA/Accountant']
   },
   {
     id: 'reports',
@@ -86,7 +86,7 @@ export const ALL_SIDEBAR_MENUS: SidebarMenuDefinition[] = [
     description: 'P&L statements, tax summaries, sales trends, fast-moving drugs & inventory audits',
     category: 'Finance & Accounts',
     iconName: 'BarChart2',
-    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Accountant', 'CA/Accountant', 'Viewer']
+    defaultRoles: ['Primary Admin', 'Secondary Admin', 'Admin', 'Store Manager', 'Pharmacist', 'Accountant', 'CA/Accountant', 'Viewer']
   },
   {
     id: 'shortage',

@@ -404,6 +404,26 @@ export async function loginController(req: TenantRequest, res: Response): Promis
         utilities: true,
         settings: true,
       };
+    } else if (userRole.toLowerCase() === 'pharmacist') {
+      resolvedPermissions = [
+        'POS_BILLING', 'VIEW_SALES', 'CREATE_SALES', 'EDIT_SALES', 'VIEW_PRODUCTS',
+        'MANAGE_PRODUCTS', 'PURCHASE_ENTRY', 'EXPENSES', 'BANK_MANAGEMENT', 'FINANCIAL_REPORTS',
+        'CONTROLLED_DRUGS', 'BATCH_EXPIRY_MANAGEMENT', 'STORE_SETTINGS'
+      ];
+      resolvedAllowedModules = {
+        dashboard: true,
+        parties: true,
+        items: true,
+        sale: true,
+        purchase: true,
+        expenses: true,
+        bank: true,
+        reports: true,
+        syncShare: false,
+        backup: false,
+        utilities: true,
+        settings: true,
+      };
     } else if (authenticatedUser.permissions) {
       resolvedPermissions = typeof authenticatedUser.permissions === 'string' 
         ? JSON.parse(authenticatedUser.permissions) 

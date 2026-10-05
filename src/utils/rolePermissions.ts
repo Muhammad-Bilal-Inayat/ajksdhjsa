@@ -181,16 +181,16 @@ export const ROLE_PRESET_PERMISSIONS: Record<string, { menus: string[]; switches
     }
   },
   'Pharmacist': {
-    menus: ['dashboard', 'sale', 'inventory', 'purchases', 'parties', 'shortage', 'barcode', 'aiNotes'],
+    menus: ['dashboard', 'sale', 'inventory', 'purchases', 'parties', 'expenses', 'bank', 'reports', 'utilities', 'settings', 'shortage', 'barcode', 'aiNotes'],
     switches: {
-      canEditInvoices: false,
+      canEditInvoices: true,
       canDeleteInvoices: false,
       canRecordPaymentIn: true,
-      canRecordPaymentOut: false,
+      canRecordPaymentOut: true,
       canApplyCustomDiscounts: true,
       canViewWholesaleRatesAndMargin: true,
-      canExportReportsAndExcel: false,
-      canManageStaffAndDevices: false
+      canExportReportsAndExcel: true,
+      canManageStaffAndDevices: false // Strict: sub-user creation restricted
     }
   },
   'Cashier': {

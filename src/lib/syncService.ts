@@ -184,7 +184,14 @@ class UnifiedSyncService {
         this.eventSource = null;
       }
 
-      this.eventSource = new EventSource('/api/sync/events');
+      const token = typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_auth_token') || localStorage.getItem('auth_token')) : '';
+      const activeTenantId = typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('tenant_id')) : '';
+      const queryParams = new URLSearchParams();
+      if (token) queryParams.set('token', token);
+      if (activeTenantId && activeTenantId !== 'biz_default' && activeTenantId !== 'default') queryParams.set('tenantId', activeTenantId);
+      const url = `/api/sync/events${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+
+      this.eventSource = new EventSource(url);
 
       this.eventSource.onmessage = async (event) => {
         try {

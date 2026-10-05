@@ -35,16 +35,14 @@ export const HeroSection: React.FC = () => {
 
     updateThemeState();
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.attributeName === 'class') {
-          updateThemeState();
-        }
-      }
+    const observer = new MutationObserver(() => {
+      updateThemeState();
     });
 
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    if (document.body) {
+      observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    }
     window.addEventListener('storage', updateThemeState);
 
     return () => {
@@ -52,6 +50,25 @@ export const HeroSection: React.FC = () => {
       window.removeEventListener('storage', updateThemeState);
     };
   }, []);
+
+  // 3D Interactive Mouse Parallax & Dynamic Tilt
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({
+      x: Number((x * 12).toFixed(2)),
+      y: Number((-y * 12).toFixed(2))
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    setTilt({ x: 0, y: 0 });
+  };
 
   // Live dynamic ticker for sales badge (simulating real-time engine)
   const [liveSales, setLiveSales] = useState(1882);
@@ -72,9 +89,9 @@ export const HeroSection: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           AMBIENT GLOW BACKGROUND ORBS (GPU-Accelerated Subtle Light)
       ───────────────────────────────────────────────────────────── */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[450px] bg-blue-600/15 dark:bg-blue-600/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
-      <div className="absolute top-1/3 right-1/4 w-[280px] sm:w-[420px] h-[260px] sm:h-[380px] bg-cyan-500/10 dark:bg-cyan-500/15 rounded-full blur-3xl pointer-events-none animate-float-slow" />
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[450px] sm:w-[700px] h-[180px] bg-indigo-500/10 dark:bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 w-[300px] sm:w-[500px] h-[300px] sm:h-[450px] bg-blue-600/15 dark:bg-blue-600/25 rounded-full blur-3xl pointer-events-none animate-pulse-glow" />
+      <div className="absolute top-1/3 right-1/4 w-[280px] sm:w-[420px] h-[260px] sm:h-[380px] bg-cyan-500/15 dark:bg-cyan-500/25 rounded-full blur-3xl pointer-events-none animate-float-slow" />
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 w-[450px] sm:w-[700px] h-[180px] bg-indigo-500/10 dark:bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full relative z-10 space-y-12 sm:space-y-16">
         
@@ -98,7 +115,7 @@ export const HeroSection: React.FC = () => {
             {/* Main Headline from Selected Mockup */}
             <h1 className="text-3.5xl sm:text-5xl lg:text-[3.25rem] xl:text-[3.6rem] font-black tracking-tight text-slate-950 dark:text-white leading-[1.08] break-words">
               Smart Pharmacy.<br />
-              <span className="bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 dark:from-sky-300 dark:via-cyan-300 dark:to-blue-400 bg-clip-text text-transparent">
+              <span className="inline-block font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-500 to-indigo-600 dark:from-cyan-300 dark:via-sky-200 dark:to-blue-300 filter drop-shadow-[0_2px_14px_rgba(56,189,248,0.35)]">
                 Smarter Business.
               </span>
             </h1>
@@ -149,19 +166,37 @@ export const HeroSection: React.FC = () => {
 
           </div>
 
-          {/* ================= RIGHT COLUMN: DUAL-DEVICE REAL LAPTOP & MOBILE SHOWCASE ================= */}
-          <div className="lg:col-span-7 relative flex items-center justify-center lg:justify-end mt-6 lg:mt-0">
+          {/* ================= RIGHT COLUMN: DUAL-DEVICE 3D INTERACTIVE SHOWCASE ================= */}
+          <div 
+            className="lg:col-span-7 relative flex items-center justify-center lg:justify-end mt-6 lg:mt-0"
+            onMouseMove={handleMouseMove}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={handleMouseLeave}
+          >
             
-            {/* 3D Container with GPU-accelerated Perspective & Ambient Backlight */}
-            <div className="relative w-full max-w-[580px] xl:max-w-[640px] perspective-[1200px]">
+            {/* 3D Container with GPU-accelerated Perspective, Dynamic Tilt & Ambient Backlight */}
+            <div 
+              className="relative w-full max-w-[580px] xl:max-w-[640px] transition-transform duration-300 ease-out will-change-transform"
+              style={{
+                perspective: '1200px',
+                transform: isHovered 
+                  ? `rotateY(${tilt.x}deg) rotateX(${tilt.y}deg) scale3d(1.02, 1.02, 1.02)` 
+                  : 'rotateY(0deg) rotateX(0deg) scale3d(1, 1, 1)'
+              }}
+            >
               
               {/* Backlight Ambient Glow behind devices */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 via-cyan-500/20 to-indigo-600/20 rounded-3xl blur-2xl -z-10 transform scale-95" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/30 via-cyan-500/30 to-indigo-600/30 rounded-3xl blur-2xl -z-10 transform scale-95" />
 
               {/* ─────────────────────────────────────────────────────────────
                   FLOATING 3D BADGE 1: 0ms Speed • SQLite Cloud Sync (Top Left)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -top-5 sm:-top-7 -left-2 sm:left-4 z-40 flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-cyan-500/40 dark:border-cyan-400/40 shadow-2xl shadow-cyan-500/15 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none">
+              <div 
+                className="absolute -top-5 sm:-top-7 -left-2 sm:left-4 z-40 flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 dark:border-cyan-400/50 shadow-2xl shadow-cyan-500/20 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none"
+                style={{
+                  transform: isHovered ? `translate3d(${tilt.x * 0.8}px, ${tilt.y * 0.8}px, 30px)` : undefined
+                }}
+              >
                 <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30">
                   <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white animate-pulse" />
                 </div>
@@ -180,7 +215,12 @@ export const HeroSection: React.FC = () => {
               {/* ─────────────────────────────────────────────────────────────
                   FLOATING 3D BADGE 2: Live Today Sales (Top Right)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -top-4 sm:-top-6 right-2 sm:right-20 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-blue-500/40 dark:border-blue-400/40 shadow-2xl shadow-blue-500/15 text-slate-900 dark:text-white animate-float-gentle transform hover:scale-105 transition-transform select-none">
+              <div 
+                className="absolute -top-4 sm:-top-6 right-2 sm:right-20 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-blue-500/40 dark:border-blue-400/50 shadow-2xl shadow-blue-500/20 text-slate-900 dark:text-white animate-float-gentle transform hover:scale-105 transition-transform select-none"
+                style={{
+                  transform: isHovered ? `translate3d(${-tilt.x * 0.6}px, ${tilt.y * 0.6}px, 35px)` : undefined
+                }}
+              >
                 <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
                   <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
@@ -195,7 +235,12 @@ export const HeroSection: React.FC = () => {
               {/* ─────────────────────────────────────────────────────────────
                   FLOATING 3D BADGE 3: Inventory Turnover (Bottom Left)
               ───────────────────────────────────────────────────────────── */}
-              <div className="hidden sm:flex absolute -bottom-4 left-4 z-40 items-center gap-3 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-emerald-500/40 dark:border-emerald-400/40 shadow-2xl shadow-emerald-500/15 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none">
+              <div 
+                className="hidden sm:flex absolute -bottom-4 left-4 z-40 items-center gap-3 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-emerald-500/40 dark:border-emerald-400/50 shadow-2xl shadow-emerald-500/20 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none"
+                style={{
+                  transform: isHovered ? `translate3d(${tilt.x * 0.5}px, ${-tilt.y * 0.5}px, 25px)` : undefined
+                }}
+              >
                 <div>
                   <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 block">Inventory Turnover</span>
                   <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">+98.4% Optimal</span>
@@ -208,7 +253,7 @@ export const HeroSection: React.FC = () => {
               {/* ─────────────────────────────────────────────────────────────
                   REALISTIC MACBOOK LAPTOP CONTAINER WITH REAL DASHBOARD
               ───────────────────────────────────────────────────────────── */}
-              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-slate-800 shadow-blue-600/10">
+              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-cyan-500/30 shadow-cyan-600/10 dark:shadow-cyan-500/20">
                 
                 {/* Laptop Top Bezel with Camera & Glossy Chrome Edge */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950 rounded-t-xl border-b border-slate-800 text-slate-400 text-[10px]">
@@ -228,19 +273,27 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 {/* Laptop Screen Inner Canvas with Actual Screenshots */}
-                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800 flex items-center justify-center">
+                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800 flex items-center justify-center min-h-[160px]">
                   
-                  {/* Active Web Dashboard Screenshot (Dark / Light) */}
+                  {/* Light Mode Dashboard Screenshot */}
                   <img 
-                    key={isDark ? 'dashboard-dark' : 'dashboard-light'}
-                    src={isDark ? dashboardDarkImg : dashboardLightImg} 
-                    alt={isDark ? "MBI INVENTRA Web Dashboard Dark Mode" : "MBI INVENTRA Web Dashboard Light Mode"} 
-                    className="w-full h-auto block object-cover rounded-b-xl transition-all duration-300 select-none"
+                    src={dashboardLightImg} 
+                    alt="MBI INVENTRA Web Dashboard Light Mode" 
+                    className={`w-full h-auto object-cover rounded-b-xl transition-all duration-300 select-none ${isDark ? 'hidden' : 'block'}`}
                     loading="eager"
                     onError={(e) => {
-                      // Fallback in case of runtime path resolution
-                      const target = e.target as HTMLImageElement;
-                      target.src = isDark ? '/landing/dashboard-dark.png' : '/landing/dashboard-light.png';
+                      (e.target as HTMLImageElement).src = '/landing/dashboard-light.png';
+                    }}
+                  />
+
+                  {/* Dark Mode Dashboard Screenshot */}
+                  <img 
+                    src={dashboardDarkImg} 
+                    alt="MBI INVENTRA Web Dashboard Dark Mode" 
+                    className={`w-full h-auto object-cover rounded-b-xl transition-all duration-300 select-none filter brightness-105 contrast-105 ${isDark ? 'block' : 'hidden'}`}
+                    loading="eager"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/landing/dashboard-dark.png';
                     }}
                   />
 
@@ -259,7 +312,12 @@ export const HeroSection: React.FC = () => {
               {/* ─────────────────────────────────────────────────────────────
                   SYNCHRONIZED SMARTPHONE FRAME (Overlapped on Right Corner)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-slate-700 shadow-2xl shadow-black/60 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300">
+              <div 
+                className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-cyan-500/40 shadow-2xl shadow-black/80 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300"
+                style={{
+                  transform: isHovered ? `rotate(1deg) translate3d(${-tilt.x * 0.4}px, ${-tilt.y * 0.4}px, 40px)` : undefined
+                }}
+              >
                 
                 {/* Dynamic Island Notch */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 w-14 sm:w-16 h-3 bg-slate-950 rounded-full z-20 flex items-center justify-center border border-slate-800">
@@ -268,19 +326,27 @@ export const HeroSection: React.FC = () => {
                 </div>
 
                 {/* Phone Screen Canvas with Actual Mobile App Screenshots */}
-                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
+                <div className="relative bg-slate-900 dark:bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center min-h-[120px]">
                   
-                  {/* Active Mobile App Screenshot (Dark / Light) */}
+                  {/* Light Mode Mobile Screenshot */}
                   <img 
-                    key={isDark ? 'mobile-dark' : 'mobile-light'}
-                    src={isDark ? mobileDarkImg : mobileLightImg} 
-                    alt={isDark ? "MBI INVENTRA Mobile App Dark Mode" : "MBI INVENTRA Mobile App Light Mode"} 
-                    className="w-full h-auto block object-cover rounded-[1.6rem] transition-all duration-300 select-none"
+                    src={mobileLightImg} 
+                    alt="MBI INVENTRA Mobile App Light Mode" 
+                    className={`w-full h-auto object-cover rounded-[1.6rem] transition-all duration-300 select-none ${isDark ? 'hidden' : 'block'}`}
                     loading="eager"
                     onError={(e) => {
-                      // Fallback in case of runtime path resolution
-                      const target = e.target as HTMLImageElement;
-                      target.src = isDark ? '/landing/mobile-dark.png' : '/landing/mobile-light.png';
+                      (e.target as HTMLImageElement).src = '/landing/mobile-light.png';
+                    }}
+                  />
+
+                  {/* Dark Mode Mobile Screenshot */}
+                  <img 
+                    src={mobileDarkImg} 
+                    alt="MBI INVENTRA Mobile App Dark Mode" 
+                    className={`w-full h-auto object-cover rounded-[1.6rem] transition-all duration-300 select-none filter brightness-105 contrast-105 ${isDark ? 'block' : 'hidden'}`}
+                    loading="eager"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/landing/mobile-dark.png';
                     }}
                   />
 

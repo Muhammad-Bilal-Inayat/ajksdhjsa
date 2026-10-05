@@ -234857,6 +234857,28 @@
   ],
   "broadcast_receipts": [
     {
+      "id": "rc_1791219322545_ttff",
+      "broadcastId": "bc_1791185553134_oevyr",
+      "tenantId": "tenant_1791195276820_cbtcn",
+      "storeName": "Muhammad",
+      "ownerName": "Store Admin",
+      "city": "Pakistan",
+      "hwid": "HWID-E258AB68BBF5976B-4254077B",
+      "status": "READ",
+      "seenAt": "2026-10-05T16:55:22.545Z"
+    },
+    {
+      "id": "rc_1791219180786_riui",
+      "broadcastId": "bc_1791185553134_oevyr",
+      "tenantId": "tenant-demo-01",
+      "storeName": "My Pharmacy Store",
+      "ownerName": "Store Admin",
+      "city": "Pakistan",
+      "hwid": "HWID-C1FE805B8C02F850-9D0CDC47",
+      "status": "READ",
+      "seenAt": "2026-10-05T16:53:00.786Z"
+    },
+    {
       "id": "rc_1791213541887_5yby",
       "broadcastId": "bc_1791185553134_oevyr",
       "tenantId": "tenant_1791195276820_cbtcn",

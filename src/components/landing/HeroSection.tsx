@@ -103,37 +103,43 @@ export const HeroSection: React.FC = () => {
 
           </div>
 
-          {/* ================= RIGHT COLUMN: DUAL-DEVICE LAPTOP & MOBILE SHOWCASE ================= */}
-          <div className="lg:col-span-7 relative flex items-center justify-center lg:justify-end mt-4 lg:mt-0">
+          {/* ================= RIGHT COLUMN: DUAL-DEVICE REAL LAPTOP & MOBILE SHOWCASE ================= */}
+          <div className="lg:col-span-7 relative flex items-center justify-center lg:justify-end mt-6 lg:mt-0">
             
-            {/* 3D Container with GPU-accelerated Perspective */}
-            <div className="relative w-full max-w-[560px] xl:max-w-[620px]">
+            {/* 3D Container with GPU-accelerated Perspective & Ambient Backlight */}
+            <div className="relative w-full max-w-[580px] xl:max-w-[640px] perspective-[1200px]">
               
+              {/* Backlight Ambient Glow behind devices */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 via-cyan-500/20 to-indigo-600/20 rounded-3xl blur-2xl -z-10 transform scale-95" />
+
               {/* ─────────────────────────────────────────────────────────────
-                  FLOATING BADGE 1: 0ms SQLite Cloud Sync (Top Left)
+                  FLOATING 3D BADGE 1: 0ms Speed • SQLite Cloud Sync (Top Left)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -top-4 sm:-top-6 left-0 sm:left-4 z-30 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 dark:border-cyan-400/30 shadow-xl shadow-cyan-500/10 text-slate-900 dark:text-white animate-float-slow">
-                <div className="p-1.5 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-xs">
-                  <Zap className="w-4 h-4 fill-white animate-pulse" />
+              <div className="absolute -top-5 sm:-top-7 -left-2 sm:left-4 z-40 flex items-center gap-2.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-cyan-500/40 dark:border-cyan-400/40 shadow-2xl shadow-cyan-500/15 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/30">
+                  <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white animate-pulse" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs sm:text-sm font-black text-cyan-600 dark:text-cyan-400">0ms Speed</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
                   </div>
-                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">SQLite Cloud Sync</p>
+                  <p className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400">SQLite Cloud Sync</p>
                 </div>
               </div>
 
               {/* ─────────────────────────────────────────────────────────────
-                  FLOATING BADGE 2: Real-Time Sales (Top Right)
+                  FLOATING 3D BADGE 2: Live Today Sales (Top Right)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -top-3 sm:-top-5 right-2 sm:right-24 z-30 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-blue-500/30 dark:border-blue-400/30 shadow-xl shadow-blue-500/10 text-slate-900 dark:text-white">
-                <div className="p-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <TrendingUp className="w-3.5 h-3.5" />
+              <div className="absolute -top-4 sm:-top-6 right-2 sm:right-20 z-40 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-blue-500/40 dark:border-blue-400/40 shadow-2xl shadow-blue-500/15 text-slate-900 dark:text-white animate-float-gentle transform hover:scale-105 transition-transform select-none">
+                <div className="p-1.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </div>
                 <div>
-                  <span className="text-[9px] uppercase font-bold text-slate-400 block leading-tight">Live Today Sales</span>
+                  <span className="text-[9px] uppercase font-extrabold tracking-wider text-slate-400 block leading-tight">Live Today Sales</span>
                   <span className={`text-xs sm:text-sm font-black font-mono text-blue-600 dark:text-blue-400 transition-colors ${pulse ? 'text-emerald-500' : ''}`}>
                     Rs {liveSales.toLocaleString()}
                   </span>
@@ -141,181 +147,103 @@ export const HeroSection: React.FC = () => {
               </div>
 
               {/* ─────────────────────────────────────────────────────────────
-                  FLOATING BADGE 3: Inventory Turnover Wave (Bottom Left)
+                  FLOATING 3D BADGE 3: Inventory Turnover (Bottom Left)
               ───────────────────────────────────────────────────────────── */}
-              <div className="hidden sm:flex absolute -bottom-3 left-4 z-30 items-center gap-3 px-3.5 py-2 rounded-xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-emerald-500/30 dark:border-emerald-400/30 shadow-xl shadow-emerald-500/10 text-slate-900 dark:text-white">
+              <div className="hidden sm:flex absolute -bottom-4 left-4 z-40 items-center gap-3 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-emerald-500/40 dark:border-emerald-400/40 shadow-2xl shadow-emerald-500/15 text-slate-900 dark:text-white animate-float-slow transform hover:scale-105 transition-transform select-none">
                 <div>
                   <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 block">Inventory Turnover</span>
-                  <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">+98.4% Optimal</span>
+                  <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">+98.4% Optimal</span>
                 </div>
-                {/* Mini SVG Waveform */}
-                <svg className="w-16 h-6 text-emerald-500" viewBox="0 0 100 30" fill="none">
-                  <path d="M0 25 C 20 25, 30 5, 50 15 C 70 25, 80 5, 100 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <svg className="w-16 sm:w-20 h-6 text-emerald-500" viewBox="0 0 100 30" fill="none">
+                  <path d="M0 24 C 20 24, 30 6, 50 16 C 70 26, 80 6, 100 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                 </svg>
               </div>
 
               {/* ─────────────────────────────────────────────────────────────
                   REALISTIC MACBOOK LAPTOP CONTAINER WITH REAL DASHBOARD
               ───────────────────────────────────────────────────────────── */}
-              <div className="relative rounded-2xl bg-slate-900 p-2 sm:p-3 shadow-2xl border border-slate-700/80 dark:border-slate-800 shadow-blue-500/10">
+              <div className="relative rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 p-2 sm:p-2.5 shadow-2xl border border-slate-700/80 dark:border-slate-800 shadow-blue-600/10">
                 
-                {/* Laptop Screen Top Header */}
+                {/* Laptop Top Bezel with Camera & Glossy Chrome Edge */}
                 <div className="flex items-center justify-between px-3 py-1.5 bg-slate-950 rounded-t-xl border-b border-slate-800 text-slate-400 text-[10px]">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90 inline-block shadow-xs"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500/90 inline-block shadow-xs"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90 inline-block shadow-xs"></span>
                   </div>
-                  <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400 bg-slate-900 px-3 py-0.5 rounded-md border border-slate-800">
-                    <span>🔒 app.mbiinventra.com/dashboard</span>
-                  </div>
-                  <div className="w-8"></div>
-                </div>
-
-                {/* Dashboard Screen Inner Canvas */}
-                <div className="bg-[#0b1329] dark:bg-[#070d1e] p-3 sm:p-4 rounded-b-xl text-slate-100 overflow-hidden font-sans">
                   
-                  {/* Dashboard Header Bar */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 gap-2">
-                    <div className="flex items-center gap-2">
-                      <img src="/mbi-logo.png" alt="MBI" className="w-6 h-6 rounded-full object-contain bg-white p-0.5 shrink-0" />
-                      <span className="font-extrabold text-xs text-white">MBI <span className="text-blue-400">INVENTRA</span></span>
-                    </div>
-
-                    {/* Search Mock */}
-                    <div className="hidden sm:flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1 text-[10px] text-slate-400 w-44">
-                      <Search className="w-3 h-3 text-slate-500" />
-                      <span>Search medicine...</span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-bold text-[9px]">+ Sale</span>
-                      <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[9px] hidden sm:inline">+ Purchase</span>
-                      <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-[9px] font-bold">
-                        M
-                      </div>
-                    </div>
+                  {/* Browser URL bar */}
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-300 bg-slate-900/90 px-3.5 py-0.5 rounded-md border border-slate-700/80 shadow-inner">
+                    <span className="text-emerald-400 text-xs">🔒</span>
+                    <span className="font-semibold">app.mbiinventra.com/dashboard</span>
                   </div>
 
-                  {/* Welcome Greeting Row */}
-                  <div className="py-2.5 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1">
-                        Welcome Back, Muhammad 👋
-                      </h4>
-                      <p className="text-[9px] text-slate-400">Live pharmacy performance overview</p>
-                    </div>
-                    <span className="text-[9px] font-mono font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded">
-                      Today • Live Sync
-                    </span>
-                  </div>
-
-                  {/* 4 Real KPI Cards from Banner Mockup */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                    
-                    <div className="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
-                      <div className="flex items-center justify-between text-[9px] text-slate-400">
-                        <span>Sales</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                      </div>
-                      <div className="text-xs sm:text-sm font-black text-white mt-1">Rs 0</div>
-                      <span className="text-[8px] text-emerald-400 font-bold">0% • 0 Bills</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
-                      <div className="flex items-center justify-between text-[9px] text-slate-400">
-                        <span>Purchase</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                      </div>
-                      <div className="text-xs sm:text-sm font-black text-white mt-1">Rs 0</div>
-                      <span className="text-[8px] text-blue-400 font-bold">0% • 0 Bills</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
-                      <div className="flex items-center justify-between text-[9px] text-slate-400">
-                        <span>Expenses</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                      </div>
-                      <div className="text-xs sm:text-sm font-black text-white mt-1">Rs 0</div>
-                      <span className="text-[8px] text-amber-400 font-bold">0 Today</span>
-                    </div>
-
-                    <div className="p-2 rounded-xl bg-slate-900/90 border border-slate-800">
-                      <div className="flex items-center justify-between text-[9px] text-slate-400">
-                        <span>Stock Value</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
-                      </div>
-                      <div className="text-xs sm:text-sm font-black text-white mt-1">Rs 0</div>
-                      <span className="text-[8px] text-purple-400 font-bold">0 Items</span>
-                    </div>
-
-                  </div>
-
-                  {/* Dashboard Lower Preview: Sales Trend Waveform */}
-                  <div className="mt-2.5 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                    <div className="flex items-center justify-between text-[9px] font-bold text-slate-300 pb-1.5">
-                      <span>Sales Overview &amp; Hourly Flow</span>
-                      <span className="text-blue-400 font-mono">0.2s POS Engine</span>
-                    </div>
-                    {/* Live SVG Graph Curve */}
-                    <div className="h-10 w-full relative">
-                      <svg className="w-full h-full" viewBox="0 0 300 60" preserveAspectRatio="none">
-                        <defs>
-                          <linearGradient id="heroGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
-                            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
-                          </linearGradient>
-                        </defs>
-                        <path d="M 0 50 Q 50 10, 100 35 T 200 20 T 300 15 L 300 60 L 0 60 Z" fill="url(#heroGradient)" />
-                        <path d="M 0 50 Q 50 10, 100 35 T 200 20 T 300 15" fill="none" stroke="#38bdf8" strokeWidth="2.5" />
-                      </svg>
-                    </div>
-                  </div>
-
+                  <div className="w-2 h-2 rounded-full bg-slate-800 border border-slate-700"></div>
                 </div>
 
-                {/* Laptop Base Stand */}
-                <div className="h-2.5 bg-gradient-to-b from-slate-700 to-slate-800 rounded-b-xl mx-8 shadow-md"></div>
+                {/* Laptop Screen Inner Canvas with Actual Screenshots */}
+                <div className="relative bg-slate-950 rounded-b-xl overflow-hidden shadow-inner border-t border-slate-800">
+                  
+                  {/* Light Mode Dashboard Screenshot (Visible only in Light Mode) */}
+                  <img 
+                    src="/assets/landing/dashboard-light.png" 
+                    alt="MBI INVENTRA Web Dashboard Light Mode" 
+                    className="w-full h-auto object-cover block dark:hidden rounded-b-xl transition-opacity duration-300"
+                    loading="eager"
+                  />
+
+                  {/* Dark Mode Dashboard Screenshot (Visible only in Dark Mode) */}
+                  <img 
+                    src="/assets/landing/dashboard-dark.png" 
+                    alt="MBI INVENTRA Web Dashboard Dark Mode" 
+                    className="w-full h-auto object-cover hidden dark:block rounded-b-xl transition-opacity duration-300"
+                    loading="eager"
+                  />
+
+                  {/* Glass Sheen Gradient Overlay on Screen */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none rounded-b-xl" />
+                </div>
+
+                {/* Laptop Bottom Aluminum Base & Hinge Deck */}
+                <div className="relative mt-1">
+                  <div className="h-3 sm:h-3.5 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-b-xl mx-4 sm:mx-8 shadow-md border-t border-slate-600/50 flex items-center justify-center">
+                    <div className="w-14 sm:w-20 h-1 bg-slate-950/70 rounded-full"></div>
+                  </div>
+                </div>
               </div>
 
               {/* ─────────────────────────────────────────────────────────────
-                  SYNCHRONIZED SMARTPHONE FRAME (Overlapped on Right Edge)
+                  SYNCHRONIZED SMARTPHONE FRAME (Overlapped on Right Corner)
               ───────────────────────────────────────────────────────────── */}
-              <div className="absolute -right-3 sm:-right-6 bottom-4 sm:bottom-6 z-20 w-32 sm:w-40 rounded-2xl bg-slate-950 p-1.5 border-2 border-slate-700 shadow-2xl shadow-blue-500/20 transform rotate-1 hover:rotate-0 transition-transform">
-                {/* Dynamic Island / Notch */}
-                <div className="w-10 h-2 bg-slate-900 rounded-full mx-auto mb-1"></div>
+              <div className="absolute -right-3 sm:-right-8 -bottom-3 sm:bottom-0 z-30 w-36 sm:w-48 rounded-[2rem] bg-gradient-to-b from-slate-700 via-slate-900 to-slate-950 p-2 sm:p-2.5 border-2 border-slate-600/80 dark:border-slate-700 shadow-2xl shadow-black/60 transform rotate-2 hover:rotate-0 hover:scale-105 transition-all duration-300">
                 
-                {/* Phone Screen Canvas */}
-                <div className="bg-[#080e1f] rounded-xl p-2 text-[8px] text-slate-200 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-[9px] text-white">MBI POS</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  </div>
+                {/* Dynamic Island Notch */}
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-14 sm:w-16 h-3 bg-slate-950 rounded-full z-20 flex items-center justify-center border border-slate-800">
+                  <div className="w-2 h-2 rounded-full bg-blue-950 border border-blue-600/40 mr-1"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-900"></div>
+                </div>
 
-                  <div className="p-1 rounded-md bg-blue-600 text-white font-extrabold text-center text-[9px]">
-                    + Fast Bill
-                  </div>
+                {/* Phone Screen Canvas with Actual Mobile App Screenshots */}
+                <div className="relative bg-slate-950 rounded-[1.6rem] overflow-hidden border border-slate-800 shadow-inner">
+                  
+                  {/* Light Mode Mobile Screenshot (Visible in Light Mode) */}
+                  <img 
+                    src="/assets/landing/mobile-light.png" 
+                    alt="MBI INVENTRA Mobile App Light Mode" 
+                    className="w-full h-auto object-cover block dark:hidden rounded-[1.6rem] transition-opacity duration-300"
+                    loading="eager"
+                  />
 
-                  {/* 4 Mini Mobile Buttons */}
-                  <div className="grid grid-cols-2 gap-1">
-                    <div className="p-1 rounded bg-slate-900 border border-slate-800 text-center font-bold text-emerald-400">
-                      Sale
-                    </div>
-                    <div className="p-1 rounded bg-slate-900 border border-slate-800 text-center font-bold text-blue-400">
-                      Stock
-                    </div>
-                    <div className="p-1 rounded bg-slate-900 border border-slate-800 text-center font-bold text-amber-400">
-                      Khata
-                    </div>
-                    <div className="p-1 rounded bg-slate-900 border border-slate-800 text-center font-bold text-purple-400">
-                      Reports
-                    </div>
-                  </div>
+                  {/* Dark Mode Mobile Screenshot (Visible in Dark Mode) */}
+                  <img 
+                    src="/assets/landing/mobile-dark.png" 
+                    alt="MBI INVENTRA Mobile App Dark Mode" 
+                    className="w-full h-auto object-cover hidden dark:block rounded-[1.6rem] transition-opacity duration-300"
+                    loading="eager"
+                  />
 
-                  <div className="p-1 rounded bg-slate-900/90 text-[7px] text-slate-400 flex items-center justify-between">
-                    <span>Muhammad</span>
-                    <span className="text-emerald-400">Online</span>
-                  </div>
+                  {/* Phone Screen Glass Reflection */}
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none rounded-[1.6rem]" />
                 </div>
               </div>
 

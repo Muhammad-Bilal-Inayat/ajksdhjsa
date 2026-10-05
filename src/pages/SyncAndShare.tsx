@@ -722,11 +722,15 @@ export const SyncAndShare: React.FC = () => {
     : null;
   const displayPlanName = tenant?.plan || storedPlan || 'Enterprise Multi-Branch';
   const normPlanLower = displayPlanName.toLowerCase();
-  const maxAllowedUsers = tenant?.maxDevices && tenant.maxDevices > 0
+  const maxAllowedUsers: number = tenant?.maxDevices && typeof tenant.maxDevices === 'number' && tenant.maxDevices > 0
     ? tenant.maxDevices
     : normPlanLower.includes('enterprise') || normPlanLower.includes('platinum')
     ? 15
     : normPlanLower.includes('business') || normPlanLower.includes('gold')
+    ? 5
+    : 3;
+  const displayTenantId = tenantId ? (tenantId.startsWith('MBI-') ? tenantId : `MBI-TNT-${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase() || '101'}`) : 'MBI-TNT-101';
+
   const isStaffOrSubUser = activeRole === 'Cashier' || 
     activeRole === 'Biller' || 
     activeRole === 'Salesman' || 
@@ -735,7 +739,7 @@ export const SyncAndShare: React.FC = () => {
     activeRole === 'Viewer' || 
     activeRole === 'Biller and Salesman' || 
     activeRole === 'Sales Staff' || 
-    (activeUser && !isPrimaryUser(activeUser) && activeUser.role !== 'Primary Admin' && activeUser.role !== 'Admin');
+    Boolean(activeUser && !isPrimaryUser(activeUser) && activeUser.role !== 'Primary Admin' && activeUser.role !== 'Admin');
 
   const isStoreAdminOrOwner = !isStaffOrSubUser && (
     isPrimaryUser(activeUser) || 

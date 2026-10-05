@@ -1221,6 +1221,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]).catch(() => {});
     }
 
+    let matchedUserRecord: AppUserRecord | null = null;
+    let authenticatedUserObj: any = null;
+    let matchedTenantObj: Tenant | null = null;
+
     // 0. Primary Backend SQLite Vault & Multi-Tenant Login Verification
     try {
       const serverAuthResponse = await fetch('/api/auth/login', {
@@ -1255,7 +1259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ownerEmail: sUser.email,
             ownerPhone: sUser.phone || '',
             plan: (sUser.plan as any) || 'Basic',
-            status: 'active',
+            status: 'Active',
             trialStartDate: new Date().toISOString(),
             trialExpiryDate: new Date(Date.now() + 10 * 86400000).toISOString(),
             licenseId: sTenantId,
@@ -1267,8 +1271,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               canExportData: sRole === 'Primary Admin' || sRole === 'Admin',
               canViewReports: sRole === 'Primary Admin' || sRole === 'Admin' || sRole === 'Pharmacist',
               canSyncCloud: true,
-              maxAllowedUsers: 5,
-              maxAllowedDevices: 5
+              canManageOnlineStore: true,
+              canUseMobileApp: true,
+              canUseMultiCounter: true,
+              canUseWhatsappAlerts: true,
+              canUseAdvancedAudit: true,
+              canUseControlledDrugs: true,
+              canUseAutoShortage: true,
+              canUseMultiBatch: true,
+              canUseBarcodeLabelPrinting: true,
+              canUseLoyaltyPoints: true,
+              canUseCustomPermissions: true,
+              canUseAiAnalytics: true,
+              canUseRemoteBranchSync: true,
+              canUseCloudVaultBackup: true,
+              canUseFbrIntegration: true
             }
           };
 
@@ -1309,8 +1326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: sRole,
             passcode: cleanPass,
             status: 'Joined',
-            tenantId: sTenantId,
-            allowed_modules: sUser.permissions
+            tenantId: sTenantId
           };
           matchedUserRecord = appUserRecord;
           setActiveUser(sRole === 'Primary Admin' ? null : appUserRecord);

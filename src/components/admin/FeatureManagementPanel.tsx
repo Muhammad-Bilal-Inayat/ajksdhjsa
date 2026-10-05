@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  Sliders, Search, Sparkles, CheckCircle2, XCircle, 
-  RotateCcw, Shield, ShoppingCart, Activity, Lock, 
+import {
+  Sliders, Search, Sparkles, CheckCircle2, XCircle,
+  RotateCcw, Shield, ShoppingCart, Activity, Lock,
   AlertTriangle, Check, Layers, Cpu, Cloud, Database
 } from 'lucide-react';
 import { PlatformFeatureSettings } from '../../types';
@@ -189,9 +189,9 @@ export const FeatureManagementPanel: React.FC = () => {
 
   const filteredFeatures = FEATURE_DEFINITIONS.filter(f => {
     const matchesCat = selectedCategory === 'all' || f.category === selectedCategory;
-    const matchesSearch = f.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          String(f.key).toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = f.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(f.key).toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
@@ -231,11 +231,10 @@ export const FeatureManagementPanel: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
             onClick={handleToggleMaintenance}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md border ${
-              maintenanceMode
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md border ${maintenanceMode
                 ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400 animate-pulse'
                 : 'bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border-slate-600'
-            }`}
+              }`}
           >
             <AlertTriangle className="w-4 h-4 text-amber-400" />
             <span>{maintenanceMode ? 'Maintenance Mode: ACTIVE' : 'Toggle Maintenance Mode'}</span>
@@ -279,41 +278,37 @@ export const FeatureManagementPanel: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar">
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              selectedCategory === 'all'
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${selectedCategory === 'all'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+              }`}
           >
             All Features ({FEATURE_DEFINITIONS.length})
           </button>
           <button
             onClick={() => setSelectedCategory('pos_sales')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              selectedCategory === 'pos_sales'
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${selectedCategory === 'pos_sales'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+              }`}
           >
             POS &amp; Sales
           </button>
           <button
             onClick={() => setSelectedCategory('finance_stock')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              selectedCategory === 'finance_stock'
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${selectedCategory === 'finance_stock'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+              }`}
           >
             Financials &amp; Inventory
           </button>
           <button
             onClick={() => setSelectedCategory('security_core')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              selectedCategory === 'security_core'
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${selectedCategory === 'security_core'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
+              }`}
           >
             Security &amp; System
           </button>
@@ -340,11 +335,10 @@ export const FeatureManagementPanel: React.FC = () => {
           return (
             <div
               key={f.key}
-              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between shadow-xs ${
-                isEnabled
+              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between shadow-xs ${isEnabled
                   ? 'bg-white dark:bg-slate-850/80 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-slate-600'
                   : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 opacity-75'
-              }`}
+                }`}
             >
               <div>
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -362,14 +356,12 @@ export const FeatureManagementPanel: React.FC = () => {
                     type="button"
                     onClick={() => handleToggle(f.key, isEnabled)}
                     disabled={isSaving}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      isEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        isEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>

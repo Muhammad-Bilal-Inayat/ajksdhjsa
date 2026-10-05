@@ -25,6 +25,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const location = useLocation();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
+  const isHomeActive = location.pathname === '/user' || location.pathname === '/' || location.pathname === '/dashboard';
+  const isInventoryActive = location.pathname.startsWith('/items') || location.pathname.startsWith('/inventory') || location.pathname.startsWith('/top-products');
+  const isPartiesActive = location.pathname.startsWith('/parties') || location.pathname.startsWith('/accounts/ledgers');
+
   const isPurchaseRoleAllowed = 
     activeRole === 'Primary Admin' ||
     activeRole === 'Secondary Admin' ||

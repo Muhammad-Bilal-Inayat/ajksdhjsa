@@ -395,52 +395,16 @@ export const REPORT_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'consolidated_financial_audits': 'platinum'
 };
 
-const REPORT_FEATURE_MAP: Record<string, string[]> = {
-  'fbr_tax_audit': ['fbr_pos_integration', 'pos_tax_fbr_pos_integration', 'digital_fiscalization', 'tax-fbr'],
-  'fbr_fiscal_tax_audit': ['fbr_pos_integration', 'pos_tax_fbr_pos_integration', 'digital_fiscalization', 'tax-fbr'],
-  'journal_voucher_report': ['journal_vouchers', 'chart_of_accounts', 'double_entry_accounting'],
-  'trial_balance_report': ['journal_vouchers', 'chart_of_accounts', 'double_entry_accounting'],
-  'multi_branch_consolidated_report': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches', 'multi_branch_telemetry'],
-  'multi_branch_stock_sales': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches'],
-  'online_store_performance_report': ['online_storefront', 'online_store', 'onlineStore', 'ecommerce_store', 'sync_online_storefront'],
-  'online_store_sales': ['online_storefront', 'online_store', 'onlineStore', 'ecommerce_store', 'sync_online_storefront'],
-  'narcotics_dispensing_report': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry'],
-  'controlled_drug_dispensing': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry'],
-  'drap_form8_regulatory_report': ['drap_form8', 'drap_form_8_drug_register', 'narcotics_register', 'inventory_narcotic_schedule_d'],
-  'drap_form8': ['drap_form8', 'drap_form_8_drug_register', 'narcotics_register', 'inventory_narcotic_schedule_d'],
-  'booker_commission_report': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management', 'dist_booker_commission_ledger'],
-  'booker_commission_sales': ['booker_biller_management', 'bookers', 'dist_sales_bookers_field_orders', 'booker_management'],
-  'master_user_activity_audit_export': ['full_audit_trail', 'complete_user_audit_trail', 'security_immutable_audit_trails', 'audit-logs', 'audit_logs'],
-  'audit_trail_export': ['full_audit_trail', 'complete_user_audit_trail', 'security_immutable_audit_trails', 'audit-logs', 'audit_logs'],
-  'fefo_expiry_report': ['fefo_radar_near_expiry', 'fefo_expiry', 'batch_management'],
-  'item_batch_report': ['inventory_batch_segregation', 'batch_management'],
-  'fifo_allocation_report': ['fefo_radar_near_expiry', 'batch_management'],
-  'controlled_register': ['controlled_generic_registry', 'inventory_narcotic_schedule_d', 'narcotics_register'],
-  'bill_wise_profit': ['khata_profit_loss_realtime', 'live_profit_margin', 'bill_wise_profit_loss'],
-  'profit_loss': ['khata_profit_loss_realtime', 'advanced_accounting'],
-  'balance_sheet': ['advanced_accounting', 'double_entry_accounting'],
-  'tax_report': ['tax_report', 'pos_tax_fbr_pos_integration'],
-};
-
 /**
  * Check if a specific report is allowed for tenant's plan
  */
 export function isReportAllowed(reportId: string, tenantId?: string, explicitPlan?: string): boolean {
-  // 1. Direct report override check
   const directOverride = checkServerFeatureOverride(`report_${reportId}`, tenantId);
   if (directOverride !== null) return directOverride;
 
   const rawOverride = checkServerFeatureOverride(reportId, tenantId);
   if (rawOverride !== null) return rawOverride;
 
-  // 2. Check parent feature overrides
-  const parentFeatures = REPORT_FEATURE_MAP[reportId] || [];
-  for (const feat of parentFeatures) {
-    const parentOverride = checkServerFeatureOverride(feat, tenantId);
-    if (parentOverride === true) return true;
-  }
-
-  // 3. Plan hierarchy check
   const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
   const reqTier = REPORT_TIER_REQUIREMENTS[reportId] || 'silver';
 

@@ -489,54 +489,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (!isSubAllowed) return false;
           }
 
-          if (sub.requiredPlan && !isPlanSufficient(activePlanTier, sub.requiredPlan)) {
+          if (sub.requiredPlan && !isGlobalMaster && !isPlanSufficient(activePlanTier, sub.requiredPlan)) {
             if (sub.path?.includes('report=')) {
-              const repId = sub.path.split('report=')[1]?.split('&')[0];
-              if (repId && isPlanReportAllowed(repId, effectiveTenantId, activePlanTier)) {
+              const reportId = sub.path.split('report=')[1]?.split('&')[0];
+              if (reportId && isPlanReportAllowed(reportId, effectiveTenantId, activePlanTier)) {
                 return true;
               }
             }
             return false;
           }
+
+          if (sub.path && !isGlobalMaster && !isPlanRouteAllowed(sub.path, effectiveTenantId, activePlanTier)) {
+            return false;
+          }
+
           return true;
         });
+        return { ...item, subItems: filteredSubs };
+      });
 
-        return { ...item, subItems: filteredSubs.length > 0 ? filteredSubs : item.subItems };
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-
-    return [...filtered].sort((a, b) => {
-      if (userOrder.length > 0 && a.id && b.id) {
-        const idxA = userOrder.indexOf(a.id);
-        const idxB = userOrder.indexOf(b.id);
-        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-        if (idxA !== -1) return -1;
-        if (idxB !== -1) return 1;
-      }
-      return getRank(a) - getRank(b);
+    return filtered.sort((a, b) => {
+      const idxA = userOrder.indexOf(a.id);
+      const idxB = userOrder.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      const orderA = orderMap.get(a.id.toLowerCase()) ?? orderMap.get(a.label.toLowerCase()) ?? getRank(a);
+      const orderB = orderMap.get(b.id.toLowerCase()) ?? orderMap.get(b.label.toLowerCase()) ?? getRank(b);
+      return orderA - orderB;
     });
-  }, [mainNavItems, canAccess, settings.general, settings.item.enableItem, settings.modules, userPreferences, activeUser, activeRole, currentUser, tenant, tenantId, permissionVersion]);
+  }, [settings, userPreferences, activeRole, activeUser, currentUser, canAccess, permissionVersion, tenant, tenantId, userProfile, business]);
 
+  // Dynamic filter for Settings Tabs based on RBAC & Active Plan Tier
+  const visibleSettingsTabs = useMemo(() => {
+    const rawTid = tenant?.tenantId || tenant?.id || tenantId;
+    const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+    const effPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+    const rawTier = effPlan ? normalizePlan(effPlan) : getActiveTenantPlan(rawTid);
+    const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
+
+    return SETTINGS_TABS.filter(tab => {
+      const allowedRoles = tab.roles || ['Primary Admin'];
+      const hasRoleAccess = isPrimaryOwner(activeUser || currentUser) || 
+        activeRole === 'Primary Admin' || 
+        (activeUser as any)?.is_primary_owner === true ||
+        allowedRoles.includes(activeRole);
+      if (!hasRoleAccess) return false;
+
+      if (!isGlobalMaster && !isSettingsTabAllowedInPlan(tab.key, activePlanTier)) {
+        return false;
+      }
+      return true;
+    });
+  }, [activeRole, activeUser, currentUser, tenant, tenantId, userProfile, business]);
+
+  // Filtered categorized reports for Sidebar navigation dropdown
+  const filteredCategorizedReports = useMemo(() => {
+    const rawTid = tenant?.tenantId || tenant?.id || tenantId;
+    const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+    const effPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+    const rawTier = effPlan ? normalizePlan(effPlan) : getActiveTenantPlan(rawTid);
+    const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : rawTier;
+
+    return getFilteredCategorizedReports(activePlanTier, rawTid);
+  }, [tenant, tenantId, userProfile, business, currentUser]);
+
+  const isSyncAllowed = hasPlanFeature('cloud_data_sync_and_share') || !settings.modules || settings.modules.syncShare !== false;
+  
   const currentUid = activeUser?.id || currentUser?.uid || 'usr_active';
   const currentTid = tenant?.tenantId || tenant?.id || tenantId;
-  const isOwnerGlobal = isPrimaryOwner(activeUser || currentUser) || activeRole === 'Primary Admin' || (activeUser as any)?.is_primary_owner === true;
-  const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
-  const currentRawPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
-  const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : (currentRawPlan ? normalizePlan(currentRawPlan) : getActiveTenantPlan(currentTid));
-  const currentPlan = currentRawPlan || (activePlanTier === 'platinum' ? 'Enterprise' : (activePlanTier === 'gold' ? 'Business' : 'Basic'));
-
-  // Visible settings tabs allowed by current plan & dynamic overrides
-  const visibleSettingsTabs = useMemo(() => {
-    return SETTINGS_TABS.filter(tab => isSettingsTabAllowedInPlan(tab.key, currentPlan, currentTid));
-  }, [currentPlan, currentTid]);
-
-  // Memoized categorized reports to prevent heavy recalculations on sidebar menu toggles
-  const filteredCategorizedReports = useMemo(() => {
-    return getFilteredCategorizedReports(activePlanTier, currentTid);
-  }, [activePlanTier, currentTid]);
-
-  // Sync & Share navigation button is guaranteed permanently visible across ALL plans
-  const isSyncAllowed = true;
+  const currentPlan = (tenant as any)?.plan || (userProfile as any)?.plan;
 
   // Backup & Restore is strictly EXCLUSIVE to Primary Store Owner
   const isBackupAllowed = canAccessBackupRestore(activeUser || currentUser);

@@ -176,7 +176,15 @@ export const SyncAndShare: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+      const currentTenantId = (tenant?.tenantId && tenant.tenantId !== 'biz_default' ? tenant.tenantId : '') ||
+        (tenant?.id && tenant.id !== 'biz_default' ? tenant.id : '') ||
+        (tenantId && tenantId !== 'biz_default' ? tenantId : '') ||
+        ((currentUser as any)?.tenantId && (currentUser as any)?.tenantId !== 'biz_default' ? (currentUser as any)?.tenantId : '') ||
+        (activeUser?.tenantId && activeUser.tenantId !== 'biz_default' ? activeUser.tenantId : '') ||
+        (business?.tenantId && business.tenantId !== 'biz_default' ? business.tenantId : '') ||
+        (business?.id && business.id !== 'biz_default' ? business.id : '') ||
+        localStorage.getItem('mbi_active_tenant_id') ||
+        'tenant_main';
 
       // 1. Fetch server records strictly for this tenant
       let serverUsers: AppUserRecord[] = [];
@@ -381,7 +389,15 @@ export const SyncAndShare: React.FC = () => {
       return;
     }
 
-    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+    const currentTenantId = (tenant?.tenantId && tenant.tenantId !== 'biz_default' ? tenant.tenantId : '') ||
+      (tenant?.id && tenant.id !== 'biz_default' ? tenant.id : '') ||
+      (tenantId && tenantId !== 'biz_default' ? tenantId : '') ||
+      ((currentUser as any)?.tenantId && (currentUser as any)?.tenantId !== 'biz_default' ? (currentUser as any)?.tenantId : '') ||
+      (activeUser?.tenantId && activeUser.tenantId !== 'biz_default' ? activeUser.tenantId : '') ||
+      (business?.tenantId && business.tenantId !== 'biz_default' ? business.tenantId : '') ||
+      (business?.id && business.id !== 'biz_default' ? business.id : '') ||
+      localStorage.getItem('mbi_active_tenant_id') ||
+      'tenant_main';
     let assignedId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     try {
@@ -465,7 +481,15 @@ export const SyncAndShare: React.FC = () => {
       return;
     }
 
-    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+    const currentTenantId = (tenant?.tenantId && tenant.tenantId !== 'biz_default' ? tenant.tenantId : '') ||
+      (tenant?.id && tenant.id !== 'biz_default' ? tenant.id : '') ||
+      (tenantId && tenantId !== 'biz_default' ? tenantId : '') ||
+      ((currentUser as any)?.tenantId && (currentUser as any)?.tenantId !== 'biz_default' ? (currentUser as any)?.tenantId : '') ||
+      (activeUser?.tenantId && activeUser.tenantId !== 'biz_default' ? activeUser.tenantId : '') ||
+      (business?.tenantId && business.tenantId !== 'biz_default' ? business.tenantId : '') ||
+      (business?.id && business.id !== 'biz_default' ? business.id : '') ||
+      localStorage.getItem('mbi_active_tenant_id') ||
+      'tenant_main';
     const updatedUser: AppUserRecord = {
       ...selectedUser,
       name: formData.name.trim(),
@@ -583,7 +607,15 @@ export const SyncAndShare: React.FC = () => {
     if (!selectedUser) return;
     const targetId = selectedUser.id;
     const targetName = selectedUser.name;
-    const currentTenantId = business?.id || tenant?.id || tenantId || activeUser?.tenantId || (currentUser as any)?.tenantId || 'tenant_main_pharmacy';
+    const currentTenantId = (tenant?.tenantId && tenant.tenantId !== 'biz_default' ? tenant.tenantId : '') ||
+      (tenant?.id && tenant.id !== 'biz_default' ? tenant.id : '') ||
+      (tenantId && tenantId !== 'biz_default' ? tenantId : '') ||
+      ((currentUser as any)?.tenantId && (currentUser as any)?.tenantId !== 'biz_default' ? (currentUser as any)?.tenantId : '') ||
+      (activeUser?.tenantId && activeUser.tenantId !== 'biz_default' ? activeUser.tenantId : '') ||
+      (business?.tenantId && business.tenantId !== 'biz_default' ? business.tenantId : '') ||
+      (business?.id && business.id !== 'biz_default' ? business.id : '') ||
+      localStorage.getItem('mbi_active_tenant_id') ||
+      'tenant_main';
 
     await dbAppUsers.delete(targetId);
     deleteMasterActiveUser(targetId);

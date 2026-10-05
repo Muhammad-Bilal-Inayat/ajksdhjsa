@@ -22,11 +22,30 @@ class UserService {
     return headers;
   }
 
+  private getEffectiveTenantId(explicitTenantId?: string): string {
+    if (explicitTenantId && explicitTenantId !== 'biz_default' && explicitTenantId !== 'default' && explicitTenantId !== 'tenant-demo-01') {
+      return explicitTenantId;
+    }
+    if (typeof localStorage !== 'undefined') {
+      const activeTid = localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('tenant_id');
+      if (activeTid && activeTid !== 'biz_default') return activeTid;
+      try {
+        const mockSess = JSON.parse(localStorage.getItem('mock_session') || '{}');
+        if (mockSess.tenantId && mockSess.tenantId !== 'biz_default') return mockSess.tenantId;
+      } catch {}
+      try {
+        const tCache = JSON.parse(localStorage.getItem('mbi_active_tenant_cache') || '{}');
+        if ((tCache.tenantId || tCache.id) && tCache.tenantId !== 'biz_default') return tCache.tenantId || tCache.id;
+      } catch {}
+    }
+    return explicitTenantId || 'tenant_main';
+  }
+
   /**
    * Fetch all staff members / users strictly for the active tenant
    */
   async getAllUsers(tenantId?: string): Promise<AppUser[]> {
-    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+    const effectiveTenantId = this.getEffectiveTenantId(tenantId);
 
     try {
       const response = await fetch(`/api/users?tenantId=${encodeURIComponent(effectiveTenantId)}`, {
@@ -55,7 +74,7 @@ class UserService {
    * Create a new sub-user (Cashier, Pharmacist, Manager, Accountant)
    */
   async createUser(input: CreateUserInput, tenantId?: string): Promise<AppUser> {
-    const effectiveTenantId = tenantId || (typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('mbi_user') || '{}').tenantId || 'tenant_main_pharmacy') : 'tenant_main_pharmacy');
+    const effectiveTenantId = this.getEffectiveTenantId(tenantId);
 
     const payload = {
       ...input,

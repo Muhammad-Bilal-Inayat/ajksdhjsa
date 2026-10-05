@@ -243,7 +243,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const tenantId = tenant?.tenantId || business?.tenantId || business?.id || 'tenant-demo-01';
+  const tenantId = (tenant?.tenantId && tenant.tenantId !== 'biz_default' && tenant.tenantId !== 'tenant-demo-01' ? tenant.tenantId : '') ||
+    (tenant?.id && tenant.id !== 'biz_default' && tenant.id !== 'tenant-demo-01' ? tenant.id : '') ||
+    (business?.tenantId && business.tenantId !== 'biz_default' && business.tenantId !== 'tenant-demo-01' ? business.tenantId : '') ||
+    ((currentUser as any)?.tenantId && (currentUser as any)?.tenantId !== 'biz_default' && (currentUser as any)?.tenantId !== 'tenant-demo-01' ? (currentUser as any)?.tenantId : '') ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('mbi_active_tenant_id') : '') ||
+    'tenant_main';
 
   // Trial calculations
   const isTrialActive = !!tenant?.isTrialActive;

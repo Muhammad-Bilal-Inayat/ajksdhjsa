@@ -7720,7 +7720,7 @@ async function loginController(req, res) {
     } catch (sseErr) {
     }
     let tenantPlan = "Basic";
-    let tenantStoreName = "Pharmacy Store";
+    let tenantStoreName = "";
     try {
       const masterDb = getMasterVault();
       const tRow = masterDb.prepare("SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;").get(tenantId, tenantId);
@@ -7729,6 +7729,19 @@ async function loginController(req, res) {
         if (tRow.plan) tenantPlan = tRow.plan;
       }
     } catch (e) {
+    }
+    if (!tenantStoreName) {
+      try {
+        const tVault = getTenantVault(tenantId);
+        const ownerRow = tVault.prepare("SELECT name, username FROM users WHERE is_primary_owner = 1 OR role IN ('Owner', 'Primary Admin') LIMIT 1").get();
+        if (ownerRow?.name) {
+          tenantStoreName = ownerRow.name;
+        }
+      } catch {
+      }
+    }
+    if (!tenantStoreName) {
+      tenantStoreName = authenticatedUser.storeName || authenticatedUser.store_name || "Medical Store";
     }
     const userRole = authenticatedUser.role || "Cashier";
     const isOwnerOrPrimaryAdmin = (userRole || "").toLowerCase() === "owner" || (userRole || "").toLowerCase() === "primary admin" || (userRole || "").toLowerCase() === "admin" || authenticatedUser.is_primary_owner === 1;

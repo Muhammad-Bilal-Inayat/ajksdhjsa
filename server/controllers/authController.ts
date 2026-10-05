@@ -341,7 +341,7 @@ export async function loginController(req: TenantRequest, res: Response): Promis
 
     // Extract tenant plan and store name from Master DB
     let tenantPlan = 'Basic';
-    let tenantStoreName = 'Pharmacy Store';
+    let tenantStoreName = '';
     try {
       const masterDb = getMasterVault();
       const tRow: any = masterDb.prepare('SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;').get(tenantId, tenantId);
@@ -350,6 +350,20 @@ export async function loginController(req: TenantRequest, res: Response): Promis
         if (tRow.plan) tenantPlan = tRow.plan;
       }
     } catch (e) {}
+
+    // Fallback: Retrieve authentic store name from tenant SQLite vault
+    if (!tenantStoreName) {
+      try {
+        const tVault = getTenantVault(tenantId);
+        const ownerRow: any = tVault.prepare("SELECT name, username FROM users WHERE is_primary_owner = 1 OR role IN ('Owner', 'Primary Admin') LIMIT 1").get();
+        if (ownerRow?.name) {
+          tenantStoreName = ownerRow.name;
+        }
+      } catch {}
+    }
+    if (!tenantStoreName) {
+      tenantStoreName = authenticatedUser.storeName || authenticatedUser.store_name || 'Medical Store';
+    }
 
     const userRole = authenticatedUser.role || 'Cashier';
     const isOwnerOrPrimaryAdmin = (userRole || '').toLowerCase() === 'owner' || 

@@ -291,6 +291,21 @@ function getMasterVault() {
       seen_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE (notification_id, tenant_id, hwid)
     );
+
+    CREATE TABLE IF NOT EXISTS mbi_homepage_popup (
+      id TEXT PRIMARY KEY,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      body TEXT NOT NULL,
+      badge_text TEXT DEFAULT 'SPECIAL ANNOUNCEMENT',
+      image_url TEXT,
+      cta_label TEXT DEFAULT 'Get Started Now',
+      cta_url TEXT DEFAULT '/register',
+      type TEXT DEFAULT 'special_offer',
+      auto_show_delay_ms INTEGER DEFAULT 1200,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
   const tenantColumns = [
     "organization_id TEXT",
@@ -597,6 +612,43 @@ function upsertTenantUser(tenantId, user) {
     user.notes || "",
     user.createdAt || (/* @__PURE__ */ new Date()).toISOString()
   );
+  try {
+    const master = getMasterVault();
+    master.prepare(`
+      INSERT INTO mbi_users (
+        id, tenant_id, name, username, email, phone, role, is_primary_owner,
+        passcode, status, is_online, is_kill_switch_active, permissions, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        username = excluded.username,
+        email = excluded.email,
+        phone = excluded.phone,
+        role = excluded.role,
+        passcode = excluded.passcode,
+        status = excluded.status,
+        is_online = excluded.is_online,
+        is_kill_switch_active = excluded.is_kill_switch_active,
+        permissions = excluded.permissions,
+        updated_at = datetime('now');
+    `).run(
+      user.id,
+      tenantId,
+      user.name,
+      user.username || user.name.toLowerCase().replace(/\s+/g, "_"),
+      user.email || "",
+      user.phone || "",
+      user.role || "Cashier",
+      user.isPrimaryOwner || user.is_primary_owner ? 1 : 0,
+      user.passcode || "1234",
+      user.status === "Inactive" || user.is_active === 0 ? "Inactive" : "Active",
+      user.isOnline || user.is_online ? 1 : 0,
+      user.isKillSwitchActive || user.is_kill_switch_active ? 1 : 0,
+      permissionsStr,
+      user.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+    );
+  } catch (mErr) {
+  }
   return user;
 }
 function deleteTenantUser(tenantId, userId) {
@@ -606,6 +658,11 @@ function deleteTenantUser(tenantId, userId) {
     return false;
   }
   vault.prepare("DELETE FROM users WHERE id = ?").run(userId);
+  try {
+    const master = getMasterVault();
+    master.prepare("DELETE FROM mbi_users WHERE id = ?").run(userId);
+  } catch (e) {
+  }
   return true;
 }
 function validateAndBindHwidLock(tenantId, userId, hwid, deviceModel, os2, ipAddress) {
@@ -3586,6 +3643,150 @@ async function deleteBroadcastController(req, res) {
     res.json({ success: true, message: "Broadcast deleted from history" });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Failed to delete broadcast" });
+  }
+}
+async function getHomePagePopupController(req, res) {
+  try {
+    let popupConfig = null;
+    try {
+      const masterDb = getMasterVault();
+      const row = masterDb.prepare("SELECT * FROM mbi_homepage_popup ORDER BY updated_at DESC LIMIT 1;").get();
+      if (row) {
+        popupConfig = {
+          id: row.id,
+          enabled: Boolean(row.enabled),
+          title: row.title,
+          subtitle: row.subtitle || "",
+          body: row.body,
+          badgeText: row.badge_text || "SPECIAL ANNOUNCEMENT",
+          imageUrl: row.image_url || "",
+          ctaLabel: row.cta_label || "Get Started Now",
+          ctaUrl: row.cta_url || "/register",
+          type: row.type || "special_offer",
+          autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
+          updatedAt: row.updated_at
+        };
+      }
+    } catch (e) {
+    }
+    if (!popupConfig) {
+      const fallback = getLocalData();
+      if (fallback.homepage_popup) {
+        popupConfig = fallback.homepage_popup;
+      }
+    }
+    if (!popupConfig) {
+      popupConfig = {
+        id: "hp_default_notice",
+        enabled: true,
+        title: "Welcome to MBI INVENTRA Cloud POS",
+        subtitle: "Experience 0ms Ultra-Fast Pharmacy Billing & Management",
+        body: "Start your 10-day full access free trial with automated FEFO batching, thermal printing, and 100% offline desktop sync mode.",
+        badgeText: "FREE 10-DAY TRIAL",
+        imageUrl: "",
+        ctaLabel: "Claim 10-Day Free Trial",
+        ctaUrl: "/register",
+        type: "special_offer",
+        autoShowDelayMs: 1500,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+    }
+    res.json({
+      success: true,
+      popup: popupConfig
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to fetch homepage popup" });
+  }
+}
+async function saveHomePagePopupController(req, res) {
+  try {
+    const {
+      id,
+      enabled = true,
+      title,
+      subtitle = "",
+      body,
+      badgeText = "SPECIAL ANNOUNCEMENT",
+      imageUrl = "",
+      ctaLabel = "Get Started Now",
+      ctaUrl = "/register",
+      type = "special_offer",
+      autoShowDelayMs = 1200
+    } = req.body || {};
+    if (!title || !body) {
+      res.status(400).json({ success: false, error: "Title and body are required for Home Page popup" });
+      return;
+    }
+    const popupId = id || `hp_pop_${Date.now()}`;
+    const cleanEnabled = enabled === true || enabled === 1 || enabled === "true" ? 1 : 0;
+    const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const popupRecord = {
+      id: popupId,
+      enabled: Boolean(cleanEnabled),
+      title: String(title).trim(),
+      subtitle: String(subtitle || "").trim(),
+      body: String(body).trim(),
+      badgeText: String(badgeText || "SPECIAL ANNOUNCEMENT").trim(),
+      imageUrl: String(imageUrl || "").trim(),
+      ctaLabel: String(ctaLabel || "Get Started Now").trim(),
+      ctaUrl: String(ctaUrl || "/register").trim(),
+      type: String(type || "special_offer"),
+      autoShowDelayMs: Number(autoShowDelayMs) || 1200,
+      updatedAt
+    };
+    try {
+      const masterDb = getMasterVault();
+      masterDb.prepare(`
+        INSERT INTO mbi_homepage_popup (
+          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, type, auto_show_delay_ms, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          enabled = excluded.enabled,
+          title = excluded.title,
+          subtitle = excluded.subtitle,
+          body = excluded.body,
+          badge_text = excluded.badge_text,
+          image_url = excluded.image_url,
+          cta_label = excluded.cta_label,
+          cta_url = excluded.cta_url,
+          type = excluded.type,
+          auto_show_delay_ms = excluded.auto_show_delay_ms,
+          updated_at = datetime('now');
+      `).run(
+        popupRecord.id,
+        cleanEnabled,
+        popupRecord.title,
+        popupRecord.subtitle,
+        popupRecord.body,
+        popupRecord.badgeText,
+        popupRecord.imageUrl,
+        popupRecord.ctaLabel,
+        popupRecord.ctaUrl,
+        popupRecord.type,
+        popupRecord.autoShowDelayMs
+      );
+    } catch (sqliteErr) {
+      console.warn("[SQLite Vault save homepage popup warning]:", sqliteErr);
+    }
+    const fallback = getLocalData();
+    fallback.homepage_popup = popupRecord;
+    saveLocalData(fallback);
+    try {
+      broadcastGlobalEvent({
+        type: "HOMEPAGE_POPUP_UPDATED",
+        entity: "homepage_popup",
+        payload: popupRecord
+      });
+    } catch (e) {
+    }
+    res.json({
+      success: true,
+      message: "Home Page Public Popup saved & published successfully!",
+      popup: popupRecord
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to save homepage popup" });
   }
 }
 
@@ -6784,6 +6985,8 @@ adminRouter.post("/broadcasts/:id/seen", markBroadcastSeenController);
 adminRouter.post("/notifications/:id/mark-seen", markBroadcastSeenController);
 adminRouter.delete("/broadcast/:id", deleteBroadcastController);
 adminRouter.delete("/broadcasts/:id", deleteBroadcastController);
+adminRouter.get("/homepage-popup", getHomePagePopupController);
+adminRouter.post("/homepage-popup", saveHomePagePopupController);
 adminRouter.get("/devices", (req, res) => {
   const devices = Array.from(activeDevicesRegistry.values());
   return res.json({
@@ -7279,27 +7482,48 @@ async function loginController(req, res) {
     const requestedTenantId = req.headers["x-tenant-id"] || req.body.tenantId || "";
     try {
       const master = getMasterVault();
-      const allTenants = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
-      const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map((t) => t.tenant_id)));
-      for (const tId of tenantList) {
-        try {
-          const vaultUsers = listTenantUsers(tId);
-          const matched = vaultUsers.find((u) => {
-            const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || "").toString().toLowerCase().trim();
-            const inputIdent = inputEmailOrPhone.toLowerCase().trim();
-            const identMatches = uIdent === inputIdent || u.username && String(u.username).toLowerCase().trim() === inputIdent || u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent || u.email && String(u.email).toLowerCase().trim() === inputIdent || u.phone && String(u.phone).trim() === inputIdent;
-            const userPin = String(u.passcode || u.pin || "").trim();
-            const pinMatches = userPin === inputPasscode;
-            return identMatches && pinMatches && (u.status === "Active" || u.status === "Joined");
-          });
-          if (matched) {
-            authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
-            break;
-          }
-        } catch (vErr) {
-        }
+      const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+      const masterUser = master.prepare(`
+        SELECT * FROM mbi_users 
+        WHERE (LOWER(username) = ? OR LOWER(email) = ? OR phone = ? OR LOWER(name) = ? OR id = ?)
+          AND (passcode = ? OR pin = ?)
+          AND (status = 'Active' OR status = 'Joined' OR status IS NULL)
+        LIMIT 1
+      `).get(inputIdent, inputIdent, inputIdent, inputIdent, inputIdent, inputPasscode, inputPasscode);
+      if (masterUser) {
+        authenticatedUser = {
+          ...masterUser,
+          tenant_id: masterUser.tenant_id,
+          tenantId: masterUser.tenant_id
+        };
       }
-    } catch (sqliteErr) {
+    } catch (sqliteMasterErr) {
+    }
+    if (!authenticatedUser) {
+      try {
+        const master = getMasterVault();
+        const allTenants = master.prepare("SELECT tenant_id FROM mbi_tenants").all();
+        const tenantList = requestedTenantId ? [requestedTenantId] : Array.from(new Set(allTenants.map((t) => t.tenant_id)));
+        for (const tId of tenantList) {
+          try {
+            const vaultUsers = listTenantUsers(tId);
+            const matched = vaultUsers.find((u) => {
+              const uIdent = (u.username || u.emailOrPhone || u.email || u.phone || u.name || u.id || "").toString().toLowerCase().trim();
+              const inputIdent = inputEmailOrPhone.toLowerCase().trim();
+              const identMatches = uIdent === inputIdent || u.username && String(u.username).toLowerCase().trim() === inputIdent || u.emailOrPhone && String(u.emailOrPhone).toLowerCase().trim() === inputIdent || u.email && String(u.email).toLowerCase().trim() === inputIdent || u.phone && String(u.phone).trim() === inputIdent;
+              const userPin = String(u.passcode || u.pin || "").trim();
+              const pinMatches = userPin === inputPasscode;
+              return identMatches && pinMatches && (u.status === "Active" || u.status === "Joined");
+            });
+            if (matched) {
+              authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
+              break;
+            }
+          } catch (vErr) {
+          }
+        }
+      } catch (sqliteErr) {
+      }
     }
     if (!authenticatedUser && await isMariaDbAvailable2()) {
       try {
@@ -7495,16 +7719,72 @@ async function loginController(req, res) {
       });
     } catch (sseErr) {
     }
+    let tenantPlan = "Basic";
+    let tenantStoreName = "Pharmacy Store";
+    try {
+      const masterDb = getMasterVault();
+      const tRow = masterDb.prepare("SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;").get(tenantId, tenantId);
+      if (tRow) {
+        if (tRow.name) tenantStoreName = tRow.name;
+        if (tRow.plan) tenantPlan = tRow.plan;
+      }
+    } catch (e) {
+    }
+    const userRole = authenticatedUser.role || "Cashier";
+    const isOwnerOrPrimaryAdmin = (userRole || "").toLowerCase() === "owner" || (userRole || "").toLowerCase() === "primary admin" || (userRole || "").toLowerCase() === "admin" || authenticatedUser.is_primary_owner === 1;
+    let resolvedPermissions = ["POS_BILLING", "VIEW_SALES", "CREATE_SALES", "VIEW_PRODUCTS"];
+    let resolvedAllowedModules = {
+      dashboard: true,
+      parties: true,
+      items: true,
+      sale: true,
+      purchase: false,
+      expenses: false,
+      bank: false,
+      reports: false,
+      syncShare: false,
+      backup: false,
+      utilities: false,
+      settings: false
+    };
+    if (isOwnerOrPrimaryAdmin) {
+      resolvedPermissions = ["ALL_PERMISSIONS"];
+      resolvedAllowedModules = {
+        dashboard: true,
+        parties: true,
+        items: true,
+        sale: true,
+        purchase: true,
+        expenses: true,
+        bank: true,
+        reports: true,
+        syncShare: true,
+        backup: true,
+        utilities: true,
+        settings: true
+      };
+    } else if (authenticatedUser.permissions) {
+      resolvedPermissions = typeof authenticatedUser.permissions === "string" ? JSON.parse(authenticatedUser.permissions) : authenticatedUser.permissions;
+    } else if (authenticatedUser.allowed_modules) {
+      const allowedArr = typeof authenticatedUser.allowed_modules === "string" ? JSON.parse(authenticatedUser.allowed_modules) : authenticatedUser.allowed_modules;
+      if (Array.isArray(allowedArr)) {
+        resolvedPermissions = allowedArr;
+      }
+    }
     const tokenPayload = {
       userId: authenticatedUser.id,
       tenantId,
-      role: authenticatedUser.role,
+      role: userRole,
       name: authenticatedUser.name,
-      email: authenticatedUser.email_or_phone || authenticatedUser.email,
+      username: authenticatedUser.username || authenticatedUser.name,
+      email: authenticatedUser.email_or_phone || authenticatedUser.email || authenticatedUser.phone,
       firmId: firmId || "firm_main",
       deviceId: clientHwid,
-      isPrimaryAdmin: (authenticatedUser.role || "").toLowerCase().includes("admin") || (authenticatedUser.role || "").toLowerCase().includes("owner"),
-      permissions: authenticatedUser.allowed_modules ? JSON.parse(authenticatedUser.allowed_modules || "[]") : ["ALL_PERMISSIONS"]
+      plan: tenantPlan,
+      storeName: tenantStoreName,
+      isPrimaryAdmin: isOwnerOrPrimaryAdmin,
+      permissions: resolvedPermissions,
+      allowedModules: resolvedAllowedModules
     };
     const token = signJwt(tokenPayload, 86400 * 7);
     res.json({
@@ -7512,13 +7792,22 @@ async function loginController(req, res) {
       token,
       user: {
         userId: tokenPayload.userId,
+        id: tokenPayload.userId,
         tenantId: tokenPayload.tenantId,
+        tenant_id: tokenPayload.tenantId,
         role: tokenPayload.role,
         name: tokenPayload.name,
         fullName: tokenPayload.name,
+        username: tokenPayload.username,
         email: tokenPayload.email,
+        phone: authenticatedUser.phone || "",
         firmId: tokenPayload.firmId,
+        plan: tenantPlan,
+        storeName: tenantStoreName,
         isPrimaryAdmin: tokenPayload.isPrimaryAdmin,
+        isPrimaryOwner: Boolean(authenticatedUser.is_primary_owner === 1 || userRole === "Owner"),
+        permissions: tokenPayload.permissions,
+        allowedModules: resolvedAllowedModules,
         hwid: clientHwid
       }
     });
@@ -7542,6 +7831,10 @@ async function registerTrialController(req, res) {
     const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
     if (!cleanStoreName) {
       res.status(400).json({ success: false, error: "Pharmacy / Store Name is required" });
+      return;
+    }
+    if (!email || !email.trim()) {
+      res.status(400).json({ success: false, error: "Email Address is required" });
       return;
     }
     const tenantId = `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -9857,7 +10150,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       owner_email: owner_email || ownerEmail || email || "",
       city: city || "Lahore",
       address: address || "",
-      plan: plan || "Business",
+      plan: plan || "Basic",
       status: status || "Active",
       drug_license_no: drug_license_no || "",
       ntn_number: ntn_number || "",
@@ -9913,7 +10206,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
           owner_email || ownerEmail || email || "",
           city || "Lahore",
           address || "",
-          plan || "Business",
+          plan || "Basic",
           status || "Active",
           drug_license_no || "",
           ntn_number || "",
@@ -9950,7 +10243,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
           owner_email || ownerEmail || email || "",
           city || "Lahore",
           address || "",
-          plan || "Business",
+          plan || "Basic",
           status || "Active",
           drug_license_no || "",
           ntn_number || "",
@@ -9971,7 +10264,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
         const existingLic = masterDb.prepare("SELECT id FROM mbi_licenses WHERE license_key = ? OR tenant_id = ? LIMIT 1").get(`lic_${effectiveTenantId}`, effectiveTenantId);
         if (existingLic) {
           masterDb.prepare("UPDATE mbi_licenses SET plan = ?, status = ?, expires_at = ? WHERE license_key = ? OR tenant_id = ?").run(
-            plan || "Business",
+            plan || "Basic",
             status || "Active",
             cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : "2099-12-31",
             `lic_${effectiveTenantId}`,
@@ -9988,7 +10281,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             name || "Pharmacy Store",
             owner_name || ownerName || "Store Owner",
             owner_phone || ownerPhone || phone || "",
-            plan || "Business",
+            plan || "Basic",
             status || "Active",
             cleanExpiry && cleanExpiry !== "Lifetime" ? cleanExpiry.slice(0, 10) : "2099-12-31"
           );
@@ -10040,7 +10333,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             owner_email || ownerEmail || email || "",
             city || "Lahore",
             address || "",
-            plan || "Business",
+            plan || "Basic",
             status || "Active",
             drug_license_no || "",
             ntn_number || "",
@@ -10054,7 +10347,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
             `INSERT INTO mbi_licenses (id, tenant_id, license_key, plan, status, max_terminals, expires_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, 5, DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 365 DAY), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = VALUES(status), updated_at = CURRENT_TIMESTAMP;`,
-            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || "Business", status || "Active"]
+            [`lic_${finalTenantId}`, finalTenantId, `MBI-PRO-${finalTenantId.slice(-6).toUpperCase()}`, plan || "Basic", status || "Active"]
           );
         } catch (licErr) {
         }
@@ -10354,7 +10647,7 @@ fleetRouter.post("/leads/approve", async (req, res) => {
     }
     const lead = leadRows[0];
     const tenantId = `tenant_${lead.phone.replace(/[^0-9]/g, "") || Date.now()}`;
-    const cleanPlan = plan || lead.selected_plan || "Business";
+    const cleanPlan = plan || lead.selected_plan || "Basic";
     await pool.query(
       `INSERT INTO mbi_tenants (id, tenant_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, drug_license_no, ntn_number)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)
@@ -10484,6 +10777,31 @@ fleetRouter.post("/tenants/register", async (req, res) => {
 fleetRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
+    try {
+      const masterDb = getMasterVault();
+      const sqliteRows = masterDb.prepare(`
+        SELECT u.id, u.tenant_id, u.name, u.username, u.email, u.phone,
+               COALESCE(u.email, u.phone, u.username) as emailOrPhone,
+               u.role, u.status, u.is_kill_switch_active as isKillSwitchActive,
+               u.passcode, u.is_online as isOnline, u.permissions,
+               t.name as storeName, t.plan as storePlan
+        FROM mbi_users u
+        LEFT JOIN mbi_tenants t ON (u.tenant_id = t.id OR u.tenant_id = t.tenant_id)
+        ORDER BY u.created_at DESC;
+      `).all();
+      if (Array.isArray(sqliteRows)) {
+        for (const r of sqliteRows) {
+          usersMap.set(r.id, {
+            ...r,
+            installationId: r.tenant_id,
+            isOnline: Boolean(r.isOnline === 1),
+            passcode: r.passcode || "1234",
+            storeName: r.storeName || "Pharmacy Store"
+          });
+        }
+      }
+    } catch (sqErr) {
+    }
     if (await isMariaDbAvailable2()) {
       try {
         const pool = getMariaDbPool();
@@ -10498,11 +10816,14 @@ fleetRouter.get("/users", async (req, res) => {
         );
         if (Array.isArray(rows)) {
           for (const r of rows) {
+            const existing = usersMap.get(r.id);
             usersMap.set(r.id, {
+              ...existing,
               ...r,
               installationId: r.tenant_id,
               isOnline: true,
-              passcode: "1234"
+              passcode: existing?.passcode || r.passcode || "1234",
+              storeName: r.storeName || existing?.storeName || "Pharmacy Store"
             });
           }
         }
@@ -15921,6 +16242,7 @@ async function startServer() {
   app.use("/api/cms", cmsRouter);
   app.use("/api/master", backupRouter);
   app.use("/api", backupRouter);
+  app.get(["/api/homepage-popup", "/api/public/homepage-popup"], getHomePagePopupController);
   function isSafeKey(key) {
     return key !== "__proto__" && key !== "constructor" && key !== "prototype" && /^[a-zA-Z0-9_-]+$/.test(key);
   }

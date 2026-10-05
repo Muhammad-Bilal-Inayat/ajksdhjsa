@@ -3,89 +3,29 @@ import { Booker, BookerCommissionTransaction, Invoice, PurchaseOrder } from '../
 import { dbBookers, dbBookerTransactions, dbInvoices } from './db';
 import { emitToast } from '../contexts/ToastContext';
 
-export const DEFAULT_BOOKER_SEEDS: Booker[] = [
-  {
-    id: 'booker-bilal-01',
-    name: 'Bilal Khan',
-    roleType: 'Booker',
-    phone: '0300-1234567',
-    email: 'bilal.orders@mbiinventra.com',
-    cnic: '35202-1234567-1',
-    address: 'Circular Road, Lahore',
-    areaOrRoute: 'Main Market & Doctor Clinics',
-    commissionPercentage: 3.0,
-    salesTarget: 500000,
-    currentBalance: 0,
-    totalOrdersBooked: 0,
-    totalSalesVolume: 0,
-    totalCommissionEarned: 0,
-    totalCommissionPaid: 0,
-    status: 'Active',
-    notes: 'Primary Order Booker for Wholesale Medical Stores & Hospitals',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'booker-usman-02',
-    name: 'Usman Ghani',
-    roleType: 'Biller',
-    phone: '0321-9876543',
-    email: 'usman.billing@mbiinventra.com',
-    cnic: '35201-9876543-3',
-    address: 'Ferozepur Road, Lahore',
-    areaOrRoute: 'North Zone & Surgical Town',
-    commissionPercentage: 2.0,
-    salesTarget: 400000,
-    currentBalance: 0,
-    totalOrdersBooked: 0,
-    totalSalesVolume: 0,
-    totalCommissionEarned: 0,
-    totalCommissionPaid: 0,
-    status: 'Active',
-    notes: 'Counter & Delivery Biller handling fast-track deliveries',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: 'booker-kashif-03',
-    name: 'Kashif Ali',
-    roleType: 'Booker and Biller',
-    phone: '0333-5554433',
-    email: 'kashif.field@mbiinventra.com',
-    cnic: '35203-5554433-5',
-    address: 'Shahdara Town, Lahore',
-    areaOrRoute: 'East Route & Rural Clinics',
-    commissionPercentage: 3.5,
-    salesTarget: 600000,
-    currentBalance: 0,
-    totalOrdersBooked: 0,
-    totalSalesVolume: 0,
-    totalCommissionEarned: 0,
-    totalCommissionPaid: 0,
-    status: 'Active',
-    notes: 'Field Sales & Instant Billing Specialist',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
+export const DEFAULT_BOOKER_SEEDS: Booker[] = [];
 
 export class BookerService {
   /**
-   * Load all bookers and ensure seed records exist on first run
+   * Load all bookers added by company
    */
   static async getBookers(): Promise<Booker[]> {
     try {
       let bookers = await dbBookers.getAll();
-      if (!bookers || bookers.length === 0) {
-        for (const b of DEFAULT_BOOKER_SEEDS) {
-          await dbBookers.save(b);
+      
+      // Cleanup previous seed bookers if any exist in indexedDB
+      const seedIds = ['booker-bilal-01', 'booker-usman-02', 'booker-kashif-03'];
+      if (bookers && bookers.some(b => seedIds.includes(b.id))) {
+        for (const sId of seedIds) {
+          await dbBookers.delete(sId).catch(() => {});
         }
         bookers = await dbBookers.getAll();
       }
-      return bookers;
+
+      return bookers || [];
     } catch (err) {
       console.warn('Error fetching bookers:', err);
-      return DEFAULT_BOOKER_SEEDS;
+      return [];
     }
   }
 

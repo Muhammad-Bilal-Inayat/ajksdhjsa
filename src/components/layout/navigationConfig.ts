@@ -270,7 +270,7 @@ export const RAW_NAVIGATION_ITEMS: NavItem[] = [
     label: 'Bookers & Billers', 
     path: '/bookers', 
     moduleKey: 'bookers',
-    requiredTier: 'ENTERPRISE',
+    requiredTier: 'BUSINESS',
     isCore: false,
     addPath: '/bookers?action=add',
     hasDropdown: false, 

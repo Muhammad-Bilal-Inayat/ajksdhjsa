@@ -237,18 +237,21 @@ export const MODULE_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'narcotics_controlled_drug_register': 'platinum',
   'controlled_drug_register': 'platinum',
   'drap_form8': 'platinum',
-  'drap_form_8_drug_register': 'platinum',
-  'bookers': 'platinum',
-  'booker-biller': 'platinum',
-  'booker_management': 'platinum',
-  'biller_field_force_management': 'platinum',
-  'booker_ledger': 'platinum',
-  'commission_tracking': 'platinum',
-  'audit-logs': 'platinum',
-  'full_audit_trail': 'platinum',
-  'complete_user_audit_trail': 'platinum',
-  'who_edited_deleted_tracking': 'platinum',
-  'timestamp_ip_logs': 'platinum',
+  // Booker & Biller Field Force (Gold & Platinum)
+  'bookers': 'gold',
+  'booker-biller': 'gold',
+  'booker_management': 'gold',
+  'biller_field_force_management': 'gold',
+  'booker_ledger': 'gold',
+  'commission_tracking': 'gold',
+
+  // Company-Wide Activity & Security Audit Trail (Gold & Platinum)
+  'audit-logs': 'gold',
+  'audit_logs': 'gold',
+  'full_audit_trail': 'gold',
+  'complete_user_audit_trail': 'gold',
+  'who_edited_deleted_tracking': 'gold',
+  'timestamp_ip_logs': 'gold',
   'custom_field_level_security': 'platinum',
   'custom_field_permissions': 'platinum',
   'lifetime_extended_data_recovery': 'platinum',
@@ -288,18 +291,19 @@ export function isModuleAllowed(moduleKey: string, tenantId?: string, explicitPl
 export function isRouteAllowed(path: string, tenantId?: string, explicitPlan?: string): boolean {
   const cleanPath = path.toLowerCase().split('?')[0];
 
-  // Specific Enterprise restricted routes and their primary feature keys
-  const enterpriseRouteRules: Array<{ prefix: string; featureKey: string }> = [
-    { prefix: '/bookers', featureKey: 'booker_biller_management' },
-    { prefix: '/bookers-management', featureKey: 'booker_biller_management' },
-    { prefix: '/order-bookers', featureKey: 'booker_biller_management' },
-    { prefix: '/online-store', featureKey: 'online_storefront' },
-    { prefix: '/journal-vouchers', featureKey: 'journal_vouchers' },
-    { prefix: '/rx-prescriptions', featureKey: 'rx_prescriptions' },
-    { prefix: '/audit-trail', featureKey: 'full_audit_trail' }
+  // Specific Gold / Enterprise restricted routes and their primary feature keys
+  const routeTierRules: Array<{ prefix: string; featureKey: string; minTier: 'gold' | 'platinum' }> = [
+    { prefix: '/bookers', featureKey: 'booker_biller_management', minTier: 'gold' },
+    { prefix: '/bookers-management', featureKey: 'booker_biller_management', minTier: 'gold' },
+    { prefix: '/order-bookers', featureKey: 'booker_biller_management', minTier: 'gold' },
+    { prefix: '/audit-trail', featureKey: 'full_audit_trail', minTier: 'gold' },
+    { prefix: '/audit-log', featureKey: 'full_audit_trail', minTier: 'gold' },
+    { prefix: '/online-store', featureKey: 'online_storefront', minTier: 'platinum' },
+    { prefix: '/journal-vouchers', featureKey: 'journal_vouchers', minTier: 'platinum' },
+    { prefix: '/rx-prescriptions', featureKey: 'rx_prescriptions', minTier: 'platinum' }
   ];
 
-  for (const rule of enterpriseRouteRules) {
+  for (const rule of routeTierRules) {
     if (cleanPath.startsWith(rule.prefix)) {
       const override = checkServerFeatureOverride(rule.featureKey, tenantId);
       if (override !== null) return override;
@@ -311,7 +315,7 @@ export function isRouteAllowed(path: string, tenantId?: string, explicitPlan?: s
       }
 
       const plan = explicitPlan ? normalizePlan(explicitPlan) : getActiveTenantPlan(tenantId);
-      return plan === 'platinum';
+      return isPlanSufficient(plan, rule.minTier);
     }
   }
 

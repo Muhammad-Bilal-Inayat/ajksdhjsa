@@ -376,28 +376,6 @@ export const GeneralTab: React.FC = () => {
               <span title="Controls cashier shift timer & reconcile button visibility in header"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
             </div>
 
-            {/* Show / Hide Install App Button (PWA) on Header */}
-            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={localStorage.getItem('mbi_show_pwa_install_header') === 'true'}
-                  onChange={(e) => {
-                    const val = e.target.checked;
-                    localStorage.setItem('mbi_show_pwa_install_header', val ? 'true' : 'false');
-                    updateGeneral({ showPwaInstallButton: val });
-                    showToast(val ? 'PWA Install button enabled in Top Bar' : 'PWA Install button hidden from Top Bar');
-                  }}
-                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                />
-                <div>
-                  <span className="font-medium text-slate-800 block">Show PWA Install App Button in Top Bar</span>
-                  <span className="text-[10.5px] text-slate-400">Controls Install App button visibility in top header (Default: Hidden)</span>
-                </div>
-              </label>
-              <span title="Controls the visibility of the Install App button across the header"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
-            </div>
-
             {/* Currency */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -541,27 +519,6 @@ export const GeneralTab: React.FC = () => {
                 <span className="text-slate-800 font-medium">Fixed Assets (FA)</span>
               </label>
               <span title="Track machinery, vehicles, furniture, computers and depreciation"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
-            </div>
-
-            {/* PWA Install Button Visibility */}
-            <div className="flex items-center justify-between p-2 bg-blue-50/50 rounded-lg border border-blue-100">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={settings.general.showPwaInstallButton === true}
-                  onChange={(e) => {
-                    const val = e.target.checked;
-                    updateGeneral({ showPwaInstallButton: val });
-                    showToast(val ? 'PWA Install App button shown in header/dashboard' : 'PWA Install App button hidden');
-                  }}
-                  className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                />
-                <div>
-                  <span className="text-slate-800 font-semibold text-xs">Show "Install App" Button</span>
-                  <p className="text-[11px] text-slate-500">Display instant PWA desktop/mobile app installation button in header and dashboard</p>
-                </div>
-              </label>
-              <span title="Toggle install button on header bar and dashboard"><Info className="w-3.5 h-3.5 text-blue-500" /></span>
             </div>
 
             {/* Delivery Challan */}

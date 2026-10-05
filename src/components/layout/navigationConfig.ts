@@ -48,7 +48,7 @@ export const CATEGORIZED_REPORTS: ReportCategoryGroup[] = [
       { id: 'stock_summary', label: 'Stock Valuation & Batch Audit', path: '/reports?report=stock_summary', requiredPlan: 'silver' },
       { id: 'item_batch_report', label: 'Item Batch & Expiry Traceability', path: '/reports?report=item_batch_report', requiredPlan: 'gold' },
       { id: 'fifo_allocation_report', label: 'FIFO Stock Allocation Ledger', path: '/reports?report=fifo_allocation_report', requiredPlan: 'gold' },
-      { id: 'controlled_register', label: 'Controlled Items Register (Form-7)', path: '/reports?report=controlled_register', requiredPlan: 'gold' },
+      { id: 'controlled_register', label: 'Controlled Items Register (Form-7)', path: '/reports?report=controlled_register', requiredPlan: 'platinum' },
     ]
   },
   {

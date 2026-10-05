@@ -19,6 +19,8 @@ import {
   Supplier, Medicine 
 } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { isModuleAllowed, isReportAllowed, normalizePlan, getActiveTenantPlan, PlanTier } from '../../utils/planPermissions';
+import { isMasterAdminAuthenticated } from '../../lib/masterServerService';
 import toast from 'react-hot-toast';
 
 export interface SoftwareFunctionItem {
@@ -27,6 +29,8 @@ export interface SoftwareFunctionItem {
   subtitle: string;
   category: 'Function' | 'Setting' | 'Action' | 'Modal' | 'Report' | 'Tool' | 'Page';
   scope?: 'user' | 'server' | 'all';
+  requiredPlan?: 'silver' | 'gold' | 'platinum';
+  featureKey?: string;
   keywords: string[];
   icon: any;
   iconBg: string;
@@ -55,7 +59,7 @@ export interface SearchResultItem {
 }
 
 export const TransactionSearch: React.FC = () => {
-  const { activeRole, canPerform, canAccess } = useAuth();
+  const { activeRole, canPerform, canAccess, tenant, tenantId, userProfile, business, currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isServerRoute = location.pathname.startsWith('/server');
@@ -63,6 +67,11 @@ export const TransactionSearch: React.FC = () => {
   const [query, setQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'functions' | 'item' | 'category' | 'amount' | 'sale' | 'purchase' | 'expense' | 'party'>('all');
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId;
+  const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+  const currentRawPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+  const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : (currentRawPlan ? normalizePlan(currentRawPlan) : getActiveTenantPlan(effectiveTenantId));
 
   const isAllowedPurchase = 
     activeRole === 'Primary Admin' ||
@@ -306,6 +315,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Taxes & GST / FBR Invoicing Setup...',
         subtitle: 'Configure Sales Tax rates, FBR digital POS integration, NTN/STRN details',
         category: 'Setting',
+        requiredPlan: 'platinum',
+        featureKey: 'fbr_pos_integration',
         keywords: ['tax', 'taxes', 'gst', 'fbr', 'sales tax', 'vat', 'ntn', 'tax rate', 'withholding'],
         icon: Percent,
         iconBg: 'bg-emerald-100',
@@ -319,6 +330,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Pricing, Markup & Margin Rules...',
         subtitle: 'Setup automatic retail / wholesale markups, minimum sale prices & batch pricing',
         category: 'Setting',
+        requiredPlan: 'gold',
+        featureKey: 'multiple_pricing_levels',
         keywords: ['pricing', 'margin', 'markup', 'wholesale price', 'retail price', 'profit margin', 'mrp markup'],
         icon: Percent,
         iconBg: 'bg-emerald-100',
@@ -541,6 +554,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Online Storefront & Digital Orders...',
         subtitle: 'Manage digital pharmacy catalog, online customer orders & e-commerce web storefront',
         category: 'Page',
+        requiredPlan: 'platinum',
+        featureKey: 'online_storefront',
         keywords: ['online store', 'digital store', 'web store', 'e-commerce', 'online orders', 'storefront', 'online'],
         icon: Globe,
         iconBg: 'bg-indigo-100',
@@ -582,6 +597,7 @@ export const TransactionSearch: React.FC = () => {
         title: 'Daybook / Daily Cash Register Report...',
         subtitle: 'Consolidated summary of today’s cash sales, recoveries, expenses & net balance',
         category: 'Report',
+        requiredPlan: 'silver',
         keywords: ['daybook', 'day book', 'daily report', 'today sales', 'daily cash', 'aaj ka hisaab', 'daily register'],
         icon: BookOpen,
         iconBg: 'bg-purple-100',
@@ -596,6 +612,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Profit & Loss Statement (P&L)...',
         subtitle: 'Net income, gross profit margin, COGS, operating expenses & net profit analysis',
         category: 'Report',
+        requiredPlan: 'gold',
+        featureKey: 'advanced_accounting',
         keywords: ['profit and loss', 'p&l', 'profit', 'munafa', 'loss', 'income statement', 'gross profit'],
         icon: BarChart3,
         iconBg: 'bg-emerald-100',
@@ -610,6 +628,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Balance Sheet & Financial Position...',
         subtitle: 'Assets, current liabilities, inventory valuation, receivables & equity summary',
         category: 'Report',
+        requiredPlan: 'gold',
+        featureKey: 'balance_sheet',
         keywords: ['balance sheet', 'assets', 'liabilities', 'financial position', 'khata status'],
         icon: Layers,
         iconBg: 'bg-blue-100',
@@ -623,6 +643,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Near Expiry & Batch Expiration Radar...',
         subtitle: 'Inspect products expiring within 30, 60, or 90 days for distributor returns',
         category: 'Report',
+        requiredPlan: 'gold',
+        featureKey: 'fefo_expiry_management',
         keywords: ['expiry', 'near expiry', 'expired dawa', 'batch expiry', 'expiration radar', 'expiry alert'],
         icon: AlertCircle,
         iconBg: 'bg-rose-100',
@@ -637,6 +659,7 @@ export const TransactionSearch: React.FC = () => {
         title: 'Low Stock & Safety Reorder List...',
         subtitle: 'Medicines below safety reorder threshold ready for purchase order generation',
         category: 'Report',
+        requiredPlan: 'silver',
         keywords: ['low stock', 'out of stock', 'reorder list', 'shortage', 'stock alert', 'kam stock'],
         icon: Package,
         iconBg: 'bg-amber-100',
@@ -651,6 +674,8 @@ export const TransactionSearch: React.FC = () => {
         title: 'Audit Trail & Activity Security Log...',
         subtitle: 'Chronological timeline of invoice edits, deleted items, price overrides & logins',
         category: 'Report',
+        requiredPlan: 'platinum',
+        featureKey: 'full_audit_trail',
         keywords: ['audit log', 'audit trail', 'activity log', 'history', 'user actions', 'who changed what'],
         icon: Activity,
         iconBg: 'bg-slate-100',
@@ -851,6 +876,16 @@ export const TransactionSearch: React.FC = () => {
         // Context-aware scope filter: If on /server, search all functions. If on /user, only show user-side functions.
         const isAllowedScope = isServerRoute ? true : (fn.scope !== 'server');
         if (!isAllowedScope) return;
+
+        // Plan tier gating filter for functions and tools
+        if (!isGlobalMaster) {
+          if (fn.featureKey) {
+            if (!isModuleAllowed(fn.featureKey, effectiveTenantId, activePlanTier)) return;
+          } else if (fn.requiredPlan) {
+            if (fn.requiredPlan === 'platinum' && activePlanTier !== 'platinum') return;
+            if (fn.requiredPlan === 'gold' && activePlanTier === 'silver') return;
+          }
+        }
 
         const titleMatch = fn.title.toLowerCase().includes(q);
         const subtitleMatch = fn.subtitle.toLowerCase().includes(q);

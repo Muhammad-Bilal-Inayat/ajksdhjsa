@@ -331,12 +331,12 @@ export const REPORT_TIER_REQUIREMENTS: Record<string, 'silver' | 'gold' | 'plati
   'cash_flow': 'silver',
 
   // 📦 Stock & Inventory Reports
-  'fefo_expiry_report': 'silver',
+  'fefo_expiry_report': 'gold',
   'low_stock_summary': 'silver',
   'stock_summary': 'silver',
   'item_batch_report': 'gold',
   'fifo_allocation_report': 'gold',
-  'controlled_register': 'gold',
+  'controlled_register': 'platinum',
   'item_serial_report': 'gold',
   'category_profit_heatmap': 'gold',
   'stock_detail': 'silver',

@@ -65,7 +65,6 @@ export interface TabItem {
 export const SETTINGS_TABS: TabItem[] = [
   { key: 'GENERAL', label: 'GENERAL', icon: Sliders },
   { key: 'NAVIGATION & MENU PREFERENCES', label: 'MENU & NAVIGATION', icon: Sliders, badge: 'PRIMARY' },
-  { key: 'BACKUP & RESTORE', label: 'BACKUP & RESTORE', icon: ShieldCheck, badge: 'VERIFIED' },
   { key: 'DOCUMENTATION', label: 'USER MANUAL & GUIDES', icon: BookOpen },
   { key: 'ADMIN SETTINGS', label: 'ADMIN SETTINGS & FLAGS', icon: ShieldCheck, badge: 'ADMIN' },
   { key: 'SAFETY & LOCK', label: 'SAFETY & PERIOD LOCK', icon: ShieldCheck },

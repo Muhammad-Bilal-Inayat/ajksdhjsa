@@ -4,12 +4,19 @@ import {
   Layers, Lock, Sparkles, Hash, Plus, Trash2, X, ShieldAlert, Edit2, Check
 } from 'lucide-react';
 import { useSettings, WarrantyCustomField } from '../../contexts/SettingsContext';
-import { useTenantPlan } from '../../context/TenantPlanContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { isModuleAllowed, normalizePlan, getActiveTenantPlan, isPlanSufficient, PlanTier } from '../../utils/planPermissions';
+import { isMasterAdminAuthenticated } from '../../lib/masterServerService';
 
 export const TransactionTab: React.FC = () => {
   const { settings, updateTransaction, updateItem, updatePrint } = useSettings();
-  const { isEnterprise, isPlatinum } = useTenantPlan();
-  const hasEnterpriseAccess = isEnterprise || isPlatinum;
+  const { tenant, tenantId, userProfile, currentUser, business } = useAuth();
+
+  const isGlobalMaster = (currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated();
+  const rawTid = tenant?.tenantId || tenant?.id || tenantId;
+  const effPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
+  const activePlanTier: PlanTier = isGlobalMaster ? 'platinum' : (effPlan ? normalizePlan(effPlan) : getActiveTenantPlan(rawTid));
+  const isBookerAllowed = isGlobalMaster || isModuleAllowed('bookers', rawTid, activePlanTier) || isPlanSufficient(activePlanTier, 'gold');
 
   // Submodals state
   const [isCountModalOpen, setIsCountModalOpen] = useState(false);
@@ -282,74 +289,76 @@ export const TransactionTab: React.FC = () => {
                 <span title="Enables lightning-fast barcode barcode-only billing without popups"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
 
-              {/* Order Booker & Biller Controls (Enterprise Feature) */}
-              <div className="p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={settings.transaction.enableBookerBiller !== false}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        updateTransaction({ 
-                          enableBookerBiller: val,
-                          showBookerInSales: val,
-                          showBookerInPurchases: val
-                        });
-                        showToast(val ? 'Booker & Biller field enabled for billing' : 'Booker & Biller field disabled');
-                      }}
-                      className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                    />
-                    <div>
-                      <span className="text-slate-900 font-bold text-xs flex items-center gap-1.5">
-                        <span>Enable Booker / Biller in Billing</span>
-                        <span className="px-1.5 py-0.2 rounded bg-indigo-600 text-white text-[9px] font-black uppercase tracking-wider">ENTERPRISE</span>
-                      </span>
-                      <p className="text-[11px] text-slate-500 font-normal">Assign field bookers/billers to customer orders, track sales & commission khatas</p>
-                    </div>
-                  </label>
-                </div>
-
-                {settings.transaction.enableBookerBiller !== false && (
-                  <div className="pl-6 space-y-2 text-xs border-l-2 border-blue-200 ml-2 pt-1">
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={settings.transaction.showBookerInSales !== false}
-                          onChange={(e) => updateTransaction({ showBookerInSales: e.target.checked })}
-                          className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                        />
-                        <span className="text-slate-700 font-medium">Show Booker field in Sale Invoices & Orders</span>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={settings.transaction.showBookerInPurchases !== false}
-                          onChange={(e) => updateTransaction({ showBookerInPurchases: e.target.checked })}
-                          className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                        />
-                        <span className="text-slate-700 font-medium">Show Booker field in Purchases & Supplier Bills</span>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={settings.transaction.showBookerInPrint !== false}
-                          onChange={(e) => updateTransaction({ showBookerInPrint: e.target.checked })}
-                          className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                        />
-                        <span className="text-slate-700 font-medium">Print Booker Name on Invoices / Receipts</span>
-                      </label>
-                    </div>
+              {/* Order Booker & Biller Controls (Gold & Enterprise Feature) */}
+              {isBookerAllowed && (
+                <div className="p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={settings.transaction.enableBookerBiller !== false}
+                        onChange={(e) => {
+                          const val = e.target.checked;
+                          updateTransaction({ 
+                            enableBookerBiller: val,
+                            showBookerInSales: val,
+                            showBookerInPurchases: val
+                          });
+                          showToast(val ? 'Booker & Biller field enabled for billing' : 'Booker & Biller field disabled');
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                      />
+                      <div>
+                        <span className="text-slate-900 font-bold text-xs flex items-center gap-1.5">
+                          <span>Enable Booker / Biller in Billing</span>
+                          <span className="px-1.5 py-0.2 rounded bg-indigo-600 text-white text-[9px] font-black uppercase tracking-wider">GOLD & ENTERPRISE</span>
+                        </span>
+                        <p className="text-[11px] text-slate-500 font-normal">Assign field bookers/billers to customer orders, track sales & commission khatas</p>
+                      </div>
+                    </label>
                   </div>
-                )}
-              </div>
+
+                  {settings.transaction.enableBookerBiller !== false && (
+                    <div className="pl-6 space-y-2 text-xs border-l-2 border-blue-200 ml-2 pt-1">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={settings.transaction.showBookerInSales !== false}
+                            onChange={(e) => updateTransaction({ showBookerInSales: e.target.checked })}
+                            className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          />
+                          <span className="text-slate-700 font-medium">Show Booker field in Sale Invoices & Orders</span>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={settings.transaction.showBookerInPurchases !== false}
+                            onChange={(e) => updateTransaction({ showBookerInPurchases: e.target.checked })}
+                            className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          />
+                          <span className="text-slate-700 font-medium">Show Booker field in Purchases & Supplier Bills</span>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={settings.transaction.showBookerInPrint !== false}
+                            onChange={(e) => updateTransaction({ showBookerInPrint: e.target.checked })}
+                            className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          />
+                          <span className="text-slate-700 font-medium">Print Booker Name on Invoices / Receipts</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Show Recent Rates on Focus */}
               <div className="flex items-center justify-between">

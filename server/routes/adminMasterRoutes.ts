@@ -7,7 +7,7 @@ import { getMasterVault, getTenantVault, checkVaultEngineHealth, listTenantUsers
 import { signJwt } from '../auth/jwt';
 import { requireMasterAuth, TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
-import { getEmailSettings, saveEmailSettings, sendEmail, sendCustomTenantEmail } from '../services/emailService';
+import { getEmailSettings, saveEmailSettings, sendEmail, sendCustomTenantEmail, getEmailBannerHeader } from '../services/emailService';
 import {
   getBroadcastHistoryController,
   dispatchBroadcastController,
@@ -1448,6 +1448,7 @@ adminMasterRouter.post('/email/test', async (req: TenantRequest, res: Response):
     const testHtml = `
       <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
         <div style="max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          ${getEmailBannerHeader()}
           <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
             <h2 style="margin: 0; font-size: 20px; font-weight: 800;">✅ Test Email Successful!</h2>
             <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">MBI INVENTRA Automated Email Engine</p>

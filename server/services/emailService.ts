@@ -87,6 +87,22 @@ function createTransporter(settings: EmailSettings) {
 }
 
 /**
+ * Reusable Branded Email Banner Header
+ */
+export function getEmailBannerHeader(): string {
+  return `
+    <!-- Top Branded Image Banner -->
+    <div style="background-color: #0b1e36; text-align: center; line-height: 0; margin: 0; padding: 0; border-bottom: 2px solid #00d2ff;">
+      <img 
+        src="cid:mbi-email-banner" 
+        alt="MBI INVENTRA - Smart Pharmacy POS &amp; ERP Solution" 
+        style="width: 100%; max-width: 600px; height: auto; display: block; margin: 0 auto; border: 0;"
+      />
+    </div>
+  `;
+}
+
+/**
  * Universal Email Dispatcher with Anti-Spam & Deliverability Optimization
  */
 export async function sendEmail({
@@ -131,6 +147,25 @@ export async function sendEmail({
 
     const uniqueMessageId = `<mbi.${Date.now()}.${Math.random().toString(36).substring(2, 9)}@gmail.com>`;
 
+    // Embed banner image as CID attachment if present in HTML
+    const bannerPathPublic = path.resolve(process.cwd(), 'public', 'mbi-email-banner.png');
+    const bannerPathServer = path.resolve(process.cwd(), 'server', 'data', 'mbi-email-banner.png');
+    const bannerPathDist = path.resolve(process.cwd(), 'dist', 'mbi-email-banner.png');
+    
+    let actualBannerPath: string | null = null;
+    if (fs.existsSync(bannerPathPublic)) actualBannerPath = bannerPathPublic;
+    else if (fs.existsSync(bannerPathDist)) actualBannerPath = bannerPathDist;
+    else if (fs.existsSync(bannerPathServer)) actualBannerPath = bannerPathServer;
+
+    const attachments: any[] = [];
+    if (actualBannerPath && html.includes('cid:mbi-email-banner')) {
+      attachments.push({
+        filename: 'mbi-email-banner.png',
+        path: actualBannerPath,
+        cid: 'mbi-email-banner'
+      });
+    }
+
     const mailOptions: any = {
       from: `"${settings.senderName || 'MBI INVENTRA Cloud ERP'}" <${settings.smtpUser}>`,
       to: toRecipients,
@@ -138,6 +173,7 @@ export async function sendEmail({
       subject,
       text: cleanText,
       html,
+      attachments,
       // Anti-Spam & 2024 Inbox Deliverability Headers
       headers: {
         'Message-ID': uniqueMessageId,
@@ -177,29 +213,30 @@ export async function sendAdminAlertNewTenant(tenantData: {
   const adminEmail = settings.adminEmail || 'mbiinventra@gmail.com';
 
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 25px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">🚨 New Pharmacy Registered!</h1>
-          <p style="margin: 5px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 20px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">🚨 New Pharmacy Registered!</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
         </div>
-        <div style="padding: 25px;">
-          <p style="font-size: 15px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Username / ID:</td><td style="padding: 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 10px; color: #1e293b;">${tenantData.email || '—'}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 10px; color: #1e293b;">${tenantData.city || 'Pakistan'}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 10px; font-weight: bold; color: #059669;">${tenantData.plan || '30-Day Free Trial'}</td></tr>
-            <tr><td style="padding: 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || 'auto_assigned'}</td></tr>
+        <div style="padding: 24px;">
+          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px;">
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">Username / ID:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.email || '—'}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.city || 'Pakistan'}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 8px 10px; font-weight: bold; color: #059669;">${tenantData.plan || '30-Day Free Trial'}</td></tr>
+            <tr><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 8px 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || 'auto_assigned'}</td></tr>
           </table>
-          <div style="text-align: center; margin-top: 25px;">
-            <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 11px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
           </div>
         </div>
-        <div style="background: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #64748b;">
+        <div style="background: #f1f5f9; padding: 14px; text-align: center; font-size: 11px; color: #64748b;">
           MBI INVENTRA Automated Cloud Notification Engine • 24/7 Realtime Monitoring
         </div>
       </div>
@@ -228,20 +265,21 @@ export async function sendTenantWelcomeEmail(tenantData: {
 
   const url = tenantData.portalUrl || 'https://mbiinventra.com';
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 25px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 24px; font-weight: 800;">🎉 Welcome to MBI INVENTRA!</h1>
-          <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.95;">Your Cloud POS & Pharmacy ERP is Ready</p>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #059669, #10b981); padding: 22px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800;">🎉 Welcome to MBI INVENTRA!</h1>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.95;">Your Cloud POS &amp; Pharmacy ERP is Ready</p>
         </div>
-        <div style="padding: 25px;">
-          <p style="font-size: 15px; color: #334155; line-height: 1.5;">Dear <strong>${tenantData.ownerName}</strong>,</p>
+        <div style="padding: 24px;">
+          <p style="font-size: 15px; color: #334155; line-height: 1.5; margin-top: 0;">Dear <strong>${tenantData.ownerName}</strong>,</p>
           <p style="font-size: 14px; color: #334155; line-height: 1.5;">
             Congratulations! Your official pharmacy account for <strong>${tenantData.storeName}</strong> has been created with high-speed 0ms offline capability.
           </p>
 
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">🔑 Your Login Credentials</h3>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; margin: 20px 0;">
+            <h3 style="margin: 0 0 12px 0; font-size: 13px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">🔑 Your Login Credentials</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Login Identifier:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
               ${tenantData.pin ? `<tr><td style="padding: 6px 0; color: #64748b; font-weight: bold;">Fast Login PIN:</td><td style="padding: 6px 0; font-family: monospace; font-weight: bold; color: #059669; font-size: 16px;">${tenantData.pin}</td></tr>` : ''}
@@ -249,18 +287,18 @@ export async function sendTenantWelcomeEmail(tenantData: {
             </table>
           </div>
 
-          <div style="text-align: center; margin-top: 25px;">
-            <a href="${url}" style="background-color: #059669; color: white; padding: 13px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 14px; display: inline-block;">Launch Pharmacy Dashboard</a>
+          <div style="text-align: center; margin-top: 22px;">
+            <a href="${url}" style="background-color: #059669; color: white; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Launch Pharmacy Dashboard</a>
           </div>
 
-          <p style="font-size: 12px; color: #64748b; margin-top: 25px; line-height: 1.5;">
+          <p style="font-size: 12px; color: #64748b; margin-top: 22px; line-height: 1.5;">
             Need help? Contact MBI Support 24/7 on WhatsApp: <strong>+92 336 4585863</strong> / <strong>+92 328 1302636</strong>.
           </p>
         </div>
-        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
-          <p style="margin: 0 0 4px 0; font-weight: 600;">MBI INVENTRA Cloud ERP • Official Pharmacy Management Suite</p>
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.5;">
+          <p style="margin: 0 0 3px 0; font-weight: 600;">MBI INVENTRA Cloud ERP • Official Pharmacy Management Suite</p>
           <p style="margin: 0; color: #94a3b8;">Sargodha, Punjab, Pakistan • Support: +92 336 4585863</p>
-          <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8;">You received this transactional email for your pharmacy account on MBI INVENTRA.</p>
+          <p style="margin: 5px 0 0 0; font-size: 10px; color: #94a3b8;">You received this transactional email for your pharmacy account on MBI INVENTRA.</p>
         </div>
       </div>
     </div>
@@ -288,14 +326,15 @@ export async function sendStaffInvitationEmail(staffData: {
 
   const url = staffData.portalUrl || 'https://mbiinventra.com';
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 22px; text-align: center; color: white;">
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 20px; text-align: center; color: white;">
           <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Staff Access Invitation</h2>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${staffData.storeName}</p>
         </div>
         <div style="padding: 22px;">
-          <p style="font-size: 14px; color: #334155;">Hello <strong>${staffData.staffName}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${staffData.staffName}</strong>,</p>
           <p style="font-size: 13px; color: #334155;">
             You have been assigned access to the pharmacy management portal as <strong>${staffData.role}</strong>.
           </p>
@@ -335,14 +374,15 @@ export async function sendPasswordResetEmail(resetData: {
 
   const url = resetData.portalUrl || 'https://mbiinventra.com';
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #e11d48, #f43f5e); padding: 22px; text-align: center; color: white;">
-          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Password & PIN Reset Notification</h2>
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #e11d48, #f43f5e); padding: 20px; text-align: center; color: white;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: 800;">Password &amp; PIN Reset Notification</h2>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">${resetData.storeName || 'MBI INVENTRA Security'}</p>
         </div>
         <div style="padding: 22px;">
-          <p style="font-size: 14px; color: #334155;">Hello <strong>${resetData.userName}</strong>,</p>
+          <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${resetData.userName}</strong>,</p>
           <p style="font-size: 13px; color: #334155;">
             Your account credentials have been reset by your store administrator or via security request.
           </p>
@@ -381,19 +421,20 @@ export async function sendPasswordResetOtpEmail(otpData: {
 
   const validity = otpData.expiresMinutes || 15;
   const html = `
-    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
+    <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
       <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #1e3a8a, #2563eb); padding: 25px; text-align: center; color: white;">
+        ${getEmailBannerHeader()}
+        <div style="background: linear-gradient(135deg, #1e3a8a, #2563eb); padding: 22px; text-align: center; color: white;">
           <h2 style="margin: 0; font-size: 22px; font-weight: 800;">🔐 Password Recovery Code</h2>
-          <p style="margin: 6px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Cloud POS & ERP Security</p>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Cloud POS &amp; ERP Security</p>
         </div>
-        <div style="padding: 25px;">
+        <div style="padding: 24px;">
           <p style="font-size: 14px; color: #334155; margin-top: 0;">Hello <strong>${otpData.userName}</strong>,</p>
           <p style="font-size: 13px; color: #475569; line-height: 1.6;">
             We received a request to reset your password for your MBI INVENTRA workspace account. Please use the following 6-digit verification code to proceed:
           </p>
           
-          <div style="background: #eff6ff; border: 2px dashed #93c5fd; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+          <div style="background: #eff6ff; border: 2px dashed #93c5fd; border-radius: 12px; padding: 20px; margin: 22px 0; text-align: center;">
             <p style="margin: 0; font-size: 11px; color: #1e40af; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Your 6-Digit Verification Code</p>
             <p style="margin: 8px 0 0 0; font-size: 34px; font-family: monospace; font-weight: 900; color: #1d4ed8; letter-spacing: 6px;">${otpData.otpCode}</p>
             <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">(Valid for ${validity} minutes)</p>
@@ -416,7 +457,6 @@ export async function sendPasswordResetOtpEmail(otpData: {
     html
   });
 }
-
 
 /**
  * 5. Custom Announcement / Broadcast / Notice Email to Tenant(s)
@@ -466,35 +506,19 @@ export async function sendCustomTenantEmail(payload: {
       <title>${payload.subject}</title>
     </head>
     <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-      <div style="max-width: 620px; margin: 25px auto; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
+      <div style="max-width: 600px; margin: 25px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);">
         
-        <!-- Brand Header with Logo & Gradient Theme -->
-        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e3a8a 100%); padding: 30px 24px; text-align: center; color: #ffffff; border-bottom: 3px solid rgba(59, 130, 246, 0.4);">
-          <table align="center" style="margin: 0 auto; border-collapse: collapse;">
-            <tr>
-              <td style="vertical-align: middle; padding-right: 12px;">
-                <div style="background: linear-gradient(135deg, #2563eb, #00d2ff); width: 44px; height: 44px; border-radius: 12px; display: inline-block; text-align: center; line-height: 44px; color: #ffffff; font-weight: 900; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 210, 255, 0.35);">
-                  M4
-                </div>
-              </td>
-              <td style="vertical-align: middle; text-align: left;">
-                <div style="font-size: 22px; font-weight: 900; letter-spacing: 0.5px; color: #ffffff; line-height: 1.1;">
-                  MBI <span style="color: #00d2ff;">INVENTRA</span>
-                </div>
-                <div style="font-size: 10px; font-weight: 700; color: #93c5fd; letter-spacing: 1.5px; text-transform: uppercase;">
-                  Cloud POS &amp; Pharmacy ERP
-                </div>
-              </td>
-            </tr>
-          </table>
+        ${getEmailBannerHeader()}
 
-          <div style="margin-top: 18px;">
+        <!-- Brand Header with Logo & Gradient Theme -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #1e3a8a 100%); padding: 24px 20px; text-align: center; color: #ffffff; border-bottom: 3px solid rgba(59, 130, 246, 0.4);">
+          <div>
             <span style="display: inline-block; background-color: ${badgeColor}; color: #ffffff; padding: 5px 16px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; box-shadow: 0 2px 6px rgba(0,0,0,0.25);">
               ${badgeTitle}
             </span>
           </div>
 
-          <h1 style="margin: 14px 0 0 0; font-size: 21px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.35;">
+          <h1 style="margin: 14px 0 0 0; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; line-height: 1.35;">
             ${payload.subject}
           </h1>
 
@@ -506,27 +530,27 @@ export async function sendCustomTenantEmail(payload: {
         </div>
 
         <!-- Main Content Body -->
-        <div style="padding: 28px 26px;">
+        <div style="padding: 26px 22px;">
           ${payload.recipientName ? `
-            <p style="font-size: 15px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 16px;">
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 0; margin-bottom: 14px;">
               Respected ${payload.recipientName},
             </p>
           ` : ''}
 
-          <div style="background: #ffffff; border-left: 4px solid ${badgeColor}; padding-left: 16px; margin: 12px 0 22px 0;">
+          <div style="background: #ffffff; border-left: 4px solid ${badgeColor}; padding-left: 14px; margin: 12px 0 20px 0;">
             ${messageHtml}
           </div>
 
           ${payload.actionButtonText && payload.actionButtonUrl ? `
-            <div style="text-align: center; margin: 28px 0;">
-              <a href="${payload.actionButtonUrl}" target="_blank" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; padding: 13px 32px; text-decoration: none; border-radius: 12px; font-weight: 800; font-size: 14px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); letter-spacing: 0.2px;">
+            <div style="text-align: center; margin: 26px 0;">
+              <a href="${payload.actionButtonUrl}" target="_blank" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 10px; font-weight: 800; font-size: 13px; display: inline-block; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); letter-spacing: 0.2px;">
                 ${payload.actionButtonText}
               </a>
             </div>
           ` : ''}
 
           <!-- 24/7 Dedicated Helpline Box -->
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; margin-top: 28px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-top: 24px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="vertical-align: middle;">
@@ -551,14 +575,14 @@ export async function sendCustomTenantEmail(payload: {
         </div>
 
         <!-- Compliance & Professional Footer -->
-        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 24px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
-          <p style="margin: 0 0 4px 0; font-weight: 700; color: #334155;">
+        <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 20px; text-align: center; font-size: 11px; color: #64748b; line-height: 1.6;">
+          <p style="margin: 0 0 3px 0; font-weight: 700; color: #334155;">
             MBI INVENTRA Cloud ERP • Master Server Communication System
           </p>
           <p style="margin: 0; color: #94a3b8;">
             Sargodha, Punjab, Pakistan • Official Helpline: +92 336 4585863 / +92 328 1302636
           </p>
-          <p style="margin: 8px 0 0 0; font-size: 10px; color: #94a3b8;">
+          <p style="margin: 6px 0 0 0; font-size: 10px; color: #94a3b8;">
             This is a verified transactional message from your MBI INVENTRA server. To manage your communication preferences, visit your master portal.
           </p>
         </div>
@@ -574,5 +598,3 @@ export async function sendCustomTenantEmail(payload: {
     html
   });
 }
-
-

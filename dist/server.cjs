@@ -11082,6 +11082,14 @@ fleetRouter.get("/tenants", async (req, res) => {
             } catch (e) {
             }
           }
+          let realUserCount = 1;
+          try {
+            const tenantUsers = listTenantUsers(tid);
+            if (Array.isArray(tenantUsers) && tenantUsers.length > 0) {
+              realUserCount = tenantUsers.length;
+            }
+          } catch (e) {
+          }
           tenants.push({
             id: t.id || tid,
             tenant_id: tid,
@@ -11112,7 +11120,8 @@ fleetRouter.get("/tenants", async (req, res) => {
             sale_status: t.sale_status || "Paid",
             payment_method: t.payment_method || "Bank Transfer",
             sale_notes: t.sale_notes || "",
-            user_count: 1,
+            user_count: realUserCount,
+            userCount: realUserCount,
             invoice_count: 0,
             created_at: t.created_at || (/* @__PURE__ */ new Date()).toISOString(),
             updated_at: t.updated_at || (/* @__PURE__ */ new Date()).toISOString()
@@ -12050,13 +12059,59 @@ fleetRouter.get("/users", async (req, res) => {
       `).all();
       if (Array.isArray(sqliteRows)) {
         for (const r of sqliteRows) {
+          const uRole = r.role || "Owner";
+          const isSub = uRole.toLowerCase() !== "owner" && uRole.toLowerCase() !== "primary admin";
           usersMap.set(r.id, {
             ...r,
             installationId: r.tenant_id,
             isOnline: Boolean(r.isOnline === 1),
             passcode: r.passcode || "1234",
-            storeName: r.storeName || "Pharmacy Store"
+            storeName: r.storeName || "Pharmacy Store",
+            isSubUser: isSub
           });
+        }
+      }
+      const tenantRows = masterDb.prepare("SELECT id, tenant_id, name, plan FROM mbi_tenants").all();
+      for (const t of tenantRows) {
+        const tid = t.tenant_id || t.id;
+        try {
+          const subUsers = listTenantUsers(tid);
+          if (Array.isArray(subUsers)) {
+            for (const su of subUsers) {
+              const uRole = su.role || "Cashier";
+              const isSub = uRole.toLowerCase() !== "owner" && uRole.toLowerCase() !== "primary admin";
+              if (!usersMap.has(su.id)) {
+                usersMap.set(su.id, {
+                  id: su.id,
+                  tenant_id: tid,
+                  tenantId: tid,
+                  installationId: tid,
+                  name: su.name,
+                  username: su.username || su.name,
+                  email: su.email || "",
+                  phone: su.phone || "",
+                  emailOrPhone: su.emailOrPhone || su.phone || su.email || su.username,
+                  role: uRole,
+                  status: su.status || "Active",
+                  isKillSwitchActive: Boolean(su.isKillSwitchActive || su.is_kill_switch_active),
+                  passcode: su.passcode || "1234",
+                  isOnline: Boolean(su.isOnline || su.is_online),
+                  permissions: su.permissions || {},
+                  storeName: t.name || "Pharmacy Store",
+                  storePlan: t.plan || "Basic",
+                  isSubUser: isSub,
+                  createdAt: su.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+                });
+              } else {
+                const existing = usersMap.get(su.id);
+                if (!existing.storeName || existing.storeName === "Pharmacy Store") {
+                  existing.storeName = t.name;
+                  existing.storePlan = t.plan;
+                }
+              }
+            }
+          }
+        } catch (e) {
         }
       }
     } catch (sqErr) {
@@ -12076,11 +12131,14 @@ fleetRouter.get("/users", async (req, res) => {
         if (Array.isArray(rows)) {
           for (const r of rows) {
             const existing = usersMap.get(r.id);
+            const uRole = r.role || existing?.role || "Staff";
+            const isSub = uRole.toLowerCase() !== "owner" && uRole.toLowerCase() !== "primary admin";
             usersMap.set(r.id, {
               ...existing,
               ...r,
               installationId: r.tenant_id,
               isOnline: true,
+              isSubUser: isSub,
               passcode: existing?.passcode || r.passcode || "1234",
               storeName: r.storeName || existing?.storeName || "Pharmacy Store"
             });
@@ -12116,6 +12174,82 @@ fleetRouter.get("/users", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error fetching fleet users" });
+  }
+});
+fleetRouter.get("/devices", async (req, res) => {
+  try {
+    const devicesMap = /* @__PURE__ */ new Map();
+    try {
+      const masterDb = getMasterVault();
+      const rows = masterDb.prepare(`
+        SELECT d.*, 
+               t.name as storeName, t.plan as storePlan,
+               u.name as userName, u.role as userRole, u.email as userEmail, u.phone as userPhone
+        FROM mbi_registered_devices d
+        LEFT JOIN mbi_tenants t ON (d.tenant_id = t.id OR d.tenant_id = t.tenant_id)
+        LEFT JOIN mbi_users u ON (d.user_id = u.id)
+        ORDER BY d.last_seen_at DESC;
+      `).all();
+      for (const r of rows) {
+        const devKey = r.id || `dev_${r.hwid_fingerprint}`;
+        const uRole = r.userRole || "Cashier";
+        const isSub = uRole.toLowerCase() !== "owner" && uRole.toLowerCase() !== "primary admin";
+        devicesMap.set(devKey, {
+          id: r.id,
+          deviceId: r.id,
+          tenantId: r.tenant_id,
+          storeName: r.storeName || (r.tenant_id === "master" ? "Master Command Center" : `Company (${r.tenant_id})`),
+          userId: r.user_id,
+          userName: r.userName || r.device_name || "Staff User",
+          userRole: uRole,
+          isSubUser: isSub,
+          deviceName: r.device_name || "POS Terminal",
+          deviceType: r.device_type || "Desktop",
+          platform: r.platform || "Windows",
+          os: r.platform || "Windows 11",
+          hardwareFingerprint: r.hwid_fingerprint || r.id,
+          hwid: r.hwid_fingerprint || r.id,
+          installationId: r.installation_id || r.id,
+          status: r.status || "Active",
+          lastSeenAt: r.last_seen_at || (/* @__PURE__ */ new Date()).toISOString(),
+          firstAuthorizedAt: r.first_authorized_at || (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+    } catch (e) {
+    }
+    for (const memDev of activeDevicesRegistry.values()) {
+      const devKey = memDev.id || `dev_${memDev.hwid}`;
+      const isSub = (memDev.userRole || "").toLowerCase() !== "owner" && (memDev.userRole || "").toLowerCase() !== "primary admin";
+      devicesMap.set(devKey, {
+        id: memDev.id,
+        deviceId: memDev.id,
+        tenantId: memDev.tenantId,
+        storeName: memDev.storeName || `Company (${memDev.tenantId})`,
+        userId: memDev.userId,
+        userName: memDev.userName,
+        userRole: memDev.userRole || "Staff",
+        isSubUser: isSub,
+        deviceName: memDev.deviceModel || "POS Workstation",
+        deviceType: "Desktop",
+        platform: memDev.os || "Windows",
+        os: memDev.os || "Windows",
+        hardwareFingerprint: memDev.hwid,
+        hwid: memDev.hwid,
+        installationId: `INST-${memDev.hwid.slice(-6)}`,
+        status: memDev.status || "Active",
+        lastSeenAt: memDev.lastActive || (/* @__PURE__ */ new Date()).toISOString(),
+        firstAuthorizedAt: memDev.lastActive || (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    const devices = Array.from(devicesMap.values());
+    res.json({
+      success: true,
+      count: devices.length,
+      devices,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error fetching devices" });
   }
 });
 fleetRouter.post("/users/save", async (req, res) => {

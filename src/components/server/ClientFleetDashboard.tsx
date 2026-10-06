@@ -475,7 +475,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantId: newKeyTenantId || (tenants[0]?.id || 'tenant_001'),
+          tenantId: newKeyTenantId || (tenants[0]?.tenantId || tenants[0]?.id || 'tenant_main'),
           tenantName,
           keyName: newKeyName || `${tenantName} REST API Key`,
           environment: newKeyEnv,

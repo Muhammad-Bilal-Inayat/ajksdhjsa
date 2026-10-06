@@ -88,16 +88,57 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
     serialNumber: ''
   });
 
-  const loadData = () => {
-    setDevices(getAllRegisteredDevices());
+  const loadData = async () => {
+    // 1. Initial Local baseline
+    const localDevs = getAllRegisteredDevices();
+    setDevices(localDevs);
     setTokens(getAllReplacementTokens());
     setTenants(getAllTenants());
     setActiveUsers(getMasterActiveUsers());
+
+    // 2. Direct Live Server Synchronization from SQLite Master & Tenant Vaults
+    try {
+      const [devRes, tenantRes, userRes] = await Promise.all([
+        fetch('/api/fleet/devices', { cache: 'no-store' }),
+        fetch('/api/fleet/tenants', { cache: 'no-store' }),
+        fetch('/api/fleet/users', { cache: 'no-store' })
+      ]);
+
+      if (tenantRes.ok) {
+        const tJson = await tenantRes.json();
+        if (Array.isArray(tJson?.tenants) && tJson.tenants.length > 0) {
+          setTenants(tJson.tenants);
+        }
+      }
+
+      if (userRes.ok) {
+        const uJson = await userRes.json();
+        if (Array.isArray(uJson?.users) && uJson.users.length > 0) {
+          setActiveUsers(uJson.users);
+        }
+      }
+
+      if (devRes.ok) {
+        const dJson = await devRes.json();
+        if (Array.isArray(dJson?.devices)) {
+          const map = new Map<string, UserDeviceRecord>();
+          for (const d of localDevs) map.set(d.id, d);
+          for (const d of dJson.devices) {
+            map.set(d.id, {
+              ...d,
+              userRole: d.userRole || 'Staff',
+              storeName: d.storeName || d.tenantId
+            });
+          }
+          setDevices(Array.from(map.values()));
+        }
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
     loadData();
-    const handleUpdate = () => loadData();
+    const handleUpdate = () => { loadData(); };
     window.addEventListener('mbi-devices-updated', handleUpdate);
     return () => window.removeEventListener('mbi-devices-updated', handleUpdate);
   }, []);
@@ -476,20 +517,35 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                       const isCurrentMachine = dev.installationId === currentLocalId;
                       const userMaxLimit = getUserMaxAllowedDevices(dev.userId, dev.tenantId);
                       const userActiveCount = devices.filter(d => d.userId === dev.userId && d.status === 'Active').length;
+                      const matchedTenant = tenants.find(t => (t.tenantId || t.id) === dev.tenantId);
+                      const storeDisplayName = matchedTenant?.name || dev.storeName || (dev.tenantId === 'master' ? 'Master Admin Node' : dev.tenantId);
+                      const matchedUser = activeUsers.find(u => u.id === dev.userId || u.name === dev.userName);
+                      const roleBadge = dev.userRole || matchedUser?.role || ((dev as any).isSubUser ? 'Cashier / Sub-User' : 'Primary Admin');
 
                       return (
                         <tr key={dev.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                               <span>{dev.userName}</span>
+                              {roleBadge && (
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                                  roleBadge.toLowerCase().includes('owner') || roleBadge.toLowerCase().includes('admin')
+                                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                    : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                }`}>
+                                  {roleBadge}
+                                </span>
+                              )}
                               {isCurrentMachine && (
                                 <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/40">
                                   THIS MACHINE
                                 </span>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                              ID: {dev.userId} • Store: {dev.tenantId}
+                            <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-medium">
+                              <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">{storeDisplayName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono">({dev.tenantId})</span>
                             </div>
                           </td>
 

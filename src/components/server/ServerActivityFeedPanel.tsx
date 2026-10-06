@@ -122,24 +122,47 @@ export const ServerActivityFeedPanel: React.FC<ServerActivityFeedPanelProps> = (
   const [isSimulatingEvent, setIsSimulatingEvent] = useState(false);
   const [simulatedCount, setSimulatedCount] = useState(0);
 
-  // Reload logs and tenants
-  const refreshLogs = () => {
+  // Reload logs and tenants with live server synchronization
+  const refreshLogs = async () => {
     setLogs(getServerActivityLogs());
     setTenants(getAllTenants());
     setUsers(getMasterActiveUsers());
+
+    try {
+      const [tRes, uRes] = await Promise.all([
+        fetch('/api/fleet/tenants', { cache: 'no-store' }),
+        fetch('/api/fleet/users', { cache: 'no-store' })
+      ]);
+
+      if (tRes.ok) {
+        const tJson = await tRes.json();
+        if (Array.isArray(tJson?.tenants) && tJson.tenants.length > 0) {
+          setTenants(tJson.tenants);
+        }
+      }
+
+      if (uRes.ok) {
+        const uJson = await uRes.json();
+        if (Array.isArray(uJson?.users) && uJson.users.length > 0) {
+          setUsers(uJson.users);
+        }
+      }
+    } catch (e) {}
   };
 
   useEffect(() => {
     refreshLogs();
 
-    const handleCustomUpdate = () => refreshLogs();
+    const handleCustomUpdate = () => { refreshLogs(); };
     window.addEventListener('mbi-server-activity-update', handleCustomUpdate);
     window.addEventListener('mbi-users-updated', handleCustomUpdate);
+    window.addEventListener('mbi-tenants-updated', handleCustomUpdate);
     window.addEventListener('storage', handleCustomUpdate);
 
     return () => {
       window.removeEventListener('mbi-server-activity-update', handleCustomUpdate);
       window.removeEventListener('mbi-users-updated', handleCustomUpdate);
+      window.removeEventListener('mbi-tenants-updated', handleCustomUpdate);
       window.removeEventListener('storage', handleCustomUpdate);
     };
   }, []);
@@ -383,7 +406,7 @@ export const ServerActivityFeedPanel: React.FC<ServerActivityFeedPanelProps> = (
     ];
 
     const randomEvent = mockEvents[Math.floor(Math.random() * mockEvents.length)];
-    const randomTenant = tenants[Math.floor(Math.random() * tenants.length)] || { id: 'tenant_001', name: 'Central Branch Pharmacy' };
+    const randomTenant = tenants[Math.floor(Math.random() * tenants.length)] || tenants[0] || { id: 'tenant_main', name: 'MBI INVENTRA Store' };
 
     try {
       await fetch('/api/sync/simulate-event', {

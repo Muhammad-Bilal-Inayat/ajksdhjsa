@@ -44,7 +44,9 @@ import {
   DEFAULT_MODULES,
   DEFAULT_USER_PERMISSIONS,
   logMasterAudit,
-  getAllTenants
+  getAllTenants,
+  syncTenantsFromServer,
+  Tenant
 } from '../../lib/masterServerService';
 
 interface UnifiedUserControlHubProps {
@@ -72,7 +74,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
   const [syncingUserId, setSyncingUserId] = useState<string | null>(null);
   const [revealedPasscodes, setRevealedPasscodes] = useState<Record<string, boolean>>({});
 
-  const tenants = useMemo(() => getAllTenants(), []);
+  const [tenants, setTenants] = useState<Tenant[]>(() => getAllTenants());
 
   // New Sub-User Form State
   const [newUserForm, setNewUserForm] = useState({
@@ -120,7 +122,7 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.users)) {
-          const DUMMY_TENANT_IDS = new Set(['tenant_main', 'NODE-CLIENT', 'default', 'undefined', 'null', '']);
+          const DUMMY_TENANT_IDS = new Set(['NODE-CLIENT', 'default', 'undefined', 'null', '']);
           const serverUsers: MasterActiveUser[] = json.users
             .filter((ru: any) => {
               const tid = String(ru.tenant_id || ru.tenantId || ru.installationId || '').trim();
@@ -161,18 +163,27 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
 
   useEffect(() => {
     refreshUsersList();
+    syncTenantsFromServer().then(tList => {
+      if (tList && tList.length > 0) setTenants(tList);
+    });
 
-    const handleUpdate = () => refreshUsersList();
+    const handleUpdate = () => {
+      refreshUsersList();
+      setTenants(getAllTenants());
+    };
     window.addEventListener('mbi-users-updated', handleUpdate);
+    window.addEventListener('mbi-tenants-updated', handleUpdate);
     window.addEventListener('mbi-master-users-wiped', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       refreshUsersList();
+      setTenants(getAllTenants());
     }, 15000);
     return () => {
       window.removeEventListener('mbi-users-updated', handleUpdate);
+      window.removeEventListener('mbi-tenants-updated', handleUpdate);
       window.removeEventListener('mbi-master-users-wiped', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       clearInterval(interval);

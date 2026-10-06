@@ -17,3 +17,9 @@
 - `.sync_data.json`
 - MariaDB tables `mbi_tenants`, `mbi_users`, `mbi_licenses`
 
+## 🛡️ Zero Settings Mutation Policy
+- All updates, new features, or removals MUST ONLY modify code files.
+- NEVER overwrite or reset tenant settings, company names, cashier PINs, permissions, or invoice templates.
+- Schema upgrades must be 100% additive (`ALTER TABLE ADD COLUMN` with safe fallbacks).
+
+

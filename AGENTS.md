@@ -75,3 +75,13 @@ The following files and folders contain active live business data for Tenants, U
 | **Runtime Sync Storage** | `.sync_data.json` & `.*.json` | Fallback persistence & local caching | ⛔ **NEVER COMMIT / NEVER WIPE** |
 | **MariaDB Live Cloud** | `mbi_tenants`, `mbi_users`, `mbi_licenses` | Cloud synchronized company and staff accounts | ⛔ **NEVER DROP TABLES** |
 
+---
+
+## 5. 🛡️ ZERO SETTINGS MUTATION POLICY (PRESERVE ALL EXISTING TENANT CONFIGS)
+When adding, updating, or removing features in the codebase:
+1. **Never Reset Settings**: NEVER overwrite, reset, or wipe existing tenant store settings, business profiles, invoice numbering/templates, column preferences, cashier PINs, or module permissions.
+2. **Non-Destructive Additive Schemas**: Database schema upgrades must strictly use non-destructive checks (`ALTER TABLE ADD COLUMN` with safe defaults). Never drop or alter existing columns or default values.
+3. **Graceful Fallbacks**: New feature flags must default gracefully in memory/code without altering existing saved tenant records.
+4. **Pure Code Updates**: All updates apply strictly to frontend/backend logic and UI components, leaving live tenant configurations and business records 100% untouched.
+
+

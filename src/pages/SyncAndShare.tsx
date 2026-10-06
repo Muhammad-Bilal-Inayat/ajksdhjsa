@@ -705,38 +705,42 @@ export const SyncAndShare: React.FC = () => {
     if (tenant?.paidLicenseActive) {
       return '29/09/2027';
     }
-    if (tenant?.trialExpiryDate) {
+    const expiryDateStr = tenant?.trialExpiryDate || (tenant as any)?.trialExpiresAt || localStorage.getItem('mbi_trial_expires_at');
+    if (expiryDateStr) {
       try {
-        const d = new Date(tenant.trialExpiryDate);
+        const d = new Date(expiryDateStr);
         if (!isNaN(d.getTime())) {
           return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
         }
       } catch {}
     }
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
+    const d = new Date(Date.now() + 10 * 86400000);
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  }, [tenant?.trialExpiryDate, tenant?.paidLicenseActive, localPlanVersion]);
+  }, [tenant?.trialExpiryDate, (tenant as any)?.trialExpiresAt, tenant?.paidLicenseActive, localPlanVersion]);
 
   const daysRemaining = React.useMemo(() => {
-    if (tenant?.trialExpiryDate) {
+    if (tenant?.paidLicenseActive) {
+      return 365;
+    }
+    const expiryDateStr = tenant?.trialExpiryDate || (tenant as any)?.trialExpiresAt || localStorage.getItem('mbi_trial_expires_at');
+    if (expiryDateStr) {
       try {
-        const d = new Date(tenant.trialExpiryDate);
+        const d = new Date(expiryDateStr);
         if (!isNaN(d.getTime())) {
           const ms = d.getTime() - Date.now();
           const days = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
-          return isNaN(days) ? 364 : days;
+          return isNaN(days) ? 10 : days;
         }
       } catch {}
     }
-    return 364;
-  }, [tenant?.trialExpiryDate, localPlanVersion]);
+    return 10;
+  }, [tenant?.trialExpiryDate, (tenant as any)?.trialExpiresAt, tenant?.paidLicenseActive, localPlanVersion]);
 
   const activeUsersCount = users.filter(u => u.status === 'Joined' || u.status === 'Active').length;
   const storedPlan = typeof localStorage !== 'undefined' 
     ? (localStorage.getItem('mbi_active_plan_tier') || localStorage.getItem('mbi_plan') || localStorage.getItem('mbi_subscription_tier'))
     : null;
-  const displayPlanName = tenant?.plan || storedPlan || 'Enterprise Multi-Branch';
+  const displayPlanName = tenant?.plan || storedPlan || 'Basic';
   const normPlanLower = displayPlanName.toLowerCase();
   const maxAllowedUsers: number = tenant?.maxDevices && typeof tenant.maxDevices === 'number' && tenant.maxDevices > 0
     ? tenant.maxDevices

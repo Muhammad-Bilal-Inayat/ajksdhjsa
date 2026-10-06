@@ -8147,11 +8147,48 @@ async function loginController(req, res) {
         }
       });
     }
+    let tenantPlan = "Basic";
+    let tenantStoreName = "";
+    try {
+      const masterDb = getMasterVault();
+      const tRow = masterDb.prepare("SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;").get(tenantId, tenantId);
+      if (tRow) {
+        if (tRow.name) tenantStoreName = tRow.name;
+        if (tRow.plan) tenantPlan = tRow.plan;
+      }
+    } catch (e) {
+    }
+    if (!tenantStoreName) {
+      try {
+        const masterDb = getMasterVault();
+        const licRow = masterDb.prepare("SELECT client_name, owner_name, plan FROM mbi_licenses WHERE tenant_id = ? LIMIT 1").get(tenantId);
+        if (licRow?.client_name) {
+          tenantStoreName = licRow.client_name;
+        }
+        if (licRow?.plan) {
+          tenantPlan = licRow.plan;
+        }
+      } catch (e) {
+      }
+    }
+    if (!tenantStoreName) {
+      try {
+        const tVault = getTenantVault(tenantId);
+        const ownerRow = tVault.prepare("SELECT name, username FROM users WHERE is_primary_owner = 1 OR role IN ('Owner', 'Primary Admin') LIMIT 1").get();
+        if (ownerRow?.name) {
+          tenantStoreName = ownerRow.name;
+        }
+      } catch {
+      }
+    }
+    if (!tenantStoreName) {
+      tenantStoreName = authenticatedUser.storeName || authenticatedUser.store_name || (tenantId === "tenant_main_pharmacy" ? "Inventra Central Pharmacy" : "Pharmacy Store");
+    }
     const deviceKey = `dev_${authenticatedUser.id}_${clientHwid.slice(-6)}`;
     const devRecord = {
       id: deviceKey,
       tenantId,
-      storeName: tenantId === "tenant_main_pharmacy" ? "Inventra Central Pharmacy" : "Pharmacy Store",
+      storeName: tenantStoreName,
       userId: authenticatedUser.id,
       userName: authenticatedUser.name,
       userRole: authenticatedUser.role || "Staff",
@@ -8200,40 +8237,6 @@ async function loginController(req, res) {
         }
       });
     } catch (sseErr) {
-    }
-    let tenantPlan = "Basic";
-    let tenantStoreName = "";
-    try {
-      const masterDb = getMasterVault();
-      const tRow = masterDb.prepare("SELECT name, plan, status FROM mbi_tenants WHERE id = ? OR tenant_id = ? LIMIT 1;").get(tenantId, tenantId);
-      if (tRow) {
-        if (tRow.name) tenantStoreName = tRow.name;
-        if (tRow.plan) tenantPlan = tRow.plan;
-      }
-    } catch (e) {
-    }
-    if (!tenantStoreName) {
-      try {
-        const masterDb = getMasterVault();
-        const licRow = masterDb.prepare("SELECT client_name, owner_name, plan FROM mbi_licenses WHERE tenant_id = ? LIMIT 1").get(tenantId);
-        if (licRow?.client_name) {
-          tenantStoreName = licRow.client_name;
-        }
-      } catch (e) {
-      }
-    }
-    if (!tenantStoreName) {
-      try {
-        const tVault = getTenantVault(tenantId);
-        const ownerRow = tVault.prepare("SELECT name, username FROM users WHERE is_primary_owner = 1 OR role IN ('Owner', 'Primary Admin') LIMIT 1").get();
-        if (ownerRow?.name) {
-          tenantStoreName = ownerRow.name;
-        }
-      } catch {
-      }
-    }
-    if (!tenantStoreName) {
-      tenantStoreName = authenticatedUser.storeName || authenticatedUser.store_name || "Medical Store";
     }
     const userRole = authenticatedUser.role || "Cashier";
     const isOwnerOrPrimaryAdmin = (userRole || "").toLowerCase() === "owner" || (userRole || "").toLowerCase() === "primary admin" || (userRole || "").toLowerCase() === "admin" || authenticatedUser.is_primary_owner === 1;
@@ -8714,8 +8717,38 @@ async function registerTrialController(req, res) {
         console.warn("[AUTO EMAIL DISPATCH NOTICE]:", emailErr);
       }
     });
+    const tokenPayload = {
+      userId,
+      tenantId,
+      role: "Primary Admin",
+      name: cleanOwnerName || cleanUsername,
+      username: cleanUsername,
+      email: cleanEmail,
+      firmId: "firm_main",
+      deviceId: clientHwid,
+      plan: "Basic",
+      storeName: cleanStoreName,
+      isPrimaryAdmin: true,
+      permissions: ["ALL_PERMISSIONS"],
+      allowedModules: {
+        dashboard: true,
+        parties: true,
+        items: true,
+        sale: true,
+        purchase: true,
+        expenses: true,
+        bank: true,
+        reports: true,
+        syncShare: true,
+        backup: true,
+        utilities: true,
+        settings: true
+      }
+    };
+    const token = signJwt(tokenPayload, 86400 * 7);
     res.json({
       success: true,
+      token,
       message: "10-Day Free Trial registered successfully! Device #1 auto-bound as Primary Terminal.",
       tenantId,
       userId,
@@ -8728,7 +8761,48 @@ async function registerTrialController(req, res) {
       trialExpiresAt: trialExpiry,
       storeName: cleanStoreName,
       ownerName: cleanOwnerName,
-      features: basicTrialFeatures
+      features: basicTrialFeatures,
+      user: {
+        userId,
+        id: userId,
+        tenantId,
+        tenant_id: tenantId,
+        role: "Primary Admin",
+        name: cleanOwnerName || cleanUsername,
+        fullName: cleanOwnerName || cleanUsername,
+        username: cleanUsername,
+        email: cleanEmail,
+        phone: cleanPhone,
+        firmId: "firm_main",
+        plan: "Basic",
+        storeName: cleanStoreName,
+        isPrimaryAdmin: true,
+        isPrimaryOwner: true,
+        permissions: ["ALL_PERMISSIONS"],
+        allowedModules: tokenPayload.allowedModules,
+        hwid: clientHwid
+      },
+      tenant: {
+        id: tenantId,
+        tenantId,
+        organizationId: `org_${tenantId}`,
+        licenseId,
+        name: cleanStoreName,
+        ownerName: cleanOwnerName,
+        ownerEmail: cleanEmail,
+        ownerPhone: cleanPhone,
+        city: cleanCity,
+        plan: "Basic",
+        status: "Active",
+        trialStartDate: registrationDate,
+        trialExpiryDate: trialExpiry,
+        isTrialActive: true,
+        trialExpired: false,
+        paidLicenseActive: false,
+        maxDevices: 1,
+        maxUsers: 5,
+        features: basicTrialFeatures
+      }
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Registration failed" });

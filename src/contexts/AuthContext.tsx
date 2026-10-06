@@ -1164,24 +1164,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Synchronize SaaS plan changes live across AuthContext
+  // Synchronize SaaS plan and company/tenant changes live across AuthContext
   useEffect(() => {
     const handlePlansUpdated = (e?: any) => {
-      if (e instanceof StorageEvent && e.key && !e.key.includes('plan') && !e.key.includes('tenant')) {
+      if (e instanceof StorageEvent && e.key && !e.key.includes('plan') && !e.key.includes('tenant') && !e.key.includes('mock_')) {
         return;
       }
-      if (tenantId) {
-        const refreshedTenant = getTenantById(tenantId) || tenant;
-        if (refreshedTenant) {
-          setTenant({ ...refreshedTenant });
+      try {
+        const storedSession = localStorage.getItem('mock_session');
+        if (storedSession) {
+          const user = JSON.parse(storedSession);
+          setCurrentUser(user);
         }
+        const storedBiz = localStorage.getItem('mock_business');
+        if (storedBiz) {
+          const b = JSON.parse(storedBiz);
+          setBusiness(b);
+        }
+        const storedTenant = localStorage.getItem('mbi_active_tenant_cache');
+        if (storedTenant) {
+          const t = JSON.parse(storedTenant);
+          setTenant(t);
+        } else if (tenantId) {
+          const refreshedTenant = getTenantById(tenantId) || tenant;
+          if (refreshedTenant) {
+            setTenant({ ...refreshedTenant });
+          }
+        }
+      } catch (err) {}
+    };
+
+    const handleAuthChanged = (e?: any) => {
+      if (e?.detail?.user) {
+        setCurrentUser(e.detail.user);
+      }
+      if (e?.detail?.tenant) {
+        setTenant(e.detail.tenant);
+      }
+      try {
+        const storedBiz = localStorage.getItem('mock_business');
+        if (storedBiz) {
+          setBusiness(JSON.parse(storedBiz));
+        }
+      } catch {}
+      loadAppUsers();
+    };
+
+    const handleBusinessUpdated = (e?: any) => {
+      if (e?.detail) {
+        setBusiness(e.detail);
+      }
+    };
+
+    const handleTenantUpdated = (e?: any) => {
+      if (e?.detail) {
+        setTenant(e.detail);
       }
     };
 
     window.addEventListener('saas-plans-updated', handlePlansUpdated);
+    window.addEventListener('mbi-plan-updated', handlePlansUpdated);
+    window.addEventListener('mbi-auth-changed', handleAuthChanged);
+    window.addEventListener('mbi-business-updated', handleBusinessUpdated);
+    window.addEventListener('mbi-tenant-updated', handleTenantUpdated);
     window.addEventListener('storage', handlePlansUpdated);
     return () => {
       window.removeEventListener('saas-plans-updated', handlePlansUpdated);
+      window.removeEventListener('mbi-plan-updated', handlePlansUpdated);
+      window.removeEventListener('mbi-auth-changed', handleAuthChanged);
+      window.removeEventListener('mbi-business-updated', handleBusinessUpdated);
+      window.removeEventListener('mbi-tenant-updated', handleTenantUpdated);
       window.removeEventListener('storage', handlePlansUpdated);
     };
   }, [tenantId]);

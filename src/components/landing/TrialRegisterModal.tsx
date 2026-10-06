@@ -4,6 +4,7 @@ import {
   X, CheckCircle2, ShieldCheck, Sparkles, Store, User, 
   MapPin, Phone, Mail, Lock, ArrowRight, RefreshCw, AlertCircle 
 } from 'lucide-react';
+import { authService } from '../../services/authService';
 
 interface TrialRegisterModalProps {
   isOpen: boolean;
@@ -41,29 +42,25 @@ export const TrialRegisterModal: React.FC<TrialRegisterModalProps> = ({
     setError(null);
 
     try {
-      const res = await fetch('/api/auth/register-trial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          storeName: storeName.trim(),
-          ownerName: (ownerName || storeName).trim(),
-          city: city.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          password: password.trim(),
-          plan: selectedPlan
-        })
+      const res = await authService.registerPharmacy({
+        storeName: storeName.trim(),
+        ownerName: (ownerName || storeName).trim(),
+        username: (ownerName || storeName).trim().replace(/\s+/g, '').toLowerCase(),
+        city: city.trim() || 'Lahore',
+        email: email.trim(),
+        phone: phone.trim(),
+        password: password.trim(),
+        plan: 'Basic'
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.success) {
         setSuccess(true);
         setTimeout(() => {
           onClose();
-          navigate('/login');
-        }, 1500);
+          navigate('/user', { replace: true });
+        }, 800);
       } else {
-        setError(data.error || 'Registration failed. Please try again.');
+        setError(res.error || 'Registration failed. Please try again.');
       }
     } catch (err: any) {
       setError(err?.message || 'Network error occurred. Please check connection.');

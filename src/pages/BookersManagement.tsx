@@ -21,7 +21,7 @@ export const BookersManagement: React.FC = () => {
   const { openTransaction } = useTransactionDock();
 
   const currentPlan = (tenant as any)?.plan || (userProfile as any)?.plan || getCurrentPlan(tenantId || tenant?.id);
-  const isPlanAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || activeRole === 'Master Admin' || (userProfile as any)?.role === 'Master Admin';
+  const isPlanAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || (activeRole as string) === 'Master Admin' || (userProfile as any)?.role === 'Master Admin';
 
   const [activeTab, setActiveTab] = useState<'performance' | 'directory'>('performance');
   const [bookers, setBookers] = useState<Booker[]>([]);

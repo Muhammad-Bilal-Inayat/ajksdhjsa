@@ -551,9 +551,9 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               maxDevices: rt.max_devices || rt.maxDevices || 3,
               maxUsers: rt.max_users || rt.maxUsers || 5,
               maxFirms: rt.max_firms || rt.maxFirms || 2,
-              features: rt.features || rt.customFeatures || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-              customFeatures: rt.customFeatures || rt.features || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
-              featureToggles: rt.feature_toggles || rt.featureToggles || rt.features || { ...DEFAULT_TENANT_FEATURE_TOGGLES },
+              features: rt.features || rt.customFeatures || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || (typeof localStorage !== 'undefined' && localStorage.getItem(`mbi_tenant_features_${tid}`) ? JSON.parse(localStorage.getItem(`mbi_tenant_features_${tid}`)!) : { ...DEFAULT_TENANT_FEATURE_TOGGLES }),
+              customFeatures: rt.customFeatures || rt.features || (rt.features_json ? (typeof rt.features_json === 'string' ? JSON.parse(rt.features_json) : rt.features_json) : rt.feature_toggles) || (typeof localStorage !== 'undefined' && localStorage.getItem(`mbi_tenant_features_${tid}`) ? JSON.parse(localStorage.getItem(`mbi_tenant_features_${tid}`)!) : { ...DEFAULT_TENANT_FEATURE_TOGGLES }),
+              featureToggles: rt.feature_toggles || rt.featureToggles || rt.features || (typeof localStorage !== 'undefined' && localStorage.getItem(`mbi_tenant_features_${tid}`) ? JSON.parse(localStorage.getItem(`mbi_tenant_features_${tid}`)!) : { ...DEFAULT_TENANT_FEATURE_TOGGLES }),
               salePrice: rt.sale_price || rt.salePrice || 0,
               amountPaid: rt.amount_paid || rt.amountPaid || 0,
               amountDue: Math.max(0, (rt.sale_price || rt.salePrice || 0) - (rt.amount_paid || rt.amountPaid || 0)),
@@ -1079,11 +1079,12 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     toast(`🔄 Hardware machine binding cleared for ${tenantName}. Client can now activate on a new device.`);
   };
 
-  const handleToggleCompanyFeature = (tenantId: string, featureKey: string, currentVal: boolean) => {
+  const handleToggleCompanyFeature = async (tenantId: string, featureKey: string, currentVal: boolean) => {
     const target = tenants.find(t => t.id === tenantId || t.tenantId === tenantId);
     if (!target) return;
 
     const newVal = !currentVal;
+    const tid = target.tenantId || target.id;
     
     const existingFeatures = (target as any).features || (target as any).customFeatures || {};
     const updatedFeatures = {
@@ -1100,15 +1101,91 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     }
 
     target.updatedAt = new Date().toISOString();
+
+    // 1. Optimistically update local tenants state array so UI switch reflects instantly and stays persistent
+    setTenants(prev => prev.map(t => (t.id === target.id || t.tenantId === target.tenantId) ? {
+      ...t,
+      features: updatedFeatures,
+      customFeatures: updatedFeatures,
+      featureToggles: updatedFeatures,
+      updatedAt: target.updatedAt
+    } : t));
+
+    // 2. Persist locally to localStorage across keys
+    try {
+      localStorage.setItem(`mbi_tenant_features_${tid}`, JSON.stringify(updatedFeatures));
+      localStorage.setItem(`mbi_tenant_overrides_${tid}`, JSON.stringify(updatedFeatures));
+      localStorage.setItem(`mbi_plan_features_${tid}`, JSON.stringify(updatedFeatures));
+
+      const activeTid = localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id');
+      if (activeTid === tid || !activeTid) {
+        const mb = localStorage.getItem('mock_business');
+        if (mb) {
+          try {
+            const parsed = JSON.parse(mb);
+            localStorage.setItem('mock_business', JSON.stringify({ ...parsed, features: updatedFeatures, customFeatures: updatedFeatures, featureToggles: updatedFeatures }));
+          } catch {}
+        }
+        const mt = localStorage.getItem('mbi_tenant');
+        if (mt) {
+          try {
+            const parsed = JSON.parse(mt);
+            localStorage.setItem('mbi_tenant', JSON.stringify({ ...parsed, features: updatedFeatures, customFeatures: updatedFeatures, featureToggles: updatedFeatures }));
+          } catch {}
+        }
+      }
+    } catch (e) {}
+
     saveTenant(target);
 
+    // 3. Persist directly and authoritatively to Master SQLite server /api/fleet/tenants/save
     try {
-      localStorage.setItem(`mbi_tenant_features_${target.tenantId || target.id}`, JSON.stringify(updatedFeatures));
-    } catch (e) {}
+      await fetch('/api/fleet/tenants/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: target.id || tid,
+          tenant_id: tid,
+          tenantId: tid,
+          name: target.name,
+          owner_name: target.ownerName,
+          owner_phone: target.ownerPhone,
+          owner_email: target.ownerEmail,
+          city: target.city,
+          address: target.address,
+          plan: target.plan,
+          status: target.status,
+          api_key: target.apiKey,
+          features: updatedFeatures,
+          customFeatures: updatedFeatures,
+          features_json: JSON.stringify(updatedFeatures),
+          trial_expiry_date: target.trialExpiryDate,
+          max_users: target.maxUsers,
+          max_firms: target.maxFirms,
+          max_devices: target.maxDevices,
+          sale_price: target.salePrice,
+          amount_paid: target.amountPaid,
+          sale_status: target.saleStatus,
+          payment_method: target.paymentMethod,
+          sale_notes: target.saleNotes,
+          updated_at: target.updatedAt
+        })
+      });
+    } catch (err) {}
+
+    // 4. Call backend license action API
+    try {
+      await callLicenseActionApi({
+        action: 'update_features',
+        tenantId: tid,
+        licenseId: target.licenseId,
+        features: updatedFeatures
+      });
+    } catch (err) {}
 
     window.dispatchEvent(
       new CustomEvent('mbi-tenant-features-updated', {
-        detail: { tenantId: target.tenantId || target.id, features: updatedFeatures }
+        detail: { tenantId: tid, features: updatedFeatures }
       })
     );
 
@@ -1119,23 +1196,35 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       target.name
     );
 
-    refreshAllData();
     toast(
       `⚡ [${featureKey}] ${newVal ? 'ENABLED (Unlocked)' : 'DISABLED (Revoked)'} for ${target.name} and ALL sub-users!`
     );
   };
 
   const isFeatureEnabledForTenant = (tenant: Tenant, featureKey: string): boolean => {
+    const tid = tenant.tenantId || tenant.id;
     const custom = (tenant as any).features || (tenant as any).customFeatures;
-    if (custom && typeof custom === 'object' && featureKey in custom) {
-      return Boolean(custom[featureKey]);
+    if (custom && typeof custom === 'object') {
+      if (custom[featureKey] !== undefined) return Boolean(custom[featureKey]);
+      const norm = featureKey.toLowerCase().replace(/[\s-_]/g, '');
+      for (const [k, v] of Object.entries(custom)) {
+        if (k.toLowerCase().replace(/[\s-_]/g, '') === norm && v !== undefined) {
+          return Boolean(v);
+        }
+      }
     }
 
     try {
-      const stored = localStorage.getItem(`mbi_tenant_features_${tenant.tenantId || tenant.id}`);
+      const stored = localStorage.getItem(`mbi_tenant_features_${tid}`) || localStorage.getItem(`mbi_tenant_overrides_${tid}`);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (featureKey in parsed) return Boolean(parsed[featureKey]);
+        if (parsed[featureKey] !== undefined) return Boolean(parsed[featureKey]);
+        const norm = featureKey.toLowerCase().replace(/[\s-_]/g, '');
+        for (const [k, v] of Object.entries(parsed)) {
+          if (k.toLowerCase().replace(/[\s-_]/g, '') === norm && v !== undefined) {
+            return Boolean(v);
+          }
+        }
       }
     } catch (e) {}
 

@@ -1,5 +1,25 @@
 [
   {
+    "sessionId": "sess_pub_1791219170275_5ok4",
+    "eventType": "message_sent",
+    "eventLabel": "kia kr ry ho",
+    "storeName": "My Pharmacy",
+    "userPlan": "business",
+    "pageContext": "home",
+    "id": "clk_1791272110705_ao0yz",
+    "timestamp": "2026-10-06T07:35:10.705Z"
+  },
+  {
+    "sessionId": "sess_pub_1791219170275_5ok4",
+    "eventType": "message_sent",
+    "eventLabel": "hlo",
+    "storeName": "My Pharmacy",
+    "userPlan": "business",
+    "pageContext": "home",
+    "id": "clk_1791272096816_gvgb3",
+    "timestamp": "2026-10-06T07:34:56.816Z"
+  },
+  {
     "sessionId": "sess_admin-master_1790665610165",
     "eventType": "message_sent",
     "eventLabel": "User Msg: hi",

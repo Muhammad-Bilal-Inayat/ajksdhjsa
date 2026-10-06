@@ -43,19 +43,19 @@ export const MbiAiAssistant: React.FC = () => {
       >
         <div className="relative group">
           {/* Ambient Glow */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-full blur-sm opacity-70 group-hover:opacity-100 transition duration-300 animate-pulse pointer-events-none" />
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 rounded-full blur-md opacity-80 dark:opacity-100 group-hover:opacity-100 transition duration-300 animate-pulse pointer-events-none" />
 
           {/* Badge Container */}
-          <div className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-xl border border-white/20 backdrop-blur-md transition-all">
-            <div className="w-4 h-4 rounded-full bg-white/20 p-0.5 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="relative flex items-center gap-2 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-600 dark:via-cyan-600 dark:to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-xl border border-white/30 dark:border-cyan-400/60 backdrop-blur-md transition-all">
+            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs border border-white/40">
               <img 
                 src="/mbi-favicon.png" 
                 alt="MBI" 
                 className="w-full h-full object-contain" 
-                onError={(e) => { (e.target as HTMLImageElement).src = '/favicon.png'; }} 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/mbi-favicon.svg'; }} 
               />
             </div>
-            <span className="tracking-wide font-black">MBI AI</span>
+            <span className="tracking-wide font-black text-white drop-shadow-xs">MBI AI</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
           </div>
         </div>

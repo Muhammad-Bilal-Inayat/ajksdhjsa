@@ -31,7 +31,7 @@ export const GeneralTab: React.FC = () => {
     deleteFirm, 
     setDefaultFirm 
   } = useSettings();
-  const { business } = useAuth();
+  const { business, tenant, tenantId: authTenantId, isMasterAdmin } = useAuth();
 
   const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
   const [passcodeVal, setPasscodeVal] = useState(settings.general.passcode || '');
@@ -74,22 +74,28 @@ export const GeneralTab: React.FC = () => {
   };
 
   const handleOpenAddFirm = async () => {
-    const tenantId = settings?.general?.firms?.[0]?.name || 'default-tenant';
-    const limitCheck = await AccountUsageService.checkLimitBeforeAction(tenantId, 'firms');
+    const effectiveTenantId = tenant?.tenantId || tenant?.id || authTenantId || business?.tenantId || 'tenant_main';
     
-    if (!limitCheck.allowed) {
-      setUpgradeUsageInfo(limitCheck.usage);
-      setIsUpgradeModalOpen(true);
-      return;
+    if (!isMasterAdmin) {
+      try {
+        const limitCheck = await AccountUsageService.checkLimitBeforeAction(effectiveTenantId, 'firms');
+        if (!limitCheck.allowed) {
+          setUpgradeUsageInfo(limitCheck.usage);
+          setIsUpgradeModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.warn('Firm limit check skipped:', err);
+      }
     }
 
     setEditingFirm(null);
     setFirmForm({
       name: '',
-      address: '',
-      phone: '',
-      gstin: '',
-      email: '',
+      address: business?.address || '',
+      phone: business?.phone || business?.mobile || '',
+      gstin: business?.taxNumber || '',
+      email: business?.email || '',
       isDefault: settings.general.firms.length === 0,
     });
     setIsFirmModalOpen(true);
@@ -117,17 +123,24 @@ export const GeneralTab: React.FC = () => {
       showToast(`Firm "${firmForm.name}" updated successfully!`);
       setIsFirmModalOpen(false);
     } else {
-      const tenantId = settings?.general?.firms?.[0]?.name || 'default-tenant';
-      const limitCheck = await AccountUsageService.checkLimitBeforeAction(tenantId, 'firms');
-      if (!limitCheck.allowed) {
-        setIsFirmModalOpen(false);
-        setUpgradeUsageInfo(limitCheck.usage);
-        setIsUpgradeModalOpen(true);
-        return;
+      const effectiveTenantId = tenant?.tenantId || tenant?.id || authTenantId || business?.tenantId || 'tenant_main';
+      
+      if (!isMasterAdmin) {
+        try {
+          const limitCheck = await AccountUsageService.checkLimitBeforeAction(effectiveTenantId, 'firms');
+          if (!limitCheck.allowed) {
+            setIsFirmModalOpen(false);
+            setUpgradeUsageInfo(limitCheck.usage);
+            setIsUpgradeModalOpen(true);
+            return;
+          }
+        } catch (err) {
+          console.warn('Firm limit check skipped:', err);
+        }
       }
 
       addFirm(firmForm);
-      AccountUsageService.incrementUsage(tenantId, 'firms').catch(() => {});
+      AccountUsageService.incrementUsage(effectiveTenantId, 'firms').catch(() => {});
       showToast(`New Firm "${firmForm.name}" added successfully!`);
       setIsFirmModalOpen(false);
     }

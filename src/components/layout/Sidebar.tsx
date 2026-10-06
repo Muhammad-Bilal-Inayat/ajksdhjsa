@@ -39,6 +39,7 @@ import {
   isModuleAllowed as isPlanModuleAllowed, 
   isReportAllowed as isPlanReportAllowed, 
   isRouteAllowed as isPlanRouteAllowed, 
+  checkServerFeatureOverride,
   getActiveTenantPlan, 
   normalizePlan,
   isPlanSufficient,
@@ -221,6 +222,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
+  const [featureVersion, setFeatureVersion] = useState(0);
+
+  useEffect(() => {
+    const handleFeatureChange = () => setFeatureVersion(v => v + 1);
+    window.addEventListener('mbi-tenant-features-updated', handleFeatureChange);
+    window.addEventListener('mbi-tenant-menu-order-updated', handleFeatureChange);
+    window.addEventListener('mbi-user-access-profile-updated', handleFeatureChange);
+    window.addEventListener('mbi-effective-permissions-updated', handleFeatureChange);
+    window.addEventListener('storage', handleFeatureChange);
+    return () => {
+      window.removeEventListener('mbi-tenant-features-updated', handleFeatureChange);
+      window.removeEventListener('mbi-tenant-menu-order-updated', handleFeatureChange);
+      window.removeEventListener('mbi-user-access-profile-updated', handleFeatureChange);
+      window.removeEventListener('mbi-effective-permissions-updated', handleFeatureChange);
+      window.removeEventListener('storage', handleFeatureChange);
+    };
+  }, []);
+
   useEffect(() => {
     const unsub = syncEngine.subscribe((status) => {
       setSyncStatus(status);
@@ -354,7 +373,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const effectiveUserId = activeUser?.id || currentUser?.uid || 'usr_active';
-    const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId;
+    const effectiveTenantId = tenant?.tenantId || tenant?.id || tenantId || localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') || 'tenant_main';
     const isOwner = isPrimaryOwner(activeUser || currentUser) || activeRole === 'Primary Admin' || (activeUser as any)?.is_primary_owner === true;
     const isGlobalMaster = isServerRoute ? ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin' || isMasterAdminAuthenticated()) : ((currentUser as any)?.role === 'Master Admin' || (userProfile as any)?.role === 'Master Admin');
     const effectivePlan = (tenant as any)?.plan || (userProfile as any)?.plan || (business as any)?.plan;
@@ -388,6 +407,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     const filtered = mainNavItems
       .filter(item => {
+        // Direct Super Admin Feature Override Check
+        const directOverride = checkServerFeatureOverride(item.id, effectiveTenantId) ?? 
+                               (item.moduleKey ? checkServerFeatureOverride(item.moduleKey as string, effectiveTenantId) : null);
+
+        if (directOverride === true) {
+          // Explicitly unlocked by Super Admin in /server -> always display in navigation!
+          return true;
+        }
+        if (directOverride === false) {
+          return false;
+        }
+
         // Strict Plan-Tier Feature Gating
         // Hide modules if not allowed by tenant's active subscription tier (unless Master Admin override)
         if (item.id) {
@@ -504,17 +535,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return { ...item, isRoleLocked: Boolean(isItemRoleLocked), subItems: filteredSubs };
       });
 
+    // Load custom tenant menu order saved by Super Admin or Tenant Admin
+    let customTenantOrder: string[] = [];
+    if (effectiveTenantId) {
+      try {
+        const raw = localStorage.getItem(`mbi_tenant_menu_order_${effectiveTenantId}`) || 
+                    localStorage.getItem(`mbi_menu_order_${effectiveTenantId}`) ||
+                    localStorage.getItem(`mbi_sidebar_menu_config_${effectiveTenantId}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            customTenantOrder = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (customTenantOrder.length === 0 && (tenant as any)?.features?.menu_order) {
+      if (Array.isArray((tenant as any).features.menu_order)) {
+        customTenantOrder = (tenant as any).features.menu_order;
+      }
+    }
+
     return filtered.sort((a, b) => {
+      // 1. Primary Priority: Tenant Isolated Custom Reorder (from Server Dashboard Reorder button)
+      if (customTenantOrder.length > 0) {
+        const idxA = customTenantOrder.indexOf(a.id);
+        const idxB = customTenantOrder.indexOf(b.id);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+      }
+
+      // 2. Secondary User-Level Custom Reorder
       const idxA = userOrder.indexOf(a.id);
       const idxB = userOrder.indexOf(b.id);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       if (idxA !== -1) return -1;
       if (idxB !== -1) return 1;
+
+      // 3. Fallback to orderMap / getRank
       const orderA = orderMap.get(a.id.toLowerCase()) ?? orderMap.get(a.label.toLowerCase()) ?? getRank(a);
       const orderB = orderMap.get(b.id.toLowerCase()) ?? orderMap.get(b.label.toLowerCase()) ?? getRank(b);
       return orderA - orderB;
     });
-  }, [settings, userPreferences, activeRole, activeUser, currentUser, canAccess, permissionVersion, tenant, tenantId, userProfile, business]);
+  }, [settings, userPreferences, activeRole, activeUser, currentUser, canAccess, permissionVersion, featureVersion, tenant, tenantId, userProfile, business]);
 
   // Dynamic filter for Settings Tabs based on RBAC & Active Plan Tier
   const visibleSettingsTabs = useMemo(() => {
@@ -648,28 +713,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title="MBI INVENTRA — Go to Dashboard"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              {/* MBI Favicon / Logo Box */}
-              <div className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-all overflow-hidden">
+              {/* MBI Branded Logo Box */}
+              <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center flex-shrink-0 p-0.5 group-hover:scale-105 transition-all overflow-hidden">
                 <img
-                  src="/mbi-favicon.svg"
+                  src="/mbi-logo.png"
                   alt="MBI INVENTRA"
-                  className="w-7 h-7 object-contain rounded-lg"
+                  className="w-9 h-9 object-contain rounded-full"
                   onError={(e) => {
                     const target = e.currentTarget;
-                    target.style.display = 'none';
-                    if (target.nextElementSibling) {
-                      (target.nextElementSibling as HTMLElement).style.display = 'flex';
-                    }
+                    target.src = '/mbi-favicon.png';
                   }}
                 />
-                <span className="hidden text-blue-600 dark:text-blue-400 font-black text-xs tracking-tight">MBI</span>
               </div>
               
               {!isCollapsed && (
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-[14px] font-black text-slate-900 dark:text-white tracking-wide truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors uppercase leading-tight">
-                    MBI INVENTRA
-                  </h1>
+                  <div className="flex items-center gap-1 leading-none">
+                    <span className="text-[14px] font-black text-blue-600 dark:text-blue-400 tracking-tight">MBI</span>
+                    <span className="text-[14px] font-black text-slate-900 dark:text-white tracking-tight">INVENTRA</span>
+                  </div>
+                  <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 tracking-wider uppercase block mt-0.5">
+                    Pharma POS &amp; ERP
+                  </span>
                 </div>
               )}
             </div>

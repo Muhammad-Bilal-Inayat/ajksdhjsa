@@ -315,7 +315,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   };
 
   const generateLocalResponse = (query: string, currentContext: 'home' | 'user' | 'server', currentPlan: string = 'business'): string => {
-    const lower = query.toLowerCase();
+    const lower = query.toLowerCase().trim();
 
     // 1. Human support & direct contact intent (Multilingual)
     if (
@@ -329,7 +329,22 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return `📞 **MBI Live Human Support Dispatch**\n\nMaine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpline par direct rabta bhi kar sakte hain:\n- **WhatsApp Support:** +92 328 1302636\n- **Direct Hotline:** 0336-4585863\n\nNeeche diye gaye form mein apna WhatsApp number darj karein taake representative turant call/message kare!`;
     }
 
-    // 2. SERVER CONTEXT (Super Admin Master Fleet Governance)
+    // 2. Casual greetings & Hello / Salam
+    if (
+      lower === 'hi' || lower === 'hello' || lower === 'salam' || lower === 'assalam o alaikum' || 
+      lower === 'salam o alaikum' || lower === 'hey' || lower === 'aoa' || lower === 'asalam' ||
+      lower.startsWith('hello') || lower.startsWith('salam') || lower.includes('kaisay ho') || lower.includes('kese ho')
+    ) {
+      if (currentContext === 'server') {
+        return `🛡️ **Assalam-o-Alaikum Master Administrator!**\n\nMain MBI Master Fleet Copilot hoon. Main aapko HWID Device Resets, 12:00 AM Encrypted Backups, Tenant SQLite Vaults, aur Server Telemetry mein assist kar sakta hoon.`;
+      }
+      if (currentContext === 'home') {
+        return `✨ **Assalam-o-Alaikum! Welcome to MBI INVENTRA.**\n\nMain MBI INVENTRA ka AI Guide hoon. Main aapko hamaray **0.2s POS Billing Software**, **10-Day Free Trial**, **FEFO Expiry Radar**, aur **Pricing Plans** ke baray mein mukammal rehnumai de sakta hoon.\n\nAap kis cheez ke baray mein janna chahtay hain?`;
+      }
+      return `✨ **Assalam-o-Alaikum ${userFullName}! Main aapka MBI AI Copilot hoon (${pharmacyName}).**\n\nMain aapki live sales, customer udhaar khatay, supplier payments, stock status, aur reports mein madad ke liye tayyar hoon. Aap mujh se poochein:\n- *"Aaj ki sale kitni hai?"*\n- *"Customer khata summary dikhao"*\n- *"Near expiry ya low stock medicines kaun si hain?"*`;
+    }
+
+    // 3. SERVER CONTEXT (Super Admin Master Fleet Governance)
     if (currentContext === 'server') {
       if (lower.includes('hwid') || lower.includes('reset') || lower.includes('license') || lower.includes('device') || lower.includes('laptop')) {
         return `🛡️ **Master HWID Device Reset & Disaster Recovery Protocol**\n\n- **1-Click Reset:** Super Admin master panel se tenant ke liye \`[Reset Bound HWID]\` trigger karein (\`/api/master/license/reset-hwid\`).\n- **New Computer Binding:** Client jab naye PC par License Key activate karega, system automatically naya Hardware Fingerprint bind kar dega.\n- **Zero Data Loss Restore:** Client ka latest **12:00 AM Midnight Backup Snapshot** naye system par 1-click se restore ho jata hai!`;
@@ -350,7 +365,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return `🛡️ **MBI Master Fleet Copilot Active**\n\nAap Master Server Admin ke hawalay se koi bhi sawal pooch sakte hain:\n- **HWID Reset & Disaster Recovery**\n- **12:00 AM Automated Midnight Backups**\n- **Tenant-Isolated SQLite Vaults**\n- **173-Switchboard Feature Toggles**\n\nTechnical assistance ke liye Master Helpline: **+92 328 1302636**.`;
     }
 
-    // 3. HOME CONTEXT (Visitors & Landing Page)
+    // 4. HOME CONTEXT (Visitors & Landing Page)
     if (currentContext === 'home') {
       // Pricing & Plans
       if (
@@ -381,7 +396,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return `✨ **Assalam-o-Alaikum! Main MBI INVENTRA AI Copilot hoon.**\n\nMain MBI INVENTRA Enterprise Pharmacy POS & ERP Software ke baare mein aapki mukammal rehnumai kar sakta hoon:\n\n1. ⚡ **0.2s Ultra-Fast POS Billing:** Barcode scanning aur 80mm/58mm thermal receipts (\`Alt+S\` / \`F2\`).\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.\n3. ⏰ **FEFO Smart Expiry Radar:** 30/60/90/180 days batch expiry alerts taake expiry loss khatam ho.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.\n5. 💊 **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.\n6. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Gold Business Rs 3,999/mo | Platinum Enterprise Rs 6,999/mo.\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
     }
 
-    // 4. USER CONTEXT (Active Pharmacy Workspace)
+    // 5. USER CONTEXT (Active Pharmacy Workspace)
     // Generic medicine formulas & alternatives in Pakistan
     if (lower.includes('augmentin') || lower.includes('amoxicillin') || lower.includes('clavulanate')) {
       return `💊 **Augmentin Generic Formula & Alternatives (Pakistan)**\n\n- **Active Formula:** Co-Amoxiclav (Amoxicillin Trihydrate + Potassium Clavulanate)\n- **Strengths:** 375mg, 625mg, 1g Tabs | 156.25mg, 312.5mg, 457mg Susp\n\n**Top Quality Market Alternatives:**\n1. **Curam** (Novartis / Sandoz)\n2. **Klavox** (Bosch Pharma)\n3. **Amoxi-Clav** (AGP Pharma)\n4. **Augmax** (Highnoon Laboratories)\n\n*💡 POS Tip: Press \`F2\` on POS to search by formula and view live batch margins.*`;
@@ -399,19 +414,24 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return `💊 **Sofvasc Generic Formula & Alternatives**\n\n- **Active Formula:** Amlodipine Besylate (2.5mg, 5mg, 10mg Tabs)\n- **Therapeutic Class:** Calcium Channel Blocker (Hypertension & Angina)\n\n**Top Market Brands:**\n1. **Sofvasc / Sofvasc-V** (Searle)\n2. **Norvasc** (Pfizer)\n3. **Lodipin** (Sami Pharma)\n4. **Amlo** (Getz Pharma)`;
     }
 
+    // Reports & Sales Query
+    if (lower.includes('report') || lower.includes('sale') || lower.includes('kamai') || lower.includes('revenue') || query.includes('سیل') || query.includes('رپورٹ')) {
+      return `📊 **Live Sales & Financial Reports (${pharmacyName})**\n\n- **Sales Invoices:** \`Alt+S\` se live invoices create karein ya **Sale** menu se history check karein.\n- **Daily P&L Report:** Menu mein **Reports** par click karke aaj ka total profit aur margin check karein.\n- **Shift Closing:** **Shift Management** se counter float tally karein.`;
+    }
+
+    // Khatas & Ledgers
+    if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('ledger') || lower.includes('customer') || lower.includes('supplier') || lower.includes('party') || lower.includes('parties') || query.includes('کھاتہ') || query.includes('ادھار')) {
+      return `📒 **Customer & Supplier Double-Entry Ledgers (${pharmacyName})**\n\n- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.\n- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.\n- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
+    }
+
     // POS Shortcuts & Billing
-    if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || lower.includes('sale') || query.includes('شارٹ کٹ') || query.includes('بل')) {
+    if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || query.includes('شارٹ کٹ') || query.includes('بل')) {
       return `⚡ **Essential MBI POS Fast Billing Shortcuts**\n\n- \`Alt + S\` : Open New Sale Invoice instantly\n- \`Alt + P\` : Open New Purchase Bill Inward\n- \`F2\` / \`Tab\` : Focus Instant Medicine & Barcode Search\n- \`F1\` : Open Keyboard Shortcuts Master Guide\n- \`Enter\` : Rapid Line-Item Addition\n- \`Esc\` : Minimize or Close Active Transaction Dock\n\n*Engineered for high-volume rush hours with 0.2s transaction speed.*`;
     }
 
     // FEFO Expiry Radar
     if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('waste') || lower.includes('near expiry') || query.includes('ایکسپائری')) {
       return `⏰ **FEFO (First-Expiry, First-Out) Smart Profit Radar**\n\n- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.\n- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.\n- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
-    }
-
-    // Khatas & Ledgers
-    if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('ledger') || lower.includes('customer') || lower.includes('supplier') || query.includes('کھاتہ') || query.includes('ادھار')) {
-      return `📒 **Customer & Supplier Double-Entry Ledgers**\n\n- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.\n- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.\n- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
     }
 
     // Shortage Register
@@ -425,7 +445,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     }
 
     // General user workspace fallback in Urdu / Roman Urdu / English
-    return `✨ **MBI AI Copilot Response**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.\n- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.\n- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.\n\nAgar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
+    return `✨ **MBI AI Copilot Response (${pharmacyName})**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.\n- **Customer & Supplier Khatas:** Parties menu mein udhaar aur vasooli maintain karein.\n- **FEFO Expiry & Stock:** Menu se FEFO Radar aur Shortages check karein.\n\nAgar kisi specific feature ya report ke baray mein janna chahein to zaroor poochein!`;
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -499,7 +519,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
           prompt: userMsg.text,
           context: activeContext,
           sessionId: sessionId,
-          tenantId: tenant?.id || 'default',
+          tenantId: tenant?.id || (tenant as any)?.tenant_id || (business as any)?.id || localStorage.getItem('mbi_active_tenant') || localStorage.getItem('mbi_active_business_id') || 'default',
           userId: (currentUser as any)?.id || 'usr_visitor',
           userName: userFullName,
           userPlan: tenant?.plan || 'business',
@@ -589,9 +609,12 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
   const userPromptChips = [
     { label: '📞 Human Support', prompt: 'Human Support', isAction: true },
+    { label: '📊 Today\'s Sale Summary', prompt: 'Aaj ki total sales aur revenue summary batao' },
+    { label: '📒 Customer & Supplier Khata', prompt: 'Customer udhaar khatay aur supplier payables ka hisab dikhao' },
+    { label: '📈 Full Business Report', prompt: 'Pharmacy ki complete operational aur financial report summary do' },
     { label: '⚡ POS Shortcuts (Alt+S, F2)', prompt: 'List the fastest keyboard shortcuts for high-speed POS retail checkout (Alt+S, Alt+P, F2, Tab).' },
     { label: '⏰ FEFO Expiry Radar', prompt: 'How do FEFO batch expiry alerts work and how can I return near-expiry stock?' },
-    { label: '📦 Shortage & Stock Radar', prompt: 'How does the Shortage Register and low stock alert work in MBI Inventra?' },
+    { label: '📦 Shortage & Low Stock', prompt: 'How does the Shortage Register and low stock alert work in MBI Inventra?' },
     { label: '💊 Generic for Augmentin', prompt: 'What is the generic salt formula and alternative brands for Augmentin 625mg in Pakistan?' },
   ];
 

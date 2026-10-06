@@ -220,6 +220,60 @@ export const MasterHomePagePopupTab: React.FC<{ isDarkMode?: boolean }> = ({ isD
             </div>
           </div>
 
+          {/* 1-Click Quick Preset Templates */}
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+              1-Click Professional Copy Presets
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBadgeText('FREE 10-DAY TRIAL');
+                  setTitle('Transform Your Pharmacy With MBI INVENTRA');
+                  setSubtitle('Experience 0.2s POS billing, automated FEFO expiry alerts & 0ms offline sync.');
+                  setBody('Join 1,000+ modern pharmacies across Pakistan. Get full access for 10 days with zero credit card required.');
+                  setCtaLabel('Claim 10-Day Free Trial');
+                  setCtaUrl('/register');
+                  emitToast('Applied 10-Day Free Trial Template', 'info');
+                }}
+                className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/60 text-left text-xs text-slate-200 transition-all cursor-pointer truncate font-bold hover:border-blue-500"
+              >
+                🌟 10-Day Free Trial
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBadgeText('ULTRA-FAST BILLING');
+                  setTitle('0.2s POS & 100% Offline Pharmacy Engine');
+                  setSubtitle('Never let slow systems or internet disconnects halt your sales counter.');
+                  setBody('Unmatched speed: instant barcode lookup, thermal receipts, customer WhatsApp statements, and zero cloud delay.');
+                  setCtaLabel('Experience 0.2s POS');
+                  setCtaUrl('/register');
+                  emitToast('Applied 0.2s POS Template', 'info');
+                }}
+                className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/60 text-left text-xs text-slate-200 transition-all cursor-pointer truncate font-bold hover:border-blue-500"
+              >
+                ⚡ 0.2s POS Engine
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBadgeText('ZERO EXPIRY LOSS');
+                  setTitle('Automated FEFO Expiry Radar & Returns');
+                  setSubtitle('Protect your pharmacy margin with proactive 30/60/90 day expiry tracking.');
+                  setBody('Eliminate expiry dumping. Auto-prioritize oldest batches at checkout and generate supplier debit notes with 1-click.');
+                  setCtaLabel('Protect My Pharmacy');
+                  setCtaUrl('/register');
+                  emitToast('Applied FEFO Expiry Template', 'info');
+                }}
+                className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700/60 text-left text-xs text-slate-200 transition-all cursor-pointer truncate font-bold hover:border-blue-500"
+              >
+                🛡️ Zero Expiry Loss
+              </button>
+            </div>
+          </div>
+
           <form onSubmit={handleSave} className="space-y-4">
             {/* Badge Text */}
             <div className="space-y-1">

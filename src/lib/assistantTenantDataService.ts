@@ -56,7 +56,7 @@ export class AssistantTenantDataService {
       dbExpenses.getScoped({ tenantId: cleanTenantId }).catch(() => []) as Promise<Expense[]>
     ]);
 
-    const activeInvoices = (invoicesData || []).filter(inv => inv.status !== 'cancelled');
+    const activeInvoices = (invoicesData || []).filter(inv => (inv.status as string) !== 'cancelled' && (inv.status as string) !== 'Cancelled');
     const todayStr = new Date().toISOString().slice(0, 10);
     const todayInvoices = activeInvoices.filter(inv => {
       const invDate = (inv.createdAt || inv.date || '').slice(0, 10);
@@ -73,13 +73,13 @@ export class AssistantTenantDataService {
             itemMap[id] = { name: it.name || 'Medicine', units: 0, revenue: 0, stock: 0 };
           }
           itemMap[id].units += Number(it.quantity || 0);
-          itemMap[id].revenue += Number(it.total || (it.quantity * it.unitPrice) || 0);
+          itemMap[id].revenue += Number((it as any).total || (it.quantity * it.unitPrice) || 0);
         });
       });
 
       (medicinesData || []).forEach(m => {
         if (itemMap[m.id]) {
-          itemMap[m.id].stock = Number(m.currentStock || 0);
+          itemMap[m.id].stock = Number((m as any).currentStock ?? m.quantity ?? 0);
         }
       });
 
@@ -106,7 +106,7 @@ export class AssistantTenantDataService {
 
     // 3. Low Stock & Expiry Audit Report
     if (isLowStockQuery || isExpiryQuery) {
-      const lowStock = (medicinesData || []).filter(m => Number(m.currentStock || 0) <= Number(m.lowStockThreshold || 10));
+      const lowStock = (medicinesData || []).filter(m => Number((m as any).currentStock ?? m.quantity ?? 0) <= Number((m as any).lowStockThreshold || 10));
       
       const now = new Date();
       const expiringSoon: Array<{ name: string; batch: string; expiry: string; days: number; stock: number }> = [];
@@ -136,8 +136,9 @@ export class AssistantTenantDataService {
         reportText += `| Medicine Name | Current Stock | Alert Level | Action |\n`;
         reportText += `|---|---|---|---|\n`;
         lowStock.slice(0, 8).forEach(m => {
-          const isOut = Number(m.currentStock || 0) <= 0;
-          reportText += `| **${m.name}** | **${m.currentStock || 0}** | ${isOut ? '🔴 Out of Stock' : '🟡 Low Level'} | Restock PO |\n`;
+          const currentQty = Number((m as any).currentStock ?? m.quantity ?? 0);
+          const isOut = currentQty <= 0;
+          reportText += `| **${m.name}** | **${currentQty}** | ${isOut ? '🔴 Out of Stock' : '🟡 Low Level'} | Restock PO |\n`;
         });
         if (lowStock.length > 8) {
           reportText += `*...and ${lowStock.length - 8} more low stock items.*\n`;
@@ -168,9 +169,9 @@ export class AssistantTenantDataService {
       let totalUnits = 0;
 
       (medicinesData || []).forEach(m => {
-        const stock = Number(m.currentStock || 0);
-        const cost = Number(m.purchasePrice || m.costPrice || (Number(m.salePrice || m.price || 0) * 0.85));
-        const retail = Number(m.salePrice || m.price || 0);
+        const stock = Number((m as any).currentStock ?? m.quantity ?? 0);
+        const cost = Number(m.purchasePrice || (m as any).costPrice || (Number(m.sellingPrice || (m as any).price || 0) * 0.85));
+        const retail = Number(m.sellingPrice || (m as any).price || 0);
         totalUnits += stock;
         totalPurchaseValuation += (stock * cost);
         totalRetailValuation += (stock * retail);
@@ -239,8 +240,8 @@ export class AssistantTenantDataService {
       let totalPayablesDue = 0;
 
       (purchaseOrdersData || []).forEach(po => {
-        totalPurchaseExpenditure += Number(po.totalAmount || po.total || 0);
-        totalPayablesDue += Number(po.balanceDue || (po.status === 'pending' ? (po.totalAmount || po.total || 0) : 0));
+        totalPurchaseExpenditure += Number((po as any).totalAmount || (po as any).total || 0);
+        totalPayablesDue += Number(po.balanceDue || (((po.status as string) === 'pending' || (po.status as string) === 'Pending') ? ((po as any).totalAmount || (po as any).total || 0) : 0));
       });
 
       (suppliersData || []).forEach(s => {
@@ -273,10 +274,10 @@ export class AssistantTenantDataService {
       let totalCogs = 0;
 
       activeInvoices.forEach(inv => {
-        totalRevenue += Number(inv.total || inv.grandTotal || 0);
+        totalRevenue += Number((inv as any).total || (inv as any).grandTotal || (inv as any).finalAmount || 0);
         (inv.items || []).forEach(it => {
           const qty = Number(it.quantity || 0);
-          const cost = Number(it.purchasePrice || (Number(it.unitPrice || 0) * 0.85));
+          const cost = Number((it as any).purchasePrice || (Number(it.unitPrice || 0) * 0.85));
           totalCogs += (qty * cost);
         });
       });
@@ -308,10 +309,10 @@ export class AssistantTenantDataService {
     let todaySalesTotal = 0;
     let todayCogs = 0;
     todayInvoices.forEach(inv => {
-      todaySalesTotal += Number(inv.total || inv.grandTotal || 0);
+      todaySalesTotal += Number((inv as any).total || (inv as any).grandTotal || (inv as any).finalAmount || 0);
       (inv.items || []).forEach(it => {
         const qty = Number(it.quantity || 0);
-        const cost = Number(it.purchasePrice || (Number(it.unitPrice || 0) * 0.85));
+        const cost = Number((it as any).purchasePrice || (Number(it.unitPrice || 0) * 0.85));
         todayCogs += (qty * cost);
       });
     });
@@ -319,7 +320,7 @@ export class AssistantTenantDataService {
     const todayProfit = Math.max(0, todaySalesTotal - todayCogs);
     let allTimeSales = 0;
     activeInvoices.forEach(inv => {
-      allTimeSales += Number(inv.total || inv.grandTotal || 0);
+      allTimeSales += Number((inv as any).total || (inv as any).grandTotal || (inv as any).finalAmount || 0);
     });
 
     let reportText = `📊 **Executive Sales & Invoices Summary Report**\n*Tenant Scoped Vault • Date: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}*\n\n`;
@@ -335,7 +336,7 @@ export class AssistantTenantDataService {
       reportText += `| Invoice # | Time | Customer | Total (Rs) | Status |\n`;
       reportText += `|---|---|---|---|---|\n`;
       todayInvoices.slice(0, 5).forEach(inv => {
-        reportText += `| \`${inv.invoiceNumber || inv.id?.slice(0, 8)}\` | ${(inv.createdAt || inv.date || '').slice(11, 16) || 'Today'} | ${inv.customerName || 'Walk-in'} | Rs ${Math.round(inv.total || 0).toLocaleString()} | 🟢 Paid |\n`;
+        reportText += `| \`${inv.invoiceNumber || inv.id?.slice(0, 8)}\` | ${(inv.createdAt || inv.date || '').slice(11, 16) || 'Today'} | ${inv.customerName || 'Walk-in'} | Rs ${Math.round((inv as any).total || (inv as any).grandTotal || (inv as any).finalAmount || 0).toLocaleString()} | 🟢 Paid |\n`;
       });
     }
 

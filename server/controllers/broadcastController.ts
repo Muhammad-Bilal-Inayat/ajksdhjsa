@@ -614,8 +614,11 @@ export async function getHomePagePopupController(req: Request, res: Response): P
           body: row.body,
           badgeText: row.badge_text || 'SPECIAL ANNOUNCEMENT',
           imageUrl: row.image_url || '',
-          ctaLabel: row.cta_label || 'Get Started Now',
+          ctaLabel: row.cta_label || 'Claim 10-Day Free Trial',
           ctaUrl: row.cta_url || '/register',
+          ctaStyle: row.cta_style || 'gradient_indigo',
+          secondaryCtaLabel: row.secondary_cta_label || 'Maybe Later',
+          secondaryCtaUrl: row.secondary_cta_url || '',
           type: row.type || 'special_offer',
           autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
           updatedAt: row.updated_at
@@ -643,6 +646,9 @@ export async function getHomePagePopupController(req: Request, res: Response): P
         imageUrl: '',
         ctaLabel: 'Claim 10-Day Free Trial',
         ctaUrl: '/register',
+        ctaStyle: 'gradient_indigo',
+        secondaryCtaLabel: 'Maybe Later',
+        secondaryCtaUrl: '',
         type: 'special_offer',
         autoShowDelayMs: 1500,
         updatedAt: new Date().toISOString()

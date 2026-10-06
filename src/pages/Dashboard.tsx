@@ -51,7 +51,8 @@ import {
   DASHBOARD_WIDGETS_CONFIG, 
   PRESET_LAYOUTS, 
   isWidgetAllowedInPlan,
-  isWidgetAllowedWithFeatures
+  isWidgetAllowedWithFeatures,
+  normalizeDashboardPlan
 } from '../config/dashboardWidgetsConfig';
 import { 
   PharmacyKpiMetricsWidget, 
@@ -237,7 +238,7 @@ export const Dashboard: React.FC = () => {
     moveDashboardWidgetZone,
     resetDashboardWidgets,
   } = useSettings();
-  const { userProfile, activeUser, currentUser, tenant, business, tenantId: authTenantId } = useAuth();
+  const { userProfile, activeUser, currentUser, tenant, business, tenantId: authTenantId, activeRole } = useAuth();
   
   const rawTenantId = authTenantId || tenant?.id || business?.tenantId || business?.id;
   const effectiveTenantId = (rawTenantId && rawTenantId !== 'undefined' && rawTenantId !== 'null' && String(rawTenantId).trim() !== '') 
@@ -728,6 +729,26 @@ export const Dashboard: React.FC = () => {
       setExpenses(expsData || []);
       setBankAccounts(bankData || []);
 
+      // Calculate low stock items and alerts live from latest medicines array
+      const safeMeds = medsData || [];
+      const derivedLowStock = safeMeds
+        .filter(m => (Number(m.quantity) || 0) <= (Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number(m.lowStockThreshold) || Number((m as any).minStock) || 10))
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          quantity: Number(m.quantity) || 0,
+          lowStockThreshold: Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number(m.lowStockThreshold) || Number((m as any).minStock) || 10,
+          unit: m.unit || 'Box',
+          category: m.category || (m as any).genericName || 'General',
+          sellingPrice: Number(m.sellingPrice) || 0,
+        }));
+      setLowStockAlerts(derivedLowStock);
+      setLowStockItems(safeMeds.filter(m => (Number(m.quantity) || 0) <= (Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number(m.lowStockThreshold) || Number((m as any).minStock) || 10)));
+
+      // Live stock valuation
+      const liveStockVal = safeMeds.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.purchasePrice) || Number(m.sellingPrice) || 0)), 0);
+      setStockValue(liveStockVal);
+
       // Fetch active cashier shift
       const openShift = (shiftsData || []).find((s: any) => s.status === 'open') || null;
       setActiveCashierShift(openShift);
@@ -967,7 +988,8 @@ export const Dashboard: React.FC = () => {
   const cashInHandBalance = useMemo(() => {
     try {
       if (activeCashierShift) {
-        return Number((activeCashierShift as any)?.cashBalance ?? activeCashierShift?.openingCash ?? activeCashierShift?.openingBalance) || 0;
+        const shiftCash = Number((activeCashierShift as any)?.cashBalance ?? activeCashierShift?.openingCash ?? activeCashierShift?.openingBalance);
+        if (!isNaN(shiftCash) && shiftCash > 0) return shiftCash;
       }
       return Math.max(0, (todayMetrics.todaySale || 0) - (todayMetrics.todayExpenses || 0));
     } catch {
@@ -3130,9 +3152,11 @@ export const Dashboard: React.FC = () => {
             return <CustomerUdharAgingWidget maskValue={maskValue} />;
           case 'ai_expiry_loss_prevention':
           case 'ai-expiry-loss-prevention':
+            if (normalizeDashboardPlan(currentEffectivePlan) !== 'platinum') return null;
             return <AiExpiryLossPreventionWidget maskValue={maskValue} />;
           case 'anti_theft_audit_radar':
           case 'anti-theft-audit-radar':
+            if (normalizeDashboardPlan(currentEffectivePlan) !== 'platinum') return null;
             return <AntiTheftAuditWidget maskValue={maskValue} />;
           case 'multi_branch_telemetry':
           case 'multi-branch-telemetry':
@@ -3146,6 +3170,7 @@ export const Dashboard: React.FC = () => {
               />
             );
           case 'fefo_expiry_status':
+            if (normalizeDashboardPlan(currentEffectivePlan) === 'silver') return null;
             return renderFEFOExpiryStatusWidget();
           case 'todays_profit':
             return renderTodaysProfitWidget();
@@ -3272,7 +3297,7 @@ export const Dashboard: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2 flex-wrap">
-              <span>Welcome Back, {activeUser?.name || currentUser?.displayName || business?.ownerName || 'Staff'}</span>
+              <span>Welcome Back, {activeUser?.name || currentUser?.displayName || (business as any)?.ownerName || business?.name || 'Staff'}</span>
               <span className="animate-bounce inline-block">👋</span>
               <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 uppercase tracking-wider">
                 {activeRole || activeUser?.role || 'Staff'}

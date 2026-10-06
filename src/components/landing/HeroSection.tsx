@@ -107,25 +107,25 @@ export const HeroSection: React.FC = () => {
           <div className="lg:col-span-6 text-center lg:text-left space-y-4 sm:space-y-6">
 
             {/* Top Eyebrow Tag with Glowing Badge */}
-            <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full border text-[11px] sm:text-xs font-black tracking-wide uppercase shadow-xs bg-blue-50/90 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-cyan-300 mx-auto lg:mx-0 backdrop-blur-md transition-all hover:scale-105 duration-200">
+            <div className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-1.5 rounded-full border text-[11px] sm:text-xs font-black tracking-wide uppercase shadow-sm bg-blue-50/90 dark:bg-slate-900/90 border-blue-200 dark:border-cyan-500/40 text-blue-700 dark:text-cyan-300 mx-auto lg:mx-0 backdrop-blur-md transition-all hover:scale-105 duration-200 shadow-cyan-500/10">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
               </span>
               <span>Next-Gen Pharmacy POS &amp; Cloud ERP</span>
-              <Sparkles className="w-3 h-3 text-cyan-500 dark:text-cyan-300" />
+              <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-300" />
             </div>
 
             {/* Main Headline */}
             <h1 className="text-[2.1rem] sm:text-5xl lg:text-[3.25rem] xl:text-[3.5rem] font-black tracking-tight text-slate-900 dark:text-white leading-[1.12] sm:leading-[1.08] break-words">
               Smart Pharmacy.<br />
-              <span className="bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 dark:from-cyan-300 dark:via-sky-200 dark:to-teal-200 bg-clip-text text-transparent drop-shadow-sm dark:drop-shadow-[0_2px_14px_rgba(6,182,212,0.4)]">
                 Smarter Business.
               </span>
             </h1>
 
             {/* Subtitle Description */}
-            <p className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 px-2 sm:px-0">
+            <p className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-200 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0 px-2 sm:px-0">
               Master retail &amp; wholesale billing in 0.2s, eliminate near-expiry losses with FEFO radar, and manage multi-branch stock 100% offline.
             </p>
 
@@ -133,7 +133,7 @@ export const HeroSection: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-2.5 sm:gap-3 pt-1 w-full max-w-md mx-auto lg:mx-0 px-1 sm:px-0">
               <Link
                 to="/register"
-                className="w-full sm:w-auto text-sm font-black px-6 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/60 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 hover:from-blue-500 hover:to-cyan-500 text-white cursor-pointer group"
+                className="w-full sm:w-auto text-sm font-black px-6 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/60 hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 dark:from-blue-500 dark:via-cyan-500 dark:to-indigo-600 dark:border dark:border-cyan-400/40 text-white cursor-pointer group dark:shadow-cyan-500/30"
               >
                 <span>Start Free 10-Day Trial</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -143,25 +143,25 @@ export const HeroSection: React.FC = () => {
                 href="https://wa.me/923281302636?text=Salam!%20I%20would%20like%20a%20live%20demo%20of%20MBI%20INVENTRA."
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto text-sm font-extrabold px-6 py-3.5 rounded-xl transition-all duration-300 shadow-xs border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-blue-400 dark:hover:border-blue-500 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer group"
+                className="w-full sm:w-auto text-sm font-extrabold px-6 py-3.5 rounded-xl transition-all duration-300 shadow-xs border border-slate-300 dark:border-cyan-500/40 bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-blue-400 dark:hover:border-cyan-300 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer group dark:shadow-sm dark:shadow-cyan-500/10"
               >
-                <Play className="w-3.5 h-3.5 text-cyan-500 fill-cyan-500 transition-transform group-hover:scale-110" />
+                <Play className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 fill-cyan-500 dark:fill-cyan-400 transition-transform group-hover:scale-110" />
                 <span>Watch Video Demo</span>
               </a>
             </div>
 
             {/* Mobile-Optimized Trust Badges */}
             <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap items-center justify-center lg:justify-start pt-1.5 max-w-md mx-auto lg:mx-0">
-              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs transition-transform hover:scale-105">
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-100 shadow-xs transition-transform hover:scale-105">
                 <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
                 <span className="truncate">256-Bit Vault</span>
               </div>
-              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs transition-transform hover:scale-105">
-                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500 shrink-0" />
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-100 shadow-xs transition-transform hover:scale-105">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500 dark:text-blue-400 shrink-0" />
                 <span className="truncate">0ms Offline</span>
               </div>
-              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 shadow-xs transition-transform hover:scale-105">
-                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-500 shrink-0" />
+              <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-100 shadow-xs transition-transform hover:scale-105">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
                 <span className="truncate">Free Trial</span>
               </div>
             </div>

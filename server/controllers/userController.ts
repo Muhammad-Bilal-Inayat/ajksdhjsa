@@ -15,6 +15,10 @@ const masterUsersFile = path.resolve(process.cwd(), '.master_users.json');
  * In-memory / file-based fallback helper with STRICT tenant isolation.
  * NEVER returns records from other tenants when querying for a specific tenantId.
  */
+// In-Memory Fast Cache for Fallback Users
+let cachedUsersMemory: any[] | null = null;
+let lastSyncFileReadTime = 0;
+
 export function getFallbackUsers(tenantId?: string): any[] {
   if (tenantId && tenantId !== 'all') {
     try {
@@ -25,24 +29,31 @@ export function getFallbackUsers(tenantId?: string): any[] {
     } catch (e) {}
   }
 
-  let allUsers: any[] = [];
-  try {
-    if (fs.existsSync(syncFile)) {
-      const data = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
-      if (Array.isArray(data.mbi_users)) {
-        allUsers = data.mbi_users;
-      } else if (Array.isArray(data.users)) {
-        allUsers = data.users;
-      }
-    }
-  } catch (e) {}
-
-  if (allUsers.length === 0 && fs.existsSync(masterUsersFile)) {
+  const now = Date.now();
+  if (!cachedUsersMemory || now - lastSyncFileReadTime > 30000) {
+    let allUsers: any[] = [];
     try {
-      const data = JSON.parse(fs.readFileSync(masterUsersFile, 'utf-8'));
-      if (Array.isArray(data)) allUsers = data;
+      if (fs.existsSync(syncFile)) {
+        const data = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
+        if (Array.isArray(data.mbi_users)) {
+          allUsers = data.mbi_users;
+        } else if (Array.isArray(data.users)) {
+          allUsers = data.users;
+        }
+      }
     } catch (e) {}
+
+    if (allUsers.length === 0 && fs.existsSync(masterUsersFile)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(masterUsersFile, 'utf-8'));
+        if (Array.isArray(data)) allUsers = data;
+      } catch (e) {}
+    }
+    cachedUsersMemory = allUsers;
+    lastSyncFileReadTime = now;
   }
+
+  const allUsers = cachedUsersMemory || [];
 
   // If a specific tenant is requested, strictly filter by tenant_id
   if (tenantId && tenantId !== 'all') {
@@ -52,28 +63,37 @@ export function getFallbackUsers(tenantId?: string): any[] {
     });
   }
 
-  // If no tenant specified (master admin only), return all
   return allUsers;
 }
 
+let saveDebounceTimer: any = null;
+
 export function saveFallbackUsers(users: any[], tenantId?: string) {
   try {
-    let data: any = {};
-    if (fs.existsSync(syncFile)) {
-      data = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
-    }
+    if (!cachedUsersMemory) cachedUsersMemory = [];
     
     if (tenantId && tenantId !== 'all') {
-      const existingOtherTenants = (data.mbi_users || []).filter((u: any) => {
+      const existingOtherTenants = cachedUsersMemory.filter((u: any) => {
         const uTenant = u.tenant_id || u.tenantId;
         return uTenant && uTenant !== tenantId;
       });
-      data.mbi_users = [...existingOtherTenants, ...users];
+      cachedUsersMemory = [...existingOtherTenants, ...users];
     } else {
-      data.mbi_users = users;
+      cachedUsersMemory = users;
     }
 
-    fs.writeFileSync(syncFile, JSON.stringify(data, null, 2), 'utf-8');
+    // Debounced asynchronous background write to avoid blocking event loop
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
+      try {
+        let data: any = {};
+        if (fs.existsSync(syncFile)) {
+          data = JSON.parse(fs.readFileSync(syncFile, 'utf-8'));
+        }
+        data.mbi_users = cachedUsersMemory;
+        fs.writeFile(syncFile, JSON.stringify(data, null, 2), 'utf-8', () => {});
+      } catch (err) {}
+    }, 500);
   } catch (e) {
     console.warn('Failed to save fallback users to sync data:', e);
   }

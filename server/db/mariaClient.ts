@@ -89,6 +89,6 @@ export async function saveAiChatLogToMariaDb(_log: any): Promise<void> {
   // Handled directly by Master SQLite Vault
 }
 
-export async function getAiChatHistoryFromMariaDb(_tenantId?: string, _userId?: string, _limit = 50): Promise<any[]> {
+export async function getAiChatHistoryFromMariaDb(_optionsOrTenantId?: any, _userId?: string, _limit = 50): Promise<any[]> {
   return [];
 }

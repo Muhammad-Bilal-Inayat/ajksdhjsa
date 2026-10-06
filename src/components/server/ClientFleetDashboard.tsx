@@ -38,7 +38,14 @@ import {
   HardDrive,
   Trash2,
   KeyRound,
-  EyeOff
+  EyeOff,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
+  RotateCcw,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { 
   Tenant, 
@@ -133,6 +140,115 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
   const [showPassVal, setShowPassVal] = useState(false);
   const [isSubmittingPassReset, setIsSubmittingPassReset] = useState(false);
   const [resetStatusMsg, setResetStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Tenant Menu Sequence Reorder state
+  const [reorderMenuTenant, setReorderMenuTenant] = useState<Tenant | null>(null);
+  const [currentMenuSequence, setCurrentMenuSequence] = useState<string[]>([]);
+  const [isSavingMenuSequence, setIsSavingMenuSequence] = useState(false);
+
+  const DEFAULT_MENU_ITEMS_LIST = useMemo(() => [
+    { id: 'dashboard', label: 'POS & Store Dashboard', desc: 'Main Business Overview, Metrics & POS Shortcut' },
+    { id: 'sale', label: 'Sales & Invoices', desc: 'Sale Invoices, Quotations, Orders, Challans' },
+    { id: 'items', label: 'Medicine Inventory & Items', desc: 'Medicine Catalog, Stock Valuation, Low Stock & Shortage List' },
+    { id: 'purchase', label: 'Purchases & Bills', desc: 'Supplier Invoices, Bills & Debit Notes' },
+    { id: 'parties', label: 'Customer & Supplier Khatas', desc: 'Khata Directories, Aging Ledgers & Statements' },
+    { id: 'shifts', label: 'Cashier Shifts & Daybook', desc: 'Cash Drawer Balance, Shift Open/Close & Daybook' },
+    { id: 'expenses', label: 'Store Expenses', desc: 'Daily Operating Costs, Petty Cash & Utilities' },
+    { id: 'bank', label: 'Bank Accounts & Cash', desc: 'Bank Accounts, Cheques & Cash-In-Hand' },
+    { id: 'reports', label: 'Reports & Analytics', desc: 'P&L, Daybook, Stock Expiry (FEFO) & FBR Audits' },
+    { id: 'onlineStore', label: 'Online Customer Store', desc: 'Digital Pharmacy Catalog & Web Orders' },
+    { id: 'bookers', label: 'Order Bookers & Field Sales', desc: 'Field Booker Fleet & Commission Registry' },
+    { id: 'aiGuide', label: 'MBI AI Assistant', desc: 'Clinical Drug Guidance & AI Copilot' },
+    { id: 'notes', label: 'Daily Notes Register', desc: 'Daily Operation & Store Notes' },
+  ], []);
+
+  const openReorderModalForTenant = (target: Tenant) => {
+    const tid = target.tenantId || target.id;
+    let saved: string[] = [];
+    try {
+      const raw = localStorage.getItem(`mbi_tenant_menu_order_${tid}`) || localStorage.getItem(`mbi_menu_order_${tid}`);
+      if (raw) saved = JSON.parse(raw);
+    } catch {}
+
+    if ((!saved || saved.length === 0) && (target as any)?.features?.menu_order) {
+      if (Array.isArray((target as any).features.menu_order)) {
+        saved = (target as any).features.menu_order;
+      }
+    }
+
+    if ((!saved || saved.length === 0) && (target as any)?.features_json) {
+      try {
+        const parsed = typeof (target as any).features_json === 'string' ? JSON.parse((target as any).features_json) : (target as any).features_json;
+        if (parsed?.menu_order && Array.isArray(parsed.menu_order)) {
+          saved = parsed.menu_order;
+        }
+      } catch {}
+    }
+
+    const allIds = DEFAULT_MENU_ITEMS_LIST.map(m => m.id);
+    if (Array.isArray(saved) && saved.length > 0) {
+      const combined = [...saved.filter(id => allIds.includes(id)), ...allIds.filter(id => !saved.includes(id))];
+      setCurrentMenuSequence(combined);
+    } else {
+      setCurrentMenuSequence(allIds);
+    }
+    setReorderMenuTenant(target);
+  };
+
+  const handleMoveMenuItem = (index: number, direction: 'up' | 'down') => {
+    setCurrentMenuSequence(prev => {
+      const copy = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= copy.length) return prev;
+      const temp = copy[index];
+      copy[index] = copy[targetIndex];
+      copy[targetIndex] = temp;
+      return copy;
+    });
+  };
+
+  const handleSaveTenantMenuSequence = async () => {
+    if (!reorderMenuTenant) return;
+    setIsSavingMenuSequence(true);
+    const tid = reorderMenuTenant.tenantId || reorderMenuTenant.id;
+    try {
+      localStorage.setItem(`mbi_tenant_menu_order_${tid}`, JSON.stringify(currentMenuSequence));
+      localStorage.setItem(`mbi_menu_order_${tid}`, JSON.stringify(currentMenuSequence));
+      localStorage.setItem(`mbi_sidebar_menu_config_${tid}`, JSON.stringify(currentMenuSequence));
+
+      // Merge into features
+      const existingFeatures = typeof reorderMenuTenant.features === 'object' && reorderMenuTenant.features ? reorderMenuTenant.features : {};
+      const updatedFeatures = { ...existingFeatures, menu_order: currentMenuSequence };
+
+      // Also persist to Master SQLite server
+      await fetch('/api/fleet/tenants/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reorderMenuTenant.id || tid,
+          tenant_id: tid,
+          tenantId: tid,
+          name: reorderMenuTenant.name,
+          features: updatedFeatures,
+          features_json: JSON.stringify(updatedFeatures),
+          menu_order_json: JSON.stringify(currentMenuSequence),
+          updated_at: new Date().toISOString()
+        })
+      }).catch(() => {});
+
+      // Broadcast events
+      window.dispatchEvent(new CustomEvent('mbi-tenant-menu-order-updated', { detail: { tenantId: tid, menuOrder: currentMenuSequence } }));
+      window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', { detail: { tenantId: tid } }));
+      window.dispatchEvent(new Event('storage'));
+
+      onNotify(`🧭 Sidebar navigation menu order saved and synced for ${reorderMenuTenant.name}!`);
+      setReorderMenuTenant(null);
+    } catch (err) {
+      onNotify('Failed to save menu order.');
+    } finally {
+      setIsSavingMenuSequence(false);
+    }
+  };
 
   // Fetch API keys from server
   const refreshApiKeys = async () => {
@@ -1294,6 +1410,16 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                         <KeyRound className="w-3.5 h-3.5 text-amber-500" />
                         <span>Reset Pass</span>
                       </button>
+
+                      {/* Reorder Menus for this Tenant */}
+                      <button
+                        onClick={() => openReorderModalForTenant(t)}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-600/20 hover:bg-indigo-100 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/40 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        title={`Reorder Sidebar Navigation Menus for ${t.name}`}
+                      >
+                        <ArrowUpDown className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>Reorder Menus</span>
+                      </button>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -1920,6 +2046,146 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder Sidebar Navigation Menus Modal */}
+      {reorderMenuTenant && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-indigo-50/50 dark:bg-indigo-950/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                  <ArrowUpDown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white text-base">Reorder Navigation Menus</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                      {reorderMenuTenant.name}
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
+                      {reorderMenuTenant.tenantId || reorderMenuTenant.id}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReorderMenuTenant(null)}
+                className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Instruction Banner */}
+            <div className="px-5 py-3 bg-amber-50/70 dark:bg-amber-950/20 border-b border-amber-100 dark:border-amber-900/30 flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+              <span>Use Up (▲) and Down (▼) buttons to rearrange the sidebar menus for this specific company.</span>
+            </div>
+
+            {/* Menu List */}
+            <div className="p-4 sm:p-5 max-h-[55vh] overflow-y-auto space-y-2">
+              {currentMenuSequence.map((menuId, index) => {
+                const itemMeta = DEFAULT_MENU_ITEMS_LIST.find(m => m.id === menuId);
+                const label = itemMeta?.label || menuId.toUpperCase();
+                const desc = itemMeta?.desc || itemMeta?.description || 'Main System Module';
+                const isFirst = index === 0;
+                const isLast = index === currentMenuSequence.length - 1;
+
+                return (
+                  <div
+                    key={menuId}
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-black shrink-0">
+                        {index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">
+                            {label}
+                          </span>
+                          <span className="text-[10px] font-mono px-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                            {menuId}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {desc}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Up / Down Controls */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isFirst}
+                        onClick={() => handleMoveMenuItem(index, 'up')}
+                        className="p-1.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+                        title="Move Up"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isLast}
+                        onClick={() => handleMoveMenuItem(index, 'down')}
+                        className="p-1.5 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer shadow-xs"
+                        title="Move Down"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentMenuSequence(DEFAULT_MENU_ITEMS_LIST.map(m => m.id))}
+                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Reset back to standard default menu layout"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reset Default</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setReorderMenuTenant(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingMenuSequence}
+                  onClick={handleSaveTenantMenuSequence}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingMenuSequence ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Order...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save & Apply</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

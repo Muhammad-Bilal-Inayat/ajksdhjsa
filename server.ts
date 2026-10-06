@@ -29,6 +29,7 @@ import { purchaseRouter } from './server/routes/purchaseRoutes';
 import { whatsappRouter } from './server/routes/whatsappRoutes';
 import { cmsRouter } from './server/routes/cmsRoutes';
 import { backupRouter } from './server/routes/backupRoutes';
+import { dashboardRouter } from './server/routes/dashboardRoutes';
 import { apiLimiter } from './server/middleware/rateLimiter';
 import { checkVaultEngineHealth, getMasterVault, getTenantVault } from './server/db/sqliteVaultManager';
 import { getBroadcastHistoryController, markBroadcastSeenController, getHomePagePopupController } from './server/controllers/broadcastController';
@@ -93,6 +94,7 @@ async function startServer() {
   app.use('/api/cms', cmsRouter);
   app.use('/api/master', backupRouter);
   app.use('/api', backupRouter);
+  app.use('/api/dashboard', dashboardRouter);
   app.get(['/api/homepage-popup', '/api/public/homepage-popup'], getHomePagePopupController);
 
   // Helper function to sanitize keys and prevent prototype pollution

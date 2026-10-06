@@ -809,13 +809,20 @@ export function removeCustomApiKey(keyToRemove: string): { success: boolean; mes
 }
 
 /**
- * Execute Gemini API with automatic key rotation and failover
+ * Execute Gemini API with automatic key rotation, tenant live data injection, and failover
  */
 export async function generateAiResponse(
   prompt: string,
-  context: 'home' | 'user' | 'store' | 'checkout' = 'user',
+  context: 'home' | 'user' | 'store' | 'checkout' | 'server' = 'user',
   userPlan: string = 'business',
-  history: { role: 'user' | 'model'; parts: { text: string }[] }[] = []
+  history: { role: 'user' | 'model'; parts: { text: string }[] }[] = [],
+  tenantOptions?: {
+    tenantId?: string;
+    storeName?: string;
+    userName?: string;
+    userEmail?: string;
+    phone?: string;
+  }
 ): Promise<{ text: string; humanLeadTriggered: boolean; keyIndexUsed: number }> {
   const settings = loadSettings();
 
@@ -823,6 +830,10 @@ export async function generateAiResponse(
   if (!settings.isAiEnabledGlobally) {
     throw new Error('MBI AI Assistant is currently disabled globally by Server Master.');
   }
+
+  const tenantId = tenantOptions?.tenantId || 'default';
+  const storeName = tenantOptions?.storeName || 'My Pharmacy';
+  const userName = tenantOptions?.userName || 'User';
 
   // Check plan permission if in user workspace
   if (context === 'user') {
@@ -840,6 +851,25 @@ export async function generateAiResponse(
         keyIndexUsed: 0
       };
     }
+
+    // Check daily quota limit
+    if (tenantId && tenantId !== 'default' && tenantId !== 'global') {
+      const quotaLimits = getTenantAiQuotaLimits(tenantId, userPlan);
+      const usedToday = getTenantTodayUsed(tenantId);
+      if (usedToday >= quotaLimits.effectiveLimit) {
+        return {
+          text: `⚠️ **Daily AI Message Quota Reached (${usedToday}/${quotaLimits.effectiveLimit} msgs)**\n\nAapki pharmacy ka aaj ka daily AI limit (${quotaLimits.effectiveLimit} messages/day) mukammal ho chuka hai. Agar aapko mazeed limit chahiye, to Master Administrator se rabta karein ya kal dobara use karein.`,
+          humanLeadTriggered: false,
+          keyIndexUsed: 0
+        };
+      }
+      incrementTenantDailyUsage(tenantId, {
+        storeName,
+        name: userName,
+        plan: userPlan,
+        targetType: 'tenant'
+      });
+    }
   } else if (context === 'home' && !settings.homePageEnabled) {
     throw new Error('AI Assistant on Home Page is currently offline.');
   }
@@ -855,12 +885,23 @@ export async function generateAiResponse(
 
   // 2. Instant Generic Medicine & Substitution Fast-Path
   const genericMatch = matchGenericAlternative(prompt);
-  if (genericMatch && context !== 'master' as any) {
+  if (genericMatch && context !== 'server') {
     return {
       text: genericMatch,
       humanLeadTriggered: false,
       keyIndexUsed: 0
     };
+  }
+
+  // 3. Fetch Tenant Live Data Snapshot if in User Workspace (Strictly Isolated to this tenantId)
+  let tenantSnapshot: any = null;
+  if (context === 'user' && tenantId && tenantId !== 'default' && tenantId !== 'global') {
+    try {
+      const { getTenantLiveSnapshot } = await import('../controllers/aiDataQueryEngine');
+      tenantSnapshot = await getTenantLiveSnapshot(tenantId);
+    } catch (e) {
+      console.warn('[AI TENANT SNAPSHOT FETCH WARN]', e);
+    }
   }
 
   // Check human support intent
@@ -876,14 +917,18 @@ export async function generateAiResponse(
   // Key pool rotation logic
   const keyPool = getKeyPool();
 
+  // ─────────────────────────────────────────────────────────────
+  // 1. HOME & LANDING PAGE VISITORS AI SYSTEM PROMPT
+  // ─────────────────────────────────────────────────────────────
   const systemInstructionHome = `
 You are 'MBI AI Guide', the smart official multilingual sales & product assistant for MBI INVENTRA — Pakistan's #1 Enterprise Pharmacy POS & ERP Software.
-Your scope is STRICTLY dedicated to Home & Landing Page visitors: explaining software capabilities, lifetime pricing, 10-day free trial, WhatsApp demo, 0.2s POS speed, and 100% offline desktop features.
+Your scope is STRICTLY dedicated to Home & Landing Page visitors: explaining software capabilities, transparent pricing, 10-day free trial, WhatsApp demo, 0.2s POS speed, and 100% offline desktop features.
 
 Key Guidelines:
 - Language: You understand and fluently respond in ANY language the user writes in (Urdu, Roman Urdu e.g. "ye software kaisa hai", "mujhe isky bary me batao", "rate kya hain", English, Hindi, Pashto, Punjabi, etc.). Always match the exact language and dialect of the user!
-- Greetings & Conversational Handling:
-  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly and concisely in their language and immediately introduce what you can do for them: e.g. "Assalam-o-Alaikum! Main MBI INVENTRA ka AI Guide hoon. Main aapko hamaray 0.2s POS Billing Software, 10-Day Free Trial, FEFO Expiry Radar, aur Pricing Plans ke baray mein bata sakta hoon. Aap kis cheez ke baray mein janna chahtay hain?"
+- Greetings & Custom Conversational Messages:
+  - If the user says "hi", "hello", "salam", "hey", "kaisay ho", or any casual greeting, greet them warmly and concisely in their language and immediately introduce what you can do for them:
+    e.g. "Assalam-o-Alaikum! Main MBI INVENTRA ka AI Guide hoon. Main aapko hamaray 0.2s POS Billing Software, 10-Day Free Trial, FEFO Expiry Radar, aur Pricing Plans ke baray mein mukammal rehnumai de sakta hoon. Aap kis cheez ke baray mein janna chahtay hain?"
 - Core Selling Points:
   1. ⚡ 0.2-Second POS Billing: Ultra-fast medicine search & barcode scanning, instant 80mm/58mm thermal receipts.
   2. 🌐 100% Offline Desktop Engine: Runs completely without internet using local database cache; auto-syncs to cloud when connected.
@@ -894,51 +939,90 @@ Key Guidelines:
   - 🥈 **Silver Basic:**
     • Monthly: **Rs. 1,999 / Month**
     • 1-Year (Annual Deal): **Rs. 19,990 / Year** (Save ~17% — Effective Rs. 1,666/mo)
-    • 3-Years: **Rs. 59,970** (Save ~30%) | 5-Years: **Rs. 99,950** (Save ~40%)
-    • Capacity: Up to 2 Staff Accounts (Admin & Cashier) • Up to 2 Pharmacy Firms/Branches • 0.2s POS Invoicing • 100k+ Preloaded Medicine Catalog
+    • 3-Years: **Rs. 59,970** | 5-Years: **Rs. 99,950**
+    • Capacity: Up to 2 Staff Accounts • Up to 2 Pharmacy Firms/Branches • 0.2s POS Invoicing • 100k+ Preloaded Medicine Catalog
   - 🥇 **Gold Business ⭐ (Most Popular):**
     • Monthly: **Rs. 3,999 / Month**
     • 1-Year (Annual Deal): **Rs. 39,990 / Year** (Save ~17% — Effective Rs. 3,333/mo)
-    • 3-Years: **Rs. 119,970** (Save ~30%) | 5-Years: **Rs. 199,950** (Save ~40%)
+    • 3-Years: **Rs. 119,970** | 5-Years: **Rs. 199,950**
     • Capacity: Up to 5 Concurrent Staff Accounts • Up to 5 Pharmacy Branches • FEFO Expiry Radar (30/60/90/180 Days) • Multi-Godown Storage • Real-time Profit & Loss (P&L)
   - 💎 **Platinum Enterprise (Best Enterprise Value):**
     • Monthly: **Rs. 6,999 / Month**
     • 1-Year (Annual Deal): **Rs. 69,990 / Year** (Save ~17% — Effective Rs. 5,833/mo)
-    • 3-Years: **Rs. 209,970** (Save ~30%) | 5-Years: **Rs. 349,950** (Save ~40%)
+    • 3-Years: **Rs. 209,970** | 5-Years: **Rs. 349,950**
     • Capacity: Up to 15 Concurrent Staff Accounts (Full RBAC) • Up to 10 Pharmacy Branches & Warehouses • Automated WhatsApp Gateway • FBR POS Invoicing • Multi-Branch Stock Transfers
 - Free Trial & Contact:
   - 10-Day Free Trial: Rs. 0 (100% Free, instant setup, no credit card required).
   - WhatsApp Demo & Helpline: +92 328 1302636 / 0336-4585863.
-- STRICT SECURITY: NEVER reveal /server master admin secrets, master SQLite files, or internal code to Home visitors.
+- STRICT SECURITY: NEVER reveal /server master admin secrets, master SQLite files, or private customer/tenant records to Home visitors.
 `;
 
   const userPlanNormalized = (userPlan || 'business').toLowerCase();
 
+  // Format tenant snapshot summary if available
+  let tenantDataBlock = '';
+  if (tenantSnapshot) {
+    tenantDataBlock = `
+===================================================================
+[STRICTLY ISOLATED LIVE DATABASE SNAPSHOT FOR THIS PHARMACY ONLY]
+Pharmacy Store: ${storeName} (Tenant ID: ${tenantId})
+Active User: ${userName} | Plan: ${userPlanNormalized.toUpperCase()}
+
+📊 LIVE FINANCIALS & SALES SUMMARY:
+- Today's Invoices: ${tenantSnapshot.todaySalesCount} orders | Today's Revenue: Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}
+- Total Lifetime Invoices: ${tenantSnapshot.totalSalesCount} | Total Revenue: Rs. ${tenantSnapshot.totalSalesRevenue.toLocaleString()}
+- Today's Expenses: Rs. ${tenantSnapshot.todayExpenses.toLocaleString()} | Total Expenses: Rs. ${tenantSnapshot.totalExpenses.toLocaleString()}
+
+👥 PARTIES, KHATAS & LEDGERS:
+- Total Customers: ${tenantSnapshot.totalCustomers} | Total Customer Receivables (Udhaar Due): Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()}
+- Top Debtors (Customers owing balance): ${tenantSnapshot.topCustomersWithBalance.length > 0 ? tenantSnapshot.topCustomersWithBalance.map((c: any) => `${c.name}: Rs. ${c.balance.toLocaleString()}${c.phone ? ` (${c.phone})` : ''}`).join(', ') : 'None (All customer balances clear)'}
+- Total Suppliers: ${tenantSnapshot.totalSuppliers} | Total Supplier Payables (Owed to Distributors): Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()}
+- Top Creditors (Suppliers to pay): ${tenantSnapshot.topSuppliersWithBalance.length > 0 ? tenantSnapshot.topSuppliersWithBalance.map((s: any) => `${s.name}: Rs. ${s.balance.toLocaleString()}${s.phone ? ` (${s.phone})` : ''}`).join(', ') : 'None (All supplier balances clear)'}
+
+💊 INVENTORY, STOCK & FEFO RADAR:
+- Total Medicine Items: ${tenantSnapshot.totalMedicines}
+- Low Stock Items Count: ${tenantSnapshot.lowStockCount}
+  ${tenantSnapshot.lowStockItems.length > 0 ? `(Low stock list: ${tenantSnapshot.lowStockItems.map((i: any) => `${i.name} [Qty: ${i.stock_qty}, Min: ${i.min_stock}]`).join(', ')})` : ''}
+- Near Expiry Items Count (< 90 Days): ${tenantSnapshot.nearExpiryCount}
+  ${tenantSnapshot.nearExpiryItems.length > 0 ? `(Near expiry list: ${tenantSnapshot.nearExpiryItems.map((e: any) => `${e.name} [Batch: ${e.batch || 'N/A'}, Expiry: ${e.expiry}, Qty: ${e.qty}]`).join(', ')})` : ''}
+===================================================================
+`;
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 2. USER WORKSPACE (/user) AI SYSTEM PROMPT
+  // ─────────────────────────────────────────────────────────────
   const systemInstructionUser = `
-You are 'MBI AI Copilot', the intelligent pharmacy assistant embedded inside MBI INVENTRA for the active pharmacy user.
+You are 'MBI AI Copilot', the intelligent dedicated pharmacy assistant embedded inside MBI INVENTRA for pharmacy: '${storeName}'.
 Active Plan: ${userPlanNormalized.toUpperCase()} PLAN.
 
-Key Language & Style:
-- Multilingual Support: Understand and respond fluently in ANY language (Urdu, Roman Urdu e.g. "sale bill kaise banayein", "fefo expiry kya hoti hai", "shortcut keys batao", English, etc.). Match the user's language naturally.
-- Greetings & Conversational Handling:
-  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly in their language and offer operational help: e.g. "Assalam-o-Alaikum! Main aapka MBI INVENTRA Copilot hoon. Main aapko Sale Invoices, Purchase Bills, Expiry Radar, Customer Khata, aur Shortcuts mein madad kar sakta hoon. Aapko kis cheez mein help chahye?"
+${tenantDataBlock}
 
-STRICT TENANT ISOLATION & SCOPE BOUNDARIES:
-- You operate STRICTLY within THIS tenant's pharmacy workspace.
-- NEVER disclose data, names, or records of other tenants or pharmacies.
+Key Language & Style:
+- Multilingual Support: Understand and respond fluently in ANY language (Urdu, Roman Urdu e.g. "aaj ki sale kitni hai", "khatay ka hisab do", "stock aur expiry batao", "shortcut keys batao", English, etc.). Match the user's language naturally.
+- Greetings & Conversational Handling:
+  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly in their language:
+    e.g. "Assalam-o-Alaikum ${userName}! Main aapka MBI INVENTRA Copilot hoon (${storeName}). Main aapko Sale Invoices, Customer & Supplier Khatas, Expiry Radar, Stock Summary aur Reports mein madad kar sakta hoon. Aaj aap kya check karna chahtay hain?"
+
+STRICT TENANT ISOLATION & PRIVACY RULES:
+- You operate STRICTLY within THIS pharmacy tenant (${tenantId}).
+- NEVER disclose data, names, or records of other tenants or pharmacies under any circumstance.
+- If asked about "reports", "today's sale", "customer khata", "supplier balances", "stock", or "profit": use the [LIVE DATABASE SNAPSHOT] provided above to give exact, accurate figures, rupee amounts, and party names!
 - NEVER reveal /server master platform telemetry, master credentials, HWID reset endpoints, or root server database files.
 
-PRACTICAL PHARMACY OPERATIONAL GUIDANCE:
-1. 🧾 POS Billing: Press 'Alt+S' or 'F2' to open fast sale billing. Scan barcode or type medicine name. Enter quantity, pack/loose units, and press Enter to complete transaction.
-2. 🛍️ Purchases & Stock Inward: Press 'Alt+P' to record supplier purchase bills with batch numbers and expiry dates.
-3. ⏰ FEFO Expiry Radar: System flags batches expiring in 30 days (Red alert), 60 days (Orange alert), and 90 days (Yellow alert).
+PRACTICAL PHARMACY GUIDANCE:
+1. 🧾 POS Billing: Press 'Alt+S' or 'F2' to open fast sale billing. Scan barcode or type medicine name.
+2. 🛍️ Purchases: Press 'Alt+P' to record supplier purchase bills with batch numbers and expiry dates.
+3. ⏰ FEFO Expiry Radar: Flag batches expiring in 30 days (Red), 60 days (Orange), and 90 days (Yellow) so stock is returned to distributors in time.
 4. 👥 Khatas & Ledgers: Manage customer udhaar balances and supplier accounts with 1-click WhatsApp PDF ledger sharing.
 5. ⚡ Essential Shortcuts: \`Alt+S\` (New Sale), \`Alt+P\` (New Purchase), \`F2\` (Medicine Search), \`F1\` (Help/Shortcuts), \`Esc\` (Close modal).
 6. 💊 Generic Equivalents: Provide accurate generic salt formulas and Pakistani market alternatives (e.g. Augmentin = Curam/Klavox/Amoxi-Clav).
-7. 🛡️ Offline Mode: Invoices are saved locally in 0ms and auto-synced once internet is restored.
-8. 📞 Live Support: If user asks for human assistance, confirm that their request has been prioritized for the Live Support Desk!
+7. 📞 Live Support: If user asks for human assistance, confirm that their request has been prioritized for the Live Support Desk!
 `;
 
+  // ─────────────────────────────────────────────────────────────
+  // 3. MASTER SERVER (/server) AI SYSTEM PROMPT
+  // ─────────────────────────────────────────────────────────────
   const systemInstructionMaster = `
 You are 'MBI Master Fleet Copilot', the advanced technical assistant for Super Administrators inside the '/server' Master Hub.
 
@@ -952,7 +1036,7 @@ Capabilities & Master Scope:
 Tone: Highly technical, precise, concise, and security-first. Supports English, Urdu, and Roman Urdu.
 `;
 
-  const systemInstruction = (context === 'master' as any || context === 'server' as any)
+  const systemInstruction = (context === 'server')
     ? systemInstructionMaster
     : (context === 'home' ? systemInstructionHome : systemInstructionUser);
 
@@ -1026,8 +1110,14 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
     }
   }
 
-  // If GenAI keys are rate-limited or offline, generate intelligent scoped multilingual response
-  const fallbackText = generateIntelligentFallback(prompt, (context === 'master' as any || context === 'server' as any) ? 'server' : (context === 'home' ? 'home' : 'user'), userPlanNormalized);
+  // If GenAI keys are rate-limited or offline, generate intelligent scoped multilingual response with tenant data
+  const fallbackText = generateIntelligentFallback(
+    prompt, 
+    context === 'server' ? 'server' : (context === 'home' ? 'home' : 'user'), 
+    userPlanNormalized,
+    tenantSnapshot,
+    storeName
+  );
 
   return {
     text: fallbackText,
@@ -1036,7 +1126,13 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
   };
 }
 
-function generateIntelligentFallback(query: string, currentContext: 'home' | 'user' | 'server', currentPlan: string = 'business'): string {
+function generateIntelligentFallback(
+  query: string, 
+  currentContext: 'home' | 'user' | 'server', 
+  currentPlan: string = 'business',
+  tenantSnapshot?: any,
+  storeName?: string
+): string {
   const lower = query.toLowerCase();
 
   // 1. Human support intent
@@ -1050,7 +1146,22 @@ function generateIntelligentFallback(query: string, currentContext: 'home' | 'us
     return `📞 **MBI Live Human Support Dispatch**\n\nMaine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpline par direct rabta kar sakte hain:\n- **WhatsApp Support:** +92 328 1302636\n- **Direct Hotline:** 0336-4585863\n\nRepresentative jald aapse rabta karega!`;
   }
 
-  // 2. SERVER CONTEXT (Super Admin Master Fleet Governance)
+  // 2. Casual greetings & hello / salam
+  if (
+    lower === 'hi' || lower === 'hello' || lower === 'salam' || lower === 'assalam o alaikum' || 
+    lower === 'salam o alaikum' || lower === 'hey' || lower === 'aoa' || lower === 'asalam' ||
+    lower.startsWith('hello') || lower.startsWith('salam') || lower.includes('kaisay ho') || lower.includes('kese ho')
+  ) {
+    if (currentContext === 'server') {
+      return `🛡️ **Assalam-o-Alaikum Master Administrator!**\n\nMain MBI Master Fleet Copilot hoon. Main aapko HWID Device Resets, 12:00 AM Encrypted Backups, Tenant SQLite Vaults, aur Server Telemetry mein assist kar sakta hoon.`;
+    }
+    if (currentContext === 'home') {
+      return `✨ **Assalam-o-Alaikum! Welcome to MBI INVENTRA.**\n\nMain MBI INVENTRA ka AI Guide hoon. Main aapko hamaray **0.2s POS Billing Software**, **10-Day Free Trial**, **FEFO Expiry Radar**, aur **Pricing Plans** ke baray mein mukammal rehnumai de sakta hoon.\n\nAap kis cheez ke baray mein janna chahtay hain?`;
+    }
+    return `✨ **Assalam-o-Alaikum! Main aapka MBI AI Copilot hoon (${storeName || 'Pharmacy'}).**\n\nMain aapki live sales, customer udhaar khatay, supplier payments, stock status, aur reports mein madad ke liye tayyar hoon. Aap mujh se poochein:\n- *"Aaj ki sale kitni hai?"*\n- *"Customer khata summary dikhao"*\n- *"Near expiry ya low stock medicines kaun si hain?"*`;
+  }
+
+  // 3. SERVER CONTEXT (Super Admin Master Fleet Governance)
   if (currentContext === 'server') {
     if (lower.includes('hwid') || lower.includes('reset') || lower.includes('license') || lower.includes('device') || lower.includes('laptop')) {
       return `🛡️ **Master HWID Device Reset & Disaster Recovery Protocol**\n\n- **1-Click Reset:** Super Admin master panel se tenant ke liye \`[Reset Bound HWID]\` trigger karein (\`/api/master/license/reset-hwid\`).\n- **New Computer Binding:** Client jab naye PC par License Key activate karega, system automatically naya Hardware Fingerprint bind kar dega.\n- **Zero Data Loss Restore:** Client ka latest **12:00 AM Midnight Backup Snapshot** naye system par 1-click se restore ho jata hai!`;
@@ -1071,7 +1182,7 @@ function generateIntelligentFallback(query: string, currentContext: 'home' | 'us
     return `🛡️ **MBI Master Fleet Copilot Active**\n\nAap Master Server Admin ke hawalay se koi bhi sawal pooch sakte hain:\n- **HWID Reset & Disaster Recovery**\n- **12:00 AM Automated Midnight Backups**\n- **Tenant-Isolated SQLite Vaults**\n- **173-Switchboard Feature Toggles**\n\nTechnical assistance ke liye Master Helpline: **+92 328 1302636**.`;
   }
 
-  // 3. HOME CONTEXT (Visitors & Landing Page)
+  // 4. HOME CONTEXT (Visitors & Landing Page)
   if (currentContext === 'home') {
     // Pricing & Plans
     if (
@@ -1098,38 +1209,62 @@ function generateIntelligentFallback(query: string, currentContext: 'home' | 'us
       return `⏰ **FEFO (First-Expiry First-Out) Smart Profit Radar**\n\n- **Zero Medicine Waste:** Billing ke waqt system sab se pehle expire hone wala batch auto-deduct karta hai.\n- **30/60/90 Days Color Alerts:** Expire hone se pehle distributors ko medicine wapas bhej kar 18-22% profit margin bachayein.\n- **Expiry Loss Eliminator:** Pharmacy ka hazaron rupay ka nuqsan hamesha ke liye khatam!`;
     }
 
-    // Software Overview / What Can You Do / Introduction (Multilingual Roman Urdu / Urdu / English)
+    // Software Overview / What Can You Do / Introduction
     return `✨ **Assalam-o-Alaikum! Main MBI INVENTRA AI Copilot hoon.**\n\nMain MBI INVENTRA Enterprise Pharmacy POS & ERP Software ke baare mein aapki mukammal rehnumai kar sakta hoon:\n\n1. ⚡ **0.2s Ultra-Fast POS Billing:** Barcode scanning aur 80mm/58mm thermal receipts (\`Alt+S\` / \`F2\`).\n2. 🌐 **100% Offline Engine:** Internet ke baghair continuous billing aur 0ms local response.\n3. ⏰ **FEFO Smart Expiry Radar:** 30/60/90/180 days batch expiry alerts taake expiry loss khatam ho.\n4. 📒 **Customer & Supplier Khatas:** Udhaar aur vasooli ka hisab 1-click WhatsApp PDF receipts ke sath.\n5. 💊 **100k+ Preloaded Medicine Catalog:** Generic salt formulas aur Pakistani brand alternatives.\n6. 💳 **Flexible Pricing Plans:** Basic Rs 1,999/mo | Business Rs 3,999/mo | Enterprise Rs 6,999/mo.\n\nAbhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
   }
 
-  // 4. USER CONTEXT (Active Pharmacy Workspace)
+  // 5. USER CONTEXT (Active Pharmacy Workspace with Live Data)
+  // Real-Time Sales Query
+  if (lower.includes('sale') || lower.includes('revenue') || lower.includes('kamai') || lower.includes('aaj ki') || lower.includes('today')) {
+    if (tenantSnapshot) {
+      return `📊 **Live Sales & Invoices Summary (${storeName || 'My Pharmacy'})**\n\n- **Today's Invoices:** ${tenantSnapshot.todaySalesCount} bills\n- **Today's Total Revenue:** Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}\n- **Total Lifetime Sales:** ${tenantSnapshot.totalSalesCount} invoices (Rs. ${tenantSnapshot.totalSalesRevenue.toLocaleString()})\n\n*💡 Tip: Press \`Alt+S\` to create a new POS sale invoice instantly.*`;
+    }
+  }
+
+  // Customer & Supplier Khata Query
+  if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('customer') || lower.includes('supplier') || lower.includes('party') || lower.includes('parties') || lower.includes('balance') || query.includes('کھاتہ') || query.includes('ادھار')) {
+    if (tenantSnapshot) {
+      const topCustList = tenantSnapshot.topCustomersWithBalance.length > 0
+        ? tenantSnapshot.topCustomersWithBalance.map((c: any) => `• **${c.name}**: Rs. ${c.balance.toLocaleString()}${c.phone ? ` (${c.phone})` : ''}`).join('\n')
+        : '• Sabhi customers ka hisab clear hai.';
+
+      const topSuppList = tenantSnapshot.topSuppliersWithBalance.length > 0
+        ? tenantSnapshot.topSuppliersWithBalance.map((s: any) => `• **${s.name}**: Rs. ${s.balance.toLocaleString()}${s.phone ? ` (${s.phone})` : ''}`).join('\n')
+        : '• Sabhi suppliers ka balance paid hai.';
+
+      return `📒 **Live Parties & Khata Summary (${storeName || 'My Pharmacy'})**\n\n**Customers (Total: ${tenantSnapshot.totalCustomers}):**\n- **Total Udhaar / Receivables:** Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()}\n${topCustList}\n\n**Suppliers / Distributors (Total: ${tenantSnapshot.totalSuppliers}):**\n- **Total Payables Due:** Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()}\n${topSuppList}\n\n*💡 Statement send karne ke liye Parties menu mein WhatsApp share button use karein.*`;
+    }
+  }
+
+  // Reports & Business Overview Query
+  if (lower.includes('report') || lower.includes('summary') || lower.includes('hisab') || lower.includes('audit') || query.includes('رپورٹ')) {
+    if (tenantSnapshot) {
+      return `📈 **Live Business Health & Operations Report (${storeName || 'My Pharmacy'})**\n\n- **Today's Sales:** ${tenantSnapshot.todaySalesCount} Invoices | **Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}**\n- **Today's Expenses:** Rs. ${tenantSnapshot.todayExpenses.toLocaleString()}\n- **Customer Udhaar Due:** Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()} (${tenantSnapshot.totalCustomers} Customers)\n- **Supplier Payables:** Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()} (${tenantSnapshot.totalSuppliers} Suppliers)\n- **Total Stock Catalog:** ${tenantSnapshot.totalMedicines} Medicines\n- **Low Stock Alerts:** ${tenantSnapshot.lowStockCount} items\n- **Near Expiry Alerts (<90 Days):** ${tenantSnapshot.nearExpiryCount} items\n\nMazeed detailed item-wise P&L dekhne ke liye **Reports** menu par click karein.`;
+    }
+  }
+
+  // Stock, Shortage & Expiry Query
+  if (lower.includes('stock') || lower.includes('shortage') || lower.includes('expiry') || lower.includes('fefo') || query.includes('اسٹاک') || query.includes('ایکسپائری')) {
+    if (tenantSnapshot) {
+      const lowList = tenantSnapshot.lowStockItems.length > 0
+        ? tenantSnapshot.lowStockItems.map((i: any) => `• **${i.name}** (Current: ${i.stock_qty}, Min: ${i.min_stock})`).join('\n')
+        : '• Koyi critical low stock item nahi.';
+
+      const expList = tenantSnapshot.nearExpiryItems.length > 0
+        ? tenantSnapshot.nearExpiryItems.map((e: any) => `• **${e.name}** (Batch: ${e.batch || 'N/A'}, Expiry: ${e.expiry}, Qty: ${e.qty})`).join('\n')
+        : '• Next 90 days mein koyi medicine expire nahi ho rahi.';
+
+      return `📦 **Live Inventory & FEFO Expiry Radar (${storeName || 'My Pharmacy'})**\n\n- **Total Catalog Medicines:** ${tenantSnapshot.totalMedicines}\n- **Low Stock Items (${tenantSnapshot.lowStockCount}):**\n${lowList}\n\n- **Near Expiry Stock (${tenantSnapshot.nearExpiryCount} items < 90 Days):**\n${expList}\n\n*💡 FEFO Radar se stock check karke distributors ko return claim bhejain.*`;
+    }
+  }
+
   // POS Shortcuts & Billing
-  if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || lower.includes('sale') || query.includes('شارٹ کٹ') || query.includes('بل')) {
+  if (lower.includes('shortcut') || lower.includes('f1') || lower.includes('f2') || lower.includes('pos') || lower.includes('keyboard') || lower.includes('bill') || query.includes('شارٹ کٹ') || query.includes('بل')) {
     return `⚡ **Essential MBI POS Fast Billing Shortcuts**\n\n- \`Alt + S\` : Open New Sale Invoice instantly\n- \`Alt + P\` : Open New Purchase Bill Inward\n- \`F2\` / \`Tab\` : Focus Instant Medicine & Barcode Search\n- \`F1\` : Open Keyboard Shortcuts Master Guide\n- \`Enter\` : Rapid Line-Item Addition\n- \`Esc\` : Minimize or Close Active Transaction Dock\n\n*Engineered for high-volume rush hours with 0.2s transaction speed.*`;
   }
 
-  // FEFO Expiry Radar
-  if (lower.includes('fefo') || lower.includes('expiry') || lower.includes('radar') || lower.includes('waste') || lower.includes('near expiry') || query.includes('ایکسپائری')) {
-    return `⏰ **FEFO (First-Expiry, First-Out) Smart Profit Radar**\n\n- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.\n- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.\n- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
-  }
-
-  // Khatas & Ledgers
-  if (lower.includes('khata') || lower.includes('udhaar') || lower.includes('ledger') || lower.includes('customer') || lower.includes('supplier') || query.includes('کھاتہ') || query.includes('ادھار')) {
-    return `📒 **Customer & Supplier Double-Entry Ledgers**\n\n- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.\n- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.\n- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
-  }
-
-  // Shortage Register
-  if (lower.includes('shortage') || lower.includes('short') || lower.includes('reorder') || lower.includes('stock') || query.includes('شارٹیج')) {
-    return `⚠️ **Smart Shortage Register & Auto Reordering**\n\n- **Customer Demands:** Jo medicine stock mein na ho, cashier foran Shortage Register mein add kar sakta hai.\n- **Purchase Order Auto-Fill:** Supplier purchase order banatay waqt shortage items automatically list mein shamil ho jatay hain.`;
-  }
-
-  // Staff PINs & Shift Closing
-  if (lower.includes('staff') || lower.includes('pin') || lower.includes('shift') || lower.includes('drawer') || lower.includes('cashier')) {
-    return `🔐 **Staff PINs & Cashier Shift Closing**\n\n- **4-Digit Staff PIN:** Har cashier ko private PIN dein taake unauthorized discounts ya deletions block hon.\n- **Shift Float Reconciliation:** Day-end par drawer cash count match karein aur shift summary report print karein.`;
-  }
-
-  // General user workspace fallback in Urdu / Roman Urdu / English
-  return `✨ **MBI AI Copilot Response**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.\n- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.\n- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.\n\nAgar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
+  // General user workspace fallback
+  return `✨ **MBI AI Copilot Response (${storeName || 'My Pharmacy'})**\n\nMain aapke Pharmacy Workspace ka intelligent AI guide hoon:\n\n- **Today's Sales & Reports:** Sales summary ya financial report poochein.\n- **Customer & Supplier Khatas:** Udhaar hisab aur payables check karein.\n- **FEFO Expiry & Stock:** Near expiry ya low stock status janiye.\n- **Fast POS Shortcuts:** \`Alt+S\` (New Sale), \`F2\` (Medicine Search).\n\nAap kis cheez ke baray mein janna chahtay hain?`;
 }
 
 export function getAiConfigStatus() {
@@ -1148,4 +1283,242 @@ export function getAiConfigStatus() {
     activeKeyIndex: currentKeyIndex % pool.length,
     keyHealthMetrics
   };
+}
+
+// ----------------------------------------------------
+// PERSISTENT PER-TENANT AI QUOTAS & LIMIT OVERRIDES
+// ----------------------------------------------------
+const QUOTAS_FILE = path.resolve(process.cwd(), '.ai_tenant_quotas.json');
+
+export interface TenantQuotaRecord {
+  targetId: string;
+  targetType: 'tenant' | 'user';
+  name?: string;
+  storeName?: string;
+  plan: string;
+  customLimit: number;
+  todayUsed?: number;
+  lastUsedDate?: string;
+  updatedAt: string;
+}
+
+export function loadTenantQuotas(): Record<string, TenantQuotaRecord> {
+  try {
+    if (fs.existsSync(QUOTAS_FILE)) {
+      return JSON.parse(fs.readFileSync(QUOTAS_FILE, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('Error reading tenant AI quotas:', err);
+  }
+  return {};
+}
+
+export function saveTenantQuotas(quotas: Record<string, TenantQuotaRecord>) {
+  try {
+    fs.writeFileSync(QUOTAS_FILE, JSON.stringify(quotas, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving tenant AI quotas:', err);
+  }
+}
+
+export function getTenantTodayUsed(targetId: string): number {
+  const quotas = loadTenantQuotas();
+  const rec = quotas[targetId];
+  if (!rec) return 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (rec.lastUsedDate !== todayStr) {
+    return 0;
+  }
+  return rec.todayUsed || 0;
+}
+
+export function incrementTenantDailyUsage(
+  targetId: string, 
+  meta?: { name?: string; storeName?: string; plan?: string; targetType?: 'tenant' | 'user' }
+): number {
+  const quotas = loadTenantQuotas();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const existing = quotas[targetId] || {
+    targetId,
+    targetType: meta?.targetType || 'tenant',
+    name: meta?.name || targetId,
+    storeName: meta?.storeName || targetId,
+    plan: meta?.plan || 'Business',
+    customLimit: 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existing.lastUsedDate !== todayStr) {
+    existing.todayUsed = 1;
+    existing.lastUsedDate = todayStr;
+  } else {
+    existing.todayUsed = (existing.todayUsed || 0) + 1;
+  }
+  if (meta?.storeName) existing.storeName = meta.storeName;
+  if (meta?.plan) existing.plan = meta.plan;
+  existing.updatedAt = new Date().toISOString();
+  quotas[targetId] = existing;
+  saveTenantQuotas(quotas);
+  return existing.todayUsed;
+}
+
+export function resetTenantDailyUsage(targetId: string): TenantQuotaRecord {
+  const quotas = loadTenantQuotas();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  if (quotas[targetId]) {
+    quotas[targetId].todayUsed = 0;
+    quotas[targetId].lastUsedDate = todayStr;
+    quotas[targetId].updatedAt = new Date().toISOString();
+  } else {
+    quotas[targetId] = {
+      targetId,
+      targetType: 'tenant',
+      name: targetId,
+      storeName: targetId,
+      plan: 'Basic',
+      customLimit: 0,
+      todayUsed: 0,
+      lastUsedDate: todayStr,
+      updatedAt: new Date().toISOString()
+    };
+  }
+  saveTenantQuotas(quotas);
+  return quotas[targetId];
+}
+
+export function setTenantQuotaOverride(
+  targetId: string, 
+  customLimit: number, 
+  meta?: { name?: string; storeName?: string; plan?: string; targetType?: 'tenant' | 'user' }
+) {
+  const quotas = loadTenantQuotas();
+  const existing = quotas[targetId] || {};
+  quotas[targetId] = {
+    ...existing,
+    targetId,
+    targetType: meta?.targetType || existing.targetType || 'tenant',
+    name: meta?.name || existing.name || targetId,
+    storeName: meta?.storeName || existing.storeName || targetId,
+    plan: meta?.plan || existing.plan || 'Business',
+    customLimit: Number(customLimit),
+    updatedAt: new Date().toISOString()
+  };
+  saveTenantQuotas(quotas);
+  return quotas[targetId];
+}
+
+export function getTenantAiQuotaLimits(targetId: string, plan: string = 'Basic'): { baseLimit: number; customLimit: number | null; effectiveLimit: number; isOverridden: boolean } {
+  const normalized = (plan || 'Basic').toLowerCase();
+  let baseLimit = 20;
+  if (normalized.includes('enterprise') || normalized.includes('platinum')) {
+    baseLimit = 200;
+  } else if (normalized.includes('business') || normalized.includes('gold')) {
+    baseLimit = 50;
+  }
+
+  const quotas = loadTenantQuotas();
+  const override = quotas[targetId];
+  if (override && typeof override.customLimit === 'number' && override.customLimit > 0) {
+    return {
+      baseLimit,
+      customLimit: override.customLimit,
+      effectiveLimit: override.customLimit,
+      isOverridden: true
+    };
+  }
+
+  return {
+    baseLimit,
+    customLimit: null,
+    effectiveLimit: baseLimit,
+    isOverridden: false
+  };
+}
+
+export function getAllTenantAiQuotasList() {
+  const quotas = loadTenantQuotas();
+  const sessions = loadChatSessions();
+  const results: any[] = [];
+  const seenIds = new Set<string>();
+
+  // 1. Gather from SQLite Master Vault mbi_tenants
+  try {
+    const { getMasterVault } = require('../db/sqliteVaultManager');
+    const masterDb = getMasterVault();
+    const tenants: any[] = masterDb.prepare(`SELECT id, tenant_id, name, owner_name, plan, status FROM mbi_tenants`).all();
+    if (Array.isArray(tenants)) {
+      for (const t of tenants) {
+        const id = t.tenant_id || t.id;
+        seenIds.add(id);
+        const quotaInfo = getTenantAiQuotaLimits(id, t.plan);
+        const todayUsed = getTenantTodayUsed(id);
+        results.push({
+          targetId: id,
+          targetType: 'tenant',
+          name: t.name || t.owner_name || id,
+          storeName: t.name || id,
+          ownerName: t.owner_name || 'Store Owner',
+          plan: t.plan || 'Basic',
+          status: t.status || 'Active',
+          baseLimit: quotaInfo.baseLimit,
+          customLimit: quotaInfo.customLimit,
+          effectiveLimit: quotaInfo.effectiveLimit,
+          isOverridden: quotaInfo.isOverridden,
+          todayUsed,
+          updatedAt: quotas[id]?.updatedAt || null
+        });
+      }
+    }
+  } catch (e) {}
+
+  // 2. Add sessions if not already in list
+  for (const s of sessions) {
+    const id = s.tenantId || s.userId;
+    if (id && !seenIds.has(id) && id !== 'default') {
+      seenIds.add(id);
+      const quotaInfo = getTenantAiQuotaLimits(id, s.plan);
+      const todayUsed = getTenantTodayUsed(id);
+      results.push({
+        targetId: id,
+        targetType: s.tenantId ? 'tenant' : 'user',
+        name: s.storeName || s.userName || id,
+        storeName: s.storeName || id,
+        ownerName: s.userName || 'User',
+        plan: s.plan || 'Basic',
+        status: 'Active',
+        baseLimit: quotaInfo.baseLimit,
+        customLimit: quotaInfo.customLimit,
+        effectiveLimit: quotaInfo.effectiveLimit,
+        isOverridden: quotaInfo.isOverridden,
+        todayUsed,
+        updatedAt: quotas[id]?.updatedAt || null
+      });
+    }
+  }
+
+  // 3. Add any overrides not already in list
+  for (const [id, rec] of Object.entries(quotas)) {
+    if (!seenIds.has(id)) {
+      seenIds.add(id);
+      const quotaInfo = getTenantAiQuotaLimits(id, rec.plan);
+      const todayUsed = getTenantTodayUsed(id);
+      results.push({
+        targetId: id,
+        targetType: rec.targetType || 'tenant',
+        name: rec.storeName || rec.name || id,
+        storeName: rec.storeName || id,
+        ownerName: rec.name || 'Custom Override',
+        plan: rec.plan || 'Business',
+        status: 'Active',
+        baseLimit: quotaInfo.baseLimit,
+        customLimit: quotaInfo.customLimit,
+        effectiveLimit: quotaInfo.effectiveLimit,
+        isOverridden: true,
+        todayUsed,
+        updatedAt: rec.updatedAt
+      });
+    }
+  }
+
+  return results;
 }

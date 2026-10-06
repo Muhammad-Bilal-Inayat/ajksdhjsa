@@ -44,9 +44,18 @@ export function generateOperationId(
 }
 
 /**
- * Local in-memory deduplication set to prevent double execution during rapid UI events
+ * Local in-memory deduplication set to prevent double execution during rapid UI events.
+ * Memory Bounded: Maximum 2,000 operation IDs retained to prevent memory accumulation during 1000+ daily bills.
  */
 const processedOperationIds = new Set<string>();
+
+function addProcessedOperationId(id: string) {
+  if (processedOperationIds.size >= 2000) {
+    const firstKey = processedOperationIds.values().next().value;
+    if (firstKey) processedOperationIds.delete(firstKey);
+  }
+  processedOperationIds.add(id);
+}
 
 export class OutboxSyncEngine {
   private static instance: OutboxSyncEngine;

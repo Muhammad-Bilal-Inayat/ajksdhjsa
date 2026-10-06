@@ -746,7 +746,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
     setRapidRow({
       hsn: med.hsnCode || '3004.9090',
       batch: med.batchNumber || `B-${Date.now().toString().slice(-4)}`,
-      exp: med.expiryDate || '12/2028',
+      exp: med.expiryDate ? (med.expiryDate.includes('-') ? med.expiryDate.slice(0, 10) : med.expiryDate) : '',
       mrp: med.mrp || med.sellingPrice || 0,
       qty: 0,
       free_qty: 0,
@@ -775,7 +775,7 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
       name: nameToUse,
       hsnCode: rapidRow.hsn || '3004.9090',
       batchNumber: rapidRow.batch || `B-${Date.now().toString().slice(-4)}`,
-      expiryDate: rapidRow.exp || '12/2028',
+      expiryDate: rapidRow.exp || (selectedRapidMed?.expiryDate ? selectedRapidMed.expiryDate.slice(0, 10) : ''),
       mrp: Number(rapidRow.mrp) || 0,
       quantity: Number(rapidRow.qty) || 0,
       freeQuantity: Number(rapidRow.free_qty) || 0,
@@ -1802,11 +1802,13 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                                 )}
                                 {columnSettings.expDate && (
                                   <input
-                                    type="text"
-                                    placeholder="Exp (MM/YY)"
-                                    value={item.expiryDate || ''}
+                                    type="date"
+                                    value={item.expiryDate ? (item.expiryDate.includes('-') ? item.expiryDate.slice(0, 10) : item.expiryDate) : ''}
+                                    onClick={(e) => {
+                                      try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch(err) {}
+                                    }}
                                     onChange={(e) => handleUpdateItem(index, { expiryDate: e.target.value })}
-                                    className="text-[10px] font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[80px] text-slate-700 dark:text-slate-300"
+                                    className="text-[10px] font-mono px-1 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded max-w-[110px] text-slate-700 dark:text-slate-300 cursor-pointer"
                                   />
                                 )}
                                 {columnSettings.hsnSac && (
@@ -2054,16 +2056,18 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                       </td>
                     )}
 
-                    {/* Exp Date */}
+                    {/* Exp Date with Calendar Picker */}
                     {columnSettings.expDate && (
                       <td className="p-1">
                         <input
-                          type="text"
-                          value={rapidRow.exp}
+                          type="date"
+                          value={rapidRow.exp ? (rapidRow.exp.includes('-') ? rapidRow.exp.slice(0, 10) : rapidRow.exp) : ''}
+                          onClick={(e) => {
+                            try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch(err) {}
+                          }}
                           onChange={(e) => setRapidRow({ ...rapidRow, exp: e.target.value })}
                           onKeyDown={(e) => { if (e.key === 'Enter') commitRapidRow(); }}
-                          placeholder="mm/dd/yyyy"
-                          className="w-full px-1.5 py-1 text-xs bg-white dark:bg-slate-900 border rounded-lg text-center font-mono"
+                          className="w-full px-1.5 py-1 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-center font-mono cursor-pointer focus:ring-2 focus:ring-blue-500"
                         />
                       </td>
                     )}
@@ -2280,17 +2284,19 @@ export const AddPurchaseModal: React.FC<PurchaseBillModalProps> = ({
                       </td>
                     )}
 
-                    {/* Exp. Date */}
+                    {/* Exp. Date with Calendar Picker */}
                     {columnSettings.expDate && (
                       <td className="p-1">
                         <input
-                          type="text"
+                          type="date"
                           data-pcell={`exp-${index}`}
-                          value={row.expiryDate}
+                          value={row.expiryDate ? (row.expiryDate.includes('-') ? row.expiryDate.slice(0, 10) : row.expiryDate) : ''}
+                          onClick={(e) => {
+                            try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch(err) {}
+                          }}
                           onChange={(e) => handleUpdateItem(index, { expiryDate: e.target.value })}
                           onKeyDown={(e) => handleCellKeyDown(e, index, 'exp')}
-                          placeholder="MM/YY"
-                          className="w-full px-1.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center"
+                          className="w-full px-1.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono text-center cursor-pointer"
                         />
                       </td>
                     )}

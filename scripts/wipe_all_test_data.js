@@ -58,6 +58,7 @@ const jsonFilesToReset = [
   { file: '.master_audit_logs.json', content: '[]' },
   { file: '.ai_chat_sessions.json', content: '[]' },
   { file: '.ai_support_leads.json', content: '[]' },
+  { file: '.ai_tenant_quotas.json', content: '{}' },
   { file: '.broadcast_history.json', content: '[]' },
   { file: '.testimonials_store.json', content: '[]' }
 ];

@@ -292,11 +292,13 @@ export const InvoiceItemsGrid: React.FC<InvoiceItemsGridProps> = ({
                     <td className="py-1.5 px-2">
                       <div className="relative">
                         <input
-                          type="text"
-                          value={row.expiryDate || ''}
-                          placeholder="MM/YYYY"
+                          type="date"
+                          value={row.expiryDate ? (row.expiryDate.includes('-') ? row.expiryDate.slice(0, 10) : row.expiryDate) : ''}
+                          onClick={(e) => {
+                            try { (e.currentTarget as HTMLInputElement).showPicker?.(); } catch(err) {}
+                          }}
                           onChange={(e) => onUpdateItem(row.tempId, { expiryDate: e.target.value })}
-                          className={`w-full bg-slate-50/80 dark:bg-slate-800 border rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:ring-2 focus:ring-blue-500 ${
+                          className={`w-full bg-slate-50/80 dark:bg-slate-800 border rounded-lg px-2 py-1.5 text-xs font-mono text-center focus:ring-2 focus:ring-blue-500 cursor-pointer ${
                             isExpired
                               ? 'border-rose-400 bg-rose-50 text-rose-700 font-bold'
                               : isNearExpiry

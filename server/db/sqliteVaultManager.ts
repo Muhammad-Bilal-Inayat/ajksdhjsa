@@ -180,11 +180,25 @@ export function getMasterVault(): DatabaseSync {
       image_url TEXT,
       cta_label TEXT DEFAULT 'Get Started Now',
       cta_url TEXT DEFAULT '/register',
+      cta_style TEXT DEFAULT 'gradient_indigo',
+      secondary_cta_label TEXT DEFAULT 'Maybe Later',
+      secondary_cta_url TEXT DEFAULT '',
       type TEXT DEFAULT 'special_offer',
       auto_show_delay_ms INTEGER DEFAULT 1200,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  const popupCols = [
+    "cta_style TEXT DEFAULT 'gradient_indigo'",
+    "secondary_cta_label TEXT DEFAULT 'Maybe Later'",
+    "secondary_cta_url TEXT DEFAULT ''"
+  ];
+  for (const col of popupCols) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_homepage_popup ADD COLUMN ${col};`);
+    } catch (e) {}
+  }
 
   // Dynamically add any missing columns so SQLite master hub never rejects payload fields
   const tenantColumns = [
@@ -248,14 +262,32 @@ export function getMasterVault(): DatabaseSync {
   return masterDbInstance;
 }
 
+const MAX_CACHED_TENANTS = 500;
+
 /**
- * Initialize and get a private Tenant Vault Database
+ * Initialize and get a private Tenant Vault Database (Physical File Isolation)
  */
 export function getTenantVault(tenantId: string): DatabaseSync {
   const cleanId = (tenantId || 'tenant_default').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
 
   if (tenantDbCache.has(cleanId)) {
-    return tenantDbCache.get(cleanId)!;
+    const db = tenantDbCache.get(cleanId)!;
+    // Refresh LRU order (delete & re-set)
+    tenantDbCache.delete(cleanId);
+    tenantDbCache.set(cleanId, db);
+    return db;
+  }
+
+  // Evict oldest connection if cache exceeds maximum allowed open vaults
+  if (tenantDbCache.size >= MAX_CACHED_TENANTS) {
+    const oldestKey = tenantDbCache.keys().next().value;
+    if (oldestKey) {
+      try {
+        const oldDb = tenantDbCache.get(oldestKey);
+        oldDb?.close();
+      } catch (err) {}
+      tenantDbCache.delete(oldestKey);
+    }
   }
 
   const tenantDbPath = path.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);

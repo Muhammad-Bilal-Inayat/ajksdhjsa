@@ -46,8 +46,45 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
   const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
 
   const metrics = useMemo(() => {
-    const todaySales = safeInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) || Number(inv.totalAmount) || 0), 0);
-    const todayProfit = Math.round(todaySales * 0.30); // ~30% pharmacy gross profit estimate or real COGS
+    const isToday = (dateStr?: string) => {
+      if (!dateStr) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+      const now = new Date();
+      return (
+        (d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) ||
+        d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)
+      );
+    };
+
+    const todayInvs = safeInvoices.filter(inv => {
+      if (!inv) return false;
+      return isToday(inv.date || inv.createdAt);
+    });
+
+    const todaySales = todayInvs.reduce((sum, inv) => sum + (Number(inv.grandTotal) || Number(inv.totalAmount) || 0), 0);
+
+    // Calculate real profit ONLY when medicine has a valid purchase cost
+    let realProfit = 0;
+    let hasValidPurchaseCost = false;
+
+    todayInvs.forEach(inv => {
+      inv.items?.forEach(item => {
+        const med = safeMedicines.find(m => m.id === item.medicineId || m.name?.toLowerCase().trim() === item.name?.toLowerCase().trim());
+        const costPrice = Number(med?.purchasePrice) || Number((item as any)?.purchasePrice) || 0;
+        const itemQty = Number(item.quantity) || 1;
+        const itemSelling = Number(item.total) || (itemQty * (Number(item.pricePerUnit) || Number(item.sellingPrice) || 0));
+
+        if (costPrice > 0) {
+          hasValidPurchaseCost = true;
+          const itemCost = itemQty * costPrice;
+          realProfit += (itemSelling - itemCost);
+        }
+      });
+    });
+
+    // Real profit only when purchase price exists; no fake 30% multiplier!
+    const todayProfit = hasValidPurchaseCost ? Math.round(Math.max(0, realProfit)) : 0;
     
     const customersDue = totalReceivables !== undefined 
       ? totalReceivables 
@@ -66,13 +103,14 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
     const totalItems = safeMedicines.reduce((sum, m) => sum + (Number(m.quantity) || 0), 0);
     const totalSkus = safeMedicines.length;
 
-    const effectiveCashInHand = cashInHand !== undefined 
+    const effectiveCashInHand = (cashInHand !== undefined && cashInHand > 0)
       ? cashInHand 
       : Math.max(0, todaySales);
 
     return {
       todaySales: todaySales || 0,
       todayProfit: todayProfit || 0,
+      hasValidPurchaseCost,
       cashInHand: effectiveCashInHand || 0,
       customersDue: customersDue || 0,
       suppliersDue: suppliersDue || 0,
@@ -134,7 +172,9 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
             <TrendingUp className="w-3 h-3" /> {metrics.todayProfit > 0 ? '↑ Margin' : '0%'}
           </span>
           <span className="text-[11px] text-slate-400 font-medium">
-            {metrics.todayProfit > 0 ? `vs. yesterday (${maskValue(Math.round(metrics.todayProfit * 0.85))})` : 'No profits today'}
+            {metrics.hasValidPurchaseCost && metrics.todayProfit > 0 
+              ? `Net Margin: ${metrics.todaySales > 0 ? Math.round((metrics.todayProfit / metrics.todaySales) * 100) : 0}%` 
+              : 'Purchase cost not set'}
           </span>
         </div>
       </div>

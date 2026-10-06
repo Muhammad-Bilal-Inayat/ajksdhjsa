@@ -1,13 +1,13 @@
 [
   {
-    "id": "sess_usr_no_tenant_1790950569027",
-    "userId": "usr_no_tenant",
-    "userName": "No Active Tenants",
+    "id": "sess_pub_1791219170275_5ok4",
+    "userId": "usr_client",
+    "userName": "Pharmacy Partner",
     "userEmail": "",
     "userPhone": "",
-    "storeName": "No Tenant Registered",
-    "tenantId": "usr_no_tenant",
-    "plan": "Basic",
+    "storeName": "Pharmacy Store",
+    "tenantId": "tenant-01",
+    "plan": "Business / Pro",
     "pageContext": "user",
     "status": "active_ai",
     "isHumanAssigned": false,
@@ -16,16 +16,16 @@
     "unreadCountForUser": 0,
     "lastMessage": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
     "lastMessageSender": "ai",
-    "lastMessageAt": "2026-10-02T14:16:09.093Z",
-    "createdAt": "2026-10-02T14:16:09.093Z",
-    "updatedAt": "2026-10-02T14:16:09.093Z",
+    "lastMessageAt": "2026-10-06T08:10:30.617Z",
+    "createdAt": "2026-10-06T08:10:30.617Z",
+    "updatedAt": "2026-10-06T08:10:30.617Z",
     "messages": [
       {
-        "id": "msg_init_1790950569093",
+        "id": "msg_init_1791274230617",
         "sender": "ai",
         "senderName": "MBI AI Guide",
         "text": "Assalam-o-Alaikum! Main MBI AI Guide aur Live Support Assistant hoon. Main aapki kya madad kar sakta hoon?",
-        "timestamp": "2026-10-02T14:16:09.093Z",
+        "timestamp": "2026-10-06T08:10:30.617Z",
         "status": "delivered"
       }
     ]

@@ -35,13 +35,19 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('GENERAL');
   const isEditing = Boolean(medicine && medicine.id);
-  const { tenant, tenantId } = useAuth();
+  const { tenant, tenantId, userProfile, activeUser, currentUser } = useAuth();
   const { settings } = useSettings();
 
+  const rawPlan = (tenant as any)?.plan || (userProfile as any)?.plan || (activeUser as any)?.plan || (currentUser as any)?.plan || localStorage.getItem('mbi_active_plan_tier') || 'Basic';
   const effectiveTid = tenantId || tenant?.id;
   const currentPlan = getCurrentPlan(effectiveTid);
-  const isMarginAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('live_profit_margin', currentPlan, effectiveTid); // Gold & Platinum only
-  const isControlledAllowed = isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('controlled_generic_registry', currentPlan, effectiveTid) || hasPlanFeature('narcotics_register', currentPlan, effectiveTid); // Gold (Business) & Platinum (Enterprise)
+  
+  const isBasic = String(rawPlan).toLowerCase().includes('basic') || String(rawPlan).toLowerCase().includes('silver') || currentPlan === 'BASIC';
+  const isGoldOrPlatinum = !isBasic && (currentPlan === 'BUSINESS' || currentPlan === 'ENTERPRISE' || isPlanAtLeast(currentPlan, 'BUSINESS'));
+
+  const isMarginAllowed = isGoldOrPlatinum && (isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('live_profit_margin', currentPlan, effectiveTid)); // Gold & Platinum only
+  const isGenericAllowed = isGoldOrPlatinum && (isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('generic_formula_search', currentPlan, effectiveTid) || hasPlanFeature('generic_master', currentPlan, effectiveTid)); // Gold & Platinum only
+  const isControlledAllowed = isGoldOrPlatinum && (isPlanAtLeast(currentPlan, 'BUSINESS') || hasPlanFeature('controlled_generic_registry', currentPlan, effectiveTid) || hasPlanFeature('narcotics_register', currentPlan, effectiveTid)); // Gold (Business) & Platinum (Enterprise)
   const isOnlineAndImagesAllowed = isPlanAtLeast(currentPlan, 'ENTERPRISE') || hasPlanFeature('online_storefront', currentPlan, effectiveTid) || hasPlanFeature('onlineStore', currentPlan, effectiveTid) || hasPlanFeature('sync_online_storefront', currentPlan, effectiveTid); // Platinum (Enterprise) only
 
   // Core Form State
@@ -483,57 +489,59 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
                     />
                   </div>
 
-                  {/* Generic Salt Formula */}
-                  <div className="sm:col-span-2 space-y-1 relative">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                        <span>Generic Formula / Salt Composition</span>
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setGenericSearchOpen(!genericSearchOpen)}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
-                      >
-                        {genericSearchOpen ? 'Close Salt Suggestions' : 'Pick from Salt Master'}
-                      </button>
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="e.g. Paracetamol / Amoxicillin + Clavulanic Acid"
-                      value={formData.genericName || ''}
-                      className="w-full rounded-xl border border-slate-300 p-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      onChange={(e) => setFormData({ ...formData, genericName: e.target.value, saltComposition: e.target.value })}
-                    />
-
-                    {/* Salt Master Suggestions Dropdown */}
-                    {genericSearchOpen && (
-                      <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-indigo-200 p-2 max-h-48 overflow-y-auto space-y-1">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
-                          Standard Generic Salts Database
-                        </div>
-                        {DEFAULT_GENERIC_MASTERS.map((gen) => (
-                          <button
-                            key={gen.id}
-                            type="button"
-                            onClick={() => handleSelectGenericMaster(gen)}
-                            className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-indigo-50 text-xs flex items-center justify-between transition cursor-pointer"
-                          >
-                            <div>
-                              <div className="font-bold text-slate-900">{gen.genericName}</div>
-                              <div className="text-[10px] text-slate-500">{gen.therapeuticClass} • {gen.strength}</div>
-                            </div>
-                            {gen.isControlled && (
-                              <span className="text-[9px] px-1.5 py-0.5 bg-purple-100 text-purple-700 font-bold rounded">
-                                Controlled
-                              </span>
-                            )}
-                          </button>
-                        ))}
+                  {/* Generic Salt Formula (Gold & Platinum Only) */}
+                  {isGenericAllowed && (
+                    <div className="sm:col-span-2 space-y-1 relative">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                          <span>Generic Formula / Salt Composition</span>
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setGenericSearchOpen(!genericSearchOpen)}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                        >
+                          {genericSearchOpen ? 'Close Salt Suggestions' : 'Pick from Salt Master'}
+                        </button>
                       </div>
-                    )}
-                  </div>
+
+                      <input
+                        type="text"
+                        placeholder="e.g. Paracetamol / Amoxicillin + Clavulanic Acid"
+                        value={formData.genericName || ''}
+                        className="w-full rounded-xl border border-slate-300 p-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        onChange={(e) => setFormData({ ...formData, genericName: e.target.value, saltComposition: e.target.value })}
+                      />
+
+                      {/* Salt Master Suggestions Dropdown */}
+                      {genericSearchOpen && (
+                        <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-indigo-200 p-2 max-h-48 overflow-y-auto space-y-1">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
+                            Standard Generic Salts Database
+                          </div>
+                          {DEFAULT_GENERIC_MASTERS.map((gen) => (
+                            <button
+                              key={gen.id}
+                              type="button"
+                              onClick={() => handleSelectGenericMaster(gen)}
+                              className="w-full text-left px-3 py-1.5 rounded-lg hover:bg-indigo-50 text-xs flex items-center justify-between transition cursor-pointer"
+                            >
+                              <div>
+                                <div className="font-bold text-slate-900">{gen.genericName}</div>
+                                <div className="text-[10px] text-slate-500">{gen.therapeuticClass} • {gen.strength}</div>
+                              </div>
+                              {gen.isControlled && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-purple-100 text-purple-700 font-bold rounded">
+                                  Controlled
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Strength & Dosage Form */}
                   <div className="space-y-1">
@@ -549,25 +557,35 @@ export const AddEditMedicineModal: React.FC<AddEditMedicineModalProps> = ({
 
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700">Dosage Form</label>
-                    <select
-                      className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      value={formData.dosageForm || ''}
-                      onChange={(e) => setFormData({ ...formData, dosageForm: e.target.value })}
-                    >
-                      <option value="">-- Select Dosage Form --</option>
-                      <option value="Tablet">Tablet</option>
-                      <option value="Capsule">Capsule</option>
-                      <option value="Syrup">Syrup</option>
-                      <option value="Suspension">Suspension</option>
-                      <option value="Injection">Injection</option>
-                      <option value="IV Infusion">IV Infusion</option>
-                      <option value="Drops">Eye/Ear Drops</option>
-                      <option value="Cream/Ointment">Cream / Ointment</option>
-                      <option value="Inhaler">Inhaler / Nebulizer</option>
-                      <option value="Surgical Disposable">Surgical Disposable</option>
-                      <option value="Diagnostic Device">Diagnostic Device</option>
-                      <option value="Other">Other Medical Supply</option>
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        list="preset-dosage-forms-list"
+                        placeholder="Type or select dosage form (e.g. Tablet, Syrup)..."
+                        value={formData.dosageForm || ''}
+                        className="w-full rounded-xl border border-slate-300 p-2 text-xs bg-white text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none shadow-2xs"
+                        onChange={(e) => setFormData({ ...formData, dosageForm: e.target.value })}
+                      />
+                      <datalist id="preset-dosage-forms-list">
+                        <option value="Tablet">Tablet</option>
+                        <option value="Capsule">Capsule</option>
+                        <option value="Syrup">Syrup</option>
+                        <option value="Suspension">Suspension</option>
+                        <option value="Injection">Injection</option>
+                        <option value="IV Infusion">IV Infusion</option>
+                        <option value="Drops">Eye/Ear Drops</option>
+                        <option value="Cream / Ointment">Cream / Ointment</option>
+                        <option value="Inhaler">Inhaler / Nebulizer</option>
+                        <option value="Sachet">Sachet / Powder</option>
+                        <option value="Dry Powder">Dry Powder</option>
+                        <option value="Gel">Gel / Lotion</option>
+                        <option value="Ampoule">Ampoule / Vial</option>
+                        <option value="Suppository">Suppository</option>
+                        <option value="Surgical Disposable">Surgical Disposable</option>
+                        <option value="Diagnostic Device">Diagnostic Device</option>
+                        <option value="Other">Other Medical Supply</option>
+                      </datalist>
+                    </div>
                   </div>
 
                   {/* Category (Creatable Combobox) */}

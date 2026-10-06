@@ -4,6 +4,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -20,119 +27,35 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-
-// server.ts
-var import_config = require("dotenv/config");
-var import_express18 = __toESM(require("express"));
-var import_path21 = __toESM(require("path"));
-var import_fs21 = __toESM(require("fs"));
-
-// server/routes/authRoutes.ts
-var import_express3 = __toESM(require("express"));
-
-// server/auth/jwt.ts
-var import_crypto = __toESM(require("crypto"));
-var JWT_SECRET = process.env.JWT_SECRET || process.env.SERVER_SECRET || "mbi_inventra_enterprise_jwt_master_secret_key_2026";
-function base64UrlEncode(str) {
-  return Buffer.from(str).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-function base64UrlDecode(str) {
-  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4) {
-    base64 += "=";
-  }
-  return Buffer.from(base64, "base64").toString("utf-8");
-}
-function signJwt(payload, expiresInSeconds = 86400 * 365) {
-  const header = {
-    alg: "HS256",
-    typ: "JWT"
-  };
-  const now = Math.floor(Date.now() / 1e3);
-  const fullPayload = {
-    ...payload,
-    iat: now,
-    exp: now + expiresInSeconds
-  };
-  const encodedHeader = base64UrlEncode(JSON.stringify(header));
-  const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
-  const signature = import_crypto.default.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
-}
-function verifyJwt(token) {
-  try {
-    if (!token || typeof token !== "string") {
-      return { valid: false, error: "Token missing or malformed" };
-    }
-    const parts = token.split(".");
-    if (parts.length !== 3) {
-      return { valid: false, error: "Invalid token structure" };
-    }
-    const [encodedHeader, encodedPayload, signature] = parts;
-    const expectedSignature = import_crypto.default.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-    const sigBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-    if (sigBuffer.length !== expectedBuffer.length || !import_crypto.default.timingSafeEqual(sigBuffer, expectedBuffer)) {
-      return { valid: false, error: "Invalid cryptographic signature" };
-    }
-    const payload = JSON.parse(base64UrlDecode(encodedPayload));
-    const now = Math.floor(Date.now() / 1e3);
-    if (payload.exp && payload.exp < now) {
-      return { valid: false, error: "Token has expired" };
-    }
-    return { valid: true, payload };
-  } catch (err) {
-    return { valid: false, error: err?.message || "Token verification failed" };
-  }
-}
-
-// server/db/tenantManager.ts
-function sanitizeSchemaName(tenantId) {
-  const cleanId = tenantId.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
-  return `tenant_${cleanId}`;
-}
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // server/db/mariaClient.ts
 function isMariaDbConnected() {
   return false;
 }
-async function isMariaDbAvailable2() {
+async function isMariaDbAvailable() {
   return false;
 }
-var dummyPool = {
-  query: async () => [[]],
-  execute: async () => [[]],
-  getConnection: async () => ({
-    release: () => {
-    },
-    query: async () => [[]],
-    execute: async () => [[]],
-    beginTransaction: async () => {
-    },
-    commit: async () => {
-    },
-    rollback: async () => {
-    }
-  }),
-  end: async () => {
-  },
-  on: () => {
-  }
-};
 function getMariaDbPool() {
   return dummyPool;
 }
-async function testMariaDbConnection2() {
+async function testMariaDbConnection() {
   return {
     success: true,
     connected: false,
+    pingMs: 0,
+    host: "sqlite_vault",
+    port: 0,
     message: "System running on 100% Tenant-Isolated Native SQLite Vault Engine (WAL Mode). MariaDB is disabled."
   };
 }
-async function syncRecordToMariaDb2(_entityType, _payload, _tenantId) {
+async function initializeMariaDbSchema() {
   return true;
 }
-async function getMariaDbTableStats2() {
+async function syncRecordToMariaDb(_entityType, _payload, _tenantId) {
+  return true;
+}
+async function getMariaDbTableStats() {
   return {
     isConnected: false,
     tables: []
@@ -140,26 +63,48 @@ async function getMariaDbTableStats2() {
 }
 async function saveAiChatLogToMariaDb(_log) {
 }
-async function getAiChatHistoryFromMariaDb(_tenantId, _userId, _limit = 50) {
+async function getAiChatHistoryFromMariaDb(_optionsOrTenantId, _userId, _limit = 50) {
   return [];
 }
-
-// server/db/sqliteVaultManager.ts
-var import_fs = __toESM(require("fs"));
-var import_path = __toESM(require("path"));
-var import_node_sqlite = require("node:sqlite");
-var DATA_DIR = import_path.default.resolve(process.cwd(), "server", "data");
-var MASTER_DIR = import_path.default.join(DATA_DIR, "master");
-var TENANTS_DIR = import_path.default.join(DATA_DIR, "tenants");
-var BACKUPS_DIR = import_path.default.join(DATA_DIR, "backups");
-[DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach((dir) => {
-  if (!import_fs.default.existsSync(dir)) {
-    import_fs.default.mkdirSync(dir, { recursive: true });
+var dummyPool;
+var init_mariaClient = __esm({
+  "server/db/mariaClient.ts"() {
+    dummyPool = {
+      query: async () => [[]],
+      execute: async () => [[]],
+      getConnection: async () => ({
+        release: () => {
+        },
+        query: async () => [[]],
+        execute: async () => [[]],
+        beginTransaction: async () => {
+        },
+        commit: async () => {
+        },
+        rollback: async () => {
+        }
+      }),
+      end: async () => {
+      },
+      on: () => {
+      }
+    };
   }
 });
-var MASTER_DB_PATH = import_path.default.join(MASTER_DIR, "master_hub.sqlite");
-var masterDbInstance = null;
-var tenantDbCache = /* @__PURE__ */ new Map();
+
+// server/db/sqliteVaultManager.ts
+var sqliteVaultManager_exports = {};
+__export(sqliteVaultManager_exports, {
+  checkVaultEngineHealth: () => checkVaultEngineHealth,
+  deleteTenantUser: () => deleteTenantUser,
+  getDeltaChangesSince: () => getDeltaChangesSince,
+  getMasterVault: () => getMasterVault,
+  getTenantVault: () => getTenantVault,
+  listTenantUsers: () => listTenantUsers,
+  logDeltaMutation: () => logDeltaMutation,
+  upsertTenantUser: () => upsertTenantUser,
+  validateAndBindHwidLock: () => validateAndBindHwidLock
+});
 function getMasterVault() {
   if (masterDbInstance) return masterDbInstance;
   masterDbInstance = new import_node_sqlite.DatabaseSync(MASTER_DB_PATH);
@@ -302,11 +247,25 @@ function getMasterVault() {
       image_url TEXT,
       cta_label TEXT DEFAULT 'Get Started Now',
       cta_url TEXT DEFAULT '/register',
+      cta_style TEXT DEFAULT 'gradient_indigo',
+      secondary_cta_label TEXT DEFAULT 'Maybe Later',
+      secondary_cta_url TEXT DEFAULT '',
       type TEXT DEFAULT 'special_offer',
       auto_show_delay_ms INTEGER DEFAULT 1200,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+  const popupCols = [
+    "cta_style TEXT DEFAULT 'gradient_indigo'",
+    "secondary_cta_label TEXT DEFAULT 'Maybe Later'",
+    "secondary_cta_url TEXT DEFAULT ''"
+  ];
+  for (const col of popupCols) {
+    try {
+      masterDbInstance.exec(`ALTER TABLE mbi_homepage_popup ADD COLUMN ${col};`);
+    } catch (e) {
+    }
+  }
   const tenantColumns = [
     "organization_id TEXT",
     "drug_license_no TEXT",
@@ -368,7 +327,21 @@ function getMasterVault() {
 function getTenantVault(tenantId) {
   const cleanId = (tenantId || "tenant_default").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
   if (tenantDbCache.has(cleanId)) {
-    return tenantDbCache.get(cleanId);
+    const db = tenantDbCache.get(cleanId);
+    tenantDbCache.delete(cleanId);
+    tenantDbCache.set(cleanId, db);
+    return db;
+  }
+  if (tenantDbCache.size >= MAX_CACHED_TENANTS) {
+    const oldestKey = tenantDbCache.keys().next().value;
+    if (oldestKey) {
+      try {
+        const oldDb = tenantDbCache.get(oldestKey);
+        oldDb?.close();
+      } catch (err) {
+      }
+      tenantDbCache.delete(oldestKey);
+    }
   }
   const tenantDbPath = import_path.default.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);
   const tenantDb = new import_node_sqlite.DatabaseSync(tenantDbPath);
@@ -670,10 +643,21 @@ function validateAndBindHwidLock(tenantId, userId, hwid, deviceModel, os2, ipAdd
   let license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
   if (!license) {
     master.prepare(`
-      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, bound_hwid, created_at)
-      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', ?, datetime('now'))
+      INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, plan, status, max_devices, bound_hwid, created_at)
+      VALUES (?, ?, ?, ?, 'Owner', 'Basic', 'Active', 5, ?, datetime('now'))
     `).run(`lic_${tenantId}`, tenantId, `MBI-LIC-${tenantId.slice(-6).toUpperCase()}`, tenantId, hwid || "UNBOUND");
     license = master.prepare("SELECT * FROM mbi_licenses WHERE tenant_id = ?").get(tenantId);
+  }
+  if (license?.status === "Locked" || license?.status === "Suspended") {
+    return {
+      allowed: false,
+      boundHwid: license?.bound_hwid || "",
+      isFirstDevice: false,
+      error: "Organization Suspended: Company access has been temporarily locked by Master Administrator."
+    };
+  }
+  if (!hwid || hwid === "UNBOUND" || hwid === "HWID-LOCAL" || ipAddress === "127.0.0.1" || ipAddress === "::1" || ipAddress === "localhost") {
+    return { allowed: true, boundHwid: license?.bound_hwid || hwid, isFirstDevice: false };
   }
   let boundHwid = license?.bound_hwid || "";
   const isPlaceholder = !boundHwid || boundHwid === "UNBOUND" || boundHwid === "HWID-PRIMARY-DEVICE" || boundHwid.startsWith("HWID-DEV1-") || boundHwid === "HWID-LOCAL";
@@ -688,35 +672,77 @@ function validateAndBindHwidLock(tenantId, userId, hwid, deviceModel, os2, ipAdd
         id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
       ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
-        last_seen_at = datetime('now')
+        last_seen_at = datetime('now'),
+        status = 'Active'
     `).run(
       `dev_${userId}_${hwid.slice(-6)}`,
       tenantId,
       userId,
-      deviceModel || "POS Workstation",
+      deviceModel || "Primary Terminal",
       os2 || "Windows",
       hwid,
       hwid
     );
     return { allowed: true, boundHwid: hwid, isFirstDevice: true };
   }
-  if (boundHwid && boundHwid !== hwid) {
-    return {
-      allowed: false,
-      boundHwid,
-      isFirstDevice: false,
-      error: "Device Unauthorized: This company is locked to its registered primary device. You cannot log in from a 2nd terminal without Master Admin approval."
-    };
+  const existingDevice = master.prepare(`
+    SELECT * FROM mbi_registered_devices 
+    WHERE tenant_id = ? AND hwid_fingerprint = ?
+  `).get(tenantId, hwid);
+  if (existingDevice) {
+    if (existingDevice.status === "Blocked" || existingDevice.status === "Suspended") {
+      return {
+        allowed: false,
+        boundHwid,
+        isFirstDevice: false,
+        error: "Terminal Blocked: This device has been locked or unapproved. Contact store administrator."
+      };
+    }
+    try {
+      master.prepare(`
+        UPDATE mbi_registered_devices 
+        SET last_seen_at = datetime('now'), user_id = ? 
+        WHERE id = ?
+      `).run(userId, existingDevice.id);
+    } catch (e) {
+    }
+    return { allowed: true, boundHwid, isFirstDevice: false };
   }
+  const maxDevices = Math.max(Number(license?.max_devices) || 5, 3);
+  let currentActiveCount = 0;
   try {
-    master.prepare(`
-      UPDATE mbi_registered_devices 
-      SET last_seen_at = datetime('now') 
-      WHERE tenant_id = ? AND hwid_fingerprint = ?
-    `).run(tenantId, hwid);
+    const countRow = master.prepare(`
+      SELECT COUNT(*) as total FROM mbi_registered_devices 
+      WHERE tenant_id = ? AND status = 'Active'
+    `).get(tenantId);
+    currentActiveCount = countRow?.total || 0;
   } catch (e) {
   }
-  return { allowed: true, boundHwid, isFirstDevice: false };
+  if (currentActiveCount < maxDevices) {
+    master.prepare(`
+      INSERT INTO mbi_registered_devices (
+        id, tenant_id, user_id, device_name, device_type, platform, hwid_fingerprint, installation_id, status, last_seen_at
+      ) VALUES (?, ?, ?, ?, 'Desktop', ?, ?, ?, 'Active', datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET
+        last_seen_at = datetime('now'),
+        status = 'Active'
+    `).run(
+      `dev_${userId}_${hwid.slice(-6)}`,
+      tenantId,
+      userId,
+      deviceModel || "Staff Workstation",
+      os2 || "Windows",
+      hwid,
+      hwid
+    );
+    return { allowed: true, boundHwid, isFirstDevice: false };
+  }
+  return {
+    allowed: false,
+    boundHwid,
+    isFirstDevice: false,
+    error: `Terminal Limit Reached: Your company license allows up to ${maxDevices} active terminals. Please approve or remove unused devices in Master Server.`
+  };
 }
 function logDeltaMutation(tenantId, mutation) {
   const vault = getTenantVault(tenantId);
@@ -742,8 +768,371 @@ function getDeltaChangesSince(tenantId, lastTimestamp) {
   }
   return vault.prepare("SELECT * FROM sync_outbox_log WHERE timestamp > ? ORDER BY timestamp ASC LIMIT 500").all(lastTimestamp);
 }
+var import_fs, import_path, import_node_sqlite, DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR, MASTER_DB_PATH, masterDbInstance, tenantDbCache, MAX_CACHED_TENANTS;
+var init_sqliteVaultManager = __esm({
+  "server/db/sqliteVaultManager.ts"() {
+    import_fs = __toESM(require("fs"));
+    import_path = __toESM(require("path"));
+    import_node_sqlite = require("node:sqlite");
+    DATA_DIR = import_path.default.resolve(process.cwd(), "server", "data");
+    MASTER_DIR = import_path.default.join(DATA_DIR, "master");
+    TENANTS_DIR = import_path.default.join(DATA_DIR, "tenants");
+    BACKUPS_DIR = import_path.default.join(DATA_DIR, "backups");
+    [DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach((dir) => {
+      if (!import_fs.default.existsSync(dir)) {
+        import_fs.default.mkdirSync(dir, { recursive: true });
+      }
+    });
+    MASTER_DB_PATH = import_path.default.join(MASTER_DIR, "master_hub.sqlite");
+    masterDbInstance = null;
+    tenantDbCache = /* @__PURE__ */ new Map();
+    MAX_CACHED_TENANTS = 500;
+  }
+});
+
+// server/controllers/aiDataQueryEngine.ts
+var aiDataQueryEngine_exports = {};
+__export(aiDataQueryEngine_exports, {
+  PAKISTANI_MEDICINE_GENERICS: () => PAKISTANI_MEDICINE_GENERICS,
+  getTenantLiveSnapshot: () => getTenantLiveSnapshot,
+  getTenantStoreMetrics: () => getTenantStoreMetrics,
+  isSecurityViolationQuery: () => isSecurityViolationQuery,
+  matchGenericAlternative: () => matchGenericAlternative
+});
+function isSecurityViolationQuery(query) {
+  const lower = query.toLowerCase();
+  const forbiddenPatterns = [
+    "root password",
+    "database password",
+    "mariadb password",
+    "mbi72dn password",
+    "server master pin",
+    "bypass hwid",
+    "crack license",
+    "show env",
+    ".env",
+    "api_key",
+    "secret_key",
+    "exec(",
+    "eval(",
+    "drop database",
+    "drop table",
+    "truncate table",
+    "/api/master/emergency-lock"
+  ];
+  return forbiddenPatterns.some((p) => lower.includes(p));
+}
+async function getTenantStoreMetrics(tenantId) {
+  const snapshot = await getTenantLiveSnapshot(tenantId);
+  return {
+    todaySalesCount: snapshot.todaySalesCount,
+    todayRevenue: snapshot.todayRevenue,
+    lowStockCount: snapshot.lowStockCount,
+    nearExpiryCount: snapshot.nearExpiryCount
+  };
+}
+async function getTenantLiveSnapshot(tenantId) {
+  const defaultSnapshot = {
+    tenantId: tenantId || "default",
+    todaySalesCount: 0,
+    todayRevenue: 0,
+    totalSalesCount: 0,
+    totalSalesRevenue: 0,
+    totalCustomers: 0,
+    totalSuppliers: 0,
+    customerReceivableTotal: 0,
+    supplierPayableTotal: 0,
+    topCustomersWithBalance: [],
+    topSuppliersWithBalance: [],
+    totalMedicines: 0,
+    lowStockCount: 0,
+    lowStockItems: [],
+    nearExpiryCount: 0,
+    nearExpiryItems: [],
+    totalExpenses: 0,
+    todayExpenses: 0
+  };
+  if (!tenantId || tenantId === "global" || tenantId === "default") {
+    return defaultSnapshot;
+  }
+  const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const ninetyDaysAhead = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+  try {
+    const { getTenantVault: getTenantVault4 } = await Promise.resolve().then(() => (init_sqliteVaultManager(), sqliteVaultManager_exports));
+    const tenantDb = getTenantVault4(tenantId);
+    try {
+      const invStats = tenantDb.prepare(`
+        SELECT 
+          COUNT(*) as total_count,
+          COALESCE(SUM(grand_total), 0) as total_revenue,
+          COUNT(CASE WHEN created_at LIKE ? OR date LIKE ? THEN 1 END) as today_count,
+          COALESCE(SUM(CASE WHEN created_at LIKE ? OR date LIKE ? THEN grand_total ELSE 0 END), 0) as today_revenue
+        FROM invoices
+      `).get(`${today}%`, `${today}%`, `${today}%`, `${today}%`);
+      if (invStats) {
+        defaultSnapshot.totalSalesCount = Number(invStats.total_count || 0);
+        defaultSnapshot.totalSalesRevenue = Number(invStats.total_revenue || 0);
+        defaultSnapshot.todaySalesCount = Number(invStats.today_count || 0);
+        defaultSnapshot.todayRevenue = Number(invStats.today_revenue || 0);
+      }
+    } catch {
+    }
+    try {
+      const partyStats = tenantDb.prepare(`
+        SELECT 
+          COUNT(CASE WHEN type = 'Customer' OR type = 'customer' THEN 1 END) as total_cust,
+          COUNT(CASE WHEN type = 'Supplier' OR type = 'supplier' THEN 1 END) as total_supp,
+          COALESCE(SUM(CASE WHEN (type = 'Customer' OR type = 'customer') AND balance > 0 THEN balance ELSE 0 END), 0) as cust_receivable,
+          COALESCE(SUM(CASE WHEN (type = 'Supplier' OR type = 'supplier') AND balance > 0 THEN balance ELSE 0 END), 0) as supp_payable
+        FROM parties
+      `).get();
+      if (partyStats) {
+        defaultSnapshot.totalCustomers = Number(partyStats.total_cust || 0);
+        defaultSnapshot.totalSuppliers = Number(partyStats.total_supp || 0);
+        defaultSnapshot.customerReceivableTotal = Number(partyStats.cust_receivable || 0);
+        defaultSnapshot.supplierPayableTotal = Number(partyStats.supp_payable || 0);
+      }
+      const topCusts = tenantDb.prepare(`
+        SELECT name, balance, phone 
+        FROM parties 
+        WHERE (type = 'Customer' OR type = 'customer') AND balance > 0 
+        ORDER BY balance DESC 
+        LIMIT 5
+      `).all();
+      if (Array.isArray(topCusts)) {
+        defaultSnapshot.topCustomersWithBalance = topCusts.map((c) => ({
+          name: c.name || "Customer",
+          balance: Number(c.balance || 0),
+          phone: c.phone || ""
+        }));
+      }
+      const topSupps = tenantDb.prepare(`
+        SELECT name, balance, phone 
+        FROM parties 
+        WHERE (type = 'Supplier' OR type = 'supplier') AND balance > 0 
+        ORDER BY balance DESC 
+        LIMIT 5
+      `).all();
+      if (Array.isArray(topSupps)) {
+        defaultSnapshot.topSuppliersWithBalance = topSupps.map((s) => ({
+          name: s.name || "Supplier",
+          balance: Number(s.balance || 0),
+          phone: s.phone || ""
+        }));
+      }
+    } catch {
+    }
+    try {
+      const medStats = tenantDb.prepare(`
+        SELECT 
+          COUNT(*) as total_meds,
+          COUNT(CASE WHEN stock_qty <= min_stock THEN 1 END) as low_stock_count,
+          COUNT(CASE WHEN fefo_expiry_date IS NOT NULL AND fefo_expiry_date != '' AND fefo_expiry_date <= ? AND stock_qty > 0 THEN 1 END) as near_expiry_count
+        FROM medicines
+      `).get(ninetyDaysAhead);
+      if (medStats) {
+        defaultSnapshot.totalMedicines = Number(medStats.total_meds || 0);
+        defaultSnapshot.lowStockCount = Number(medStats.low_stock_count || 0);
+        defaultSnapshot.nearExpiryCount = Number(medStats.near_expiry_count || 0);
+      }
+      const lowItems = tenantDb.prepare(`
+        SELECT name, stock_qty, min_stock 
+        FROM medicines 
+        WHERE stock_qty <= min_stock 
+        ORDER BY stock_qty ASC 
+        LIMIT 5
+      `).all();
+      if (Array.isArray(lowItems)) {
+        defaultSnapshot.lowStockItems = lowItems.map((i) => ({
+          name: i.name,
+          stock_qty: Number(i.stock_qty || 0),
+          min_stock: Number(i.min_stock || 5)
+        }));
+      }
+      const expItems = tenantDb.prepare(`
+        SELECT name, batch_number, fefo_expiry_date, stock_qty 
+        FROM medicines 
+        WHERE fefo_expiry_date IS NOT NULL AND fefo_expiry_date != '' AND fefo_expiry_date <= ? AND stock_qty > 0 
+        ORDER BY fefo_expiry_date ASC 
+        LIMIT 5
+      `).all(ninetyDaysAhead);
+      if (Array.isArray(expItems)) {
+        defaultSnapshot.nearExpiryItems = expItems.map((e) => ({
+          name: e.name,
+          batch: e.batch_number || "",
+          expiry: e.fefo_expiry_date,
+          qty: Number(e.stock_qty || 0)
+        }));
+      }
+    } catch {
+    }
+    try {
+      const expStats = tenantDb.prepare(`
+        SELECT 
+          COALESCE(SUM(amount), 0) as total_exp,
+          COALESCE(SUM(CASE WHEN created_at LIKE ? OR date LIKE ? THEN amount ELSE 0 END), 0) as today_exp
+        FROM expenses
+      `).get(`${today}%`, `${today}%`);
+      if (expStats) {
+        defaultSnapshot.totalExpenses = Number(expStats.total_exp || 0);
+        defaultSnapshot.todayExpenses = Number(expStats.today_exp || 0);
+      }
+    } catch {
+    }
+    return defaultSnapshot;
+  } catch (sqliteErr) {
+    try {
+      const pool = getMariaDbPool();
+      const [invRows] = await pool.query(
+        `SELECT COUNT(*) as cnt, COALESCE(SUM(grand_total), 0) as total FROM mbi_invoices WHERE tenant_id = ? AND is_voided = 0`,
+        [tenantId]
+      );
+      if (invRows && invRows[0]) {
+        defaultSnapshot.totalSalesCount = Number(invRows[0].cnt || 0);
+        defaultSnapshot.totalSalesRevenue = Number(invRows[0].total || 0);
+      }
+    } catch {
+    }
+    return defaultSnapshot;
+  }
+}
+function matchGenericAlternative(query) {
+  const lower = query.toLowerCase();
+  for (const [brand, info] of Object.entries(PAKISTANI_MEDICINE_GENERICS)) {
+    if (lower.includes(brand)) {
+      return `\u{1F48A} **Generic Formula & Alternatives for ${brand.toUpperCase()}**:
+- **Generic Salt:** ${info.generic}
+- **Clinical Indication:** ${info.uses}
+- **Recommended Substitutions in Pakistan:** ${info.alternatives.join(", ")}
+
+*Tip: In POS Billing, press 'F2' to search by generic formula when specific brand is out of stock.*`;
+    }
+  }
+  return null;
+}
+var PAKISTANI_MEDICINE_GENERICS;
+var init_aiDataQueryEngine = __esm({
+  "server/controllers/aiDataQueryEngine.ts"() {
+    init_mariaClient();
+    PAKISTANI_MEDICINE_GENERICS = {
+      "augmentin": {
+        generic: "Co-Amoxiclav (Amoxicillin + Clavulanic Acid)",
+        uses: "Broad-spectrum antibiotic for respiratory tract, ENT, dental, and skin infections.",
+        alternatives: ["Curam", "Klavox", "Amoclav", "Moxclav", "Augmax"]
+      },
+      "panadol": {
+        generic: "Paracetamol (Acetaminophen)",
+        uses: "Analgesic & antipyretic for pain relief, headaches, and fever management.",
+        alternatives: ["Calpol", "Disprol", "Febrol", "Paramol", "Tylenol"]
+      },
+      "brufen": {
+        generic: "Ibuprofen",
+        uses: "NSAID for pain, inflammation, swelling, and musculoskeletal pain.",
+        alternatives: ["Profen", "Advil", "Motrin", "Ibex"]
+      },
+      "risek": {
+        generic: "Omeprazole",
+        uses: "Proton Pump Inhibitor (PPI) for gastric acidity, GERD, and peptic ulcers.",
+        alternatives: ["Omega", "Losec", "Omepra", "Procept"]
+      },
+      "flagyl": {
+        generic: "Metronidazole",
+        uses: "Antibacterial & antiprotozoal for amoebiasis, giardiasis, and anaerobic infections.",
+        alternatives: ["Metrozine", "Entamizole (Combo)", "Nidazole"]
+      },
+      "arinac": {
+        generic: "Ibuprofen + Pseudoephedrine Hydrochloride",
+        uses: "Decongestant and pain reliever for cold, nasal congestion, and sinus pain.",
+        alternatives: ["Sinutab", "Fludrex", "Actifed (Cold)"]
+      },
+      "gavilac": {
+        generic: "Lactulose",
+        uses: "Osmotic laxative for chronic constipation and hepatic encephalopathy.",
+        alternatives: ["Duphalac", "Lilac", "Lactul"]
+      },
+      "flynex": {
+        generic: "Fexofenadine Hydrochloride",
+        uses: "Non-sedating antihistamine for seasonal allergic rhinitis and urticaria.",
+        alternatives: ["Telfast", "Fexit", "Aller-F"]
+      }
+    };
+  }
+});
+
+// server.ts
+var import_config = require("dotenv/config");
+var import_express19 = __toESM(require("express"));
+var import_path21 = __toESM(require("path"));
+var import_fs21 = __toESM(require("fs"));
+
+// server/routes/authRoutes.ts
+var import_express3 = __toESM(require("express"));
+
+// server/auth/jwt.ts
+var import_crypto = __toESM(require("crypto"));
+var JWT_SECRET = process.env.JWT_SECRET || process.env.SERVER_SECRET || "mbi_inventra_enterprise_jwt_master_secret_key_2026";
+function base64UrlEncode(str) {
+  return Buffer.from(str).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+function base64UrlDecode(str) {
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  return Buffer.from(base64, "base64").toString("utf-8");
+}
+function signJwt(payload, expiresInSeconds = 86400 * 365) {
+  const header = {
+    alg: "HS256",
+    typ: "JWT"
+  };
+  const now = Math.floor(Date.now() / 1e3);
+  const fullPayload = {
+    ...payload,
+    iat: now,
+    exp: now + expiresInSeconds
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
+  const signature = import_crypto.default.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
+}
+function verifyJwt(token) {
+  try {
+    if (!token || typeof token !== "string") {
+      return { valid: false, error: "Token missing or malformed" };
+    }
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return { valid: false, error: "Invalid token structure" };
+    }
+    const [encodedHeader, encodedPayload, signature] = parts;
+    const expectedSignature = import_crypto.default.createHmac("sha256", JWT_SECRET).update(`${encodedHeader}.${encodedPayload}`).digest("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (sigBuffer.length !== expectedBuffer.length || !import_crypto.default.timingSafeEqual(sigBuffer, expectedBuffer)) {
+      return { valid: false, error: "Invalid cryptographic signature" };
+    }
+    const payload = JSON.parse(base64UrlDecode(encodedPayload));
+    const now = Math.floor(Date.now() / 1e3);
+    if (payload.exp && payload.exp < now) {
+      return { valid: false, error: "Token has expired" };
+    }
+    return { valid: true, payload };
+  } catch (err) {
+    return { valid: false, error: err?.message || "Token verification failed" };
+  }
+}
+
+// server/db/tenantManager.ts
+function sanitizeSchemaName(tenantId) {
+  const cleanId = tenantId.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+  return `tenant_${cleanId}`;
+}
 
 // server/middleware/tenantMiddleware.ts
+init_mariaClient();
+init_sqliteVaultManager();
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -778,7 +1167,7 @@ async function requireAuth(req, res, next) {
           });
           return;
         }
-      } else if (await isMariaDbAvailable2()) {
+      } else if (await isMariaDbAvailable()) {
         const pool = getMariaDbPool();
         const [uRows] = await pool.query(
           "SELECT is_kill_switch_active, status FROM mbi_users WHERE id = ? LIMIT 1;",
@@ -850,13 +1239,21 @@ function requireMasterAuth(req, res, next) {
   });
 }
 
+// server/controllers/authController.ts
+init_mariaClient();
+init_sqliteVaultManager();
+
 // server/routes/adminRoutes.ts
 var import_express2 = require("express");
+init_sqliteVaultManager();
 
 // server/routes/syncRoutes.ts
 var import_express = require("express");
+init_sqliteVaultManager();
 
 // server/controllers/syncController.ts
+init_mariaClient();
+init_sqliteVaultManager();
 var import_fs2 = __toESM(require("fs"));
 var import_path2 = __toESM(require("path"));
 var syncFile = import_path2.default.resolve(process.cwd(), ".sync_data.json");
@@ -897,7 +1294,7 @@ function recordApiTraffic(log) {
   }
   return newEntry;
 }
-async function syncRecordToMariaDb3(entityType, record, tenantId = "tenant_main") {
+async function syncRecordToMariaDb2(entityType, record, tenantId = "tenant_main") {
   if (!record || !record.id) return;
   const tId = record.tenantId || record.tenant_id || tenantId || "tenant_main";
   try {
@@ -1069,7 +1466,7 @@ async function syncRecordToMariaDb3(entityType, record, tenantId = "tenant_main"
     import_fs2.default.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), "utf-8");
   } catch (e) {
   }
-  if (await isMariaDbAvailable2()) {
+  if (await isMariaDbAvailable()) {
     try {
       const pool = getMariaDbPool();
       if (entityType === "tenants" || entityType === "business" || entityType === "businessProfile" || entityType === "storeSettings") {
@@ -1409,7 +1806,7 @@ async function handleSyncRecordController(req, res) {
     return res.status(400).json({ success: false, error: "entityType and record are required" });
   }
   try {
-    await syncRecordToMariaDb3(entityType, record, tenantId);
+    await syncRecordToMariaDb2(entityType, record, tenantId);
     broadcastTenantEvent(tenantId, {
       type: "RECORD_UPDATED",
       entity: entityType,
@@ -1469,7 +1866,7 @@ async function handleGetSyncSnapshotController(req, res) {
   } catch (sqliteErr) {
     console.warn("[SQLITE VAULT PULL WARN]:", sqliteErr);
   }
-  if (await isMariaDbAvailable2()) {
+  if (await isMariaDbAvailable()) {
     try {
       const pool = getMariaDbPool();
       const [tenants] = await pool.query(
@@ -1509,7 +1906,7 @@ async function handlePostSyncSnapshotController(req, res) {
       if (Array.isArray(items)) {
         for (const item of items) {
           if (item && item.id) {
-            await syncRecordToMariaDb3(collectionName, item, tenantId);
+            await syncRecordToMariaDb2(collectionName, item, tenantId);
           }
         }
       }
@@ -1539,7 +1936,7 @@ async function handleBatchSyncController(req, res) {
       const collectionName = item.collectionName || item.entityType;
       const recordData = item.data || item.record || item;
       if (!recordData || !recordData.id) continue;
-      await syncRecordToMariaDb3(collectionName, recordData, tenantId);
+      await syncRecordToMariaDb2(collectionName, recordData, tenantId);
       processedCount++;
     } catch (itemErr) {
       failedCount++;
@@ -1775,6 +2172,8 @@ syncRouter.post("/simulate-event", (req, res) => {
 });
 
 // server/controllers/userController.ts
+init_mariaClient();
+init_sqliteVaultManager();
 var import_uuid = require("uuid");
 var import_fs4 = __toESM(require("fs"));
 var import_path4 = __toESM(require("path"));
@@ -2232,6 +2631,8 @@ async function sendCustomTenantEmail(payload) {
 // server/controllers/userController.ts
 var syncFile2 = import_path4.default.resolve(process.cwd(), ".sync_data.json");
 var masterUsersFile = import_path4.default.resolve(process.cwd(), ".master_users.json");
+var cachedUsersMemory = null;
+var lastSyncFileReadTime = 0;
 function getFallbackUsers(tenantId) {
   if (tenantId && tenantId !== "all") {
     try {
@@ -2242,25 +2643,31 @@ function getFallbackUsers(tenantId) {
     } catch (e) {
     }
   }
-  let allUsers = [];
-  try {
-    if (import_fs4.default.existsSync(syncFile2)) {
-      const data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
-      if (Array.isArray(data.mbi_users)) {
-        allUsers = data.mbi_users;
-      } else if (Array.isArray(data.users)) {
-        allUsers = data.users;
-      }
-    }
-  } catch (e) {
-  }
-  if (allUsers.length === 0 && import_fs4.default.existsSync(masterUsersFile)) {
+  const now = Date.now();
+  if (!cachedUsersMemory || now - lastSyncFileReadTime > 3e4) {
+    let allUsers2 = [];
     try {
-      const data = JSON.parse(import_fs4.default.readFileSync(masterUsersFile, "utf-8"));
-      if (Array.isArray(data)) allUsers = data;
+      if (import_fs4.default.existsSync(syncFile2)) {
+        const data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
+        if (Array.isArray(data.mbi_users)) {
+          allUsers2 = data.mbi_users;
+        } else if (Array.isArray(data.users)) {
+          allUsers2 = data.users;
+        }
+      }
     } catch (e) {
     }
+    if (allUsers2.length === 0 && import_fs4.default.existsSync(masterUsersFile)) {
+      try {
+        const data = JSON.parse(import_fs4.default.readFileSync(masterUsersFile, "utf-8"));
+        if (Array.isArray(data)) allUsers2 = data;
+      } catch (e) {
+      }
+    }
+    cachedUsersMemory = allUsers2;
+    lastSyncFileReadTime = now;
   }
+  const allUsers = cachedUsersMemory || [];
   if (tenantId && tenantId !== "all") {
     return allUsers.filter((u) => {
       const uTenant = u.tenant_id || u.tenantId;
@@ -2269,22 +2676,32 @@ function getFallbackUsers(tenantId) {
   }
   return allUsers;
 }
+var saveDebounceTimer = null;
 function saveFallbackUsers(users, tenantId) {
   try {
-    let data = {};
-    if (import_fs4.default.existsSync(syncFile2)) {
-      data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
-    }
+    if (!cachedUsersMemory) cachedUsersMemory = [];
     if (tenantId && tenantId !== "all") {
-      const existingOtherTenants = (data.mbi_users || []).filter((u) => {
+      const existingOtherTenants = cachedUsersMemory.filter((u) => {
         const uTenant = u.tenant_id || u.tenantId;
         return uTenant && uTenant !== tenantId;
       });
-      data.mbi_users = [...existingOtherTenants, ...users];
+      cachedUsersMemory = [...existingOtherTenants, ...users];
     } else {
-      data.mbi_users = users;
+      cachedUsersMemory = users;
     }
-    import_fs4.default.writeFileSync(syncFile2, JSON.stringify(data, null, 2), "utf-8");
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
+      try {
+        let data = {};
+        if (import_fs4.default.existsSync(syncFile2)) {
+          data = JSON.parse(import_fs4.default.readFileSync(syncFile2, "utf-8"));
+        }
+        data.mbi_users = cachedUsersMemory;
+        import_fs4.default.writeFile(syncFile2, JSON.stringify(data, null, 2), "utf-8", () => {
+        });
+      } catch (err) {
+      }
+    }, 500);
   } catch (e) {
     console.warn("Failed to save fallback users to sync data:", e);
   }
@@ -2833,6 +3250,7 @@ function requireMasterAdminGuard(req, res, next) {
 }
 
 // server/controllers/adminDbController.ts
+init_mariaClient();
 var import_fs5 = __toESM(require("fs"));
 var import_path5 = __toESM(require("path"));
 var syncFile3 = import_path5.default.resolve(process.cwd(), ".sync_data.json");
@@ -3218,6 +3636,8 @@ SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
 }
 
 // server/controllers/broadcastController.ts
+init_sqliteVaultManager();
+init_mariaClient();
 var import_fs6 = __toESM(require("fs"));
 var import_path6 = __toESM(require("path"));
 var syncFile4 = import_path6.default.resolve(process.cwd(), ".sync_data.json");
@@ -3715,8 +4135,11 @@ async function getHomePagePopupController(req, res) {
           body: row.body,
           badgeText: row.badge_text || "SPECIAL ANNOUNCEMENT",
           imageUrl: row.image_url || "",
-          ctaLabel: row.cta_label || "Get Started Now",
+          ctaLabel: row.cta_label || "Claim 10-Day Free Trial",
           ctaUrl: row.cta_url || "/register",
+          ctaStyle: row.cta_style || "gradient_indigo",
+          secondaryCtaLabel: row.secondary_cta_label || "Maybe Later",
+          secondaryCtaUrl: row.secondary_cta_url || "",
           type: row.type || "special_offer",
           autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
           updatedAt: row.updated_at
@@ -3741,6 +4164,9 @@ async function getHomePagePopupController(req, res) {
         imageUrl: "",
         ctaLabel: "Claim 10-Day Free Trial",
         ctaUrl: "/register",
+        ctaStyle: "gradient_indigo",
+        secondaryCtaLabel: "Maybe Later",
+        secondaryCtaUrl: "",
         type: "special_offer",
         autoShowDelayMs: 1500,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -3846,6 +4272,7 @@ async function saveHomePagePopupController(req, res) {
 }
 
 // server/controllers/adminMedicineController.ts
+init_mariaClient();
 var import_fs7 = __toESM(require("fs"));
 var import_path7 = __toESM(require("path"));
 
@@ -4789,7 +5216,7 @@ function generate14kMasterCatalog() {
 var masterCatalogCache = generate14kMasterCatalog();
 async function initDatabaseTablesAndIndexes() {
   try {
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (!isAvailable) return;
     const pool = getMariaDbPool();
     await pool.query(`
@@ -7580,7 +8007,7 @@ async function loginController(req, res) {
       } catch (sqliteErr) {
       }
     }
-    if (!authenticatedUser && await isMariaDbAvailable2()) {
+    if (!authenticatedUser && await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -7646,7 +8073,7 @@ async function loginController(req, res) {
       return;
     }
     const tenantId = authenticatedUser.tenant_id || authenticatedUser.tenantId || "tenant_main_pharmacy";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [tenantRows] = await pool.query(
@@ -7784,6 +8211,16 @@ async function loginController(req, res) {
         if (tRow.plan) tenantPlan = tRow.plan;
       }
     } catch (e) {
+    }
+    if (!tenantStoreName) {
+      try {
+        const masterDb = getMasterVault();
+        const licRow = masterDb.prepare("SELECT client_name, owner_name, plan FROM mbi_licenses WHERE tenant_id = ? LIMIT 1").get(tenantId);
+        if (licRow?.client_name) {
+          tenantStoreName = licRow.client_name;
+        }
+      } catch (e) {
+      }
     }
     if (!tenantStoreName) {
       try {
@@ -8538,6 +8975,7 @@ authRouter.post("/master-login", requireMasterAuth, (req, res) => {
 
 // server/routes/tenantRoutes.ts
 var import_express4 = __toESM(require("express"));
+init_sqliteVaultManager();
 var tenantRouter = import_express4.default.Router();
 tenantRouter.use(requireAuth);
 tenantRouter.use(resolveTenant);
@@ -8663,7 +9101,7 @@ tenantRouter.post("/sync-operation", async (req, res) => {
       }
     }
     if (payload && entityType) {
-      await syncRecordToMariaDb3(entityType, payload, tenantId);
+      await syncRecordToMariaDb2(entityType, payload, tenantId);
     }
     res.json({
       success: true,
@@ -8690,7 +9128,7 @@ tenantRouter.post("/sync-batch", async (req, res) => {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     for (const op of operations) {
       if (op && op.entityType && (op.payload || op.data)) {
-        await syncRecordToMariaDb3(op.entityType, op.payload || op.data, String(tenantId));
+        await syncRecordToMariaDb2(op.entityType, op.payload || op.data, String(tenantId));
       }
     }
     const results = operations.map((op) => ({
@@ -8717,89 +9155,8 @@ var import_express5 = require("express");
 var import_genai = require("@google/genai");
 var import_fs10 = __toESM(require("fs"));
 var import_path10 = __toESM(require("path"));
-
-// server/controllers/aiDataQueryEngine.ts
-var PAKISTANI_MEDICINE_GENERICS = {
-  "augmentin": {
-    generic: "Co-Amoxiclav (Amoxicillin + Clavulanic Acid)",
-    uses: "Broad-spectrum antibiotic for respiratory tract, ENT, dental, and skin infections.",
-    alternatives: ["Curam", "Klavox", "Amoclav", "Moxclav", "Augmax"]
-  },
-  "panadol": {
-    generic: "Paracetamol (Acetaminophen)",
-    uses: "Analgesic & antipyretic for pain relief, headaches, and fever management.",
-    alternatives: ["Calpol", "Disprol", "Febrol", "Paramol", "Tylenol"]
-  },
-  "brufen": {
-    generic: "Ibuprofen",
-    uses: "NSAID for pain, inflammation, swelling, and musculoskeletal pain.",
-    alternatives: ["Profen", "Advil", "Motrin", "Ibex"]
-  },
-  "risek": {
-    generic: "Omeprazole",
-    uses: "Proton Pump Inhibitor (PPI) for gastric acidity, GERD, and peptic ulcers.",
-    alternatives: ["Omega", "Losec", "Omepra", "Procept"]
-  },
-  "flagyl": {
-    generic: "Metronidazole",
-    uses: "Antibacterial & antiprotozoal for amoebiasis, giardiasis, and anaerobic infections.",
-    alternatives: ["Metrozine", "Entamizole (Combo)", "Nidazole"]
-  },
-  "arinac": {
-    generic: "Ibuprofen + Pseudoephedrine Hydrochloride",
-    uses: "Decongestant and pain reliever for cold, nasal congestion, and sinus pain.",
-    alternatives: ["Sinutab", "Fludrex", "Actifed (Cold)"]
-  },
-  "gavilac": {
-    generic: "Lactulose",
-    uses: "Osmotic laxative for chronic constipation and hepatic encephalopathy.",
-    alternatives: ["Duphalac", "Lilac", "Lactul"]
-  },
-  "flynex": {
-    generic: "Fexofenadine Hydrochloride",
-    uses: "Non-sedating antihistamine for seasonal allergic rhinitis and urticaria.",
-    alternatives: ["Telfast", "Fexit", "Aller-F"]
-  }
-};
-function isSecurityViolationQuery(query) {
-  const lower = query.toLowerCase();
-  const forbiddenPatterns = [
-    "root password",
-    "database password",
-    "mariadb password",
-    "mbi72dn password",
-    "server master pin",
-    "bypass hwid",
-    "crack license",
-    "show env",
-    ".env",
-    "api_key",
-    "secret_key",
-    "exec(",
-    "eval(",
-    "drop database",
-    "drop table",
-    "truncate table",
-    "/api/master/emergency-lock"
-  ];
-  return forbiddenPatterns.some((p) => lower.includes(p));
-}
-function matchGenericAlternative(query) {
-  const lower = query.toLowerCase();
-  for (const [brand, info] of Object.entries(PAKISTANI_MEDICINE_GENERICS)) {
-    if (lower.includes(brand)) {
-      return `\u{1F48A} **Generic Formula & Alternatives for ${brand.toUpperCase()}**:
-- **Generic Salt:** ${info.generic}
-- **Clinical Indication:** ${info.uses}
-- **Recommended Substitutions in Pakistan:** ${info.alternatives.join(", ")}
-
-*Tip: In POS Billing, press 'F2' to search by generic formula when specific brand is out of stock.*`;
-    }
-  }
-  return null;
-}
-
-// server/services/aiAssistantService.ts
+init_mariaClient();
+init_aiDataQueryEngine();
 var INITIAL_KEYS = [
   "AQ.Ab8RN6J41zAkRs-AxOHStQ3XEF5x8SRnRZ-kdc74FPc0jeT9xA",
   "AQ.Ab8RN6L0k5gS_ygV9Vr4N0gNbSw99uvgMqZoYJp4_DYX-dMbWQ",
@@ -8933,7 +9290,7 @@ function recordClickEvent(event) {
   if (newEvent.sessionId) {
     incrementSessionClicks(newEvent.sessionId);
   }
-  syncRecordToMariaDb2("auditLogs", {
+  syncRecordToMariaDb("auditLogs", {
     id: newEvent.id,
     tenantId: newEvent.tenantId || "default",
     userId: newEvent.userId || null,
@@ -9358,11 +9715,14 @@ function removeCustomApiKey(keyToRemove) {
     keyHealth: status.keyHealthMetrics
   };
 }
-async function generateAiResponse(prompt, context = "user", userPlan = "business", history = []) {
+async function generateAiResponse(prompt, context = "user", userPlan = "business", history = [], tenantOptions) {
   const settings = loadSettings();
   if (!settings.isAiEnabledGlobally) {
     throw new Error("MBI AI Assistant is currently disabled globally by Server Master.");
   }
+  const tenantId = tenantOptions?.tenantId || "default";
+  const storeName = tenantOptions?.storeName || "My Pharmacy";
+  const userName = tenantOptions?.userName || "User";
   if (context === "user") {
     const planKey = (userPlan.toLowerCase() || "basic").includes("enterprise") || (userPlan.toLowerCase() || "basic").includes("platinum") ? "enterprise" : (userPlan.toLowerCase() || "basic").includes("business") || (userPlan.toLowerCase() || "basic").includes("gold") ? "business" : "basic";
     const isAllowed = settings.allowedPlans[planKey] ?? true;
@@ -9372,6 +9732,25 @@ async function generateAiResponse(prompt, context = "user", userPlan = "business
         humanLeadTriggered: false,
         keyIndexUsed: 0
       };
+    }
+    if (tenantId && tenantId !== "default" && tenantId !== "global") {
+      const quotaLimits = getTenantAiQuotaLimits(tenantId, userPlan);
+      const usedToday = getTenantTodayUsed(tenantId);
+      if (usedToday >= quotaLimits.effectiveLimit) {
+        return {
+          text: `\u26A0\uFE0F **Daily AI Message Quota Reached (${usedToday}/${quotaLimits.effectiveLimit} msgs)**
+
+Aapki pharmacy ka aaj ka daily AI limit (${quotaLimits.effectiveLimit} messages/day) mukammal ho chuka hai. Agar aapko mazeed limit chahiye, to Master Administrator se rabta karein ya kal dobara use karein.`,
+          humanLeadTriggered: false,
+          keyIndexUsed: 0
+        };
+      }
+      incrementTenantDailyUsage(tenantId, {
+        storeName,
+        name: userName,
+        plan: userPlan,
+        targetType: "tenant"
+      });
     }
   } else if (context === "home" && !settings.homePageEnabled) {
     throw new Error("AI Assistant on Home Page is currently offline.");
@@ -9384,12 +9763,21 @@ async function generateAiResponse(prompt, context = "user", userPlan = "business
     };
   }
   const genericMatch = matchGenericAlternative(prompt);
-  if (genericMatch && context !== "master") {
+  if (genericMatch && context !== "server") {
     return {
       text: genericMatch,
       humanLeadTriggered: false,
       keyIndexUsed: 0
     };
+  }
+  let tenantSnapshot = null;
+  if (context === "user" && tenantId && tenantId !== "default" && tenantId !== "global") {
+    try {
+      const { getTenantLiveSnapshot: getTenantLiveSnapshot2 } = await Promise.resolve().then(() => (init_aiDataQueryEngine(), aiDataQueryEngine_exports));
+      tenantSnapshot = await getTenantLiveSnapshot2(tenantId);
+    } catch (e) {
+      console.warn("[AI TENANT SNAPSHOT FETCH WARN]", e);
+    }
   }
   const lowerPrompt = prompt.toLowerCase();
   const humanKeywords = [
@@ -9416,12 +9804,13 @@ async function generateAiResponse(prompt, context = "user", userPlan = "business
   const keyPool = getKeyPool();
   const systemInstructionHome = `
 You are 'MBI AI Guide', the smart official multilingual sales & product assistant for MBI INVENTRA \u2014 Pakistan's #1 Enterprise Pharmacy POS & ERP Software.
-Your scope is STRICTLY dedicated to Home & Landing Page visitors: explaining software capabilities, lifetime pricing, 10-day free trial, WhatsApp demo, 0.2s POS speed, and 100% offline desktop features.
+Your scope is STRICTLY dedicated to Home & Landing Page visitors: explaining software capabilities, transparent pricing, 10-day free trial, WhatsApp demo, 0.2s POS speed, and 100% offline desktop features.
 
 Key Guidelines:
 - Language: You understand and fluently respond in ANY language the user writes in (Urdu, Roman Urdu e.g. "ye software kaisa hai", "mujhe isky bary me batao", "rate kya hain", English, Hindi, Pashto, Punjabi, etc.). Always match the exact language and dialect of the user!
-- Greetings & Conversational Handling:
-  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly and concisely in their language and immediately introduce what you can do for them: e.g. "Assalam-o-Alaikum! Main MBI INVENTRA ka AI Guide hoon. Main aapko hamaray 0.2s POS Billing Software, 10-Day Free Trial, FEFO Expiry Radar, aur Pricing Plans ke baray mein bata sakta hoon. Aap kis cheez ke baray mein janna chahtay hain?"
+- Greetings & Custom Conversational Messages:
+  - If the user says "hi", "hello", "salam", "hey", "kaisay ho", or any casual greeting, greet them warmly and concisely in their language and immediately introduce what you can do for them:
+    e.g. "Assalam-o-Alaikum! Main MBI INVENTRA ka AI Guide hoon. Main aapko hamaray 0.2s POS Billing Software, 10-Day Free Trial, FEFO Expiry Radar, aur Pricing Plans ke baray mein mukammal rehnumai de sakta hoon. Aap kis cheez ke baray mein janna chahtay hain?"
 - Core Selling Points:
   1. \u26A1 0.2-Second POS Billing: Ultra-fast medicine search & barcode scanning, instant 80mm/58mm thermal receipts.
   2. \u{1F310} 100% Offline Desktop Engine: Runs completely without internet using local database cache; auto-syncs to cloud when connected.
@@ -9432,47 +9821,78 @@ Key Guidelines:
   - \u{1F948} **Silver Basic:**
     \u2022 Monthly: **Rs. 1,999 / Month**
     \u2022 1-Year (Annual Deal): **Rs. 19,990 / Year** (Save ~17% \u2014 Effective Rs. 1,666/mo)
-    \u2022 3-Years: **Rs. 59,970** (Save ~30%) | 5-Years: **Rs. 99,950** (Save ~40%)
-    \u2022 Capacity: Up to 2 Staff Accounts (Admin & Cashier) \u2022 Up to 2 Pharmacy Firms/Branches \u2022 0.2s POS Invoicing \u2022 100k+ Preloaded Medicine Catalog
+    \u2022 3-Years: **Rs. 59,970** | 5-Years: **Rs. 99,950**
+    \u2022 Capacity: Up to 2 Staff Accounts \u2022 Up to 2 Pharmacy Firms/Branches \u2022 0.2s POS Invoicing \u2022 100k+ Preloaded Medicine Catalog
   - \u{1F947} **Gold Business \u2B50 (Most Popular):**
     \u2022 Monthly: **Rs. 3,999 / Month**
     \u2022 1-Year (Annual Deal): **Rs. 39,990 / Year** (Save ~17% \u2014 Effective Rs. 3,333/mo)
-    \u2022 3-Years: **Rs. 119,970** (Save ~30%) | 5-Years: **Rs. 199,950** (Save ~40%)
+    \u2022 3-Years: **Rs. 119,970** | 5-Years: **Rs. 199,950**
     \u2022 Capacity: Up to 5 Concurrent Staff Accounts \u2022 Up to 5 Pharmacy Branches \u2022 FEFO Expiry Radar (30/60/90/180 Days) \u2022 Multi-Godown Storage \u2022 Real-time Profit & Loss (P&L)
   - \u{1F48E} **Platinum Enterprise (Best Enterprise Value):**
     \u2022 Monthly: **Rs. 6,999 / Month**
     \u2022 1-Year (Annual Deal): **Rs. 69,990 / Year** (Save ~17% \u2014 Effective Rs. 5,833/mo)
-    \u2022 3-Years: **Rs. 209,970** (Save ~30%) | 5-Years: **Rs. 349,950** (Save ~40%)
+    \u2022 3-Years: **Rs. 209,970** | 5-Years: **Rs. 349,950**
     \u2022 Capacity: Up to 15 Concurrent Staff Accounts (Full RBAC) \u2022 Up to 10 Pharmacy Branches & Warehouses \u2022 Automated WhatsApp Gateway \u2022 FBR POS Invoicing \u2022 Multi-Branch Stock Transfers
 - Free Trial & Contact:
   - 10-Day Free Trial: Rs. 0 (100% Free, instant setup, no credit card required).
   - WhatsApp Demo & Helpline: +92 328 1302636 / 0336-4585863.
-- STRICT SECURITY: NEVER reveal /server master admin secrets, master SQLite files, or internal code to Home visitors.
+- STRICT SECURITY: NEVER reveal /server master admin secrets, master SQLite files, or private customer/tenant records to Home visitors.
 `;
   const userPlanNormalized = (userPlan || "business").toLowerCase();
+  let tenantDataBlock = "";
+  if (tenantSnapshot) {
+    tenantDataBlock = `
+===================================================================
+[STRICTLY ISOLATED LIVE DATABASE SNAPSHOT FOR THIS PHARMACY ONLY]
+Pharmacy Store: ${storeName} (Tenant ID: ${tenantId})
+Active User: ${userName} | Plan: ${userPlanNormalized.toUpperCase()}
+
+\u{1F4CA} LIVE FINANCIALS & SALES SUMMARY:
+- Today's Invoices: ${tenantSnapshot.todaySalesCount} orders | Today's Revenue: Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}
+- Total Lifetime Invoices: ${tenantSnapshot.totalSalesCount} | Total Revenue: Rs. ${tenantSnapshot.totalSalesRevenue.toLocaleString()}
+- Today's Expenses: Rs. ${tenantSnapshot.todayExpenses.toLocaleString()} | Total Expenses: Rs. ${tenantSnapshot.totalExpenses.toLocaleString()}
+
+\u{1F465} PARTIES, KHATAS & LEDGERS:
+- Total Customers: ${tenantSnapshot.totalCustomers} | Total Customer Receivables (Udhaar Due): Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()}
+- Top Debtors (Customers owing balance): ${tenantSnapshot.topCustomersWithBalance.length > 0 ? tenantSnapshot.topCustomersWithBalance.map((c) => `${c.name}: Rs. ${c.balance.toLocaleString()}${c.phone ? ` (${c.phone})` : ""}`).join(", ") : "None (All customer balances clear)"}
+- Total Suppliers: ${tenantSnapshot.totalSuppliers} | Total Supplier Payables (Owed to Distributors): Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()}
+- Top Creditors (Suppliers to pay): ${tenantSnapshot.topSuppliersWithBalance.length > 0 ? tenantSnapshot.topSuppliersWithBalance.map((s) => `${s.name}: Rs. ${s.balance.toLocaleString()}${s.phone ? ` (${s.phone})` : ""}`).join(", ") : "None (All supplier balances clear)"}
+
+\u{1F48A} INVENTORY, STOCK & FEFO RADAR:
+- Total Medicine Items: ${tenantSnapshot.totalMedicines}
+- Low Stock Items Count: ${tenantSnapshot.lowStockCount}
+  ${tenantSnapshot.lowStockItems.length > 0 ? `(Low stock list: ${tenantSnapshot.lowStockItems.map((i) => `${i.name} [Qty: ${i.stock_qty}, Min: ${i.min_stock}]`).join(", ")})` : ""}
+- Near Expiry Items Count (< 90 Days): ${tenantSnapshot.nearExpiryCount}
+  ${tenantSnapshot.nearExpiryItems.length > 0 ? `(Near expiry list: ${tenantSnapshot.nearExpiryItems.map((e) => `${e.name} [Batch: ${e.batch || "N/A"}, Expiry: ${e.expiry}, Qty: ${e.qty}]`).join(", ")})` : ""}
+===================================================================
+`;
+  }
   const systemInstructionUser = `
-You are 'MBI AI Copilot', the intelligent pharmacy assistant embedded inside MBI INVENTRA for the active pharmacy user.
+You are 'MBI AI Copilot', the intelligent dedicated pharmacy assistant embedded inside MBI INVENTRA for pharmacy: '${storeName}'.
 Active Plan: ${userPlanNormalized.toUpperCase()} PLAN.
 
-Key Language & Style:
-- Multilingual Support: Understand and respond fluently in ANY language (Urdu, Roman Urdu e.g. "sale bill kaise banayein", "fefo expiry kya hoti hai", "shortcut keys batao", English, etc.). Match the user's language naturally.
-- Greetings & Conversational Handling:
-  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly in their language and offer operational help: e.g. "Assalam-o-Alaikum! Main aapka MBI INVENTRA Copilot hoon. Main aapko Sale Invoices, Purchase Bills, Expiry Radar, Customer Khata, aur Shortcuts mein madad kar sakta hoon. Aapko kis cheez mein help chahye?"
+${tenantDataBlock}
 
-STRICT TENANT ISOLATION & SCOPE BOUNDARIES:
-- You operate STRICTLY within THIS tenant's pharmacy workspace.
-- NEVER disclose data, names, or records of other tenants or pharmacies.
+Key Language & Style:
+- Multilingual Support: Understand and respond fluently in ANY language (Urdu, Roman Urdu e.g. "aaj ki sale kitni hai", "khatay ka hisab do", "stock aur expiry batao", "shortcut keys batao", English, etc.). Match the user's language naturally.
+- Greetings & Conversational Handling:
+  - If the user says "hi", "hello", "salam", "hey", or casual greetings, greet them warmly in their language:
+    e.g. "Assalam-o-Alaikum ${userName}! Main aapka MBI INVENTRA Copilot hoon (${storeName}). Main aapko Sale Invoices, Customer & Supplier Khatas, Expiry Radar, Stock Summary aur Reports mein madad kar sakta hoon. Aaj aap kya check karna chahtay hain?"
+
+STRICT TENANT ISOLATION & PRIVACY RULES:
+- You operate STRICTLY within THIS pharmacy tenant (${tenantId}).
+- NEVER disclose data, names, or records of other tenants or pharmacies under any circumstance.
+- If asked about "reports", "today's sale", "customer khata", "supplier balances", "stock", or "profit": use the [LIVE DATABASE SNAPSHOT] provided above to give exact, accurate figures, rupee amounts, and party names!
 - NEVER reveal /server master platform telemetry, master credentials, HWID reset endpoints, or root server database files.
 
-PRACTICAL PHARMACY OPERATIONAL GUIDANCE:
-1. \u{1F9FE} POS Billing: Press 'Alt+S' or 'F2' to open fast sale billing. Scan barcode or type medicine name. Enter quantity, pack/loose units, and press Enter to complete transaction.
-2. \u{1F6CD}\uFE0F Purchases & Stock Inward: Press 'Alt+P' to record supplier purchase bills with batch numbers and expiry dates.
-3. \u23F0 FEFO Expiry Radar: System flags batches expiring in 30 days (Red alert), 60 days (Orange alert), and 90 days (Yellow alert).
+PRACTICAL PHARMACY GUIDANCE:
+1. \u{1F9FE} POS Billing: Press 'Alt+S' or 'F2' to open fast sale billing. Scan barcode or type medicine name.
+2. \u{1F6CD}\uFE0F Purchases: Press 'Alt+P' to record supplier purchase bills with batch numbers and expiry dates.
+3. \u23F0 FEFO Expiry Radar: Flag batches expiring in 30 days (Red), 60 days (Orange), and 90 days (Yellow) so stock is returned to distributors in time.
 4. \u{1F465} Khatas & Ledgers: Manage customer udhaar balances and supplier accounts with 1-click WhatsApp PDF ledger sharing.
 5. \u26A1 Essential Shortcuts: \`Alt+S\` (New Sale), \`Alt+P\` (New Purchase), \`F2\` (Medicine Search), \`F1\` (Help/Shortcuts), \`Esc\` (Close modal).
 6. \u{1F48A} Generic Equivalents: Provide accurate generic salt formulas and Pakistani market alternatives (e.g. Augmentin = Curam/Klavox/Amoxi-Clav).
-7. \u{1F6E1}\uFE0F Offline Mode: Invoices are saved locally in 0ms and auto-synced once internet is restored.
-8. \u{1F4DE} Live Support: If user asks for human assistance, confirm that their request has been prioritized for the Live Support Desk!
+7. \u{1F4DE} Live Support: If user asks for human assistance, confirm that their request has been prioritized for the Live Support Desk!
 `;
   const systemInstructionMaster = `
 You are 'MBI Master Fleet Copilot', the advanced technical assistant for Super Administrators inside the '/server' Master Hub.
@@ -9486,7 +9906,7 @@ Capabilities & Master Scope:
 
 Tone: Highly technical, precise, concise, and security-first. Supports English, Urdu, and Roman Urdu.
 `;
-  const systemInstruction = context === "master" || context === "server" ? systemInstructionMaster : context === "home" ? systemInstructionHome : systemInstructionUser;
+  const systemInstruction = context === "server" ? systemInstructionMaster : context === "home" ? systemInstructionHome : systemInstructionUser;
   for (let attempt = 0; attempt < keyPool.length; attempt++) {
     const activeKey = keyPool[currentKeyIndex % keyPool.length];
     const stat = getOrInitKeyStat(activeKey);
@@ -9542,14 +9962,20 @@ Tone: Highly technical, precise, concise, and security-first. Supports English, 
       currentKeyIndex = (currentKeyIndex + 1) % keyPool.length;
     }
   }
-  const fallbackText = generateIntelligentFallback(prompt, context === "master" || context === "server" ? "server" : context === "home" ? "home" : "user", userPlanNormalized);
+  const fallbackText = generateIntelligentFallback(
+    prompt,
+    context === "server" ? "server" : context === "home" ? "home" : "user",
+    userPlanNormalized,
+    tenantSnapshot,
+    storeName
+  );
   return {
     text: fallbackText,
     humanLeadTriggered: isHumanRequested,
     keyIndexUsed: -1
   };
 }
-function generateIntelligentFallback(query, currentContext, currentPlan = "business") {
+function generateIntelligentFallback(query, currentContext, currentPlan = "business", tenantSnapshot, storeName) {
   const lower = query.toLowerCase();
   if (lower.includes("human") || lower.includes("support") || lower.includes("admin") || lower.includes("call") || lower.includes("bilal") || lower.includes("phone") || lower.includes("help") || lower.includes("contact") || lower.includes("rabta") || lower.includes("baat karni") || lower.includes("number") || lower.includes("whatsapp") || query.includes("\u0631\u0627\u0628\u0637\u06C1") || query.includes("\u0645\u062F\u062F") || query.includes("\u0646\u0645\u0628\u0631")) {
     return `\u{1F4DE} **MBI Live Human Support Dispatch**
@@ -9559,6 +9985,26 @@ Maine aapki inquiry priority desk par forward kar di hai. Aap hamari 24/7 helpli
 - **Direct Hotline:** 0336-4585863
 
 Representative jald aapse rabta karega!`;
+  }
+  if (lower === "hi" || lower === "hello" || lower === "salam" || lower === "assalam o alaikum" || lower === "salam o alaikum" || lower === "hey" || lower === "aoa" || lower === "asalam" || lower.startsWith("hello") || lower.startsWith("salam") || lower.includes("kaisay ho") || lower.includes("kese ho")) {
+    if (currentContext === "server") {
+      return `\u{1F6E1}\uFE0F **Assalam-o-Alaikum Master Administrator!**
+
+Main MBI Master Fleet Copilot hoon. Main aapko HWID Device Resets, 12:00 AM Encrypted Backups, Tenant SQLite Vaults, aur Server Telemetry mein assist kar sakta hoon.`;
+    }
+    if (currentContext === "home") {
+      return `\u2728 **Assalam-o-Alaikum! Welcome to MBI INVENTRA.**
+
+Main MBI INVENTRA ka AI Guide hoon. Main aapko hamaray **0.2s POS Billing Software**, **10-Day Free Trial**, **FEFO Expiry Radar**, aur **Pricing Plans** ke baray mein mukammal rehnumai de sakta hoon.
+
+Aap kis cheez ke baray mein janna chahtay hain?`;
+    }
+    return `\u2728 **Assalam-o-Alaikum! Main aapka MBI AI Copilot hoon (${storeName || "Pharmacy"}).**
+
+Main aapki live sales, customer udhaar khatay, supplier payments, stock status, aur reports mein madad ke liye tayyar hoon. Aap mujh se poochein:
+- *"Aaj ki sale kitni hai?"*
+- *"Customer khata summary dikhao"*
+- *"Near expiry ya low stock medicines kaun si hain?"*`;
   }
   if (currentContext === "server") {
     if (lower.includes("hwid") || lower.includes("reset") || lower.includes("license") || lower.includes("device") || lower.includes("laptop")) {
@@ -9658,7 +10104,66 @@ Main MBI INVENTRA Enterprise Pharmacy POS & ERP Software ke baare mein aapki muk
 
 Abhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 1302636**!`;
   }
-  if (lower.includes("shortcut") || lower.includes("f1") || lower.includes("f2") || lower.includes("pos") || lower.includes("keyboard") || lower.includes("bill") || lower.includes("sale") || query.includes("\u0634\u0627\u0631\u0679 \u06A9\u0679") || query.includes("\u0628\u0644")) {
+  if (lower.includes("sale") || lower.includes("revenue") || lower.includes("kamai") || lower.includes("aaj ki") || lower.includes("today")) {
+    if (tenantSnapshot) {
+      return `\u{1F4CA} **Live Sales & Invoices Summary (${storeName || "My Pharmacy"})**
+
+- **Today's Invoices:** ${tenantSnapshot.todaySalesCount} bills
+- **Today's Total Revenue:** Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}
+- **Total Lifetime Sales:** ${tenantSnapshot.totalSalesCount} invoices (Rs. ${tenantSnapshot.totalSalesRevenue.toLocaleString()})
+
+*\u{1F4A1} Tip: Press \`Alt+S\` to create a new POS sale invoice instantly.*`;
+    }
+  }
+  if (lower.includes("khata") || lower.includes("udhaar") || lower.includes("customer") || lower.includes("supplier") || lower.includes("party") || lower.includes("parties") || lower.includes("balance") || query.includes("\u06A9\u06BE\u0627\u062A\u06C1") || query.includes("\u0627\u062F\u06BE\u0627\u0631")) {
+    if (tenantSnapshot) {
+      const topCustList = tenantSnapshot.topCustomersWithBalance.length > 0 ? tenantSnapshot.topCustomersWithBalance.map((c) => `\u2022 **${c.name}**: Rs. ${c.balance.toLocaleString()}${c.phone ? ` (${c.phone})` : ""}`).join("\n") : "\u2022 Sabhi customers ka hisab clear hai.";
+      const topSuppList = tenantSnapshot.topSuppliersWithBalance.length > 0 ? tenantSnapshot.topSuppliersWithBalance.map((s) => `\u2022 **${s.name}**: Rs. ${s.balance.toLocaleString()}${s.phone ? ` (${s.phone})` : ""}`).join("\n") : "\u2022 Sabhi suppliers ka balance paid hai.";
+      return `\u{1F4D2} **Live Parties & Khata Summary (${storeName || "My Pharmacy"})**
+
+**Customers (Total: ${tenantSnapshot.totalCustomers}):**
+- **Total Udhaar / Receivables:** Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()}
+${topCustList}
+
+**Suppliers / Distributors (Total: ${tenantSnapshot.totalSuppliers}):**
+- **Total Payables Due:** Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()}
+${topSuppList}
+
+*\u{1F4A1} Statement send karne ke liye Parties menu mein WhatsApp share button use karein.*`;
+    }
+  }
+  if (lower.includes("report") || lower.includes("summary") || lower.includes("hisab") || lower.includes("audit") || query.includes("\u0631\u067E\u0648\u0631\u0679")) {
+    if (tenantSnapshot) {
+      return `\u{1F4C8} **Live Business Health & Operations Report (${storeName || "My Pharmacy"})**
+
+- **Today's Sales:** ${tenantSnapshot.todaySalesCount} Invoices | **Rs. ${tenantSnapshot.todayRevenue.toLocaleString()}**
+- **Today's Expenses:** Rs. ${tenantSnapshot.todayExpenses.toLocaleString()}
+- **Customer Udhaar Due:** Rs. ${tenantSnapshot.customerReceivableTotal.toLocaleString()} (${tenantSnapshot.totalCustomers} Customers)
+- **Supplier Payables:** Rs. ${tenantSnapshot.supplierPayableTotal.toLocaleString()} (${tenantSnapshot.totalSuppliers} Suppliers)
+- **Total Stock Catalog:** ${tenantSnapshot.totalMedicines} Medicines
+- **Low Stock Alerts:** ${tenantSnapshot.lowStockCount} items
+- **Near Expiry Alerts (<90 Days):** ${tenantSnapshot.nearExpiryCount} items
+
+Mazeed detailed item-wise P&L dekhne ke liye **Reports** menu par click karein.`;
+    }
+  }
+  if (lower.includes("stock") || lower.includes("shortage") || lower.includes("expiry") || lower.includes("fefo") || query.includes("\u0627\u0633\u0679\u0627\u06A9") || query.includes("\u0627\u06CC\u06A9\u0633\u067E\u0627\u0626\u0631\u06CC")) {
+    if (tenantSnapshot) {
+      const lowList = tenantSnapshot.lowStockItems.length > 0 ? tenantSnapshot.lowStockItems.map((i) => `\u2022 **${i.name}** (Current: ${i.stock_qty}, Min: ${i.min_stock})`).join("\n") : "\u2022 Koyi critical low stock item nahi.";
+      const expList = tenantSnapshot.nearExpiryItems.length > 0 ? tenantSnapshot.nearExpiryItems.map((e) => `\u2022 **${e.name}** (Batch: ${e.batch || "N/A"}, Expiry: ${e.expiry}, Qty: ${e.qty})`).join("\n") : "\u2022 Next 90 days mein koyi medicine expire nahi ho rahi.";
+      return `\u{1F4E6} **Live Inventory & FEFO Expiry Radar (${storeName || "My Pharmacy"})**
+
+- **Total Catalog Medicines:** ${tenantSnapshot.totalMedicines}
+- **Low Stock Items (${tenantSnapshot.lowStockCount}):**
+${lowList}
+
+- **Near Expiry Stock (${tenantSnapshot.nearExpiryCount} items < 90 Days):**
+${expList}
+
+*\u{1F4A1} FEFO Radar se stock check karke distributors ko return claim bhejain.*`;
+    }
+  }
+  if (lower.includes("shortcut") || lower.includes("f1") || lower.includes("f2") || lower.includes("pos") || lower.includes("keyboard") || lower.includes("bill") || query.includes("\u0634\u0627\u0631\u0679 \u06A9\u0679") || query.includes("\u0628\u0644")) {
     return `\u26A1 **Essential MBI POS Fast Billing Shortcuts**
 
 - \`Alt + S\` : Open New Sale Invoice instantly
@@ -9670,41 +10175,16 @@ Abhi **Start Free 10-Day Trial** par click karein ya WhatsApp karein: **+92 328 
 
 *Engineered for high-volume rush hours with 0.2s transaction speed.*`;
   }
-  if (lower.includes("fefo") || lower.includes("expiry") || lower.includes("radar") || lower.includes("waste") || lower.includes("near expiry") || query.includes("\u0627\u06CC\u06A9\u0633\u067E\u0627\u0626\u0631\u06CC")) {
-    return `\u23F0 **FEFO (First-Expiry, First-Out) Smart Profit Radar**
-
-- **Automated POS Dispensing:** System prioritizes batches closest to expiry date during retail sale billing.
-- **30/60/90-Day Warning Horizon:** Automated radar tags stock approaching expiration for timely return to medicine distributors.
-- **Profit Protection:** Eliminates dead inventory dump write-offs and protects 18-22% net retail margin.`;
-  }
-  if (lower.includes("khata") || lower.includes("udhaar") || lower.includes("ledger") || lower.includes("customer") || lower.includes("supplier") || query.includes("\u06A9\u06BE\u0627\u062A\u06C1") || query.includes("\u0627\u062F\u06BE\u0627\u0631")) {
-    return `\u{1F4D2} **Customer & Supplier Double-Entry Ledgers**
-
-- **Customer Khata:** Sale bill banatay waqt customer select karein, balance due ledger me auto-record ho jayega.
-- **Payment In/Out:** Cash vasooli ya supplier payment **Bank & Cash** module se 1 click mein enter karein.
-- **WhatsApp Statement:** Customer ko unka ledger hisab WhatsApp par PDF receipt ke tor par send karein.`;
-  }
-  if (lower.includes("shortage") || lower.includes("short") || lower.includes("reorder") || lower.includes("stock") || query.includes("\u0634\u0627\u0631\u0679\u06CC\u062C")) {
-    return `\u26A0\uFE0F **Smart Shortage Register & Auto Reordering**
-
-- **Customer Demands:** Jo medicine stock mein na ho, cashier foran Shortage Register mein add kar sakta hai.
-- **Purchase Order Auto-Fill:** Supplier purchase order banatay waqt shortage items automatically list mein shamil ho jatay hain.`;
-  }
-  if (lower.includes("staff") || lower.includes("pin") || lower.includes("shift") || lower.includes("drawer") || lower.includes("cashier")) {
-    return `\u{1F510} **Staff PINs & Cashier Shift Closing**
-
-- **4-Digit Staff PIN:** Har cashier ko private PIN dein taake unauthorized discounts ya deletions block hon.
-- **Shift Float Reconciliation:** Day-end par drawer cash count match karein aur shift summary report print karein.`;
-  }
-  return `\u2728 **MBI AI Copilot Response**
+  return `\u2728 **MBI AI Copilot Response (${storeName || "My Pharmacy"})**
 
 Main aapke Pharmacy Workspace ka intelligent AI guide hoon:
 
-- **Fast POS Billing:** \`Alt+S\` dabayein ya \`F2\` se medicine search karein.
-- **FEFO Expiry Alert:** Menu se FEFO Radar check karke near-expiry stock distributors ko return karein.
-- **Customer Ledgers:** Parties menu mein udhaar aur vasooli maintain karein.
+- **Today's Sales & Reports:** Sales summary ya financial report poochein.
+- **Customer & Supplier Khatas:** Udhaar hisab aur payables check karein.
+- **FEFO Expiry & Stock:** Near expiry ya low stock status janiye.
+- **Fast POS Shortcuts:** \`Alt+S\` (New Sale), \`F2\` (Medicine Search).
 
-Agar kisi specific feature ya generic medicine ke baray mein janna chahein to zaroor poochein!`;
+Aap kis cheez ke baray mein janna chahtay hain?`;
 }
 function getAiConfigStatus() {
   const settings = loadSettings();
@@ -9721,8 +10201,207 @@ function getAiConfigStatus() {
     keyHealthMetrics
   };
 }
+var QUOTAS_FILE = import_path10.default.resolve(process.cwd(), ".ai_tenant_quotas.json");
+function loadTenantQuotas() {
+  try {
+    if (import_fs10.default.existsSync(QUOTAS_FILE)) {
+      return JSON.parse(import_fs10.default.readFileSync(QUOTAS_FILE, "utf-8"));
+    }
+  } catch (err) {
+    console.error("Error reading tenant AI quotas:", err);
+  }
+  return {};
+}
+function saveTenantQuotas(quotas) {
+  try {
+    import_fs10.default.writeFileSync(QUOTAS_FILE, JSON.stringify(quotas, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Error saving tenant AI quotas:", err);
+  }
+}
+function getTenantTodayUsed(targetId) {
+  const quotas = loadTenantQuotas();
+  const rec = quotas[targetId];
+  if (!rec) return 0;
+  const todayStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  if (rec.lastUsedDate !== todayStr) {
+    return 0;
+  }
+  return rec.todayUsed || 0;
+}
+function incrementTenantDailyUsage(targetId, meta) {
+  const quotas = loadTenantQuotas();
+  const todayStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const existing = quotas[targetId] || {
+    targetId,
+    targetType: meta?.targetType || "tenant",
+    name: meta?.name || targetId,
+    storeName: meta?.storeName || targetId,
+    plan: meta?.plan || "Business",
+    customLimit: 0,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (existing.lastUsedDate !== todayStr) {
+    existing.todayUsed = 1;
+    existing.lastUsedDate = todayStr;
+  } else {
+    existing.todayUsed = (existing.todayUsed || 0) + 1;
+  }
+  if (meta?.storeName) existing.storeName = meta.storeName;
+  if (meta?.plan) existing.plan = meta.plan;
+  existing.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  quotas[targetId] = existing;
+  saveTenantQuotas(quotas);
+  return existing.todayUsed;
+}
+function resetTenantDailyUsage(targetId) {
+  const quotas = loadTenantQuotas();
+  const todayStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  if (quotas[targetId]) {
+    quotas[targetId].todayUsed = 0;
+    quotas[targetId].lastUsedDate = todayStr;
+    quotas[targetId].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  } else {
+    quotas[targetId] = {
+      targetId,
+      targetType: "tenant",
+      name: targetId,
+      storeName: targetId,
+      plan: "Basic",
+      customLimit: 0,
+      todayUsed: 0,
+      lastUsedDate: todayStr,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  saveTenantQuotas(quotas);
+  return quotas[targetId];
+}
+function setTenantQuotaOverride(targetId, customLimit, meta) {
+  const quotas = loadTenantQuotas();
+  const existing = quotas[targetId] || {};
+  quotas[targetId] = {
+    ...existing,
+    targetId,
+    targetType: meta?.targetType || existing.targetType || "tenant",
+    name: meta?.name || existing.name || targetId,
+    storeName: meta?.storeName || existing.storeName || targetId,
+    plan: meta?.plan || existing.plan || "Business",
+    customLimit: Number(customLimit),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  saveTenantQuotas(quotas);
+  return quotas[targetId];
+}
+function getTenantAiQuotaLimits(targetId, plan = "Basic") {
+  const normalized = (plan || "Basic").toLowerCase();
+  let baseLimit = 20;
+  if (normalized.includes("enterprise") || normalized.includes("platinum")) {
+    baseLimit = 200;
+  } else if (normalized.includes("business") || normalized.includes("gold")) {
+    baseLimit = 50;
+  }
+  const quotas = loadTenantQuotas();
+  const override = quotas[targetId];
+  if (override && typeof override.customLimit === "number" && override.customLimit > 0) {
+    return {
+      baseLimit,
+      customLimit: override.customLimit,
+      effectiveLimit: override.customLimit,
+      isOverridden: true
+    };
+  }
+  return {
+    baseLimit,
+    customLimit: null,
+    effectiveLimit: baseLimit,
+    isOverridden: false
+  };
+}
+function getAllTenantAiQuotasList() {
+  const quotas = loadTenantQuotas();
+  const sessions = loadChatSessions();
+  const results = [];
+  const seenIds = /* @__PURE__ */ new Set();
+  try {
+    const { getMasterVault: getMasterVault3 } = (init_sqliteVaultManager(), __toCommonJS(sqliteVaultManager_exports));
+    const masterDb = getMasterVault3();
+    const tenants = masterDb.prepare(`SELECT id, tenant_id, name, owner_name, plan, status FROM mbi_tenants`).all();
+    if (Array.isArray(tenants)) {
+      for (const t of tenants) {
+        const id = t.tenant_id || t.id;
+        seenIds.add(id);
+        const quotaInfo = getTenantAiQuotaLimits(id, t.plan);
+        const todayUsed = getTenantTodayUsed(id);
+        results.push({
+          targetId: id,
+          targetType: "tenant",
+          name: t.name || t.owner_name || id,
+          storeName: t.name || id,
+          ownerName: t.owner_name || "Store Owner",
+          plan: t.plan || "Basic",
+          status: t.status || "Active",
+          baseLimit: quotaInfo.baseLimit,
+          customLimit: quotaInfo.customLimit,
+          effectiveLimit: quotaInfo.effectiveLimit,
+          isOverridden: quotaInfo.isOverridden,
+          todayUsed,
+          updatedAt: quotas[id]?.updatedAt || null
+        });
+      }
+    }
+  } catch (e) {
+  }
+  for (const s of sessions) {
+    const id = s.tenantId || s.userId;
+    if (id && !seenIds.has(id) && id !== "default") {
+      seenIds.add(id);
+      const quotaInfo = getTenantAiQuotaLimits(id, s.plan);
+      const todayUsed = getTenantTodayUsed(id);
+      results.push({
+        targetId: id,
+        targetType: s.tenantId ? "tenant" : "user",
+        name: s.storeName || s.userName || id,
+        storeName: s.storeName || id,
+        ownerName: s.userName || "User",
+        plan: s.plan || "Basic",
+        status: "Active",
+        baseLimit: quotaInfo.baseLimit,
+        customLimit: quotaInfo.customLimit,
+        effectiveLimit: quotaInfo.effectiveLimit,
+        isOverridden: quotaInfo.isOverridden,
+        todayUsed,
+        updatedAt: quotas[id]?.updatedAt || null
+      });
+    }
+  }
+  for (const [id, rec] of Object.entries(quotas)) {
+    if (!seenIds.has(id)) {
+      seenIds.add(id);
+      const quotaInfo = getTenantAiQuotaLimits(id, rec.plan);
+      const todayUsed = getTenantTodayUsed(id);
+      results.push({
+        targetId: id,
+        targetType: rec.targetType || "tenant",
+        name: rec.storeName || rec.name || id,
+        storeName: rec.storeName || id,
+        ownerName: rec.name || "Custom Override",
+        plan: rec.plan || "Business",
+        status: "Active",
+        baseLimit: quotaInfo.baseLimit,
+        customLimit: quotaInfo.customLimit,
+        effectiveLimit: quotaInfo.effectiveLimit,
+        isOverridden: true,
+        todayUsed,
+        updatedAt: rec.updatedAt
+      });
+    }
+  }
+  return results;
+}
 
 // server/routes/aiRoutes.ts
+init_mariaClient();
 var aiRouter = (0, import_express5.Router)();
 aiRouter.get("/audit/immutable-logs", async (req, res) => {
   try {
@@ -9866,7 +10545,14 @@ aiRouter.post("/chat/sessions/:sessionId/message", async (req, res) => {
         text,
         userMeta?.pageContext || "user",
         userMeta?.plan || "business",
-        history
+        history,
+        {
+          tenantId: userMeta?.tenantId,
+          storeName: userMeta?.storeName,
+          userName: userMeta?.userName,
+          userEmail: userMeta?.userEmail,
+          phone: userMeta?.userPhone
+        }
       );
       const aiMsg = addMessageToSession({
         sessionId,
@@ -9960,7 +10646,19 @@ aiRouter.post("/ask", async (req, res) => {
         pageContext: context
       });
     }
-    const result = await generateAiResponse(prompt, context, userPlan, history);
+    const result = await generateAiResponse(
+      prompt,
+      context,
+      userPlan,
+      history,
+      {
+        tenantId: req.body.tenantId,
+        storeName: businessName,
+        userName: req.body.userName || businessName,
+        userEmail,
+        phone
+      }
+    );
     let lead = null;
     if (result.humanLeadTriggered) {
       lead = addSupportLead({
@@ -10109,9 +10807,67 @@ aiRouter.post("/keys/remove", (req, res) => {
     res.status(400).json({ success: false, error: err?.message || "Failed to remove API key." });
   }
 });
+aiRouter.get("/quotas", (req, res) => {
+  try {
+    const quotas = getAllTenantAiQuotasList();
+    res.json({ success: true, quotas });
+  } catch (err) {
+    console.error("Error fetching tenant AI quotas:", err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+aiRouter.post("/quotas/override", (req, res) => {
+  try {
+    const { targetId, customLimit, name, storeName, plan, targetType } = req.body;
+    if (!targetId || customLimit === void 0) {
+      return res.status(400).json({ success: false, error: "targetId and customLimit are required." });
+    }
+    const limitNum = Number(customLimit);
+    if (isNaN(limitNum) || limitNum < 0) {
+      return res.status(400).json({ success: false, error: "customLimit must be a valid non-negative number." });
+    }
+    const record = setTenantQuotaOverride(targetId, limitNum, {
+      name,
+      storeName,
+      plan,
+      targetType
+    });
+    const allQuotas = getAllTenantAiQuotasList();
+    res.json({
+      success: true,
+      message: `Custom limit of ${limitNum} msgs/day saved permanently for ${storeName || name || targetId}!`,
+      record,
+      quotas: allQuotas
+    });
+  } catch (err) {
+    console.error("Error setting tenant quota override:", err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+aiRouter.post("/quotas/reset", (req, res) => {
+  try {
+    const { targetId } = req.body;
+    if (!targetId) {
+      return res.status(400).json({ success: false, error: "targetId is required." });
+    }
+    const record = resetTenantDailyUsage(targetId);
+    const allQuotas = getAllTenantAiQuotasList();
+    res.json({
+      success: true,
+      message: `Today's AI usage counter successfully reset to 0 for ${targetId}!`,
+      record,
+      quotas: allQuotas
+    });
+  } catch (err) {
+    console.error("Error resetting tenant AI usage:", err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
 
 // server/routes/fleetRoutes.ts
 var import_express6 = __toESM(require("express"));
+init_mariaClient();
+init_sqliteVaultManager();
 var import_fs11 = __toESM(require("fs"));
 var import_path11 = __toESM(require("path"));
 var fleetRouter = import_express6.default.Router();
@@ -10185,7 +10941,7 @@ fleetRouter.get("/tenants", async (req, res) => {
       }
     } catch (sqliteErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const rows = await pool.query(
@@ -10603,7 +11359,7 @@ fleetRouter.post("/tenants/save", async (req, res) => {
       }
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const existingRows = await pool.query(
@@ -10716,7 +11472,7 @@ fleetRouter.post("/tenants/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
@@ -10759,7 +11515,7 @@ fleetRouter.delete("/tenants/:id", async (req, res) => {
       res.status(400).json({ success: false, error: "tenant_id is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("DELETE FROM mbi_tenants WHERE tenant_id = ? OR id = ?;", [tenant_id, tenant_id]);
@@ -10797,7 +11553,7 @@ fleetRouter.post("/tenants/status", async (req, res) => {
       `).run(newStatus, tid, tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newStatus, tid, tid]);
@@ -10853,7 +11609,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
       `).run(newApiKey, tid, tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("UPDATE mbi_tenants SET api_key = ?, updated_at = CURRENT_TIMESTAMP WHERE tenant_id = ? OR id = ?;", [newApiKey, tid, tid]);
@@ -10896,7 +11652,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
 fleetRouter.post("/keys/reset-hwid", async (req, res) => {
   try {
     const { tenantId, licenseKey } = req.body;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         if (tenantId) {
@@ -10920,7 +11676,7 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
 fleetRouter.get("/leads", async (req, res) => {
   try {
     let leads = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const rows = await pool.query("SELECT * FROM mbi_registration_leads ORDER BY submitted_at DESC, created_at DESC;");
@@ -11115,7 +11871,7 @@ fleetRouter.get("/users", async (req, res) => {
       }
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const rows = await pool.query(
@@ -11178,7 +11934,7 @@ fleetRouter.post("/users/save", async (req, res) => {
     const cleanId = id || `u_${Date.now()}`;
     const cleanTenantId = tenantId || "tenant_main";
     const cleanRole = role || "Cashier";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11260,7 +12016,7 @@ fleetRouter.post("/users/passcode", async (req, res) => {
       res.status(400).json({ success: false, error: "userId and newPasscode are required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11346,7 +12102,7 @@ fleetRouter.post("/tenants/reset-password", async (req, res) => {
       }
     } catch (vaultErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11402,7 +12158,7 @@ fleetRouter.post("/users/kill-switch", async (req, res) => {
     const { userId, isKilled } = req.body;
     const flag = isKilled ? 1 : 0;
     const statusVal = isKilled ? "Suspended" : "Active";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11441,7 +12197,7 @@ fleetRouter.post("/users/delete", async (req, res) => {
       res.status(400).json({ success: false, error: "userId is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("DELETE FROM mbi_users WHERE id = ?;", [userId]);
@@ -11490,7 +12246,7 @@ var handlePlanUpdate = async (req, res) => {
       `).run(plan, maxUsers, expiryDate, `lic_${targetTenantId}`, targetTenantId);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11589,7 +12345,7 @@ fleetRouter.get("/keys", async (req, res) => {
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     keysList.push(masterKey);
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const tenants = await pool.query(
@@ -11697,7 +12453,7 @@ fleetRouter.get("/keys", async (req, res) => {
 fleetRouter.get("/licenses", async (req, res) => {
   try {
     let licenses = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const rows = await pool.query(
@@ -11733,7 +12489,7 @@ fleetRouter.post("/licenses/save", async (req, res) => {
     const cleanPlan = plan || "Pharmacy Pro";
     const cleanStatus = status || "Active";
     const cleanExpires = expires_at || new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11791,7 +12547,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
     }
     keysList = [newKey, ...keysList.filter((k) => k.id !== newKey.id)];
     import_fs11.default.writeFileSync(keysJsonPath, JSON.stringify(keysList, null, 2), "utf-8");
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -11868,7 +12624,7 @@ fleetRouter.post("/keys/verify", async (req, res) => {
       }
     }
     let found = keysList.find((k) => k.apiKey === apiKey);
-    if (!found && await isMariaDbAvailable2()) {
+    if (!found && await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const tenantRows = await pool.query(
@@ -11934,7 +12690,7 @@ fleetRouter.post("/tenants/toggle-lock", async (req, res) => {
     } catch (sqliteErr) {
       console.warn("[CASCADING LOCK SQLITE WARNING]:", sqliteErr);
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -12272,7 +13028,7 @@ fleetRouter.post("/tenants/status", async (req, res) => {
     } catch (sqErr) {
       console.warn("[SQLite Lock Status Update Error]", sqErr);
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("UPDATE mbi_tenants SET status = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [newStatus, tenantId, tenantId]);
@@ -12353,7 +13109,7 @@ fleetRouter.post("/keys/generate", async (req, res) => {
     } catch (sqErr) {
       console.warn("[SQLite Key Regen Error]", sqErr);
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("UPDATE mbi_tenants SET api_key = ?, updated_at = NOW() WHERE id = ? OR tenant_id = ?", [apiKey, tenantId, tenantId]);
@@ -12423,7 +13179,7 @@ fleetRouter.post("/keys/reset-hwid", async (req, res) => {
       masterDb.prepare("DELETE FROM mbi_registered_devices WHERE tenant_id = ?").run(tid);
     } catch (sqErr) {
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query("UPDATE mbi_licenses SET bound_hwid = NULL, bound_hardware_ids = '[]', updated_at = NOW() WHERE license_key = ? OR tenant_id = ?", [targetLic, tid]);
@@ -12448,6 +13204,8 @@ var import_express7 = __toESM(require("express"));
 var import_os = __toESM(require("os"));
 var import_fs12 = __toESM(require("fs"));
 var import_path12 = __toESM(require("path"));
+init_mariaClient();
+init_sqliteVaultManager();
 var adminMasterRouter = import_express7.default.Router();
 var MASTER_PIN = process.env.MASTER_PANEL_PIN || "Ami7788!@";
 adminMasterRouter.post("/verify-pin", async (req, res) => {
@@ -12646,7 +13404,7 @@ adminMasterRouter.post("/license/reset-hwid", async (req, res) => {
     }
     const target = license_key || tenant_id;
     try {
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         const pool = getMariaDbPool();
         await pool.query(
           "INSERT INTO mbi_audit_logs (id, tenant_id, user_id, action, details, ip_address) VALUES (?, ?, ?, ?, ?, ?);",
@@ -12740,7 +13498,7 @@ adminMasterRouter.post("/backup/restore-latest", async (req, res) => {
 adminMasterRouter.get("/users", async (req, res) => {
   try {
     const usersMap = /* @__PURE__ */ new Map();
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -12810,7 +13568,7 @@ adminMasterRouter.get("/users", async (req, res) => {
 adminMasterRouter.get("/tenants", async (req, res) => {
   try {
     let tenants = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -13109,8 +13867,8 @@ adminMasterRouter.post("/tenants/delete-wipe", async (req, res) => {
 });
 adminMasterRouter.get("/database/diagnostics", async (req, res) => {
   try {
-    const connStatus = await testMariaDbConnection2();
-    const tableStats = await getMariaDbTableStats2();
+    const connStatus = await testMariaDbConnection();
+    const tableStats = await getMariaDbTableStats();
     res.json({
       success: true,
       database: "mbi72dn",
@@ -13308,7 +14066,7 @@ adminMasterRouter.post("/support/create-ticket", handleCreateSupportTicket);
 adminMasterRouter.post("/create-ticket", handleCreateSupportTicket);
 var handleGetSupportTickets = async (req, res) => {
   try {
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       const pool = getMariaDbPool();
       const [tickets] = await pool.query(
         `SELECT id, store_name, owner_name, phone, email, city, requested_plan, status, notes, submitted_at, updated_at
@@ -13755,7 +14513,7 @@ adminMasterRouter.post("/email/broadcast-tenant", async (req, res) => {
     } else if (targetType === "tenant" && tenantId && tenantId !== "all") {
       let found = false;
       const cleanId = String(tenantId).trim();
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool = getMariaDbPool();
           const [rows] = await pool.query(
@@ -13810,7 +14568,7 @@ adminMasterRouter.post("/email/broadcast-tenant", async (req, res) => {
         }
       } catch (err) {
       }
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool = getMariaDbPool();
           const [rows] = await pool.query(
@@ -14190,8 +14948,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.3.8";
-var RELEASE_NOTES = "HWID Device Lock, 1-Key Disposable Burn, Butter Scroll & Nano-Speed Navigation (v4.3.8)";
+var APP_VERSION2 = "4.4.0";
+var RELEASE_NOTES = "Fresh Cache Flush, 3D Hero Mockup, Strict Multi-Tenant Isolation & Enhanced RBAC Lock (v4.4.0)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -14201,14 +14959,15 @@ versionRouter.get("/", (req, res) => {
     appName: "MBI INVENTRA",
     releaseNotes: RELEASE_NOTES,
     buildTimestamp: BUILD_TIMESTAMP,
-    minSupportedVersion: "4.0.0",
-    critical: false,
+    minSupportedVersion: "4.4.0",
+    critical: true,
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   });
 });
 
 // server/routes/licenseRoutes.ts
 var import_express10 = __toESM(require("express"));
+init_mariaClient();
 var import_fs14 = __toESM(require("fs"));
 var import_path14 = __toESM(require("path"));
 var licenseRouter = import_express10.default.Router();
@@ -14231,7 +14990,7 @@ licenseRouter.post("/register-trial", async (req, res) => {
     const trialEndsAt = trialEndsAtDate.toISOString();
     const licenseId = `lic_trial_${Date.now()}`;
     const licenseKey = `MBI-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -14320,7 +15079,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     let maxDevices = 10;
     let licenseFound = false;
     let licenseRecordId = "";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14365,7 +15124,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     boundHardwareIds = Array.from(new Set(boundHardwareIds.map((h) => String(h).trim().toUpperCase()).filter(Boolean)));
     if (boundHardwareIds.length === 0) {
       boundHardwareIds = [clientHwid];
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool = getMariaDbPool();
           if (licenseRecordId) {
@@ -14413,7 +15172,7 @@ licenseRouter.post("/verify-device", async (req, res) => {
     }
     if (boundHardwareIds.length < maxDevices) {
       boundHardwareIds.push(clientHwid);
-      if (await isMariaDbAvailable2()) {
+      if (await isMariaDbAvailable()) {
         try {
           const pool = getMariaDbPool();
           if (licenseRecordId) {
@@ -14464,7 +15223,7 @@ licenseRouter.post("/bind-device", async (req, res) => {
     const clientHwid = (hwid || "HWID-DEVICE-1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14511,7 +15270,7 @@ licenseRouter.post("/auto-bind-primary", async (req, res) => {
     const clientHwid = (hwid || deviceId || "HWID-DEV1").trim().toUpperCase();
     const activeTenant = (tenantId || "default").trim();
     let boundHardwareIds = [];
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14591,7 +15350,7 @@ licenseRouter.get("/bound-devices", async (req, res) => {
     let licenseKey = "";
     let plan = "Basic";
     let status = "Active";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14642,7 +15401,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     }
     let isDbMatched = false;
     let matchedLicense = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14688,7 +15447,7 @@ licenseRouter.post("/validate-key", async (req, res) => {
     const now = /* @__PURE__ */ new Date();
     const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1e3).toISOString().slice(0, 10);
     const planId = planTier === "Platinum" ? "Premium" : planTier === "Gold" ? "Business" : "Basic";
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -14735,7 +15494,7 @@ licenseRouter.get("/status", async (req, res) => {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
     let dbTenant = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -14771,6 +15530,7 @@ userRouter.delete("/:id", deleteUserController);
 
 // server/routes/checkoutRoutes.ts
 var import_express12 = require("express");
+init_mariaClient();
 var import_fs15 = __toESM(require("fs"));
 var import_path15 = __toESM(require("path"));
 var checkoutRouter = (0, import_express12.Router)();
@@ -15105,6 +15865,7 @@ checkoutRouter.delete("/orders/:orderId", async (req, res) => {
 var import_express13 = require("express");
 
 // server/controllers/auditController.ts
+init_mariaClient();
 var import_fs16 = __toESM(require("fs"));
 var import_path16 = __toESM(require("path"));
 var syncFile11 = import_path16.default.resolve(process.cwd(), ".sync_data.json");
@@ -15147,7 +15908,7 @@ async function getAuditLogs(req, res) {
     const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || "tenant_main_pharmacy";
     const { module: moduleFilter, staff, dateRange, startDate, endDate, search, limit = "200" } = req.query;
     const maxRows = Math.min(Number(limit) || 200, 1e3);
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     let records = [];
     if (isAvailable) {
       try {
@@ -15257,7 +16018,7 @@ async function createAuditLog(req, res) {
       ip_address: req.ip || req.headers["x-forwarded-for"] || "127.0.0.1",
       created_at: timestamp ? new Date(timestamp).toISOString() : (/* @__PURE__ */ new Date()).toISOString()
     };
-    const isAvailable = await isMariaDbAvailable2();
+    const isAvailable = await isMariaDbAvailable();
     if (isAvailable) {
       try {
         const pool = getMariaDbPool();
@@ -15323,10 +16084,11 @@ var import_express14 = require("express");
 
 // server/controllers/purchaseController.ts
 var import_uuid2 = require("uuid");
+init_mariaClient();
 async function getPurchases(req, res) {
   try {
     const tenantId = req.query.tenantId || req.headers["x-tenant-id"] || "default";
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (!isOnline) {
       return res.json({
         success: true,
@@ -15353,7 +16115,7 @@ async function getPurchases(req, res) {
 async function getPurchaseById(req, res) {
   try {
     const { id } = req.params;
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (!isOnline) {
       return res.status(404).json({ success: false, message: "Database offline" });
     }
@@ -15395,7 +16157,7 @@ async function createPurchaseOrder(req, res) {
     const items = Array.isArray(purchaseData.items) ? purchaseData.items : [];
     const userId = purchaseData.userId || req.body.userId || "admin";
     const userName = purchaseData.cashierName || purchaseData.userName || "Admin / Operator";
-    const isOnline = await isMariaDbAvailable2();
+    const isOnline = await isMariaDbAvailable();
     if (isOnline) {
       const pool = getMariaDbPool();
       const connection = await pool.getConnection();
@@ -15565,7 +16327,7 @@ async function createPurchaseOrder(req, res) {
         throw dbErr;
       }
     } else {
-      await syncRecordToMariaDb2("purchaseOrders", {
+      await syncRecordToMariaDb("purchaseOrders", {
         ...purchaseData,
         id: purchaseId,
         tenantId,
@@ -15601,6 +16363,7 @@ purchaseRouter.post("/inward", createPurchaseOrder);
 
 // server/routes/whatsappRoutes.ts
 var import_express15 = require("express");
+init_mariaClient();
 
 // server/services/whatsappCloudService.ts
 var MASTER_WHATSAPP_CONFIG = {
@@ -15921,7 +16684,7 @@ whatsappRouter.get("/settings/:tenantId", async (req, res) => {
   try {
     const { tenantId } = req.params;
     let config = null;
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -16008,7 +16771,7 @@ whatsappRouter.post("/settings", async (req, res) => {
       customKhataTemplate: customKhataTemplate || "",
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -16076,7 +16839,7 @@ whatsappRouter.post("/disconnect/:tenantId", async (req, res) => {
     const { tenantId } = req.params;
     const cleanTenantId = tenantId || req.headers["x-tenant-id"]?.toString() || "default";
     await disconnectWhatsApp(cleanTenantId);
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -16168,7 +16931,7 @@ whatsappRouter.post("/send", async (req, res) => {
       deliveryMode,
       note: deliveryNote
     });
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         await pool.query(
@@ -16223,7 +16986,7 @@ whatsappRouter.post("/admin/toggle-gateway", async (req, res) => {
       res.status(400).json({ success: false, error: "tenantId is required" });
       return;
     }
-    if (await isMariaDbAvailable2()) {
+    if (await isMariaDbAvailable()) {
       try {
         const pool = getMariaDbPool();
         const [rows] = await pool.query(
@@ -16588,6 +17351,185 @@ backupRouter.delete("/backup/:filename", (req, res) => {
   }
 });
 
+// server/routes/dashboardRoutes.ts
+var import_express18 = __toESM(require("express"));
+init_sqliteVaultManager();
+var dashboardRouter = import_express18.default.Router();
+dashboardRouter.get("/summary", (req, res) => {
+  try {
+    const rawTenantId = req.query.tenantId || req.headers["x-tenant-id"] || "tenant_main";
+    const cleanTenantId = String(rawTenantId).replace(/[^a-zA-Z0-9_-]/g, "") || "tenant_main";
+    const timeFilter = req.query.timeFilter || "This Month";
+    const firmId = req.query.firmId;
+    const tenantDb = getTenantVault(cleanTenantId);
+    let totalStockValue = 0;
+    let totalItems = 0;
+    let totalSkus = 0;
+    let lowStockAlerts = [];
+    let nearExpiryAlerts = [];
+    try {
+      const meds = tenantDb.prepare(`
+        SELECT id, name, generic_name, barcode, retail_price, cost_price, stock_qty, min_stock, fefo_expiry_date, batch_number
+        FROM medicines
+      `).all();
+      totalSkus = meds.length;
+      const now = Date.now();
+      meds.forEach((m) => {
+        const qty = Number(m.stock_qty) || 0;
+        const cost = Number(m.cost_price) || Number(m.retail_price) || 0;
+        const retail = Number(m.retail_price) || 0;
+        const minStock = Number(m.min_stock) || 10;
+        totalItems += qty;
+        totalStockValue += qty * cost;
+        if (qty <= minStock) {
+          lowStockAlerts.push({
+            id: m.id,
+            name: m.name,
+            quantity: qty,
+            lowStockThreshold: minStock,
+            unit: "Pack",
+            category: m.generic_name || "General",
+            sellingPrice: retail
+          });
+        }
+        if (m.fefo_expiry_date) {
+          const expTime = new Date(m.fefo_expiry_date).getTime();
+          const diffDays = (expTime - now) / (1e3 * 3600 * 24);
+          if (diffDays >= 0 && diffDays <= 90) {
+            nearExpiryAlerts.push({
+              id: m.id,
+              name: m.name,
+              batchNumber: m.batchNumber || m.batch_number || "B-01",
+              expiryDate: m.fefo_expiry_date,
+              quantity: qty,
+              unit: "Pack"
+            });
+          }
+        }
+      });
+    } catch (medErr) {
+      console.warn("[Dashboard API] Medicine query notice:", medErr);
+    }
+    let totalSale = 0;
+    let todaySale = 0;
+    let todayCogs = 0;
+    let todayInvoicesCount = 0;
+    let recentSales = [];
+    const todayStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    try {
+      const invs = tenantDb.prepare(`
+        SELECT id, invoice_number, customer_id, customer_name, grand_total, net_total, discount, tax, paid_amount, payment_type, status, created_at
+        FROM invoices
+        ORDER BY created_at DESC
+        LIMIT 500
+      `).all();
+      totalSale = invs.reduce((sum, inv) => sum + (Number(inv.grand_total) || 0), 0);
+      const isTodayStr = (created) => {
+        if (!created) return false;
+        const d = new Date(created);
+        if (isNaN(d.getTime())) return false;
+        const now = /* @__PURE__ */ new Date();
+        return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() || d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10);
+      };
+      const todayInvs = invs.filter((inv) => isTodayStr(inv.created_at || inv.date));
+      todaySale = todayInvs.reduce((sum, inv) => sum + (Number(inv.grand_total) || 0), 0);
+      todayInvoicesCount = todayInvs.length;
+      try {
+        const todayInvIds = todayInvs.map((i) => `'${i.id}'`).join(",");
+        if (todayInvIds.length > 0) {
+          const cogsRow = tenantDb.prepare(`
+            SELECT SUM(quantity * cost_price) as total_cogs
+            FROM invoice_items
+            WHERE invoice_id IN (${todayInvIds}) AND cost_price > 0
+          `).get();
+          if (cogsRow && cogsRow.total_cogs && Number(cogsRow.total_cogs) > 0) {
+            todayCogs = Number(cogsRow.total_cogs);
+          } else {
+            todayCogs = 0;
+          }
+        }
+      } catch {
+        todayCogs = 0;
+      }
+      recentSales = invs.slice(0, 8).map((inv) => ({
+        id: inv.id,
+        invoiceNumber: inv.invoice_number,
+        partyName: inv.customer_name || "Walk-in Customer",
+        date: inv.created_at,
+        grandTotal: Number(inv.grand_total) || 0,
+        paidAmount: Number(inv.paid_amount) || 0,
+        balanceAmount: Math.max(0, (Number(inv.grand_total) || 0) - (Number(inv.paid_amount) || 0)),
+        paymentMode: inv.payment_type || "Cash",
+        status: inv.status || "COMPLETED",
+        itemsCount: 1
+      }));
+    } catch (invErr) {
+      console.warn("[Dashboard API] Invoice query notice:", invErr);
+    }
+    let totalPurchase = 0;
+    let totalExpenses = 0;
+    let todayExpenses = 0;
+    try {
+      const poRow = tenantDb.prepare(`SELECT SUM(total_amount) as total_po FROM purchases`).get();
+      if (poRow && poRow.total_po) totalPurchase = Number(poRow.total_po);
+      const expRows = tenantDb.prepare(`SELECT amount, date, created_at FROM expenses`).all();
+      totalExpenses = expRows.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      todayExpenses = expRows.filter((e) => e.date && e.date.slice(0, 10) === todayStr || e.created_at && e.created_at.slice(0, 10) === todayStr).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    } catch (expErr) {
+      console.warn("[Dashboard API] Purchase/Expense query notice:", expErr);
+    }
+    let receivablesTotal = 0;
+    let payablesTotal = 0;
+    try {
+      const parties = tenantDb.prepare(`SELECT type, balance FROM parties`).all();
+      parties.forEach((p) => {
+        const bal = Number(p.balance) || 0;
+        if (p.type === "Customer" && bal > 0) receivablesTotal += bal;
+        if (p.type === "Supplier" && bal > 0) payablesTotal += bal;
+      });
+    } catch (partyErr) {
+      console.warn("[Dashboard API] Parties query notice:", partyErr);
+    }
+    const grossProfit = Math.max(0, todaySale - todayCogs);
+    const netProfit = Math.max(0, grossProfit - todayExpenses);
+    const profitMargin = todaySale > 0 ? Math.round(netProfit / todaySale * 100) : 0;
+    const summary = {
+      tenantId: cleanTenantId,
+      timeFilter,
+      totalSale,
+      totalPurchase,
+      totalExpenses,
+      stockValue: totalStockValue,
+      receivablesTotal,
+      payablesTotal,
+      todayMetrics: {
+        todaySale,
+        todayCogs,
+        todayExpenses,
+        grossProfit,
+        netProfit,
+        profitMargin,
+        todayInvoicesCount
+      },
+      lowStockAlerts,
+      nearExpiryAlerts,
+      recentSales,
+      topProducts: [],
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    res.json({
+      success: true,
+      summary
+    });
+  } catch (err) {
+    console.error("[Dashboard API Error]:", err);
+    res.status(500).json({
+      success: false,
+      error: err?.message || "Failed to aggregate dashboard summary"
+    });
+  }
+});
+
 // server/middleware/rateLimiter.ts
 var import_express_rate_limit = __toESM(require("express-rate-limit"));
 var apiLimiter = (0, import_express_rate_limit.default)({
@@ -16612,6 +17554,8 @@ var apiLimiter = (0, import_express_rate_limit.default)({
 });
 
 // server.ts
+init_sqliteVaultManager();
+init_mariaClient();
 process.on("uncaughtException", (err) => {
   console.error("[CRASH SHIELD: UNCAUGHT EXCEPTION]:", err?.message || err);
 });
@@ -16619,7 +17563,7 @@ process.on("unhandledRejection", (reason) => {
   console.error("[CRASH SHIELD: UNHANDLED REJECTION]:", reason?.message || reason);
 });
 async function startServer() {
-  const app = (0, import_express18.default)();
+  const app = (0, import_express19.default)();
   const rawPort = process.env.PORT || "3000";
   const isNamedPipe = typeof rawPort === "string" && (rawPort.startsWith("/") || rawPort.startsWith("\\\\") || isNaN(Number(rawPort)));
   const PORT = isNamedPipe ? rawPort : Number(rawPort);
@@ -16635,8 +17579,8 @@ async function startServer() {
     res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
     next();
   });
-  app.use(import_express18.default.json({ limit: "100mb" }));
-  app.use(import_express18.default.urlencoded({ limit: "100mb", extended: true }));
+  app.use(import_express19.default.json({ limit: "100mb" }));
+  app.use(import_express19.default.urlencoded({ limit: "100mb", extended: true }));
   app.get(["/api/broadcasts/active", "/api/notifications/broadcasts", "/api/broadcast/active"], getBroadcastHistoryController);
   app.post(["/api/broadcasts/:id/seen", "/api/notifications/:id/mark-seen", "/api/broadcast/:id/seen"], markBroadcastSeenController);
   app.use("/api", apiLimiter);
@@ -16663,6 +17607,7 @@ async function startServer() {
   app.use("/api/cms", cmsRouter);
   app.use("/api/master", backupRouter);
   app.use("/api", backupRouter);
+  app.use("/api/dashboard", dashboardRouter);
   app.get(["/api/homepage-popup", "/api/public/homepage-popup"], getHomePagePopupController);
   function isSafeKey(key) {
     return key !== "__proto__" && key !== "constructor" && key !== "prototype" && /^[a-zA-Z0-9_-]+$/.test(key);
@@ -19142,7 +20087,7 @@ async function startServer() {
       indexHtml = import_fs21.default.readFileSync(indexPath, "utf-8");
     } catch {
     }
-    app.use(import_express18.default.static(distPath, {
+    app.use(import_express19.default.static(distPath, {
       maxAge: "1d",
       setHeaders: (res, filePath) => {
         if (filePath.endsWith("index.html") || filePath.endsWith("sw.js") || filePath.endsWith("registerSW.js") || filePath.endsWith("manifest.webmanifest")) {
@@ -19152,7 +20097,7 @@ async function startServer() {
         }
       }
     }));
-    app.use(import_express18.default.static(import_path21.default.join(process.cwd(), "public"), {
+    app.use(import_express19.default.static(import_path21.default.join(process.cwd(), "public"), {
       maxAge: "1d"
     }));
     app.get("*", (req, res) => {

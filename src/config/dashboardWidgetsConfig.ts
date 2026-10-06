@@ -133,26 +133,27 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     category: 'security',
     badge: 'POS Screen',
   },
+  {
+    id: 'expiry_alerts',
+    title: 'Expiry Alerts (Next 60 Days)',
+    description: 'Near-expiry batch safety monitoring for items expiring within 60 days.',
+    zone: 'sidebar',
+    minPlan: 'silver',
+    defaultVisible: true,
+    category: 'inventory',
+    badge: 'Expiry 60d',
+  },
 
   // ─── GOLD BUSINESS (+8 Advanced = 18 Widgets) ───────────────────
   {
     id: 'fefo_expiry_status',
-    title: '30/60/90 Days FEFO Expiry Status Radar',
-    description: 'Real-time First-Expiry First-Out tracker highlighting medicines expiring in 30, 60, 90, and 180 days.',
+    title: 'FEFO Expiry Status Tracker',
+    description: 'Real-time First-Expiry First-Out tracker highlighting medicines expiring in 30, 60, 90, and 180 days with batch metrics.',
     zone: 'main',
     minPlan: 'gold',
     defaultVisible: true,
     category: 'inventory',
     badge: 'FEFO Radar',
-  },
-  {
-    id: 'expiry_alerts',
-    title: 'Critical Expiry Batch Alerts',
-    description: 'Near-expiry batch safety monitoring with customizable threshold days and supplier return tagging.',
-    zone: 'sidebar',
-    minPlan: 'gold',
-    defaultVisible: true,
-    category: 'inventory',
   },
   {
     id: 'therapeutic_category_mix',
@@ -408,26 +409,75 @@ export function isWidgetAllowedWithFeatures(
   userPlan: string = 'silver',
   customFeatures?: Record<string, boolean> | null
 ): boolean {
+  // If customFeatures not provided, load from active tenant localStorage
+  let features = customFeatures;
+  if (!features && typeof localStorage !== 'undefined') {
+    const tid = localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id');
+    if (tid) {
+      try {
+        const raw = localStorage.getItem(`mbi_tenant_features_${tid}`) || localStorage.getItem(`mbi_tenant_overrides_${tid}`);
+        if (raw) features = JSON.parse(raw);
+      } catch {}
+    }
+  }
+
   // Check explicit granular feature switchboard override if defined
-  if (customFeatures) {
-    if (customFeatures['all_24_dashboard_widgets'] === true || customFeatures['all_dashboard_widgets'] === true) return true;
-    if (customFeatures[widget.id] === true) return true;
-    if (customFeatures[`widget_${widget.id}`] === true) return true;
-    if (customFeatures[widget.id] === false) return false;
-    if (customFeatures[`widget_${widget.id}`] === false) return false;
-    // Specific aliases
-    if (widget.id === 'todays_profit' && customFeatures['widget_net_profit_margin'] === true) return true;
-    if (widget.id === 'todays_profit' && customFeatures['widget_net_profit_margin'] === false) return false;
-    if (widget.id === 'recent_sales' && customFeatures['widget_recent_invoices_feed'] === true) return true;
-    if (widget.id === 'recent_sales' && customFeatures['widget_recent_invoices_feed'] === false) return false;
-    if (widget.id === 'low_stock_alerts' && customFeatures['widget_low_stock_alert'] === true) return true;
-    if (widget.id === 'low_stock_alerts' && customFeatures['widget_low_stock_alert'] === false) return false;
-    if (widget.id === 'expiry_alerts' && customFeatures['widget_near_expiry_alert'] === true) return true;
-    if (widget.id === 'expiry_alerts' && customFeatures['widget_near_expiry_alert'] === false) return false;
-    if (widget.id === 'top_products' && customFeatures['widget_top_selling_medicines'] === true) return true;
-    if (widget.id === 'top_products' && customFeatures['widget_top_selling_medicines'] === false) return false;
-    if (widget.id === 'reorder_suggestions' && customFeatures['inventory_low_stock_auto_order'] === true) return true;
-    if (widget.id === 'reorder_suggestions' && customFeatures['inventory_low_stock_auto_order'] === false) return false;
+  if (features) {
+    if (features['all_24_dashboard_widgets'] === true || features['all_dashboard_widgets'] === true) return true;
+    if (features[widget.id] === true) return true;
+    if (features[`widget_${widget.id}`] === true) return true;
+    if (features[widget.id] === false) return false;
+    if (features[`widget_${widget.id}`] === false) return false;
+
+    // Specific mapping to 35 switchboard modules
+    if (widget.id === 'pharmacy_erp_kpi_metrics' && (features['dashboard_financial_cards'] === true || features['financial_cash_flow_cards'] === true)) return true;
+    if (widget.id === 'pharmacy_erp_kpi_metrics' && (features['dashboard_financial_cards'] === false || features['financial_cash_flow_cards'] === false)) return false;
+
+    if ((widget.id === 'sales_trend' || widget.id === 'weekly_revenue_trajectory' || widget.id === 'hourly_rush_velocity') && (features['dashboard_sales_trend_chart'] === true || features['sales_trend_chart'] === true)) return true;
+    if ((widget.id === 'sales_trend' || widget.id === 'weekly_revenue_trajectory' || widget.id === 'hourly_rush_velocity') && (features['dashboard_sales_trend_chart'] === false || features['sales_trend_chart'] === false)) return false;
+
+    if ((widget.id === 'top_products' || widget.id === 'fast_skus_margin_matrix') && (features['dashboard_top_products'] === true || features['top_products_analytics'] === true || features['widget_top_selling_medicines'] === true)) return true;
+    if ((widget.id === 'top_products' || widget.id === 'fast_skus_margin_matrix') && (features['dashboard_top_products'] === false || features['top_products_analytics'] === false || features['widget_top_selling_medicines'] === false)) return false;
+
+    if (widget.id === 'expiry_alerts' && (features['dashboard_expiry_alerts'] === true || features['widget_near_expiry_alert'] === true)) return true;
+    if (widget.id === 'expiry_alerts' && (features['dashboard_expiry_alerts'] === false || features['widget_near_expiry_alert'] === false)) return false;
+
+    if (widget.id === 'fefo_expiry_status' && (features['fefo_expiry_management'] === true || features['fefo_radar_near_expiry'] === true)) {
+      return normalizeDashboardPlan(userPlan) !== 'silver';
+    }
+    if (widget.id === 'fefo_expiry_status' && (features['fefo_expiry_management'] === false || features['fefo_radar_near_expiry'] === false)) return false;
+
+    if (widget.id === 'ai_expiry_loss_prevention' && (features['ai_expiry_loss_prevention'] === true || features['ai_expiry_loss'] === true)) {
+      return normalizeDashboardPlan(userPlan) === 'platinum';
+    }
+    if (widget.id === 'ai_expiry_loss_prevention' && (features['ai_expiry_loss_prevention'] === false || features['ai_expiry_loss'] === false)) return false;
+
+    if ((widget.id === 'shortage_registry' || widget.id === 'missed_sales_demand' || widget.id === 'action_required') && (features['dashboard_shortage_matrix'] === true || features['shortage_registry'] === true || features['shortage_matrix'] === true)) return true;
+    if ((widget.id === 'shortage_registry' || widget.id === 'missed_sales_demand' || widget.id === 'action_required') && (features['dashboard_shortage_matrix'] === false || features['shortage_registry'] === false || features['shortage_matrix'] === false)) return false;
+
+    if ((widget.id === 'receivables_payables' || widget.id === 'udhar_aging_whatsapp') && (features['dashboard_khata_receivables'] === true || features['supplier_customer_khata'] === true || features['khata_balance_board'] === true)) return true;
+    if ((widget.id === 'receivables_payables' || widget.id === 'udhar_aging_whatsapp') && (features['dashboard_khata_receivables'] === false || features['supplier_customer_khata'] === false || features['khata_balance_board'] === false)) return false;
+
+    if ((widget.id === 'therapeutic_category_mix' || widget.id === 'business_health') && (features['category_profit_heatmap'] === true || features['dashboard_live_margin_monitor'] === true)) return true;
+    if ((widget.id === 'therapeutic_category_mix' || widget.id === 'business_health') && (features['category_profit_heatmap'] === false || features['dashboard_live_margin_monitor'] === false)) return false;
+
+    if (widget.id === 'reorder_suggestions' && (features['demand_forecast'] === true || features['inventory_low_stock_auto_order'] === true)) return true;
+    if (widget.id === 'reorder_suggestions' && (features['demand_forecast'] === false || features['inventory_low_stock_auto_order'] === false)) return false;
+
+    if ((widget.id === 'ai_recommendations' || widget.id === 'mbi_ai_recommendation') && (features['ai_assistant'] === true || features['clinical_drug_interaction'] === true)) return true;
+    if ((widget.id === 'ai_recommendations' || widget.id === 'mbi_ai_recommendation') && (features['ai_assistant'] === false || features['clinical_drug_interaction'] === false)) return false;
+
+    if (widget.id === 'anti_theft_audit_radar' && (features['full_audit_trail'] === true || features['anti_theft_radar'] === true)) return true;
+    if (widget.id === 'anti_theft_audit_radar' && (features['full_audit_trail'] === false || features['anti_theft_radar'] === false)) return false;
+
+    if (widget.id === 'todays_profit' && (features['widget_net_profit_margin'] === true || features['live_profit_margin'] === true)) return true;
+    if (widget.id === 'todays_profit' && (features['widget_net_profit_margin'] === false || features['live_profit_margin'] === false)) return false;
+
+    if (widget.id === 'recent_sales' && features['widget_recent_invoices_feed'] === true) return true;
+    if (widget.id === 'recent_sales' && features['widget_recent_invoices_feed'] === false) return false;
+
+    if (widget.id === 'low_stock_alerts' && features['widget_low_stock_alert'] === true) return true;
+    if (widget.id === 'low_stock_alerts' && features['widget_low_stock_alert'] === false) return false;
   }
   return isWidgetAllowedInPlan(widget, userPlan);
 }

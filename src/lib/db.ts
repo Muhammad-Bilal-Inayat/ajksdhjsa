@@ -240,27 +240,26 @@ function getMemoryStore(storeName: string): Map<string, any> {
   return store;
 }
 
+function getRecordTimestamp(item: any): number {
+  if (item._ts !== undefined) return item._ts;
+  const raw = item.updatedAt || item.createdAt || item.date || item.orderDate || item.timestamp;
+  if (!raw) {
+    item._ts = 0;
+    return 0;
+  }
+  const t = typeof raw === 'number' ? raw : Date.parse(raw);
+  item._ts = isNaN(t) ? 0 : t;
+  return item._ts;
+}
+
 function sortRecordsDescending(records: any[]): any[] {
   return records.sort((a: any, b: any) => {
-    const timeA = new Date(a.updatedAt || a.createdAt || a.date || a.orderDate || a.timestamp || 0).getTime();
-    const timeB = new Date(b.updatedAt || b.createdAt || b.date || b.orderDate || b.timestamp || 0).getTime();
-    if (timeA && timeB && timeA !== timeB) {
+    const timeA = getRecordTimestamp(a);
+    const timeB = getRecordTimestamp(b);
+    if (timeA !== timeB) {
       return timeB - timeA;
     }
-
-    const numA = parseInt((a.invoiceNumber || a.billNumber || a.poNumber || a.receiptNo || a.referenceNumber || '').replace(/\D/g, '') || '0', 10);
-    const numB = parseInt((b.invoiceNumber || b.billNumber || b.poNumber || b.receiptNo || b.referenceNumber || '').replace(/\D/g, '') || '0', 10);
-    if (numA && numB && numA !== numB) {
-      return numB - numA;
-    }
-
-    const idTimeA = parseInt((a.id || '').replace(/^\D+-(\d+)-.*/, '$1') || '0', 10);
-    const idTimeB = parseInt((b.id || '').replace(/^\D+-(\d+)-.*/, '$1') || '0', 10);
-    if (idTimeA && idTimeB && idTimeA !== idTimeB) {
-      return idTimeB - idTimeA;
-    }
-
-    return 0;
+    return (b.id || '').localeCompare(a.id || '');
   });
 }
 

@@ -67,12 +67,12 @@ export const AiExpiryLossPreventionWidget: React.FC<AiExpiryLossPreventionWidget
 
       const days = calculateDaysUntilExpiry(expiryStr);
       if (days <= 90) {
-        const rate = Number(m.purchasePrice || m.costPrice || m.sellingPrice || 0);
+        const rate = Number(m.purchasePrice || (m as any).costPrice || m.sellingPrice || 0);
         nearExpiryList.push({
           id: m.id,
           medicineName: m.name,
           batchNumber: m.batchNumber || (m.batches && m.batches[0]?.batchNumber) || 'B-BATCH',
-          supplier: m.supplier || (m as any).company || 'Registered Distributor',
+          supplier: (m as any).supplier || (m as any).company || 'Registered Distributor',
           daysRemaining: days,
           stockQty: qty,
           claimableValue: qty * rate,

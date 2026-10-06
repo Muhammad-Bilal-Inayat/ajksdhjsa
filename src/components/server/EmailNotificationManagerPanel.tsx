@@ -633,7 +633,7 @@ export const EmailNotificationManagerPanel: React.FC = () => {
                       {t.name} — {t.owner_email || t.owner_phone || 'No Email'} ({t.plan || 'Plan'})
                     </option>
                   ))}
-                  {tenants.length === 0 && <option value="tenant_001">ABC Pharma (tenant_001)</option>}
+                  {tenants.length === 0 && <option value="">No tenants registered yet</option>}
                 </select>
               </div>
             )}

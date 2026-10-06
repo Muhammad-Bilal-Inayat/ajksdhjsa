@@ -111,9 +111,9 @@ export const ALL_DASHBOARD_WIDGETS: WidgetDefinition[] = [
   },
   {
     id: 'expiry_alerts',
-    title: 'Expiry Batch Alerts',
+    title: 'Expiry Alerts (Next 60 Days)',
     category: 'Inventory & Alerts',
-    description: 'Near-expiry batch safety monitoring with customizable threshold days.',
+    description: 'Near-expiry batch safety monitoring with 60-day threshold.',
     defaultZone: 'sidebar',
   },
   {

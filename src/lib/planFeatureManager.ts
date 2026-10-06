@@ -712,25 +712,42 @@ export function hasPlanFeature(featureKey: string, plan?: string | PlanTier, ten
     return true;
   }
 
+  const tid = tenantId || (typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') || localStorage.getItem('active_tenant_id')) : undefined);
+
   // MANUAL FEATURE PATCH CHECK: If active manual patch unlocks this feature, permit immediately!
-  if (manualPatchService.isFeaturePatched(featureKey, tenantId)) {
+  if (manualPatchService.isFeaturePatched(featureKey, tid)) {
     return true;
   }
 
-  // Check tenant custom feature toggles override from Master 173 Switchboard
-  if (tenantId) {
+  // Check tenant custom feature toggles override from Master Switchboard
+  if (tid) {
     try {
-      const storedFeaturesRaw = localStorage.getItem(`mbi_tenant_features_${tenantId}`);
-      if (storedFeaturesRaw) {
-        const customMap = JSON.parse(storedFeaturesRaw);
-        if (customMap[featureKey] === true) return true;
-        if (customMap[featureKey] === false) return false;
+      const storageKeys = [
+        `mbi_tenant_features_${tid}`,
+        `mbi_tenant_overrides_${tid}`,
+        `mbi_plan_features_${tid}`
+      ];
+      for (const sk of storageKeys) {
+        const storedFeaturesRaw = localStorage.getItem(sk);
+        if (storedFeaturesRaw) {
+          const customMap = JSON.parse(storedFeaturesRaw);
+          if (customMap[featureKey] === true) return true;
+          if (customMap[featureKey] === false) return false;
+
+          const normalizedKey = featureKey.toLowerCase().replace(/[\s-_]/g, '');
+          for (const [k, v] of Object.entries(customMap)) {
+            if (k.toLowerCase().replace(/[\s-_]/g, '') === normalizedKey) {
+              if (v === true) return true;
+              if (v === false) return false;
+            }
+          }
+        }
       }
     } catch {}
 
-    const tenantDoc = getTenantById(tenantId);
+    const tenantDoc = getTenantById(tid);
     if (tenantDoc) {
-      const customFeatures = (tenantDoc as any).features || (tenantDoc as any).featureToggles;
+      const customFeatures = (tenantDoc as any).features || (tenantDoc as any).customFeatures || (tenantDoc as any).featureToggles;
       if (customFeatures && typeof customFeatures === 'object') {
         if (customFeatures[featureKey] === true) return true;
         if (customFeatures[featureKey] === false) return false;
@@ -746,7 +763,7 @@ export function hasPlanFeature(featureKey: string, plan?: string | PlanTier, ten
     }
   }
 
-  const effectiveTier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
+  const effectiveTier = plan ? normalizePlanTier(plan) : getCurrentPlan(tid);
   const activeFeatures = getInheritedFeatures(effectiveTier);
 
   // Direct check or wildcard
@@ -884,7 +901,12 @@ export function canAddGodown(currentCount: number, plan?: string | PlanTier, ten
 export function isReportAllowedInPlan(reportId: string, plan?: string | PlanTier, tenantId?: string): boolean {
   if (isMasterAdminAuthenticated()) return true;
 
-  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
+  const tid = tenantId || (typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') || localStorage.getItem('active_tenant_id')) : undefined);
+  if (hasPlanFeature(reportId, plan, tid) || hasPlanFeature(`report_${reportId}`, plan, tid)) {
+    return true;
+  }
+
+  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tid);
   if (tier === 'ENTERPRISE') return true;
 
   const allowedList = PLAN_ALLOWED_REPORTS[tier];
@@ -906,17 +928,24 @@ export function isSettingsTabAllowedInPlan(tabKey: string, plan?: string | PlanT
   // Manual Patch tab is always accessible so users can manage/upload patches
   if (upperTab.includes('PATCH')) return true;
 
+  const tid = tenantId || (typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') || localStorage.getItem('active_tenant_id')) : undefined);
+
   // Manual patch check for settings tab
-  if (manualPatchService.isSettingsTabPatched(tabKey, tenantId)) return true;
+  if (manualPatchService.isSettingsTabPatched(tabKey, tid)) return true;
+
+  // Custom Feature switchboard check
+  if (hasPlanFeature(tabKey, plan, tid) || hasPlanFeature(`settings_${tabKey.toLowerCase()}`, plan, tid)) {
+    return true;
+  }
 
   // WhatsApp Automation feature check
   if (upperTab.includes('WHATSAPP')) {
-    if (hasPlanFeature('auto_whatsapp_gateway', plan, tenantId) || hasPlanFeature('whatsapp_automation', plan, tenantId) || hasPlanFeature('whatsapp_auto_gateway', plan, tenantId)) {
+    if (hasPlanFeature('auto_whatsapp_gateway', plan, tid) || hasPlanFeature('whatsapp_automation', plan, tid) || hasPlanFeature('whatsapp_auto_gateway', plan, tid)) {
       return true;
     }
   }
 
-  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
+  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tid);
   if (tier === 'ENTERPRISE') return true;
 
   const allowedTabs = PLAN_ALLOWED_SETTINGS_TABS[tier];
@@ -935,16 +964,22 @@ export function isRouteAllowedInPlan(pathname: string, plan?: string | PlanTier,
     return { isAllowed: true };
   }
 
+  const tid = tenantId || (typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_tenant_id') || localStorage.getItem('mbi_active_business_id') || localStorage.getItem('active_tenant_id')) : undefined);
+
   // MANUAL FEATURE PATCH CHECK: If active manual patch unlocks this route, permit immediately!
-  if (manualPatchService.isRoutePatched(pathname, tenantId)) {
+  if (manualPatchService.isRoutePatched(pathname, tid)) {
     return { isAllowed: true };
   }
 
-  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tenantId);
+  const tier = plan ? normalizePlanTier(plan) : getCurrentPlan(tid);
   const cleanPath = pathname.toLowerCase();
 
   for (const route of ROUTE_PLAN_REQUIREMENTS) {
     if (cleanPath.startsWith(route.prefix.toLowerCase())) {
+      // Check if featureKey is explicitly allowed (override / custom unlocked or in plan)
+      if (route.featureKey && hasPlanFeature(route.featureKey, plan, tid)) {
+        return { isAllowed: true };
+      }
       if (!isPlanAtLeast(tier, route.requiredTier)) {
         return {
           isAllowed: false,

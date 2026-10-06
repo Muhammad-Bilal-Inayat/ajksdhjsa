@@ -813,11 +813,11 @@ export const UnifiedUserControlHub: React.FC<UnifiedUserControlHubProps> = ({
                       {/* 2. Role & Terminal */}
                       <td className="px-4 py-3.5">
                         <div>
-                          <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${user.role === 'Store Manager'
+                          <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-bold ${(user.role as string) === 'Store Manager'
                               ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                              : user.role === 'Cashier'
+                              : (user.role as string) === 'Cashier'
                                 ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                : user.role === 'Pharmacist'
+                                : (user.role as string) === 'Pharmacist'
                                   ? 'bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
                                   : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                             }`}>

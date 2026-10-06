@@ -339,7 +339,7 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
             ? 'bg-blue-50/90 dark:bg-blue-950/50 border-blue-300 dark:border-blue-700 ring-2 ring-blue-500/20 shadow-xs'
             : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 shadow-2xs'
         }`}
-        title={`Current Pharmacy Context: ${tenant?.name || business?.name || 'MBI INVENTRA'} (Click to switch business or user)`}
+        title={`Current Pharmacy Context: ${business?.name || 'MBI INVENTRA'} (Click to switch business or user)`}
       >
         <div className="w-5.5 h-5.5 sm:w-7 sm:h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
           <Store className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -348,7 +348,7 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
         <div className="min-w-0">
           <div className="flex items-center gap-1">
             <span className="font-bold text-[11px] sm:text-xs text-slate-900 dark:text-slate-100 truncate max-w-[45px] xs:max-w-[65px] sm:max-w-[90px] xl:max-w-[120px]">
-              {tenant?.name || business?.name || 'MBI INVENTRA'}
+              {business?.name || 'MBI INVENTRA'}
             </span>
             <span className="hidden 2xl:inline-block px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-mono text-[9px] font-bold border border-slate-200 dark:border-slate-600">
               {business?.city || 'HQ'}
@@ -396,7 +396,7 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
               </div>
 
               <h3 className="font-black text-xs sm:text-sm text-white truncate">
-                {tenant?.name || business?.name || 'Inventra Central Pharmacy'}
+                {business?.name || 'Inventra Central Pharmacy'}
               </h3>
               <p className="text-[11px] text-slate-300 truncate mt-0.5">
                 {business?.address || business?.city || 'Main Store'}

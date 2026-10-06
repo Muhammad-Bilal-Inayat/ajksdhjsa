@@ -6,7 +6,7 @@ import {
   Trash2, Headphones, Check, Sliders, ExternalLink, Archive,
   Eye, CheckCheck, Building2, Flame, BarChart3, Filter,
   Download, ArrowUpRight, Zap, Play, Terminal, HelpCircle,
-  Copy, Layers, ChevronRight, MessageCircleQuestion, Lock
+  Copy, Layers, ChevronRight, MessageCircleQuestion, Lock, RotateCcw
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -87,8 +87,24 @@ interface KeyHealthStatus {
   lastError?: string;
 }
 
+export interface TenantQuotaItem {
+  targetId: string;
+  targetType: 'tenant' | 'user';
+  name: string;
+  storeName: string;
+  ownerName: string;
+  plan: string;
+  status: string;
+  baseLimit: number;
+  customLimit: number | null;
+  effectiveLimit: number;
+  isOverridden: boolean;
+  todayUsed: number;
+  updatedAt: string | null;
+}
+
 export const AiSupportModule: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'chat_history' | 'live_desk' | 'key_health' | 'telemetry_heatmap'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'chat_history' | 'live_desk' | 'quotas' | 'key_health' | 'telemetry_heatmap'>('dashboard');
 
   // Live Chat Desk states
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -100,6 +116,16 @@ export const AiSupportModule: React.FC = () => {
   const [operatorName, setOperatorName] = useState(() => localStorage.getItem('mbi_server_operator_name') || 'MBI Sargodha Desk');
   const [sendingReply, setSendingReply] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+
+  // Per-Tenant Quotas & Limits states
+  const [quotas, setQuotas] = useState<TenantQuotaItem[]>([]);
+  const [quotaSearch, setQuotaSearch] = useState('');
+  const [loadingQuotas, setLoadingQuotas] = useState(false);
+  const [quotaActionMsg, setQuotaActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editingQuotaTarget, setEditingQuotaTarget] = useState<TenantQuotaItem | null>(null);
+  const [overrideLimitInput, setOverrideLimitInput] = useState<number>(100);
+  const [savingOverride, setSavingOverride] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   // New API Key Management states
   const [newKeyInput, setNewKeyInput] = useState('');
@@ -172,7 +198,8 @@ export const AiSupportModule: React.FC = () => {
         fetchArchivedSessions(),
         fetchImmutableAuditLogs(),
         fetchAnalytics(),
-        fetchAiSettings()
+        fetchAiSettings(),
+        fetchQuotas()
       ]);
     } catch (e) {
       console.warn('Error loading AI Support module data:', e);
@@ -329,6 +356,87 @@ export const AiSupportModule: React.FC = () => {
         }
       }
     } catch (e) {}
+  };
+
+  const fetchQuotas = async () => {
+    setLoadingQuotas(true);
+    try {
+      const res = await fetch('/api/ai/quotas');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.quotas)) {
+          setQuotas(data.quotas);
+        }
+      }
+    } catch (e) {
+    } finally {
+      setLoadingQuotas(false);
+    }
+  };
+
+  const handleResetUsage = async (targetId: string, storeName: string) => {
+    setResettingId(targetId);
+    setQuotaActionMsg(null);
+    try {
+      const res = await fetch('/api/ai/quotas/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (Array.isArray(data.quotas)) {
+          setQuotas(data.quotas);
+        } else {
+          fetchQuotas();
+        }
+        setQuotaActionMsg({ type: 'success', text: `Usage counter successfully reset to 0 for ${storeName || targetId}!` });
+      } else {
+        setQuotaActionMsg({ type: 'error', text: data.error || 'Failed to reset usage' });
+      }
+    } catch (err: any) {
+      setQuotaActionMsg({ type: 'error', text: err?.message || 'Network error resetting usage' });
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  const handleSaveOverrideLimit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!editingQuotaTarget || savingOverride) return;
+
+    setSavingOverride(true);
+    setQuotaActionMsg(null);
+    try {
+      const res = await fetch('/api/ai/quotas/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: editingQuotaTarget.targetId,
+          customLimit: Number(overrideLimitInput),
+          name: editingQuotaTarget.name,
+          storeName: editingQuotaTarget.storeName,
+          plan: editingQuotaTarget.plan,
+          targetType: editingQuotaTarget.targetType
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (Array.isArray(data.quotas)) {
+          setQuotas(data.quotas);
+        } else {
+          fetchQuotas();
+        }
+        setQuotaActionMsg({ type: 'success', text: data.message || `Custom limit set to ${overrideLimitInput} msgs/day!` });
+        setEditingQuotaTarget(null);
+      } else {
+        setQuotaActionMsg({ type: 'error', text: data.error || 'Failed to save custom limit' });
+      }
+    } catch (err: any) {
+      setQuotaActionMsg({ type: 'error', text: err?.message || 'Network error saving custom limit' });
+    } finally {
+      setSavingOverride(false);
+    }
   };
 
   const fetchSessions = async (silent = false) => {
@@ -518,6 +626,18 @@ export const AiSupportModule: React.FC = () => {
       return true;
     });
   }, [immutableLogs, auditCompanyFilter, auditUserFilter, auditSenderFilter, auditSearch]);
+
+  const filteredQuotas = useMemo(() => {
+    if (!quotaSearch.trim()) return quotas;
+    const q = quotaSearch.toLowerCase();
+    return quotas.filter(item => 
+      (item.name || '').toLowerCase().includes(q) ||
+      (item.storeName || '').toLowerCase().includes(q) ||
+      (item.targetId || '').toLowerCase().includes(q) ||
+      (item.ownerName || '').toLowerCase().includes(q) ||
+      (item.plan || '').toLowerCase().includes(q)
+    );
+  }, [quotas, quotaSearch]);
 
   const handleExportLogsCsv = () => {
     if (filteredLogs.length === 0) return;
@@ -735,6 +855,26 @@ export const AiSupportModule: React.FC = () => {
           {pendingEscalationsCount > 0 && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
               {pendingEscalationsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveSubTab('quotas');
+            fetchQuotas();
+          }}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeSubTab === 'quotas'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Zap className="w-4 h-4" />
+          <span>Quotas &amp; Limits</span>
+          {quotas.filter(q => q.isOverridden).length > 0 && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-mono font-bold">
+              {quotas.filter(q => q.isOverridden).length} Custom
             </span>
           )}
         </button>
@@ -1600,6 +1740,379 @@ export const AiSupportModule: React.FC = () => {
               })()}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          SUB-TAB: PER-TENANT QUOTAS & PLAN LIMITS OVERRIDE
+          ======================================================== */}
+      {activeSubTab === 'quotas' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          {/* TOP BANNER / OVERVIEW */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-3xl p-6 border border-amber-500/30 dark:border-amber-500/20 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold shadow-xs">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      Per-Tenant Daily AI Limits &amp; Quota Engine
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                      Persistent SQLite Vault Sync
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 max-w-3xl">
+                    1-Click reset today's usage counter to 0 for any tenant, or set permanent custom daily limits (e.g. 500 msgs/day). All override limits are stored persistently on server disk and <strong>never reverse</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => fetchQuotas()}
+                disabled={loadingQuotas}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingQuotas ? 'animate-spin' : ''}`} />
+                <span>Refresh Quotas</span>
+              </button>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-amber-500/20">
+              <div className="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-3 border border-amber-500/20">
+                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Total Tracked Tenants</div>
+                <div className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{quotas.length}</div>
+              </div>
+              <div className="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-3 border border-amber-500/20">
+                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Custom Limit Overrides</div>
+                <div className="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                  {quotas.filter(q => q.isOverridden).length} Active
+                </div>
+              </div>
+              <div className="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-3 border border-amber-500/20">
+                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Default Plan Limits</div>
+                <div className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300 mt-1">
+                  Basic: 20 | Biz: 50 | Ent: 200
+                </div>
+              </div>
+              <div className="bg-white/60 dark:bg-slate-900/60 rounded-2xl p-3 border border-amber-500/20">
+                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Today's Total Questions</div>
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {quotas.reduce((acc, q) => acc + (q.todayUsed || 0), 0)} msgs
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Alert Message */}
+            {quotaActionMsg && (
+              <div className={`p-3.5 rounded-2xl text-xs font-medium flex items-center justify-between gap-2 shadow-xs ${
+                quotaActionMsg.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
+                  : 'bg-rose-50 dark:bg-rose-950/80 text-rose-800 dark:text-rose-200 border border-rose-300 dark:border-rose-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {quotaActionMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                  )}
+                  <span>{quotaActionMsg.text}</span>
+                </div>
+                <button 
+                  onClick={() => setQuotaActionMsg(null)}
+                  className="text-xs underline opacity-80 hover:opacity-100 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* SEARCH & FILTERS */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search tenant by company name, tenant ID, or plan..."
+                value={quotaSearch}
+                onChange={(e) => setQuotaSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span>Showing <strong>{filteredQuotas.length}</strong> of {quotas.length} tenants</span>
+            </div>
+          </div>
+
+          {/* TENANT QUOTAS TABLE */}
+          <div className="border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-xs bg-white dark:bg-slate-900">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-950/80 text-slate-500 border-b border-slate-200 dark:border-slate-800 font-bold">
+                  <tr>
+                    <th className="p-4">Tenant / Pharmacy</th>
+                    <th className="p-4">Plan Tier</th>
+                    <th className="p-4 text-center">Today's Usage</th>
+                    <th className="p-4 text-center">Active Daily Limit</th>
+                    <th className="p-4">Status &amp; Overridden</th>
+                    <th className="p-4 text-right">Quick Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {filteredQuotas.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-10 text-center text-slate-400">
+                        <Zap className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2 opacity-50" />
+                        <p className="font-semibold text-slate-500">No matching tenants found</p>
+                        <p className="text-[11px] text-slate-400 mt-1">Try clearing your search query or refresh</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredQuotas.map((q) => {
+                      const used = q.todayUsed || 0;
+                      const limit = q.effectiveLimit || 20;
+                      const pct = Math.min(100, Math.round((used / limit) * 100));
+                      const isNearLimit = pct >= 80;
+                      const isExceeded = used >= limit;
+
+                      return (
+                        <tr key={q.targetId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition group">
+                          <td className="p-4">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span>{q.storeName || q.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded">
+                                ID: {q.targetId}
+                              </span>
+                              {q.ownerName && q.ownerName !== q.storeName && (
+                                <span className="text-[10px] text-slate-400">
+                                  Owner: {q.ownerName}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${
+                              (q.plan || '').toLowerCase().includes('enterprise') || (q.plan || '').toLowerCase().includes('platinum')
+                                ? 'bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                : (q.plan || '').toLowerCase().includes('business') || (q.plan || '').toLowerCase().includes('gold')
+                                ? 'bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                            }`}>
+                              {q.plan || 'Basic'}
+                            </span>
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Base: {q.baseLimit} msgs/day
+                            </div>
+                          </td>
+
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className={`font-mono text-sm font-black ${
+                                isExceeded
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : isNearLimit
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : 'text-emerald-600 dark:text-emerald-400'
+                              }`}>
+                                {used}
+                              </span>
+                              <span className="text-slate-400 text-xs">/ {limit}</span>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-24 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mx-auto mt-1">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  isExceeded
+                                    ? 'bg-rose-500'
+                                    : isNearLimit
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </td>
+
+                          <td className="p-4 text-center">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                              <span className="font-mono text-xs font-black text-slate-900 dark:text-white">
+                                {q.effectiveLimit}
+                              </span>
+                              <span className="text-[10px] text-slate-500">msgs/day</span>
+                            </div>
+                          </td>
+
+                          <td className="p-4">
+                            {q.isOverridden ? (
+                              <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold text-[11px]">
+                                <Zap className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                                <span>Custom Override ({q.customLimit}/day)</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-[11px] flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-slate-400" />
+                                <span>Default Plan Quota</span>
+                              </span>
+                            )}
+                            {q.updatedAt && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Set: {new Date(q.updatedAt).toLocaleDateString()}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {/* RESET TO 0 BUTTON */}
+                              <button
+                                onClick={() => handleResetUsage(q.targetId, q.storeName)}
+                                disabled={resettingId === q.targetId}
+                                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-700 dark:text-slate-200 hover:text-rose-600 dark:hover:text-rose-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 border border-slate-200 dark:border-slate-700 shadow-2xs"
+                                title="Reset today's used counter immediately to 0"
+                              >
+                                <RotateCcw className={`w-3.5 h-3.5 ${resettingId === q.targetId ? 'animate-spin text-rose-500' : ''}`} />
+                                <span>Reset to 0</span>
+                              </button>
+
+                              {/* OVERRIDE LIMIT BUTTON */}
+                              <button
+                                onClick={() => {
+                                  setEditingQuotaTarget(q);
+                                  setOverrideLimitInput(q.customLimit || q.baseLimit || 100);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                              >
+                                <Sliders className="w-3.5 h-3.5" />
+                                <span>Override Limit</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* OVERRIDE LIMIT MODAL */}
+          {editingQuotaTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-150">
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full space-y-5 animate-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                        Set Custom Daily AI Limit
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        {editingQuotaTarget.storeName} ({editingQuotaTarget.targetId})
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setEditingQuotaTarget(null)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Enter Daily Message Quota (msgs / day)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="999999"
+                        value={overrideLimitInput}
+                        onChange={(e) => setOverrideLimitInput(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full px-4 py-3 text-sm font-mono font-black rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="e.g. 500"
+                      />
+                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                        msgs/day
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons */}
+                  <div>
+                    <span className="block text-[11px] font-bold text-slate-500 mb-1.5">Quick Presets:</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[50, 100, 250, 500, 1000, 2000, 5000, 9999].map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setOverrideLimitInput(preset)}
+                          className={`py-1.5 px-2 rounded-xl text-xs font-mono font-bold transition cursor-pointer ${
+                            overrideLimitInput === preset
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {preset === 9999 ? '∞ Max' : `${preset}`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-200 space-y-1">
+                    <div className="font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Zero-Reversion Guaranteed</span>
+                    </div>
+                    <p className="text-[10.5px] leading-relaxed opacity-90">
+                      This custom limit is written permanently to server configuration. It will <strong>never revert</strong> on server restart or daily schedule.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEditingQuotaTarget(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveOverrideLimit}
+                    disabled={savingOverride}
+                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {savingOverride ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving Permanently...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save Custom Limit</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

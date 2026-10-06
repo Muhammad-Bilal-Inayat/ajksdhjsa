@@ -120,14 +120,14 @@ export class DashboardSummaryService {
 
       // Filter Low stock items (Sanitized summary only)
       const lowStockAlerts: LowStockAlertSummary[] = medsData
-        .filter(m => (Number(m.quantity) || 0) <= (Number(m.lowStockThreshold) || 20))
+        .filter(m => (Number(m.quantity) || 0) <= (Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number(m.lowStockThreshold) || Number((m as any).minStock) || 10))
         .map(m => ({
           id: m.id,
           name: m.name,
           quantity: Number(m.quantity) || 0,
-          lowStockThreshold: Number(m.lowStockThreshold) || 20,
+          lowStockThreshold: Number((m as any).minStockAlert) || Number((m as any).reorderLevel) || Number(m.lowStockThreshold) || Number((m as any).minStock) || 10,
           unit: m.unit || 'Box',
-          category: m.category || 'General',
+          category: m.category || (m as any).genericName || 'General',
           sellingPrice: Number(m.sellingPrice) || 0,
         }));
 
@@ -189,29 +189,44 @@ export class DashboardSummaryService {
       topProducts.sort((a, b) => b.unitsSold - a.unitsSold);
 
       // Today's Profit & Margins
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const todayInvs = invsData.filter(inv => inv.date?.slice(0, 10) === todayStr);
+      const isToday = (dateStr?: string) => {
+        if (!dateStr) return true;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return true;
+        const now = new Date();
+        return (
+          (d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) ||
+          d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)
+        );
+      };
+
+      const todayInvs = invsData.filter(inv => isToday(inv.date || (inv as any).createdAt));
       const todaySaleSum = todayInvs.reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
 
       let todayCogsSum = 0;
+      let hasValidCogs = false;
+
       todayInvs.forEach(inv => {
         inv.items?.forEach(item => {
           const med = medsData.find(m => m.id === item.medicineId || m.name?.toLowerCase().trim() === item.name?.toLowerCase().trim());
-          const cost = med?.purchasePrice || (item.sellingPrice ? item.sellingPrice * 0.72 : (item.pricePerUnit ? item.pricePerUnit * 0.72 : 0));
-          todayCogsSum += (Number(item.quantity) || 1) * cost;
+          const cost = Number(med?.purchasePrice) || Number((item as any)?.purchasePrice) || 0;
+          if (cost > 0) {
+            hasValidCogs = true;
+            todayCogsSum += (Number(item.quantity) || 1) * cost;
+          }
         });
       });
 
       const todayExpSum = expsData
-        .filter(e => e.date?.slice(0, 10) === todayStr)
+        .filter(e => isToday(e.date || (e as any).createdAt))
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
       const effectiveTodaySale = todaySaleSum;
-      const effectiveTodayCogs = todayCogsSum;
+      const effectiveTodayCogs = hasValidCogs ? todayCogsSum : 0;
       const effectiveTodayExp = todayExpSum;
-      const effectiveGross = effectiveTodaySale - effectiveTodayCogs;
-      const effectiveNet = effectiveGross - effectiveTodayExp;
-      const marginPct = effectiveTodaySale > 0 ? (effectiveNet / effectiveTodaySale) * 100 : 0;
+      const effectiveGross = hasValidCogs ? Math.max(0, effectiveTodaySale - effectiveTodayCogs) : 0;
+      const effectiveNet = Math.max(0, effectiveGross - effectiveTodayExp);
+      const marginPct = (hasValidCogs && effectiveTodaySale > 0) ? (effectiveNet / effectiveTodaySale) * 100 : 0;
 
       // Sanitized Recent Sales: Header only, NO raw item array or purchase price data!
       const sortedInvoices = [...invsData]

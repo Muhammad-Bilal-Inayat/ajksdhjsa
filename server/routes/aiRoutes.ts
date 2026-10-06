@@ -20,7 +20,10 @@ import {
   archiveSession,
   unarchiveSession,
   addCustomApiKey,
-  removeCustomApiKey
+  removeCustomApiKey,
+  getAllTenantAiQuotasList,
+  setTenantQuotaOverride,
+  resetTenantDailyUsage
 } from '../services/aiAssistantService';
 import { saveAiChatLogToMariaDb } from '../db/mariaClient';
 
@@ -204,7 +207,14 @@ aiRouter.post('/chat/sessions/:sessionId/message', async (req, res) => {
         text, 
         userMeta?.pageContext || 'user', 
         userMeta?.plan || 'business', 
-        history
+        history,
+        {
+          tenantId: userMeta?.tenantId,
+          storeName: userMeta?.storeName,
+          userName: userMeta?.userName,
+          userEmail: userMeta?.userEmail,
+          phone: userMeta?.userPhone
+        }
       );
 
       // Add AI response to session
@@ -322,7 +332,19 @@ aiRouter.post('/ask', async (req, res) => {
       });
     }
 
-    const result = await generateAiResponse(prompt, context, userPlan, history);
+    const result = await generateAiResponse(
+      prompt, 
+      context, 
+      userPlan, 
+      history,
+      {
+        tenantId: req.body.tenantId,
+        storeName: businessName,
+        userName: req.body.userName || businessName,
+        userEmail: userEmail,
+        phone: phone
+      }
+    );
 
     // If human support requested, auto-log lead
     let lead = null;
@@ -495,3 +517,73 @@ aiRouter.post('/keys/remove', (req, res) => {
     res.status(400).json({ success: false, error: err?.message || 'Failed to remove API key.' });
   }
 });
+
+// ----------------------------------------------------
+// PER-TENANT AI QUOTAS & USAGE OVERRIDES
+// ----------------------------------------------------
+// Get all tenants quota & today usage status
+aiRouter.get('/quotas', (req, res) => {
+  try {
+    const quotas = getAllTenantAiQuotasList();
+    res.json({ success: true, quotas });
+  } catch (err: any) {
+    console.error('Error fetching tenant AI quotas:', err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Set custom daily limit override for a tenant or user
+aiRouter.post('/quotas/override', (req, res) => {
+  try {
+    const { targetId, customLimit, name, storeName, plan, targetType } = req.body;
+    if (!targetId || customLimit === undefined) {
+      return res.status(400).json({ success: false, error: 'targetId and customLimit are required.' });
+    }
+
+    const limitNum = Number(customLimit);
+    if (isNaN(limitNum) || limitNum < 0) {
+      return res.status(400).json({ success: false, error: 'customLimit must be a valid non-negative number.' });
+    }
+
+    const record = setTenantQuotaOverride(targetId, limitNum, {
+      name,
+      storeName,
+      plan,
+      targetType
+    });
+
+    const allQuotas = getAllTenantAiQuotasList();
+    res.json({
+      success: true,
+      message: `Custom limit of ${limitNum} msgs/day saved permanently for ${storeName || name || targetId}!`,
+      record,
+      quotas: allQuotas
+    });
+  } catch (err: any) {
+    console.error('Error setting tenant quota override:', err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+// Reset today's message usage to 0 for a tenant
+aiRouter.post('/quotas/reset', (req, res) => {
+  try {
+    const { targetId } = req.body;
+    if (!targetId) {
+      return res.status(400).json({ success: false, error: 'targetId is required.' });
+    }
+
+    const record = resetTenantDailyUsage(targetId);
+    const allQuotas = getAllTenantAiQuotasList();
+    res.json({
+      success: true,
+      message: `Today's AI usage counter successfully reset to 0 for ${targetId}!`,
+      record,
+      quotas: allQuotas
+    });
+  } catch (err: any) {
+    console.error('Error resetting tenant AI usage:', err);
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+

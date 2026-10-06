@@ -1188,17 +1188,20 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const currentFirms = prev.general?.firms || [];
       const defaultFirm = currentFirms.find(f => f.isDefault) || currentFirms[0];
       
+      const isPlaceholderFirm = !defaultFirm || 
+        defaultFirm.name === 'MBI INVENTRA' || 
+        defaultFirm.name === 'Main Branch' || 
+        defaultFirm.name === 'MBI INVENTRA DEFAULT';
+
       const shouldUpdateFirm = !isMaster && (
-        !defaultFirm ||
-        defaultFirm.name === 'MBI INVENTRA' ||
-        defaultFirm.name === 'Main Branch' ||
-        defaultFirm.name !== bizName
+        currentFirms.length === 0 ||
+        (currentFirms.length === 1 && isPlaceholderFirm)
       );
 
       const shouldUpdatePrint = !isMaster && (
         !prev.print.companyName ||
         prev.print.companyName === 'MBI INVENTRA' ||
-        prev.print.companyName !== bizName
+        prev.print.companyName === 'MBI INVENTRA PHARMA'
       );
 
       if (!shouldUpdateFirm && !shouldUpdatePrint) {
@@ -1210,15 +1213,25 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const targetGstin = biz?.taxNumber || (defaultFirm?.gstin !== 'PK-NTN-4928172-9' ? defaultFirm?.gstin : '') || '';
       const targetEmail = biz?.email || ten?.ownerEmail || (defaultFirm?.email !== 'support@mbinventra.com' ? defaultFirm?.email : '') || '';
 
-      const updatedFirms = currentFirms.map((f, idx) => {
-        if (f.isDefault || idx === 0) {
+      const updatedFirms = currentFirms.length === 0 ? [
+        {
+          id: 'firm-1',
+          name: bizName,
+          isDefault: true,
+          address: targetAddress,
+          phone: targetPhone,
+          gstin: targetGstin,
+          email: targetEmail,
+        }
+      ] : currentFirms.map((f, idx) => {
+        if (idx === 0 && (f.name === 'MBI INVENTRA' || f.name === 'Main Branch' || f.name === 'MBI INVENTRA DEFAULT')) {
           return {
             ...f,
             name: bizName,
-            address: targetAddress,
-            phone: targetPhone,
-            gstin: targetGstin,
-            email: targetEmail,
+            address: targetAddress || f.address,
+            phone: targetPhone || f.phone,
+            gstin: targetGstin || f.gstin,
+            email: targetEmail || f.email,
           };
         }
         return f;

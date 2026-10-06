@@ -458,8 +458,8 @@ export const TransactionTab: React.FC = () => {
                 <span title="Calculate due dates automatically based on credit terms"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
 
-              {/* Booker / Biller Assignment in Billing (Strictly Gated to Enterprise Plan) */}
-              {hasEnterpriseAccess && (
+              {/* Booker / Biller Assignment in Billing (Strictly Gated to Plan Tier) */}
+              {isBookerAllowed && (
                 <div className="bg-indigo-50/60 dark:bg-indigo-950/40 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2.5 cursor-pointer select-none">

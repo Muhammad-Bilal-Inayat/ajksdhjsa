@@ -41,6 +41,7 @@ import { getEffectiveTenantLimits } from '../lib/planLimitsService';
 import { evaluatePermission, syncUserAccessControlProfileFromServer } from '../lib/userAccessControl';
 import { verifyAndRegisterCurrentDevice } from '../lib/deviceSecurityService';
 import { startUserHeartbeat } from '../lib/userHeartbeatService';
+import { hasPlanFeature } from '../lib/planFeatureManager';
 
 interface AuthContextType {
   currentUser: any | null;
@@ -480,22 +481,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [effectiveUserId, activeRole, effectivePlan, effectiveTenantId, permissionVersion, activeUser]);
 
   // Check if tenant has specific feature toggle active based on Plan + Master Overrides
-  const isFeatureEnabled = (feature: keyof TenantFeatureToggles): boolean => {
+  const isFeatureEnabled = (feature: keyof TenantFeatureToggles | string): boolean => {
     const activeTenantId = tenant?.tenantId || tenant?.id || tenantId || business?.tenantId || business?.id;
     if (activeTenantId) {
       try {
         const effective = getEffectiveTenantLimits(activeTenantId);
         if (effective && effective.features) {
-          const val = effective.features[feature];
+          const val = (effective.features as any)[feature];
           if (val !== undefined) return !!val;
         }
       } catch (e) {}
     }
-    if (tenant?.featureToggles) {
-      const val = tenant.featureToggles[feature];
-      if (val !== undefined) return !!val;
-    }
-    return true;
+    return hasPlanFeature(feature as string, effectivePlan, activeTenantId);
   };
 
   // Require Auth guard helper
@@ -1275,6 +1272,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             paidLicenseActive: false,
             maxDevices: 5,
             licenseId: sTenantId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             featureToggles: {
               ...DEFAULT_TENANT_FEATURE_TOGGLES,
               dataExport: sRole === 'Primary Admin' || sRole === 'Admin',
@@ -1838,12 +1837,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('mbi_active_token');
     localStorage.removeItem('mbi_token');
     localStorage.removeItem('token');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('mbi_auth_token');
+    localStorage.removeItem('tenant_id');
+    localStorage.removeItem('mbi_user_role');
+    localStorage.removeItem('mbi_active_plan_tier');
     localStorage.removeItem('mbi_app_unlocked');
     localStorage.removeItem('mbi_current_user');
     localStorage.removeItem('mbi_auth_user');
     localStorage.removeItem('mbi_user_session');
     localStorage.removeItem('mbi_active_company');
     localStorage.removeItem('mbi_last_active_route');
+    if (tenantId) {
+      localStorage.removeItem(`mbi_tenant_features_${tenantId}`);
+    }
     try {
       sessionStorage.clear();
     } catch (e) {}

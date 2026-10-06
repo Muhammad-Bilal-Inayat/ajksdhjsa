@@ -89,6 +89,12 @@ const FEATURE_ALIASES_MAP: Record<string, string[]> = {
   'narcotics_register': ['narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d', 'controlled_generic_registry', 'drap_form8', 'drap_form_8_drug_register'],
   'controlled_register': ['controlled_generic_registry', 'narcotics_register', 'controlled_drug_register', 'inventory_narcotic_schedule_d'],
   'multi_godowns': ['godowns', 'multi_warehouse', 'inventory_multi_godown', 'multi-godowns', 'multi_godowns', 'stock_transfer'],
+  'godowns': ['godowns', 'multi_godowns', 'multi_warehouse', 'inventory_multi_godown', 'multi-godowns', 'stock_transfer'],
+  'shortage_registry': ['shortage_registry', 'shortages', 'shortage', 'short-register', 'missed_sales_demand', 'dashboard_shortage_matrix'],
+  'top_products': ['top_products', 'topProducts', 'top_products_analytics', 'fast_skus_margin_matrix', 'dashboard_top_products'],
+  'topProducts': ['top_products', 'topProducts', 'top_products_analytics', 'fast_skus_margin_matrix', 'dashboard_top_products'],
+  'fefo_expiry_management': ['fefo_expiry_management', 'fefo_expiry', 'fefo-radar-advanced', 'fefo_expiry_report', 'fefo_expiry_status', 'dashboard_expiry_alerts'],
+  'ai_assistant': ['ai_assistant', 'aiGuide', 'ai_guide', 'ai_recommendations', 'mbi_ai_recommendation', 'clinical_drug_interaction'],
   'multi_branch_hq': ['multi_branch_hq', 'multi_branch_operations', '10_plus_branches', 'centralized_branch_sync', 'inter_branch_stock_transfers', 'multi_branch_telemetry'],
 };
 
@@ -126,6 +132,29 @@ export function checkServerFeatureOverride(featureKey: string, tenantId?: string
               for (const [prop, val] of Object.entries(parsed)) {
                 if (prop.toLowerCase().replace(/[\s-_]/g, '') === norm && typeof val === 'boolean') {
                   return val;
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // 2b. Check mock_business / mbi_tenant cached objects
+      const tenantSources = ['mock_business', 'mbi_tenant', 'mbi_active_tenant'];
+      for (const ts of tenantSources) {
+        const raw = localStorage.getItem(ts);
+        if (raw) {
+          try {
+            const doc = JSON.parse(raw);
+            const feats = doc?.features || doc?.customFeatures || doc?.featureToggles;
+            if (feats && typeof feats === 'object') {
+              for (const k of keysToCheck) {
+                if (typeof feats[k] === 'boolean') return feats[k];
+                const norm = k.toLowerCase().replace(/[\s-_]/g, '');
+                for (const [prop, val] of Object.entries(feats)) {
+                  if (prop.toLowerCase().replace(/[\s-_]/g, '') === norm && typeof val === 'boolean') {
+                    return val as boolean;
+                  }
                 }
               }
             }

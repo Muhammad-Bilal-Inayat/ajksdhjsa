@@ -55,7 +55,7 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
     const list: MissedSaleItem[] = [];
 
     shortages.forEach(s => {
-      const count = Number(s.inquiryCount || s.count || 1);
+      const count = Number((s as any).inquiryCount || (s as any).count || (s as any).inquiriesCount || 1);
       const estPrice = Number(s.estimatedPrice || (s as any).price || 250);
       list.push({
         id: s.id,
@@ -63,7 +63,7 @@ export const MissedSalesWidget: React.FC<MissedSalesWidgetProps> = ({ maskValue 
         genericName: s.genericName || '',
         inquiriesCount: count,
         estimatedPrice: estPrice,
-        lastRequested: s.lastInquiryDate ? new Date(s.lastInquiryDate).toLocaleDateString() : 'Recent',
+        lastRequested: (s as any).lastInquiryDate ? new Date((s as any).lastInquiryDate).toLocaleDateString() : (s as any).lastRequestedDate ? new Date((s as any).lastRequestedDate).toLocaleDateString() : 'Recent',
         urgency: count >= 10 ? 'high' : count >= 5 ? 'medium' : 'normal'
       });
     });

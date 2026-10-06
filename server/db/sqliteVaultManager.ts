@@ -33,6 +33,41 @@ let masterDbInstance: DatabaseSync | null = null;
 const tenantDbCache = new Map<string, DatabaseSync>();
 
 /**
+ * Auto-Backup SQLite Master & Tenant Vaults to prevent any accidental data loss
+ */
+export function autoBackupAllVaults(): void {
+  try {
+    if (!fs.existsSync(BACKUPS_DIR)) {
+      fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+    }
+    // Backup Master DB if exists
+    if (fs.existsSync(MASTER_DB_PATH)) {
+      const backupMasterPath = path.join(BACKUPS_DIR, `master_hub_backup.sqlite`);
+      fs.copyFileSync(MASTER_DB_PATH, backupMasterPath);
+    }
+    // Backup all tenant SQLite files
+    if (fs.existsSync(TENANTS_DIR)) {
+      const files = fs.readdirSync(TENANTS_DIR);
+      for (const file of files) {
+        if (file.endsWith('.sqlite')) {
+          const src = path.join(TENANTS_DIR, file);
+          const dest = path.join(BACKUPS_DIR, `${file}.bak`);
+          fs.copyFileSync(src, dest);
+        }
+      }
+    }
+    console.log('[VAULT AUTO-BACKUP]: Successfully took resilient snapshot of Master & Tenant databases.');
+  } catch (err: any) {
+    console.error('[VAULT AUTO-BACKUP ERROR]:', err?.message || err);
+  }
+}
+
+// Run auto-backup every 30 minutes
+setInterval(() => {
+  autoBackupAllVaults();
+}, 30 * 60 * 1000).unref();
+
+/**
  * Initialize and get the Master Hub Database
  */
 export function getMasterVault(): DatabaseSync {
@@ -480,6 +515,11 @@ export function checkVaultEngineHealth(): {
 } {
   const master = getMasterVault();
   const row: any = master.prepare("PRAGMA journal_mode;").get();
+
+  // Trigger resilient backup snapshot
+  try {
+    autoBackupAllVaults();
+  } catch (e) {}
 
   return {
     status: 'ONLINE',

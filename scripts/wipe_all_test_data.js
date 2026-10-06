@@ -2,6 +2,13 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 
+// SAFETY LOCK: Prevent accidental execution during deployment or build
+if (!process.argv.includes('--force-confirm-purge-all')) {
+  console.error('⛔ SAFETY ABORT: Wipe script requires explicit flag: node scripts/wipe_all_test_data.js --force-confirm-purge-all');
+  console.error('No tenant data or database was modified.');
+  process.exit(0);
+}
+
 console.log('========================================================');
 console.log('🚀 TOTAL SYSTEM WIPE: RESETTING ALL USERS, TENANTS & VAULTS');
 console.log('========================================================');

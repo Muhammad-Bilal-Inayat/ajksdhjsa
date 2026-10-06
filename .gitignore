@@ -10,7 +10,13 @@ coverage/
 .server_backups_vault/
 .*.json
 *.json.bak
+.sync_data.json
+
+# 🔒 STRICT SACROSANCT DATA FILES (NEVER PUSH / NEVER OVERWRITE)
+server/data/
 server/data/**/*.sqlite
 server/data/**/*.sqlite-wal
 server/data/**/*.sqlite-shm
+server/data/master/
+server/data/tenants/
 server/data/backups/

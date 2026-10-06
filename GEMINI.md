@@ -10,3 +10,10 @@
   - Real-time broadcasts (SSE/WebSocket) are isolated by tenant room (`tenant_${tenantId}`).
 - **Company Sync**:
   - Devices (PC, Mobile, POS Terminal) inside a company sync bidirectionally with their isolated tenant vault and receive real-time updates for their own company only.
+
+## 🔒 Untouchable Business Data Storage (Never Delete / Never Overwrite)
+- `server/data/master/master_hub.sqlite`
+- `server/data/tenants/tenant_*.sqlite`
+- `.sync_data.json`
+- MariaDB tables `mbi_tenants`, `mbi_users`, `mbi_licenses`
+

@@ -61,3 +61,17 @@ Multiple independent companies (e.g., ABC Pharma `001`, City Medicos `002`, Al-S
 2. **Server-Side Session Extraction**: `tenant_id` is derived exclusively from the verified user session/JWT (`req.user.tenantId`).
 3. **Single Device Lock**: Users and sub-users cannot log in from a 2nd device unless approved by Master Admin.
 4. **Zero Cloud Bills**: 100% self-hosted on Node.js Native SQLite (DatabaseSync) with WAL Mode.
+
+---
+
+## 4. 🔒 SACROSANCT UNTOUCHABLE DATA FILES (STRICT ZERO-TOUCH POLICY)
+The following files and folders contain active live business data for Tenants, Users, and Sub-users.
+**STRICT RULE:** NO automated build, script, migration, commit, git push/pull, or code edit is EVER permitted to delete, drop, wipe, rename, overwrite, or mutate these files:
+
+| Storage Layer | Path / Location | Contains | Touch Policy |
+| :--- | :--- | :--- | :--- |
+| **Master Hub Vault** | `server/data/master/master_hub.sqlite` | Registered Tenants (`mbi_tenants`), Licenses (`mbi_licenses`), Users (`mbi_users`), HWIDs (`mbi_registered_devices`) | ⛔ **NEVER TOUCH / NEVER WIPE** |
+| **Tenant SQLite Vaults** | `server/data/tenants/tenant_*.sqlite` | Company inventory, invoices, cashiers, sub-users, parties, ledgers | ⛔ **NEVER TOUCH / NEVER WIPE** |
+| **Runtime Sync Storage** | `.sync_data.json` & `.*.json` | Fallback persistence & local caching | ⛔ **NEVER COMMIT / NEVER WIPE** |
+| **MariaDB Live Cloud** | `mbi_tenants`, `mbi_users`, `mbi_licenses` | Cloud synchronized company and staff accounts | ⛔ **NEVER DROP TABLES** |
+

@@ -332,9 +332,8 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
 
           setTenants(serverTenants);
           localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(serverTenants));
-        } else if (Array.isArray(json.tenants) && json.tenants.length === 0) {
-          setTenants([]);
-          localStorage.setItem('mbi_master_tenants_v1', JSON.stringify([]));
+        } else {
+          setTenants(getAllTenants());
         }
       } else {
         setTenants(getAllTenants());

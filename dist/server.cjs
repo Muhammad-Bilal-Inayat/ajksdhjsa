@@ -11152,7 +11152,7 @@ fleetRouter.get("/tenants", async (req, res) => {
            FROM mbi_tenants t
            ORDER BY t.created_at DESC;`
         );
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           for (const t of rows) {
             if (!t) continue;
             const tid = t.tenant_id || t.id;
@@ -11210,24 +11210,26 @@ fleetRouter.get("/tenants", async (req, res) => {
               updated_at: t.updated_at || (/* @__PURE__ */ new Date()).toISOString()
             });
           }
-          try {
-            let syncData = {};
-            if (import_fs11.default.existsSync(syncFile8)) {
-              syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+          if (tenants.length > 0) {
+            try {
+              let syncData = {};
+              if (import_fs11.default.existsSync(syncFile8)) {
+                syncData = JSON.parse(import_fs11.default.readFileSync(syncFile8, "utf-8") || "{}");
+              }
+              syncData.mbi_tenants = tenants;
+              syncData.tenants = tenants;
+              import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
+            } catch (e) {
             }
-            syncData.mbi_tenants = tenants;
-            syncData.tenants = tenants;
-            import_fs11.default.writeFileSync(syncFile8, JSON.stringify(syncData, null, 2), "utf-8");
-          } catch (e) {
+            res.json({
+              success: true,
+              source: "mariadb",
+              count: tenants.length,
+              tenants,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            });
+            return;
           }
-          res.json({
-            success: true,
-            source: "mariadb",
-            count: tenants.length,
-            tenants,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
-          });
-          return;
         }
       } catch (dbErr) {
         console.warn("[Fleet Tenants MariaDB Error - Using disk fallback]:", dbErr);

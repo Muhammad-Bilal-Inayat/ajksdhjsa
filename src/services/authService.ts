@@ -1,4 +1,5 @@
 import { getSystemHWIDSync } from '../lib/hardwareFingerprint';
+import { saveTenant } from '../lib/masterServerService';
 
 export interface LoginCredentials {
   identifier: string; // Username, Email, or Mobile Phone
@@ -241,7 +242,11 @@ export const authService = {
         };
         localStorage.setItem('mbi_active_tenant_cache', JSON.stringify(tenantObj));
 
-        // 5. Update local master tenants catalog in localStorage
+        // 5. Update local master tenants catalog in localStorage & sync to master server fleet
+        try {
+          saveTenant(tenantObj as any);
+        } catch (e) {}
+
         try {
           const rawTenants = localStorage.getItem('mbi_master_tenants_v2');
           let tenantsList = rawTenants ? JSON.parse(rawTenants) : [];
@@ -249,6 +254,9 @@ export const authService = {
           tenantsList = tenantsList.filter((t: any) => t.id !== effectiveTenantId && t.tenantId !== effectiveTenantId);
           tenantsList.unshift(tenantObj);
           localStorage.setItem('mbi_master_tenants_v2', JSON.stringify(tenantsList));
+          localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(tenantsList));
+          localStorage.setItem('mbi_master_tenants_v3', JSON.stringify(tenantsList));
+          localStorage.setItem('mbi_master_tenants', JSON.stringify(tenantsList));
         } catch (e) {}
 
         // 6. Update general settings with exact store name

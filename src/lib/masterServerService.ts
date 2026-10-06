@@ -2363,18 +2363,46 @@ export function getAllTenants(): Tenant[] {
   };
 
   try {
-    // 1. Primary Tenant Storage
-    const stored = localStorage.getItem('mbi_master_tenants_v1') || 
-                   localStorage.getItem(MASTER_TENANTS_KEY) || 
-                   localStorage.getItem('mbi_master_tenants');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        parsed.forEach(addTenantIfValid);
+    // 1. Primary Tenant Storage (Check all legacy and modern keys)
+    const storageKeys = [
+      'mbi_master_tenants_v3',
+      'mbi_master_tenants_v2',
+      'mbi_master_tenants_v1',
+      'mbi_master_tenants',
+      MASTER_TENANTS_KEY
+    ];
+
+    for (const key of storageKeys) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(addTenantIfValid);
+          }
+        } catch {}
       }
     }
 
-    // 2. Registration Leads (All signed up stores)
+    // 2. Active Tenant Cache
+    const activeCacheRaw = localStorage.getItem('mbi_active_tenant_cache') || localStorage.getItem('mbi_tenant');
+    if (activeCacheRaw) {
+      try {
+        const parsed = JSON.parse(activeCacheRaw);
+        if (parsed) addTenantIfValid(parsed);
+      } catch {}
+    }
+
+    // 3. User Businesses Array
+    const bizListRaw = localStorage.getItem('mbi_user_businesses');
+    if (bizListRaw) {
+      try {
+        const parsed = JSON.parse(bizListRaw);
+        if (Array.isArray(parsed)) parsed.forEach(addTenantIfValid);
+      } catch {}
+    }
+
+    // 4. Registration Leads (All signed up stores)
     const leadsRaw = localStorage.getItem('mbi_registration_leads');
     if (leadsRaw) {
       const leads = JSON.parse(leadsRaw);
@@ -2384,12 +2412,12 @@ export function getAllTenants(): Tenant[] {
             addTenantIfValid({
               id: l.tenantId || `lead_${l.id}`,
               tenantId: l.tenantId || `lead_${l.id}`,
-              name: l.pharmacyName || l.businessName || l.name,
-              ownerName: l.name || l.contactPerson,
+              name: l.pharmacyName || l.businessName || l.name || l.storeName,
+              ownerName: l.name || l.contactPerson || l.ownerName,
               ownerPhone: l.phone,
               ownerEmail: l.email,
               city: l.city,
-              plan: l.requestedPlan || 'Pharmacy Pro',
+              plan: l.requestedPlan || l.plan || 'Pharmacy Pro',
               status: l.status === 'Converted' || l.status === 'Approved' ? 'Active' : 'Trial'
             });
           }
@@ -2397,7 +2425,7 @@ export function getAllTenants(): Tenant[] {
       }
     }
 
-    // 3. Client Licenses
+    // 5. Client Licenses
     const licRaw = localStorage.getItem('mbi_client_licenses');
     if (licRaw) {
       const licList = JSON.parse(licRaw);
@@ -2407,8 +2435,8 @@ export function getAllTenants(): Tenant[] {
             addTenantIfValid({
               id: `tenant_${lic.clientName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
               name: lic.clientName,
-              ownerName: lic.clientName,
-              plan: lic.planType || 'Pharmacy Pro',
+              ownerName: lic.ownerName || lic.clientName,
+              plan: lic.planType || lic.plan || 'Pharmacy Pro',
               status: lic.status || 'Active'
             });
           }
@@ -2416,7 +2444,7 @@ export function getAllTenants(): Tenant[] {
       }
     }
 
-    // 4. Current Configured Business / Store Profile
+    // 6. Current Configured Business / Store Profile
     const bizRaw = localStorage.getItem('mock_business') || 
                    localStorage.getItem('mbi_company_settings') || 
                    localStorage.getItem('mbi_business_profile');
@@ -2436,15 +2464,41 @@ export function getAllTenants(): Tenant[] {
         });
       }
     }
+
+    // 7. Pharma App Settings (companyName / storeName)
+    const appSettingsRaw = localStorage.getItem('pharma_app_settings');
+    if (appSettingsRaw) {
+      try {
+        const parsed = JSON.parse(appSettingsRaw);
+        const comp = parsed?.general?.companyName || parsed?.general?.storeName;
+        if (comp && comp !== 'Pharmacy POS' && comp !== 'MBI INVENTRA') {
+          addTenantIfValid({
+            id: `tenant_${comp.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+            name: comp,
+            ownerName: parsed?.general?.ownerName || 'Store Admin',
+            ownerPhone: parsed?.general?.phone || '',
+            ownerEmail: parsed?.general?.email || '',
+            city: parsed?.general?.city || 'Lahore',
+            plan: 'Basic',
+            status: 'Active'
+          });
+        }
+      } catch {}
+    }
   } catch (e) {
     console.error('Failed to aggregate tenants:', e);
   }
 
-  // Persist aggregated list so all other components have synchronous access
-  try {
-    localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(aggregated));
-    localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(aggregated));
-  } catch (e) {}
+  // Persist aggregated list across all storage keys
+  if (aggregated.length > 0) {
+    try {
+      localStorage.setItem(MASTER_TENANTS_KEY, JSON.stringify(aggregated));
+      localStorage.setItem('mbi_master_tenants_v1', JSON.stringify(aggregated));
+      localStorage.setItem('mbi_master_tenants_v2', JSON.stringify(aggregated));
+      localStorage.setItem('mbi_master_tenants_v3', JSON.stringify(aggregated));
+      localStorage.setItem('mbi_master_tenants', JSON.stringify(aggregated));
+    } catch (e) {}
+  }
 
   return aggregated;
 }

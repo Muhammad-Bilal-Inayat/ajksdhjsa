@@ -107,7 +107,7 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
            ORDER BY t.created_at DESC;`
         );
 
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           for (const t of rows) {
             if (!t) continue;
             const tid = t.tenant_id || t.id;
@@ -167,25 +167,26 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
             });
           }
 
-          // MariaDB is active and queried. Mirror this clean dataset to local cache so no phantom records ever resurrect.
-          try {
-            let syncData: any = {};
-            if (fs.existsSync(syncFile)) {
-              syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
-            }
-            syncData.mbi_tenants = tenants;
-            syncData.tenants = tenants;
-            fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
-          } catch (e) {}
+          if (tenants.length > 0) {
+            try {
+              let syncData: any = {};
+              if (fs.existsSync(syncFile)) {
+                syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+              }
+              syncData.mbi_tenants = tenants;
+              syncData.tenants = tenants;
+              fs.writeFileSync(syncFile, JSON.stringify(syncData, null, 2), 'utf-8');
+            } catch (e) {}
 
-          res.json({
-            success: true,
-            source: 'mariadb',
-            count: tenants.length,
-            tenants,
-            timestamp: new Date().toISOString()
-          });
-          return;
+            res.json({
+              success: true,
+              source: 'mariadb',
+              count: tenants.length,
+              tenants,
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
         }
       } catch (dbErr) {
         console.warn('[Fleet Tenants MariaDB Error - Using disk fallback]:', dbErr);

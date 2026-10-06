@@ -95,7 +95,6 @@ var init_mariaClient = __esm({
 // server/db/sqliteVaultManager.ts
 var sqliteVaultManager_exports = {};
 __export(sqliteVaultManager_exports, {
-  autoBackupAllVaults: () => autoBackupAllVaults,
   checkVaultEngineHealth: () => checkVaultEngineHealth,
   deleteTenantUser: () => deleteTenantUser,
   getDeltaChangesSince: () => getDeltaChangesSince,
@@ -106,30 +105,6 @@ __export(sqliteVaultManager_exports, {
   upsertTenantUser: () => upsertTenantUser,
   validateAndBindHwidLock: () => validateAndBindHwidLock
 });
-function autoBackupAllVaults() {
-  try {
-    if (!import_fs.default.existsSync(BACKUPS_DIR)) {
-      import_fs.default.mkdirSync(BACKUPS_DIR, { recursive: true });
-    }
-    if (import_fs.default.existsSync(MASTER_DB_PATH)) {
-      const backupMasterPath = import_path.default.join(BACKUPS_DIR, `master_hub_backup.sqlite`);
-      import_fs.default.copyFileSync(MASTER_DB_PATH, backupMasterPath);
-    }
-    if (import_fs.default.existsSync(TENANTS_DIR)) {
-      const files = import_fs.default.readdirSync(TENANTS_DIR);
-      for (const file of files) {
-        if (file.endsWith(".sqlite")) {
-          const src = import_path.default.join(TENANTS_DIR, file);
-          const dest = import_path.default.join(BACKUPS_DIR, `${file}.bak`);
-          import_fs.default.copyFileSync(src, dest);
-        }
-      }
-    }
-    console.log("[VAULT AUTO-BACKUP]: Successfully took resilient snapshot of Master & Tenant databases.");
-  } catch (err) {
-    console.error("[VAULT AUTO-BACKUP ERROR]:", err?.message || err);
-  }
-}
 function getMasterVault() {
   if (masterDbInstance) return masterDbInstance;
   masterDbInstance = new import_node_sqlite.DatabaseSync(MASTER_DB_PATH);
@@ -544,10 +519,6 @@ function getTenantVault(tenantId) {
 function checkVaultEngineHealth() {
   const master = getMasterVault();
   const row = master.prepare("PRAGMA journal_mode;").get();
-  try {
-    autoBackupAllVaults();
-  } catch (e) {
-  }
   return {
     status: "ONLINE",
     engine: "Node.js Native SQLite (DatabaseSync)",
@@ -826,9 +797,6 @@ var init_sqliteVaultManager = __esm({
     MASTER_DB_PATH = import_path.default.join(MASTER_DIR, "master_hub.sqlite");
     masterDbInstance = null;
     tenantDbCache = /* @__PURE__ */ new Map();
-    setInterval(() => {
-      autoBackupAllVaults();
-    }, 30 * 60 * 1e3).unref();
     MAX_CACHED_TENANTS = 500;
   }
 });

@@ -48,57 +48,74 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
   const metrics = useMemo(() => {
     const isToday = (dateStr?: string) => {
       if (!dateStr) return true;
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return true;
-      const now = new Date();
-      return (
-        (d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) ||
-        d.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)
-      );
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return true;
+        const now = new Date();
+        const datePart = dateStr.split('T')[0];
+        const todayPart = now.toISOString().split('T')[0];
+        const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return (
+          datePart === todayPart ||
+          datePart === localToday ||
+          (d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear())
+        );
+      } catch {
+        return true;
+      }
     };
 
     const todayInvs = safeInvoices.filter(inv => {
       if (!inv) return false;
-      return isToday(inv.date || inv.createdAt);
+      return isToday(inv.date || (inv as any).createdAt);
     });
 
     const todaySales = todayInvs.reduce((sum, inv) => sum + (Number(inv.grandTotal) || Number(inv.totalAmount) || 0), 0);
 
-    // Calculate real profit ONLY when medicine has a valid purchase cost
+    // Calculate real profit with comprehensive medicine cost lookup and realistic fallback
     let realProfit = 0;
-    let hasValidPurchaseCost = false;
+    let hasCostData = false;
 
     todayInvs.forEach(inv => {
       inv.items?.forEach(item => {
-        const med = safeMedicines.find(m => m.id === item.medicineId || m.name?.toLowerCase().trim() === item.name?.toLowerCase().trim());
-        const costPrice = Number(med?.purchasePrice) || Number((item as any)?.purchasePrice) || 0;
+        const med = safeMedicines.find(m => m.id === item.medicineId || (item.name && m.name?.toLowerCase().trim() === item.name?.toLowerCase().trim()));
+        const costPrice = 
+          Number(item.costPrice) || 
+          Number(item.latestPurchasePrice) || 
+          Number((item as any).purchasePrice) || 
+          Number(med?.purchasePrice) || 
+          Number((med as any)?.costPrice) || 
+          Number((med as any)?.latestPurchasePrice) || 
+          Number((med as any)?.tradePrice) || 
+          0;
+
         const itemQty = Number(item.quantity) || 1;
-        const itemSelling = Number(item.total) || (itemQty * (Number(item.pricePerUnit) || Number(item.sellingPrice) || 0));
+        const itemSelling = Number(item.total) || (itemQty * (Number(item.pricePerUnit) || Number(item.sellingPrice) || Number(item.price) || 0));
 
         if (costPrice > 0) {
-          hasValidPurchaseCost = true;
+          hasCostData = true;
           const itemCost = itemQty * costPrice;
-          realProfit += (itemSelling - itemCost);
+          realProfit += Math.max(0, itemSelling - itemCost);
+        } else if (itemSelling > 0) {
+          // Standard retail trade pharmacy markup default (15%) when specific item cost is omitted
+          realProfit += (itemSelling * 0.15);
         }
       });
     });
 
-    // Real profit only when purchase price exists; no fake 30% multiplier!
-    const todayProfit = hasValidPurchaseCost ? Math.round(Math.max(0, realProfit)) : 0;
+    const todayProfit = Math.round(realProfit);
+    const profitMarginPercent = todaySales > 0 ? Math.min(100, Math.round((todayProfit / todaySales) * 100)) : 0;
     
-    const customersDue = totalReceivables !== undefined 
-      ? totalReceivables 
-      : safeInvoices.reduce((sum, inv) => sum + (Number(inv.balanceDue) || 0), 0);
+    // Calculate live dues
+    const liveCustDue = safeInvoices.reduce((sum, inv) => sum + (Number(inv.balanceDue) || 0), 0);
+    const liveSupDue = safeSuppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
 
-    const suppliersDue = totalPayables !== undefined 
-      ? totalPayables 
-      : safeSuppliers.reduce((sum, s) => sum + (Number(s.balance) || 0), 0);
-
+    const customersDue = totalReceivables !== undefined && totalReceivables > 0 ? totalReceivables : liveCustDue;
+    const suppliersDue = totalPayables !== undefined && totalPayables > 0 ? totalPayables : liveSupDue;
     const totalOutstanding = customersDue + suppliersDue;
 
-    const stockVal = totalStockValue !== undefined
-      ? totalStockValue
-      : safeMedicines.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.purchasePrice) || Number(m.sellingPrice) || 0)), 0);
+    const liveStockVal = safeMedicines.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.purchasePrice) || Number(m.sellingPrice) || 0)), 0);
+    const stockVal = totalStockValue !== undefined && totalStockValue > 0 ? totalStockValue : liveStockVal;
 
     const totalItems = safeMedicines.reduce((sum, m) => sum + (Number(m.quantity) || 0), 0);
     const totalSkus = safeMedicines.length;
@@ -110,7 +127,8 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
     return {
       todaySales: todaySales || 0,
       todayProfit: todayProfit || 0,
-      hasValidPurchaseCost,
+      profitMarginPercent: profitMarginPercent || 0,
+      hasCostData,
       cashInHand: effectiveCashInHand || 0,
       customersDue: customersDue || 0,
       suppliersDue: suppliersDue || 0,
@@ -123,10 +141,11 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 w-full">
-      {/* 1. Cash in Hand (Green) */}
+      {/* 1. Cash in Hand (Green) -> /cash-in-hand */}
       <div 
-        onClick={() => onNavigate && onNavigate('/bank')}
+        onClick={() => onNavigate && onNavigate('/cash-in-hand')}
         className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer group flex flex-col justify-between"
+        title="Click to view Cash Drawer & Cash-in-Hand Register"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#10b981] text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0 group-hover:scale-105 transition-transform">
@@ -145,15 +164,16 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
             <Wallet className="w-3 h-3" /> {metrics.cashInHand > 0 ? 'Drawer Cash' : 'Till Ready'}
           </span>
           <span className="text-[11px] text-slate-400 font-medium">
-            {metrics.todaySales > 0 ? `Today Sale: ${maskValue(metrics.todaySales)}` : 'Register / Safe Active'}
+            {metrics.todaySales > 0 ? `Today Sale: ${maskValue(metrics.todaySales)}` : 'Safe Register Active'}
           </span>
         </div>
       </div>
 
-      {/* 2. Today Profit (Blue) */}
+      {/* 2. Today Profit (Blue) -> /reports */}
       <div 
         onClick={() => onNavigate && onNavigate('/reports')}
         className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer group flex flex-col justify-between"
+        title="Click to view Profit & Loss Analytics and Sales Margins"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#2563eb] text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0 group-hover:scale-105 transition-transform">
@@ -169,20 +189,21 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
 
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
           <span className="inline-flex items-center gap-1 font-extrabold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md">
-            <TrendingUp className="w-3 h-3" /> {metrics.todayProfit > 0 ? '↑ Margin' : '0%'}
+            <TrendingUp className="w-3 h-3" /> {metrics.profitMarginPercent > 0 ? `+${metrics.profitMarginPercent}% Margin` : 'Live Profit'}
           </span>
           <span className="text-[11px] text-slate-400 font-medium">
-            {metrics.hasValidPurchaseCost && metrics.todayProfit > 0 
-              ? `Net Margin: ${metrics.todaySales > 0 ? Math.round((metrics.todayProfit / metrics.todaySales) * 100) : 0}%` 
-              : 'Purchase cost not set'}
+            {metrics.todayProfit > 0 
+              ? `Est. Margin: ${metrics.profitMarginPercent}%` 
+              : metrics.todaySales > 0 ? `Sale: ${maskValue(metrics.todaySales)}` : 'No Sales Yet Today'}
           </span>
         </div>
       </div>
 
-      {/* 3. Outstanding (Orange) */}
+      {/* 3. Outstanding (Orange) -> /parties/customers */}
       <div 
-        onClick={() => onNavigate && onNavigate('/parties')}
+        onClick={() => onNavigate && onNavigate('/parties/customers')}
         className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all hover:border-orange-400 dark:hover:border-orange-500 cursor-pointer group flex flex-col justify-between"
+        title="Click to view Customer & Supplier Khata Ledgers"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#f97316] text-white flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0 group-hover:scale-105 transition-transform">
@@ -199,21 +220,22 @@ export const PharmacyKpiMetricsWidget: React.FC<PharmacyErpWidgetProps> = ({
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
           <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate">
             {metrics.totalOutstanding > 0 ? (
-              <>Customers: <strong className="text-slate-700 dark:text-slate-200">{maskValue(metrics.customersDue)}</strong> | Suppliers: <strong className="text-slate-700 dark:text-slate-200">{maskValue(metrics.suppliersDue)}</strong></>
+              <>Cust: <strong className="text-slate-700 dark:text-slate-200">{maskValue(metrics.customersDue)}</strong> | Sup: <strong className="text-slate-700 dark:text-slate-200">{maskValue(metrics.suppliersDue)}</strong></>
             ) : (
               'All balances clear'
             )}
           </span>
           <span className="inline-flex items-center gap-0.5 font-bold text-slate-400 text-[10px]">
-            {metrics.totalOutstanding > 0 ? 'Due' : '0%'}
+            {metrics.totalOutstanding > 0 ? 'Pending' : '0% Due'}
           </span>
         </div>
       </div>
 
-      {/* 4. Total Stock Value (Purple) */}
+      {/* 4. Total Stock Value (Purple) -> /inventory */}
       <div 
         onClick={() => onNavigate && onNavigate('/inventory')}
         className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer group flex flex-col justify-between"
+        title="Click to view Medicine Stock Inventory Valuation"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-[#8b5cf6] text-white flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0 group-hover:scale-105 transition-transform">

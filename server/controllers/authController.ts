@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { signJwt } from '../auth/jwt';
 import { getMariaDbPool, isMariaDbAvailable, isMariaDbConnected } from '../db/mariaClient';
-import { getMasterVault, getTenantVault, validateAndBindHwidLock, listTenantUsers } from '../db/sqliteVaultManager';
+import { getMasterVault, getTenantVault, validateAndBindHwidLock, listTenantUsers, persistVaultSnapshot } from '../db/sqliteVaultManager';
 import { TenantRequest } from '../middleware/tenantMiddleware';
 import { broadcastAdminEvent, broadcastFleetActivity } from '../routes/adminRoutes';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
@@ -623,6 +623,11 @@ export async function registerTrialController(req: TenantRequest, res: Response)
           status = 'Active',
           updated_at = datetime('now');
       `).run(userId, tenantId, cleanUsername, cleanOwnerName || cleanUsername, cleanEmail, cleanPhone, cleanPassword, cleanPassword);
+
+      // Immediately sync resilient snapshot outside Git folder
+      try {
+        persistVaultSnapshot();
+      } catch {}
     } catch (vaultErr) {
       console.warn('[SQLITE VAULT PROVISION NOTICE]:', vaultErr);
     }

@@ -12,19 +12,87 @@ import { DatabaseSync } from 'node:sqlite';
  * 4. Master Hub Vault (data/master/master_hub.sqlite) for global licenses & plan controls
  */
 
-const DATA_DIR = path.resolve(process.cwd(), 'server', 'data');
+const ROOT_DIR = process.cwd();
+const DATA_DIR = process.env.DATA_DIR || process.env.MBI_DATA_DIR || path.resolve(ROOT_DIR, 'server', 'data');
 const MASTER_DIR = path.join(DATA_DIR, 'master');
 const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 
+// External Persistent Safe Vault (Stored outside the Git repository root, completely immune to Git clean/redeploy wipes on Hostinger/VPS)
+const OUTSIDE_PERSISTENT_DIR = path.resolve(ROOT_DIR, '..', 'mbi_server_vault_persistent');
+const OUTSIDE_MASTER_DIR = path.join(OUTSIDE_PERSISTENT_DIR, 'master');
+const OUTSIDE_TENANTS_DIR = path.join(OUTSIDE_PERSISTENT_DIR, 'tenants');
+
 // Ensure all database storage directories exist
 [DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try { fs.mkdirSync(dir, { recursive: true }); } catch {}
   }
 });
 
+try {
+  if (!fs.existsSync(OUTSIDE_MASTER_DIR)) fs.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
+  if (!fs.existsSync(OUTSIDE_TENANTS_DIR)) fs.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
+} catch {}
+
 const MASTER_DB_PATH = path.join(MASTER_DIR, 'master_hub.sqlite');
+const OUTSIDE_MASTER_DB_PATH = path.join(OUTSIDE_MASTER_DIR, 'master_hub.sqlite');
+
+/**
+ * Self-healing Auto-Recovery from External Persistent Storage
+ * (Runs when Git redeploy wipes untracked files in working directory)
+ */
+function checkAndRecoverFromPersistentStorage(): void {
+  try {
+    const localExists = fs.existsSync(MASTER_DB_PATH) && fs.statSync(MASTER_DB_PATH).size > 0;
+    const persistentExists = fs.existsSync(OUTSIDE_MASTER_DB_PATH) && fs.statSync(OUTSIDE_MASTER_DB_PATH).size > 0;
+
+    if (!localExists && persistentExists) {
+      console.log('🔄 [PERSISTENT VAULT AUTO-RECOVERY]: Restoring registered tenants and users from persistent storage outside git...');
+      fs.copyFileSync(OUTSIDE_MASTER_DB_PATH, MASTER_DB_PATH);
+      if (fs.existsSync(OUTSIDE_TENANTS_DIR)) {
+        const files = fs.readdirSync(OUTSIDE_TENANTS_DIR);
+        for (const file of files) {
+          if (file.endsWith('.sqlite')) {
+            fs.copyFileSync(path.join(OUTSIDE_TENANTS_DIR, file), path.join(TENANTS_DIR, file));
+          }
+        }
+      }
+      console.log('✅ [PERSISTENT VAULT RESTORED]: 100% of tenants, users, and company data restored seamlessly.');
+    }
+  } catch (err: any) {
+    console.warn('[PERSISTENT VAULT RECOVERY NOTICE]:', err?.message);
+  }
+}
+
+// Run recovery check immediately before initializing any DB connections
+checkAndRecoverFromPersistentStorage();
+
+/**
+ * Sync active database to external persistent storage outside Git directory
+ */
+export function persistVaultSnapshot(): void {
+  try {
+    if (fs.existsSync(MASTER_DB_PATH)) {
+      if (!fs.existsSync(OUTSIDE_MASTER_DIR)) fs.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
+      fs.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);
+    }
+    if (fs.existsSync(TENANTS_DIR)) {
+      if (!fs.existsSync(OUTSIDE_TENANTS_DIR)) fs.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
+      const files = fs.readdirSync(TENANTS_DIR);
+      for (const file of files) {
+        if (file.endsWith('.sqlite')) {
+          fs.copyFileSync(path.join(TENANTS_DIR, file), path.join(OUTSIDE_TENANTS_DIR, file));
+        }
+      }
+    }
+  } catch {}
+}
+
+// Periodically sync live snapshot to external safe storage every 5 minutes
+setInterval(() => {
+  persistVaultSnapshot();
+}, 5 * 60 * 1000).unref();
 
 // Master Database Instance
 let masterDbInstance: DatabaseSync | null = null;

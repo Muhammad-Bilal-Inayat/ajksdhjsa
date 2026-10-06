@@ -102,9 +102,49 @@ __export(sqliteVaultManager_exports, {
   getTenantVault: () => getTenantVault,
   listTenantUsers: () => listTenantUsers,
   logDeltaMutation: () => logDeltaMutation,
+  persistVaultSnapshot: () => persistVaultSnapshot,
   upsertTenantUser: () => upsertTenantUser,
   validateAndBindHwidLock: () => validateAndBindHwidLock
 });
+function checkAndRecoverFromPersistentStorage() {
+  try {
+    const localExists = import_fs.default.existsSync(MASTER_DB_PATH) && import_fs.default.statSync(MASTER_DB_PATH).size > 0;
+    const persistentExists = import_fs.default.existsSync(OUTSIDE_MASTER_DB_PATH) && import_fs.default.statSync(OUTSIDE_MASTER_DB_PATH).size > 0;
+    if (!localExists && persistentExists) {
+      console.log("\u{1F504} [PERSISTENT VAULT AUTO-RECOVERY]: Restoring registered tenants and users from persistent storage outside git...");
+      import_fs.default.copyFileSync(OUTSIDE_MASTER_DB_PATH, MASTER_DB_PATH);
+      if (import_fs.default.existsSync(OUTSIDE_TENANTS_DIR)) {
+        const files = import_fs.default.readdirSync(OUTSIDE_TENANTS_DIR);
+        for (const file of files) {
+          if (file.endsWith(".sqlite")) {
+            import_fs.default.copyFileSync(import_path.default.join(OUTSIDE_TENANTS_DIR, file), import_path.default.join(TENANTS_DIR, file));
+          }
+        }
+      }
+      console.log("\u2705 [PERSISTENT VAULT RESTORED]: 100% of tenants, users, and company data restored seamlessly.");
+    }
+  } catch (err) {
+    console.warn("[PERSISTENT VAULT RECOVERY NOTICE]:", err?.message);
+  }
+}
+function persistVaultSnapshot() {
+  try {
+    if (import_fs.default.existsSync(MASTER_DB_PATH)) {
+      if (!import_fs.default.existsSync(OUTSIDE_MASTER_DIR)) import_fs.default.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
+      import_fs.default.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);
+    }
+    if (import_fs.default.existsSync(TENANTS_DIR)) {
+      if (!import_fs.default.existsSync(OUTSIDE_TENANTS_DIR)) import_fs.default.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
+      const files = import_fs.default.readdirSync(TENANTS_DIR);
+      for (const file of files) {
+        if (file.endsWith(".sqlite")) {
+          import_fs.default.copyFileSync(import_path.default.join(TENANTS_DIR, file), import_path.default.join(OUTSIDE_TENANTS_DIR, file));
+        }
+      }
+    }
+  } catch {
+  }
+}
 function getMasterVault() {
   if (masterDbInstance) return masterDbInstance;
   masterDbInstance = new import_node_sqlite.DatabaseSync(MASTER_DB_PATH);
@@ -779,22 +819,39 @@ function getDeltaChangesSince(tenantId, lastTimestamp) {
   }
   return vault.prepare("SELECT * FROM sync_outbox_log WHERE timestamp > ? ORDER BY timestamp ASC LIMIT 500").all(lastTimestamp);
 }
-var import_fs, import_path, import_node_sqlite, DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR, MASTER_DB_PATH, masterDbInstance, tenantDbCache, MAX_CACHED_TENANTS;
+var import_fs, import_path, import_node_sqlite, ROOT_DIR, DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR, OUTSIDE_PERSISTENT_DIR, OUTSIDE_MASTER_DIR, OUTSIDE_TENANTS_DIR, MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH, masterDbInstance, tenantDbCache, MAX_CACHED_TENANTS;
 var init_sqliteVaultManager = __esm({
   "server/db/sqliteVaultManager.ts"() {
     import_fs = __toESM(require("fs"));
     import_path = __toESM(require("path"));
     import_node_sqlite = require("node:sqlite");
-    DATA_DIR = import_path.default.resolve(process.cwd(), "server", "data");
+    ROOT_DIR = process.cwd();
+    DATA_DIR = process.env.DATA_DIR || process.env.MBI_DATA_DIR || import_path.default.resolve(ROOT_DIR, "server", "data");
     MASTER_DIR = import_path.default.join(DATA_DIR, "master");
     TENANTS_DIR = import_path.default.join(DATA_DIR, "tenants");
     BACKUPS_DIR = import_path.default.join(DATA_DIR, "backups");
+    OUTSIDE_PERSISTENT_DIR = import_path.default.resolve(ROOT_DIR, "..", "mbi_server_vault_persistent");
+    OUTSIDE_MASTER_DIR = import_path.default.join(OUTSIDE_PERSISTENT_DIR, "master");
+    OUTSIDE_TENANTS_DIR = import_path.default.join(OUTSIDE_PERSISTENT_DIR, "tenants");
     [DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach((dir) => {
       if (!import_fs.default.existsSync(dir)) {
-        import_fs.default.mkdirSync(dir, { recursive: true });
+        try {
+          import_fs.default.mkdirSync(dir, { recursive: true });
+        } catch {
+        }
       }
     });
+    try {
+      if (!import_fs.default.existsSync(OUTSIDE_MASTER_DIR)) import_fs.default.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
+      if (!import_fs.default.existsSync(OUTSIDE_TENANTS_DIR)) import_fs.default.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
+    } catch {
+    }
     MASTER_DB_PATH = import_path.default.join(MASTER_DIR, "master_hub.sqlite");
+    OUTSIDE_MASTER_DB_PATH = import_path.default.join(OUTSIDE_MASTER_DIR, "master_hub.sqlite");
+    checkAndRecoverFromPersistentStorage();
+    setInterval(() => {
+      persistVaultSnapshot();
+    }, 5 * 60 * 1e3).unref();
     masterDbInstance = null;
     tenantDbCache = /* @__PURE__ */ new Map();
     MAX_CACHED_TENANTS = 500;
@@ -8477,6 +8534,10 @@ async function registerTrialController(req, res) {
           status = 'Active',
           updated_at = datetime('now');
       `).run(userId, tenantId, cleanUsername, cleanOwnerName || cleanUsername, cleanEmail, cleanPhone, cleanPassword, cleanPassword);
+      try {
+        persistVaultSnapshot();
+      } catch {
+      }
     } catch (vaultErr) {
       console.warn("[SQLITE VAULT PROVISION NOTICE]:", vaultErr);
     }

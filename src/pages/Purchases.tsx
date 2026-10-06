@@ -6,7 +6,8 @@ import {
   ShoppingBag, Truck, RotateCcw, FileText, CheckCircle2, 
   AlertCircle, ArrowUpDown, X, Building2, User, Globe, 
   RefreshCw, Check, ArrowDownRight, Wallet, Sparkles, ExternalLink, Keyboard,
-  Package, Zap, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  Package, Zap, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ShoppingCart, Copy
 } from 'lucide-react';
 import { dbSuppliers, dbPurchaseOrders, dbMedicines, dbPartyPayments, dbAuditLogs } from '../lib/db';
 import { syncEngine } from '../lib/syncEngine';
@@ -364,9 +365,27 @@ export const Purchases: React.FC = () => {
       setSuppliers(suppData);
       setMedicines(medData);
 
-      // Filter only PAYMENT_OUT payments
+      // Helper to distinguish manual payment out vouchers from auto-created purchase bill payments
+      const isManualPaymentOut = (p: PartyPayment) => {
+        if (p.isAuto) return false;
+        const notes = (p.notes || '').toLowerCase();
+        if (notes.includes('auto payment-out') || notes.includes('auto payment out') || notes.includes('auto payment')) {
+          return false;
+        }
+        const receipt = p.receiptNumber || '';
+        if (receipt.startsWith('VOUCHER-PUR-') || receipt.startsWith('VOUCHER-PO-') || receipt.startsWith('REC-PUR-') || receipt.startsWith('REC-PO-')) {
+          return false;
+        }
+        const ref = (p.referenceNumber || '').toUpperCase();
+        if ((ref.startsWith('PUR-') || ref.startsWith('PO-')) && (notes.includes('purchase') || notes.includes('bill') || !notes)) {
+          return false;
+        }
+        return true;
+      };
+
+      // Filter only PAYMENT_OUT payments (strictly manual vouchers)
       const outPayments = paymentData
-        .filter(p => p.type === 'PAYMENT_OUT')
+        .filter(p => p.type === 'PAYMENT_OUT' && isManualPaymentOut(p))
         .sort((a, b) => {
           const timeA = new Date(a.createdAt || a.date).getTime();
           const timeB = new Date(b.createdAt || b.date).getTime();
@@ -546,9 +565,18 @@ export const Purchases: React.FC = () => {
     });
   }, [orders, activeSubView, startDate, endDate, selectedSupplierFilter, selectedPaymentStatus, colFilters, searchQuery, sortField, sortOrder]);
 
-  // Filtered Payments Out based on date range, supplier, payment mode, and search query
+  // Filtered Payments Out based on date range, supplier, payment mode, and search query (strictly manual vouchers)
   const filteredPayments = useMemo(() => {
     return payments.filter(p => {
+      const isAuto = p.isAuto || 
+        (p.notes || '').toLowerCase().includes('auto payment') || 
+        (p.receiptNumber || '').startsWith('VOUCHER-PUR-') ||
+        (p.receiptNumber || '').startsWith('VOUCHER-PO-') ||
+        (p.receiptNumber || '').startsWith('REC-PUR-') ||
+        (p.receiptNumber || '').startsWith('REC-PO-') ||
+        (((p.referenceNumber || '').toUpperCase().startsWith('PUR-') || (p.referenceNumber || '').toUpperCase().startsWith('PO-')) && !(p.notes && !p.notes.toLowerCase().includes('purchase') && !p.notes.toLowerCase().includes('bill')));
+      if (isAuto) return false;
+
       if (startDate && p.date) {
         const d = p.date.slice(0, 10);
         if (d < startDate) return false;
@@ -855,6 +883,180 @@ export const Purchases: React.FC = () => {
     } finally {
       setIsDeletingPayment(false);
     }
+  };
+
+  // 1. Convert Purchase Bill -> Purchase Return (Debit Note)
+  const handleConvertToReturn = async (sourceOrder: PurchaseOrder) => {
+    try {
+      const returns = orders.filter(o => o.transactionType === 'Purchase Return');
+      const maxNum = returns.reduce((max, o) => {
+        const num = parseInt((o.billNumber || o.poNumber || o.orderNumber || '').replace(/\D/g, '') || '0');
+        return !isNaN(num) && num > max ? num : max;
+      }, 0);
+      const nextReturnNum = `PR-${maxNum + 1}`;
+
+      // 1. Deduct returned items from inventory (dbMedicines)
+      if (sourceOrder.items && Array.isArray(sourceOrder.items)) {
+        for (const item of sourceOrder.items) {
+          const medName = item.name || (item as any).medicineName || '';
+          const med = medicines.find(m => m.id === item.medicineId || (medName && m.name.toLowerCase() === medName.toLowerCase()));
+          if (med) {
+            const currentQty = med.quantity || 0;
+            const newQty = Math.max(0, currentQty - Number(item.quantity || 0));
+            await dbMedicines.save({
+              ...med,
+              quantity: newQty,
+              updatedAt: new Date().toISOString()
+            });
+
+            const audit: AuditLog = {
+              id: uuidv4(),
+              date: new Date().toISOString(),
+              action: 'ADJUST_STOCK',
+              medicineId: med.id,
+              medicineName: med.name,
+              quantityChanged: -Number(item.quantity || 0),
+              userId: '1',
+              notes: `Stock returned to supplier in Purchase Return #${nextReturnNum} (ref Bill #${sourceOrder.billNumber || sourceOrder.poNumber})`
+            };
+            await dbAuditLogs.save(audit);
+          }
+        }
+      }
+
+      // 2. Adjust supplier balance if credit
+      const supplierId = sourceOrder.supplierId || sourceOrder.partyId;
+      if (supplierId && (sourceOrder.balanceDue || 0) > 0) {
+        const supplier = suppliers.find(s => s.id === supplierId || s.name === sourceOrder.supplierName);
+        if (supplier) {
+          const currentBal = supplier.balance ?? supplier.openingBalance ?? 0;
+          await dbSuppliers.save({
+            ...supplier,
+            balance: Math.max(0, currentBal - (sourceOrder.balanceDue || 0)),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
+
+      // 3. Create Purchase Return record
+      const returnRecord: PurchaseOrder = {
+        ...sourceOrder,
+        id: uuidv4(),
+        poNumber: nextReturnNum,
+        billNumber: nextReturnNum,
+        orderNumber: nextReturnNum,
+        date: new Date().toISOString(),
+        transactionType: 'Purchase Return',
+        status: 'Completed',
+        description: `Returned against Purchase Bill #${sourceOrder.billNumber || sourceOrder.poNumber}. ${sourceOrder.description || ''}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await dbPurchaseOrders.save(returnRecord);
+      await loadAllData();
+      window.dispatchEvent(new Event('mbi-local-db-change'));
+      showToast(`🔄 Converted Bill #${sourceOrder.billNumber || sourceOrder.poNumber} to Purchase Return #${nextReturnNum}!`);
+      
+      setPrintingOrder(returnRecord);
+      setActionMenuOpenId(null);
+    } catch (err) {
+      console.error('Failed to convert purchase to return:', err);
+      alert('Error converting purchase bill to return.');
+    }
+  };
+
+  // 2. Convert Purchase Bill -> Sale Invoice
+  const handleConvertToSale = (sourceOrder: PurchaseOrder) => {
+    setActionMenuOpenId(null);
+    const saleItems = (sourceOrder.items || []).map(it => ({
+      medicineId: it.medicineId,
+      name: it.name || (it as any).medicineName || '',
+      genericName: '',
+      quantity: it.quantity || 1,
+      packPrice: it.purchasePrice || (it as any).unitPrice || 0,
+      mrp: it.mrp || it.purchasePrice || (it as any).unitPrice || 0,
+      discountPercent: it.discountPercentage || (it as any).discountPercent || 0,
+      taxPercent: it.taxPercentage || (it as any).taxPercent || 0,
+      total: it.total || (it as any).totalPrice || 0,
+      batchNumber: it.batchNumber || '',
+      expiryDate: it.expiryDate || ''
+    }));
+
+    navigate('/billing', {
+      state: {
+        prefilledItems: saleItems,
+        prefilledNotes: `Converted from Purchase Bill #${sourceOrder.billNumber || sourceOrder.poNumber}`,
+        fromPurchaseBill: sourceOrder.billNumber || sourceOrder.poNumber
+      }
+    });
+    showToast(`⚡ Converted Purchase Bill #${sourceOrder.billNumber || sourceOrder.poNumber} to Sale!`);
+  };
+
+  // 3. Convert Purchase Bill -> Purchase Order (PO Reorder)
+  const handleConvertToPO = async (sourceOrder: PurchaseOrder) => {
+    try {
+      const existingPOs = orders.filter(o => o.transactionType === 'Purchase Order');
+      const maxNum = existingPOs.reduce((max, o) => {
+        const num = parseInt((o.poNumber || o.billNumber || o.orderNumber || '').replace(/\D/g, '') || '0');
+        return !isNaN(num) && num > max ? num : max;
+      }, 0);
+      const nextPONum = `PO-${maxNum + 1}`;
+
+      const poRecord: PurchaseOrder = {
+        ...sourceOrder,
+        id: uuidv4(),
+        poNumber: nextPONum,
+        billNumber: nextPONum,
+        orderNumber: nextPONum,
+        date: new Date().toISOString(),
+        transactionType: 'Purchase Order',
+        status: 'Pending',
+        paidAmount: 0,
+        balanceDue: sourceOrder.totalAmount,
+        description: `Reorder Purchase Order created from Bill #${sourceOrder.billNumber || sourceOrder.poNumber}. ${sourceOrder.description || ''}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await dbPurchaseOrders.save(poRecord);
+      await loadAllData();
+      window.dispatchEvent(new Event('mbi-local-db-change'));
+      showToast(`📋 Created Purchase Order #${nextPONum} from Bill #${sourceOrder.billNumber || sourceOrder.poNumber}!`);
+      
+      setPrintingOrder(poRecord);
+      setActionMenuOpenId(null);
+    } catch (err) {
+      console.error('Failed to convert bill to PO:', err);
+      alert('Error creating Purchase Order.');
+    }
+  };
+
+  // 4. Duplicate Purchase Bill
+  const handleDuplicatePurchase = (sourceOrder: PurchaseOrder) => {
+    setActionMenuOpenId(null);
+    const purchaseBills = orders.filter(o => (o.transactionType || 'Purchase') === 'Purchase');
+    const maxNum = purchaseBills.reduce((max, o) => {
+      const num = parseInt((o.billNumber || o.poNumber || o.orderNumber || '').replace(/\D/g, '') || '0');
+      return !isNaN(num) && num > max ? num : max;
+    }, 0);
+    const nextBillNum = `PUR-${maxNum + 1}`;
+
+    const duplicatedOrder: PurchaseOrder = {
+      ...sourceOrder,
+      id: uuidv4(),
+      poNumber: nextBillNum,
+      billNumber: nextBillNum,
+      orderNumber: nextBillNum,
+      date: new Date().toISOString().split('T')[0],
+      description: `Duplicate of Bill #${sourceOrder.billNumber || sourceOrder.poNumber}. ${sourceOrder.description || ''}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setEditingOrder(duplicatedOrder);
+    setIsAddModalOpen(true);
+    showToast(`📑 Duplicating Bill #${sourceOrder.billNumber || sourceOrder.poNumber} as #${nextBillNum}`);
   };
 
   return (
@@ -1719,70 +1921,126 @@ export const Purchases: React.FC = () => {
 
                               {/* Dropdown Menu */}
                               {isMenuOpen && (
-                                <div 
-                                  className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 text-left text-xs animate-in fade-in zoom-in-95 duration-100"
-                                  onMouseLeave={() => setActionMenuOpenId(null)}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPrintingOrder(order);
-                                      setActionMenuOpenId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setActionMenuOpenId(null)} />
+                                  <div 
+                                    className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 py-1.5 text-left text-xs animate-in fade-in zoom-in-95 duration-100"
+                                    onClick={(e) => e.stopPropagation()}
                                   >
-                                    <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                    <span>View / Print Bill</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingOrder(order);
-                                      setIsAddModalOpen(true);
-                                      setActionMenuOpenId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5 text-amber-500" />
-                                    <span>Edit Bill</span>
-                                  </button>
-
-                                  {hasDue && (
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenQuickPaymentOut(order)}
-                                      className="w-full px-3 py-1.5 text-rose-700 hover:bg-rose-50 flex items-center gap-2 font-bold"
+                                      onClick={() => {
+                                        setPrintingOrder(order);
+                                        setActionMenuOpenId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2 font-medium cursor-pointer"
                                     >
-                                      <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" />
-                                      <span>Record Payment Out</span>
+                                      <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                      <span>View / Print Bill</span>
                                     </button>
-                                  )}
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSharingOrder(order);
-                                      setActionMenuOpenId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                                  >
-                                    <Share2 className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span>Share Bill</span>
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingOrder(order);
+                                        setIsAddModalOpen(true);
+                                        setActionMenuOpenId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2 font-medium cursor-pointer"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 text-amber-500" />
+                                      <span>Edit Bill</span>
+                                    </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setDeleteTargetOrder(order);
-                                      setActionMenuOpenId(null);
-                                    }}
-                                    className="w-full px-3 py-1.5 text-rose-600 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-100"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                    <span>Delete Bill</span>
-                                  </button>
-                                </div>
+                                    {hasDue && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenQuickPaymentOut(order)}
+                                        className="w-full px-3 py-1.5 text-rose-700 hover:bg-rose-50 flex items-center gap-2 font-bold cursor-pointer"
+                                      >
+                                        <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" />
+                                        <span>Record Payment Out</span>
+                                      </button>
+                                    )}
+
+                                    {/* Exclusive Conversion Actions for Purchase Bills */}
+                                    {(activeSubView === 'bills' || (order.transactionType || 'Purchase') === 'Purchase') && (
+                                      <>
+                                        <div className="border-t border-slate-100 my-1"></div>
+
+                                        {/* 1. Convert to Purchase Return */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConvertToReturn(order)}
+                                          className="w-full px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-50 flex items-center gap-2 font-bold cursor-pointer"
+                                          title="Convert to Purchase Return (Debit Note)"
+                                        >
+                                          <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+                                          <span>Convert to Return</span>
+                                        </button>
+
+                                        {/* 2. Convert to Sale Invoice */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConvertToSale(order)}
+                                          className="w-full px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 font-bold cursor-pointer"
+                                          title="Prefill items into Sale Billing POS"
+                                        >
+                                          <ShoppingCart className="w-3.5 h-3.5 text-emerald-500" />
+                                          <span>Convert to Sale</span>
+                                        </button>
+
+                                        {/* 3. Convert to Reorder PO */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConvertToPO(order)}
+                                          className="w-full px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 flex items-center gap-2 font-bold cursor-pointer"
+                                          title="Generate formal supplier Purchase Order"
+                                        >
+                                          <FileText className="w-3.5 h-3.5 text-amber-500" />
+                                          <span>Convert to PO</span>
+                                        </button>
+
+                                        {/* 4. Duplicate Purchase Bill */}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDuplicatePurchase(order)}
+                                          className="w-full px-3 py-1.5 text-xs text-purple-700 hover:bg-purple-50 flex items-center gap-2 font-bold cursor-pointer"
+                                          title="Duplicate / Clone this Purchase Bill"
+                                        >
+                                          <Copy className="w-3.5 h-3.5 text-purple-500" />
+                                          <span>Duplicate Bill</span>
+                                        </button>
+                                      </>
+                                    )}
+
+                                    <div className="border-t border-slate-100 my-1"></div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSharingOrder(order);
+                                        setActionMenuOpenId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-slate-700 hover:bg-slate-100 flex items-center gap-2 font-medium cursor-pointer"
+                                    >
+                                      <Share2 className="w-3.5 h-3.5 text-emerald-500" />
+                                      <span>Share Bill</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setDeleteTargetOrder(order);
+                                        setActionMenuOpenId(null);
+                                      }}
+                                      className="w-full px-3 py-1.5 text-rose-600 hover:bg-rose-50 flex items-center gap-2 border-t border-slate-100 font-medium cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                      <span>Delete Bill</span>
+                                    </button>
+                                  </div>
+                                </>
                               )}
                             </div>
 

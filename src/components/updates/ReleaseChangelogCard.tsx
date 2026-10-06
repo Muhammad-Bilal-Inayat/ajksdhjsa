@@ -37,10 +37,40 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
-    version: 'v4.3.8-stable',
+    version: 'v4.4.1-stable',
     releaseDate: 'October 2026',
     tag: 'Production Stable',
     isLatest: true,
+    channel: 'Enterprise OTA Channel',
+    summary: 'Purchases Action Suite (Convert to Return, Sale, PO, Duplicate), Segregated Manual Payment Vouchers, Dynamic Sales Trend Analytics & Plan-Gated Dashboard Widgets.',
+    features: [
+      {
+        text: 'Purchases Bill Conversion Suite: Convert any Purchase Bill directly into a Purchase Return (with automatic inventory deduction and supplier balance recovery), POS Sale, Purchase Order, or instant Duplicate Clone.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Manual-Only Payment In & Payment Out Ledgers: Filtered out automated invoice transactions so payment screens exclusively show manually recorded cash vouchers.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Interactive Sales Reports & Trend Analysis: Real-time calculation engine with gradient bar visualizations, daily revenue comparisons, and hover tooltips.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'Tier-Gated Dashboard Analytics: Fast SKUs & Profit Margins and Missed Sales & Patient Demand widgets configured exclusively for Standard/Business and Enterprise tiers.',
+        type: 'security',
+        minPlan: 'gold'
+      }
+    ]
+  },
+  {
+    version: 'v4.3.8-stable',
+    releaseDate: 'October 2026',
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Hardware Device Lock (1 User = 1 Device Strict Policy), Single-Use 1-Time Token Burn, Butter-Smooth 60FPS Scroll Animations & Nano-Speed Navigation.',
     features: [

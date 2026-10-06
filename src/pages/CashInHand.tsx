@@ -128,9 +128,14 @@ export const CashInHand: React.FC = () => {
       }
     });
 
-    // 2. Customer Payments In (Cash)
+    // 2. Customer Payments In / Supplier Payments Out (Strictly manual party vouchers)
     partyPayments.forEach(p => {
-      if (p.type === 'PAYMENT_IN' && (p.paymentMode === 'Cash' || !p.paymentMode)) {
+      const isAuto = p.isAuto || 
+        (p.notes || '').toLowerCase().includes('auto payment') || 
+        (p.receiptNumber || '').startsWith('REC-INV-') ||
+        ((p.referenceNumber || '').toUpperCase().startsWith('INV-') && !(p.notes && !p.notes.toLowerCase().includes('sale')));
+
+      if (p.type === 'PAYMENT_IN' && !isAuto && (p.paymentMode === 'Cash' || !p.paymentMode)) {
         list.push({
           id: p.id,
           date: p.date,
@@ -143,7 +148,7 @@ export const CashInHand: React.FC = () => {
           outflow: 0,
           rawType: 'PartyPayment'
         });
-      } else if (p.type === 'PAYMENT_OUT' && (p.paymentMode === 'Cash' || !p.paymentMode)) {
+      } else if (p.type === 'PAYMENT_OUT' && !isAuto && (p.paymentMode === 'Cash' || !p.paymentMode)) {
         list.push({
           id: p.id,
           date: p.date,

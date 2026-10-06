@@ -565,12 +565,29 @@ export const Billing: React.FC = () => {
     });
   }, [invoices, activeSubView, currentSubMenu, startDate, endDate, selectedFirm, selectedUser, statusFilter, colFilters, searchQuery, sortField, sortOrder, selectedParty, selectedCategory, medicineCategoryMap]);
 
-  // Filtered Payments (for Payment In subview)
+  // Helper to distinguish manual payment vouchers from auto-created sale invoice payments
+  const isManualPayment = (p: PartyPayment) => {
+    if (p.isAuto) return false;
+    const notes = (p.notes || '').toLowerCase();
+    if (notes.includes('auto payment-in') || notes.includes('auto payment in') || notes.includes('auto payment')) {
+      return false;
+    }
+    const receipt = p.receiptNumber || '';
+    if (receipt.startsWith('REC-INV-')) return false;
+    const ref = (p.referenceNumber || '').toUpperCase();
+    if (ref.startsWith('INV-') && (notes.includes('invoice') || notes.includes('sale') || notes.includes('pos') || !notes)) {
+      return false;
+    }
+    return true;
+  };
+
+  // Filtered Payments (for Payment In subview - strictly manual customer payments only)
   const filteredPayments = useMemo(() => {
     if (activeSubView !== 'payment-in') return [];
 
     return payments.filter(p => {
       if (p.type && p.type !== 'PAYMENT_IN') return false;
+      if (!isManualPayment(p)) return false;
 
       const pDate = p.date.slice(0, 10);
       if (startDate && pDate < startDate) return false;
@@ -659,7 +676,7 @@ export const Billing: React.FC = () => {
     const counts: Record<SaleSubView, number> = {
       'invoices': invoices.filter(i => (i.transactionType || 'Sale') === 'Sale').length,
       'quotation': invoices.filter(i => i.transactionType === 'Estimate').length,
-      'payment-in': payments.filter(p => !p.type || p.type === 'PAYMENT_IN').length,
+      'payment-in': payments.filter(p => (!p.type || p.type === 'PAYMENT_IN') && isManualPayment(p)).length,
       'order': invoices.filter(i => i.transactionType === 'Sale Order').length,
       'challan': invoices.filter(i => i.transactionType === 'Delivery Challan').length,
       'return': invoices.filter(i => i.transactionType === 'Sale Return').length

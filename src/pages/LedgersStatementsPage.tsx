@@ -77,8 +77,14 @@ export const LedgersStatementsPage: React.FC = () => {
       });
     });
 
-    // 2. Party Payments (Cash In = Credit, Payment Out = Debit)
+    // 2. Party Payments (Strictly manual vouchers: Cash In = Credit, Payment Out = Debit)
     payments.forEach(pay => {
+      const isAuto = pay.isAuto || 
+        (pay.notes || '').toLowerCase().includes('auto payment') || 
+        (pay.receiptNumber || '').startsWith('REC-INV-') ||
+        ((pay.referenceNumber || '').toUpperCase().startsWith('INV-') && !(pay.notes && !pay.notes.toLowerCase().includes('sale')));
+      if (isAuto) return;
+
       const party = parties.find(p => p.id === pay.partyId);
       const pName = pay.partyName || party?.name || 'Party';
       const pType = (party?.partyType === 'Supplier' || party?.type === 'Supplier') ? 'Supplier' : 'Customer';

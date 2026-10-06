@@ -368,6 +368,7 @@ export const PurchaseInvoicePage: React.FC = () => {
             receiptNumber: `VOUCHER-${billNumber}`,
             notes: `Auto Payment-Out for Purchase Bill #${billNumber}`,
             recordedBy: activeUser?.name || 'Admin',
+            isAuto: true,
             createdAt: new Date().toISOString()
           });
         } catch (payErr) {

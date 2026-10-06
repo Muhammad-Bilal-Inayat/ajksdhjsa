@@ -605,7 +605,14 @@ export const Suppliers: React.FC = () => {
 
   const partyPayments = useMemo(() => {
     if (!activeParty) return [];
-    return payments.filter(pay => pay.partyId === activeParty.id);
+    return payments.filter(pay => {
+      if (pay.partyId !== activeParty.id) return false;
+      const isAuto = pay.isAuto || 
+        (pay.notes || '').toLowerCase().includes('auto payment') || 
+        (pay.receiptNumber || '').startsWith('REC-INV-') ||
+        ((pay.referenceNumber || '').toUpperCase().startsWith('INV-') && !(pay.notes && !pay.notes.toLowerCase().includes('sale')));
+      return !isAuto;
+    });
   }, [payments, activeParty]);
 
   // Unified Chronological Ledger Entries for Active Party

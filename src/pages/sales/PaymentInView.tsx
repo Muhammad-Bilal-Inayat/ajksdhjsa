@@ -71,9 +71,25 @@ export const PaymentInView: React.FC = () => {
     }));
   }, [parties]);
 
+  const isManualPayment = (p: PartyPayment) => {
+    if (p.isAuto) return false;
+    const notes = (p.notes || '').toLowerCase();
+    if (notes.includes('auto payment-in') || notes.includes('auto payment in') || notes.includes('auto payment')) {
+      return false;
+    }
+    const receipt = p.receiptNumber || '';
+    if (receipt.startsWith('REC-INV-')) return false;
+    const ref = (p.referenceNumber || '').toUpperCase();
+    if (ref.startsWith('INV-') && (notes.includes('invoice') || notes.includes('sale') || notes.includes('pos') || !notes)) {
+      return false;
+    }
+    return true;
+  };
+
   const filteredPayments = useMemo(() => {
     return payments.filter(p => {
       if (p.type && p.type !== 'PAYMENT_IN') return false;
+      if (!isManualPayment(p)) return false;
 
       const pDate = p.date.slice(0, 10);
       if (dateRange.startDate && pDate < dateRange.startDate) return false;

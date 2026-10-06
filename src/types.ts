@@ -306,6 +306,7 @@ export interface PartyPayment {
   recordedBy?: string;
   notes?: string;
   imageAttachment?: string;
+  isAuto?: boolean;
   createdAt: string;
   updatedAt?: string;
 }

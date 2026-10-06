@@ -2366,70 +2366,206 @@ export const Dashboard: React.FC = () => {
   };
 
   {/* 3. Sales Reports & Trends Section */}
-  const renderSalesTrendSection = () => (
-    <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200/80 space-y-4 h-full flex flex-col justify-between">
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shadow-xs">
-              <BarChart3 className="w-4 h-4" />
+  const renderSalesTrendSection = () => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+
+    // 1. Compute Live Daily Sales (Last 7 Days)
+    const liveDailyData: Array<{ name: string; date: string; sales: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayName = days[d.getDay()];
+
+      const dayTotal = (invoices || [])
+        .filter(inv => {
+          if (!inv.date) return false;
+          const invDate = inv.date.slice(0, 10);
+          const type = inv.transactionType || 'Sale';
+          return invDate === dateStr && type === 'Sale';
+        })
+        .reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+
+      liveDailyData.push({
+        name: i === 0 ? 'Today' : dayName,
+        date: dateStr,
+        sales: dayTotal,
+      });
+    }
+
+    // 2. Compute Live Weekly Sales (Last 4 Weeks)
+    const liveWeeklyData: Array<{ name: string; sales: number }> = [];
+    for (let w = 3; w >= 0; w--) {
+      const endDay = new Date(now);
+      endDay.setDate(endDay.getDate() - (w * 7));
+      const startDay = new Date(endDay);
+      startDay.setDate(startDay.getDate() - 6);
+
+      const startStr = startDay.toISOString().slice(0, 10);
+      const endStr = endDay.toISOString().slice(0, 10);
+
+      const weekTotal = (invoices || [])
+        .filter(inv => {
+          if (!inv.date) return false;
+          const invDate = inv.date.slice(0, 10);
+          const type = inv.transactionType || 'Sale';
+          return invDate >= startStr && invDate <= endStr && type === 'Sale';
+        })
+        .reduce((sum, inv) => sum + (Number(inv.grandTotal) || 0), 0);
+
+      liveWeeklyData.push({
+        name: w === 0 ? 'This Week' : `Week ${4 - w}`,
+        sales: weekTotal,
+      });
+    }
+
+    const hasLiveDaily = liveDailyData.some(d => d.sales > 0);
+    const activeData = salesTrendView === 'daily'
+      ? (hasLiveDaily ? liveDailyData : dailySalesData)
+      : (liveWeeklyData.some(w => w.sales > 0) ? liveWeeklyData : weeklySalesData);
+
+    const totalPeriodSales = activeData.reduce((sum, d) => sum + (d.sales || 0), 0);
+    const peakItem = [...activeData].sort((a, b) => b.sales - a.sales)[0];
+    const peakText = (peakItem && peakItem.sales > 0)
+      ? `${peakItem.name} (PKR ${peakItem.sales.toLocaleString()})`
+      : 'Demand patterns updating in real-time';
+
+    return (
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-xs border border-slate-200 dark:border-slate-800 space-y-4 h-full flex flex-col justify-between transition-colors">
+        <div>
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-2xs">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Sales Reports &amp; Trend Analysis
+                  </h3>
+                  <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    Live Telemetry
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Analyze daily/weekly demand cycles to optimize pharmacy staffing and procurement
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Sales Reports & Trend Analysis
-              </h3>
-              <p className="text-xs text-slate-500">Analyze daily/weekly demand cycles to optimize pharmacy staffing and procurement</p>
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSalesTrendView('daily')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    salesTrendView === 'daily'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Daily (7 Days)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSalesTrendView('weekly')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    salesTrendView === 'weekly'
+                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Weekly (4 Weeks)
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/reports')}
+                className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span>Full Reports</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
+          </div>
+
+          {/* Chart Area */}
+          <div className="h-[230px] w-full pt-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={activeData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="salesTrendBarGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#059669" stopOpacity={0.75} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:stroke-slate-800" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 11, fill: '#64748b' }} 
+                  stroke="#cbd5e1"
+                  className="dark:stroke-slate-700"
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 10, fill: '#64748b' }} 
+                  stroke="#cbd5e1"
+                  className="dark:stroke-slate-700"
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                  tickFormatter={(val: any) => {
+                    const num = Number(val) || 0;
+                    if (num >= 1000000) return `Rs ${(num / 1000000).toFixed(1)}M`;
+                    if (num >= 1000) return `Rs ${(num / 1000).toFixed(0)}k`;
+                    return `Rs ${num}`;
+                  }} 
+                />
+                <Tooltip 
+                  cursor={{ fill: 'rgba(16, 185, 129, 0.08)', radius: 6 }}
+                  formatter={(val: any) => [`PKR ${Number(val || 0).toLocaleString()}`, 'Total Revenue']}
+                  contentStyle={{ 
+                    backgroundColor: '#0f172a', 
+                    color: '#ffffff', 
+                    borderRadius: '12px', 
+                    border: '1px solid #334155',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4)',
+                    fontSize: '12px',
+                    padding: '8px 12px'
+                  }}
+                  itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '2px' }}
+                />
+                <Bar 
+                  dataKey="sales" 
+                  fill="url(#salesTrendBarGrad)" 
+                  radius={[6, 6, 0, 0]} 
+                  maxBarSize={48}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bottom Telemetry Strip */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 px-4 py-2.5 rounded-xl text-xs text-emerald-900 dark:text-emerald-200 font-medium">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>Peak Demand Period: <strong className="font-bold text-emerald-950 dark:text-white">{peakText}</strong></span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-semibold">
-              <button
-                onClick={() => setSalesTrendView('daily')}
-                className={`px-3 py-1 rounded-md transition-all ${salesTrendView === 'daily' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600'}`}
-              >
-                Daily (7 Days)
-              </button>
-              <button
-                onClick={() => setSalesTrendView('weekly')}
-                className={`px-3 py-1 rounded-md transition-all ${salesTrendView === 'weekly' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600'}`}
-              >
-                Weekly (4 Weeks)
-              </button>
-            </div>
-            <button
-              onClick={() => navigate('/reports')}
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-            >
-              Full Reports <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <span className="text-slate-600 dark:text-slate-400 text-[11px]">Period Total: <strong>PKR {totalPeriodSales.toLocaleString()}</strong></span>
+            <span className="text-[11px] bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 px-2 py-0.5 rounded font-bold">
+              {salesTrendView === 'daily' ? '7-Day View' : '4-Week View'}
+            </span>
           </div>
         </div>
-
-        <div className="h-[230px] w-full pt-3">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={salesTrendView === 'daily' ? dailySalesData : weeklySalesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
-              <YAxis tick={{ fontSize: 11 }} stroke="#64748b" tickFormatter={(val: any) => `Rs ${val.toLocaleString()}`} />
-              <Tooltip 
-                formatter={(val: any) => [`Rs ${Number(val).toLocaleString()}`, 'Total Revenue']}
-                contentStyle={{ fontSize: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-              />
-              <Bar dataKey="sales" fill="#10b981" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
-
-      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl text-xs text-emerald-900 font-medium">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Peak Demand Period Identified: <strong className="font-bold">Friday & Saturday evenings (5 PM - 9 PM)</strong></span>
-        </div>
-        <span className="text-[11px] bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded font-bold">High Velocity</span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   {/* 4. Sales & Expenses Overview Section */}
   const renderSalesExpensesSection = () => (
@@ -3135,6 +3271,7 @@ export const Dashboard: React.FC = () => {
               />
             );
           case 'fast_skus_margin_matrix':
+            if (normalizeDashboardPlan(currentEffectivePlan) === 'silver') return null;
             return (
               <FastSkusMarginMatrixWidget
                 invoices={invoices}
@@ -3146,6 +3283,7 @@ export const Dashboard: React.FC = () => {
             );
           case 'missed_sales_demand':
           case 'missed-sales-demand':
+            if (normalizeDashboardPlan(currentEffectivePlan) === 'silver') return null;
             return <MissedSalesWidget maskValue={maskValue} />;
           case 'udhar_aging_whatsapp':
           case 'udhar-aging-whatsapp':

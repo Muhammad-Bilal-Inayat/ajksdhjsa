@@ -199,6 +199,7 @@ export const PosBillingScreen: React.FC<PosBillingScreenProps> = ({
             receiptNumber: `REC-${invoiceNumber}`,
             notes: `Auto Payment-In for POS Sale #${invoiceNumber}`,
             recordedBy: 'Cashier',
+            isAuto: true,
             createdAt: new Date().toISOString()
           });
         } catch (payErr) {

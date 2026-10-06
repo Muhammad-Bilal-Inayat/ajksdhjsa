@@ -1982,6 +1982,7 @@ export const AddSaleModal: React.FC<AddSaleModalProps> = ({
                 receiptNumber: `REC-${newInvoice.invoiceNumber}`,
                 notes: `Auto Payment-In for Invoice #${newInvoice.invoiceNumber}`,
                 recordedBy: effectiveUserName,
+                isAuto: true,
                 createdAt: new Date().toISOString()
               });
             } catch (payErr) {

@@ -239,7 +239,7 @@ export const DASHBOARD_WIDGETS_CONFIG: DashboardWidgetConfig[] = [
     title: 'Fast SKUs & Profit Margins Matrix',
     description: 'Real-time stock turnover rates, monthly consumption velocity, supplier profit margins, and remaining stock.',
     zone: 'main',
-    minPlan: 'platinum',
+    minPlan: 'gold',
     defaultVisible: true,
     category: 'sales',
   },
@@ -436,7 +436,10 @@ export function isWidgetAllowedWithFeatures(
     if ((widget.id === 'sales_trend' || widget.id === 'weekly_revenue_trajectory' || widget.id === 'hourly_rush_velocity') && (features['dashboard_sales_trend_chart'] === true || features['sales_trend_chart'] === true)) return true;
     if ((widget.id === 'sales_trend' || widget.id === 'weekly_revenue_trajectory' || widget.id === 'hourly_rush_velocity') && (features['dashboard_sales_trend_chart'] === false || features['sales_trend_chart'] === false)) return false;
 
-    if ((widget.id === 'top_products' || widget.id === 'fast_skus_margin_matrix') && (features['dashboard_top_products'] === true || features['top_products_analytics'] === true || features['widget_top_selling_medicines'] === true)) return true;
+    if (widget.id === 'fast_skus_margin_matrix' && (features['dashboard_top_products'] === true || features['top_products_analytics'] === true || features['widget_top_selling_medicines'] === true || features['fast_skus_margin_matrix'] === true)) {
+      return normalizeDashboardPlan(userPlan) !== 'silver';
+    }
+    if (widget.id === 'top_products' && (features['dashboard_top_products'] === true || features['top_products_analytics'] === true || features['widget_top_selling_medicines'] === true)) return true;
     if ((widget.id === 'top_products' || widget.id === 'fast_skus_margin_matrix') && (features['dashboard_top_products'] === false || features['top_products_analytics'] === false || features['widget_top_selling_medicines'] === false)) return false;
 
     if (widget.id === 'expiry_alerts' && (features['dashboard_expiry_alerts'] === true || features['widget_near_expiry_alert'] === true)) return true;
@@ -452,7 +455,10 @@ export function isWidgetAllowedWithFeatures(
     }
     if (widget.id === 'ai_expiry_loss_prevention' && (features['ai_expiry_loss_prevention'] === false || features['ai_expiry_loss'] === false)) return false;
 
-    if ((widget.id === 'shortage_registry' || widget.id === 'missed_sales_demand' || widget.id === 'action_required') && (features['dashboard_shortage_matrix'] === true || features['shortage_registry'] === true || features['shortage_matrix'] === true)) return true;
+    if (widget.id === 'missed_sales_demand' && (features['dashboard_shortage_matrix'] === true || features['shortage_registry'] === true || features['shortage_matrix'] === true || features['missed_sales_demand'] === true)) {
+      return normalizeDashboardPlan(userPlan) !== 'silver';
+    }
+    if ((widget.id === 'shortage_registry' || widget.id === 'action_required') && (features['dashboard_shortage_matrix'] === true || features['shortage_registry'] === true || features['shortage_matrix'] === true)) return true;
     if ((widget.id === 'shortage_registry' || widget.id === 'missed_sales_demand' || widget.id === 'action_required') && (features['dashboard_shortage_matrix'] === false || features['shortage_registry'] === false || features['shortage_matrix'] === false)) return false;
 
     if ((widget.id === 'receivables_payables' || widget.id === 'udhar_aging_whatsapp') && (features['dashboard_khata_receivables'] === true || features['supplier_customer_khata'] === true || features['khata_balance_board'] === true)) return true;

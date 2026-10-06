@@ -1072,9 +1072,24 @@ export const Reports: React.FC = () => {
       }
     });
 
-    // Party Payments (Money IN / Money OUT)
+    // Party Payments (Money IN / Money OUT - strictly manual vouchers)
+    const isManualPartyPayment = (pmt: PartyPayment) => {
+      if (pmt.isAuto) return false;
+      const notes = (pmt.notes || '').toLowerCase();
+      if (notes.includes('auto payment-in') || notes.includes('auto payment in') || notes.includes('auto payment')) {
+        return false;
+      }
+      const receipt = pmt.receiptNumber || '';
+      if (receipt.startsWith('REC-INV-')) return false;
+      const ref = (pmt.referenceNumber || '').toUpperCase();
+      if (ref.startsWith('INV-') && (notes.includes('invoice') || notes.includes('sale') || notes.includes('pos') || !notes)) {
+        return false;
+      }
+      return true;
+    };
+
     partyPayments.forEach(pmt => {
-      if (isDateInRange(pmt.date)) {
+      if (isDateInRange(pmt.date) && isManualPartyPayment(pmt)) {
         const isPaymentIn = !pmt.type || pmt.type === 'PAYMENT_IN';
         entries.push({
           id: `pmt-${pmt.id}`,

@@ -197,11 +197,19 @@ export const CustomerKhataPage: React.FC = () => {
       notes: `${inv.items?.length || 0} item(s)`
     }));
 
-    // Payments for this customer
-    const custPayments = payments.filter(p => 
-      p.partyId === selectedCustomer.id || 
-      p.partyName?.toLowerCase() === selectedCustomer.name.toLowerCase()
-    ).map(p => ({
+    // Payments for this customer (strictly manual receipts)
+    const custPayments = payments.filter(p => {
+      const isAuto = p.isAuto || 
+        (p.notes || '').toLowerCase().includes('auto payment') || 
+        (p.receiptNumber || '').startsWith('REC-INV-') ||
+        ((p.referenceNumber || '').toUpperCase().startsWith('INV-') && !(p.notes && !p.notes.toLowerCase().includes('sale')));
+      if (isAuto) return false;
+
+      return (
+        p.partyId === selectedCustomer.id || 
+        p.partyName?.toLowerCase() === selectedCustomer.name.toLowerCase()
+      );
+    }).map(p => ({
       id: p.id,
       date: p.date || p.createdAt?.split('T')[0] || 'N/A',
       type: 'Cash In (Payment)',

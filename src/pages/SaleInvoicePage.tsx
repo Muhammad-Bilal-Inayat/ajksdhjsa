@@ -358,6 +358,7 @@ export const SaleInvoicePage: React.FC = () => {
             receiptNumber: `REC-${invoiceNumber}`,
             notes: `Auto Payment-In for Sale Invoice #${invoiceNumber}`,
             recordedBy: activeUser?.name || 'Cashier',
+            isAuto: true,
             createdAt: new Date().toISOString()
           });
         } catch (payErr) {

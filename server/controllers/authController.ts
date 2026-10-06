@@ -100,6 +100,27 @@ export async function loginController(req: TenantRequest, res: Response): Promis
 
             if (matched) {
               authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
+              try {
+                master.prepare(`
+                  INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', 1, ?, datetime('now'), datetime('now'))
+                  ON CONFLICT(id) DO UPDATE SET
+                    tenant_id = excluded.tenant_id,
+                    username = excluded.username,
+                    name = excluded.name,
+                    email = excluded.email,
+                    phone = excluded.phone,
+                    passcode = excluded.passcode,
+                    pin = excluded.pin,
+                    status = 'Active',
+                    updated_at = datetime('now');
+                `).run(
+                  matched.id, tId, matched.username || matched.name, matched.name, matched.email || '', matched.phone || '',
+                  matched.passcode || inputPasscode, matched.passcode || inputPasscode,
+                  matched.role || 'Cashier', matched.isPrimaryOwner ? 1 : 0, matched.isPrimaryAdmin ? 1 : 0,
+                  typeof matched.permissions === 'object' ? JSON.stringify(matched.permissions) : (matched.permissions || '{}')
+                );
+              } catch {}
               break;
             }
           } catch (vErr) {}
@@ -586,6 +607,22 @@ export async function registerTrialController(req: TenantRequest, res: Response)
           passcode = excluded.passcode,
           is_active = 1
       `).run(userId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail, cleanEmail, cleanPhone, cleanPassword);
+
+      // Master Vault mbi_users entry for instant 0ms login across platform
+      master.prepare(`
+        INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          tenant_id = excluded.tenant_id,
+          username = excluded.username,
+          name = excluded.name,
+          email = excluded.email,
+          phone = excluded.phone,
+          passcode = excluded.passcode,
+          pin = excluded.pin,
+          status = 'Active',
+          updated_at = datetime('now');
+      `).run(userId, tenantId, cleanUsername, cleanOwnerName || cleanUsername, cleanEmail, cleanPhone, cleanPassword, cleanPassword);
     } catch (vaultErr) {
       console.warn('[SQLITE VAULT PROVISION NOTICE]:', vaultErr);
     }

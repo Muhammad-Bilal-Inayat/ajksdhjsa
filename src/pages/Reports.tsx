@@ -635,23 +635,41 @@ export const Reports: React.FC = () => {
   useEffect(() => {
     loadAllData();
 
-    const handleDataChange = () => {
-      loadAllData();
+    let debounceTimer: any = null;
+    const debouncedLoadAllData = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadAllData();
+      }, 200);
     };
 
-    window.addEventListener('mbi-local-db-change', handleDataChange);
-    window.addEventListener('mbi-invoices-updated', handleDataChange);
-    window.addEventListener('mbi-purchases-updated', handleDataChange);
-    window.addEventListener('mbi-stock-updated', handleDataChange);
-    window.addEventListener('mbi-data-synced', handleDataChange);
+    const handleDataChange = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('invoice') && !k.includes('medicine') && !k.includes('purchase') && !k.includes('expense') && !k.includes('party') && !k.includes('sync')) {
+          return;
+        }
+      }
+      debouncedLoadAllData();
+    };
+
+    window.addEventListener('mbi-local-db-change', debouncedLoadAllData);
+    window.addEventListener('mbi-invoices-updated', debouncedLoadAllData);
+    window.addEventListener('mbi-purchases-updated', debouncedLoadAllData);
+    window.addEventListener('mbi-stock-updated', debouncedLoadAllData);
+    window.addEventListener('mbi-data-synced', debouncedLoadAllData);
     window.addEventListener('storage', handleDataChange);
 
     return () => {
-      window.removeEventListener('mbi-local-db-change', handleDataChange);
-      window.removeEventListener('mbi-invoices-updated', handleDataChange);
-      window.removeEventListener('mbi-purchases-updated', handleDataChange);
-      window.removeEventListener('mbi-stock-updated', handleDataChange);
-      window.removeEventListener('mbi-data-synced', handleDataChange);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('mbi-local-db-change', debouncedLoadAllData);
+      window.removeEventListener('mbi-invoices-updated', debouncedLoadAllData);
+      window.removeEventListener('mbi-purchases-updated', debouncedLoadAllData);
+      window.removeEventListener('mbi-stock-updated', debouncedLoadAllData);
+      window.removeEventListener('mbi-data-synced', debouncedLoadAllData);
       window.removeEventListener('storage', handleDataChange);
     };
   }, []);

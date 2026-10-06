@@ -286,7 +286,16 @@ export const Inventory: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
-    const handleSync = () => {
+    const handleSync = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('medicine') && !k.includes('stock') && !k.includes('item') && !k.includes('purchase') && !k.includes('sync')) {
+          return;
+        }
+      }
       if (syncDebounceTimerRef.current) {
         clearTimeout(syncDebounceTimerRef.current);
       }

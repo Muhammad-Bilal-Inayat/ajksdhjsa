@@ -122,13 +122,32 @@ export const Expenses: React.FC = () => {
   // Load initial data
   useEffect(() => {
     loadData();
-    const handleSync = () => loadData();
-    window.addEventListener('mbi-data-synced', handleSync);
-    window.addEventListener('mbi-local-db-change', handleSync);
+    let debounceTimer: any = null;
+    const debouncedLoadData = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadData();
+      }, 150);
+    };
+    const handleSync = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('expense') && !k.includes('sync')) {
+          return;
+        }
+      }
+      debouncedLoadData();
+    };
+    window.addEventListener('mbi-data-synced', debouncedLoadData);
+    window.addEventListener('mbi-local-db-change', debouncedLoadData);
     window.addEventListener('storage', handleSync);
     return () => {
-      window.removeEventListener('mbi-data-synced', handleSync);
-      window.removeEventListener('mbi-local-db-change', handleSync);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('mbi-data-synced', debouncedLoadData);
+      window.removeEventListener('mbi-local-db-change', debouncedLoadData);
       window.removeEventListener('storage', handleSync);
     };
   }, []);

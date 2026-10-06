@@ -103,17 +103,34 @@ export const SalesInvoicesView: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
-    const handleLiveSync = () => {
-      loadAllData();
+    let debounceTimer: any = null;
+    const debouncedLoadAllData = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadAllData();
+      }, 150);
     };
-    window.addEventListener('mbi-local-db-change', handleLiveSync);
-    window.addEventListener('mbi-invoices-updated', handleLiveSync);
-    window.addEventListener('mbi-data-synced', handleLiveSync);
+    const handleLiveSync = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('invoice') && !k.includes('medicine') && !k.includes('sync')) {
+          return;
+        }
+      }
+      debouncedLoadAllData();
+    };
+    window.addEventListener('mbi-local-db-change', debouncedLoadAllData);
+    window.addEventListener('mbi-invoices-updated', debouncedLoadAllData);
+    window.addEventListener('mbi-data-synced', debouncedLoadAllData);
     window.addEventListener('storage', handleLiveSync);
     return () => {
-      window.removeEventListener('mbi-local-db-change', handleLiveSync);
-      window.removeEventListener('mbi-invoices-updated', handleLiveSync);
-      window.removeEventListener('mbi-data-synced', handleLiveSync);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('mbi-local-db-change', debouncedLoadAllData);
+      window.removeEventListener('mbi-invoices-updated', debouncedLoadAllData);
+      window.removeEventListener('mbi-data-synced', debouncedLoadAllData);
       window.removeEventListener('storage', handleLiveSync);
     };
   }, []);

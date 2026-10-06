@@ -225,7 +225,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [featureVersion, setFeatureVersion] = useState(0);
 
   useEffect(() => {
-    const handleFeatureChange = () => setFeatureVersion(v => v + 1);
+    const handleFeatureChange = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const relevantKeys = [
+          'mbi_tenant_features',
+          'mbi_tenant_menu_order',
+          'mbi_user_access_profile',
+          'mbi_effective_permissions',
+          'mbi_active_plan_tier',
+          'mbi_plan',
+          'user_preferences'
+        ];
+        if (!relevantKeys.some(rk => (e.key as string).includes(rk))) return;
+      }
+      setFeatureVersion(v => v + 1);
+    };
     window.addEventListener('mbi-tenant-features-updated', handleFeatureChange);
     window.addEventListener('mbi-tenant-menu-order-updated', handleFeatureChange);
     window.addEventListener('mbi-user-access-profile-updated', handleFeatureChange);

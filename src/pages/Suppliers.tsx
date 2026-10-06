@@ -207,13 +207,32 @@ export const Suppliers: React.FC = () => {
 
   useEffect(() => {
     loadParties();
-    const handleSync = () => loadParties();
-    window.addEventListener('mbi-data-synced', handleSync);
-    window.addEventListener('mbi-local-db-change', handleSync);
+    let debounceTimer: any = null;
+    const debouncedLoadParties = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadParties();
+      }, 150);
+    };
+    const handleSync = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('supplier') && !k.includes('party') && !k.includes('invoice') && !k.includes('payment') && !k.includes('sync')) {
+          return;
+        }
+      }
+      debouncedLoadParties();
+    };
+    window.addEventListener('mbi-data-synced', debouncedLoadParties);
+    window.addEventListener('mbi-local-db-change', debouncedLoadParties);
     window.addEventListener('storage', handleSync);
     return () => {
-      window.removeEventListener('mbi-data-synced', handleSync);
-      window.removeEventListener('mbi-local-db-change', handleSync);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      window.removeEventListener('mbi-data-synced', debouncedLoadParties);
+      window.removeEventListener('mbi-local-db-change', debouncedLoadParties);
       window.removeEventListener('storage', handleSync);
     };
   }, []);

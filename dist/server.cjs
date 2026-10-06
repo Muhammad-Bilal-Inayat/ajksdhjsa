@@ -303,25 +303,36 @@ function getMasterVault() {
     }
   }
   try {
-    const tenants = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
-    for (const t of tenants) {
-      const tid = t.tenant_id || t.id;
-      if (!t.api_key) {
-        const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "").slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
-      }
-      const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid);
-      if (!userCount || userCount.c === 0) {
-        const uid = `usr_${tid}_owner`;
-        masterDbInstance.prepare(`
-          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
-          ON CONFLICT(id) DO NOTHING;
-        `).run(uid, tid, (t.name || "owner").toLowerCase().replace(/\s+/g, "_"), t.owner_name || t.name || "Store Owner", t.owner_email || "", t.owner_phone || "");
-      }
-    }
-  } catch (healErr) {
+    masterDbInstance.exec(`
+      CREATE INDEX IF NOT EXISTS idx_mbi_users_ident ON mbi_users(username, email, phone, passcode);
+      CREATE INDEX IF NOT EXISTS idx_mbi_tenants_tenant_id ON mbi_tenants(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_mbi_licenses_tenant_id ON mbi_licenses(tenant_id);
+    `);
+  } catch (e) {
   }
+  setImmediate(() => {
+    try {
+      if (!masterDbInstance) return;
+      const tenants = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
+      for (const t of tenants) {
+        const tid = t.tenant_id || t.id;
+        if (!t.api_key) {
+          const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, "").slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+          masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
+        }
+        const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid);
+        if (!userCount || userCount.c === 0) {
+          const uid = `usr_${tid}_owner`;
+          masterDbInstance.prepare(`
+            INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
+            ON CONFLICT(id) DO NOTHING;
+          `).run(uid, tid, (t.name || "owner").toLowerCase().replace(/\s+/g, "_"), t.owner_name || t.name || "Store Owner", t.owner_email || "", t.owner_phone || "");
+        }
+      }
+    } catch (healErr) {
+    }
+  });
   return masterDbInstance;
 }
 function getTenantVault(tenantId) {
@@ -7999,6 +8010,36 @@ async function loginController(req, res) {
             });
             if (matched) {
               authenticatedUser = { ...matched, tenant_id: tId, tenantId: tId };
+              try {
+                master.prepare(`
+                  INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', 1, ?, datetime('now'), datetime('now'))
+                  ON CONFLICT(id) DO UPDATE SET
+                    tenant_id = excluded.tenant_id,
+                    username = excluded.username,
+                    name = excluded.name,
+                    email = excluded.email,
+                    phone = excluded.phone,
+                    passcode = excluded.passcode,
+                    pin = excluded.pin,
+                    status = 'Active',
+                    updated_at = datetime('now');
+                `).run(
+                  matched.id,
+                  tId,
+                  matched.username || matched.name,
+                  matched.name,
+                  matched.email || "",
+                  matched.phone || "",
+                  matched.passcode || inputPasscode,
+                  matched.passcode || inputPasscode,
+                  matched.role || "Cashier",
+                  matched.isPrimaryOwner ? 1 : 0,
+                  matched.isPrimaryAdmin ? 1 : 0,
+                  typeof matched.permissions === "object" ? JSON.stringify(matched.permissions) : matched.permissions || "{}"
+                );
+              } catch {
+              }
               break;
             }
           } catch (vErr) {
@@ -8422,6 +8463,20 @@ async function registerTrialController(req, res) {
           passcode = excluded.passcode,
           is_active = 1
       `).run(userId, cleanOwnerName || cleanUsername, cleanUsername, cleanPhone || cleanEmail, cleanEmail, cleanPhone, cleanPassword);
+      master.prepare(`
+        INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          tenant_id = excluded.tenant_id,
+          username = excluded.username,
+          name = excluded.name,
+          email = excluded.email,
+          phone = excluded.phone,
+          passcode = excluded.passcode,
+          pin = excluded.pin,
+          status = 'Active',
+          updated_at = datetime('now');
+      `).run(userId, tenantId, cleanUsername, cleanOwnerName || cleanUsername, cleanEmail, cleanPhone, cleanPassword, cleanPassword);
     } catch (vaultErr) {
       console.warn("[SQLITE VAULT PROVISION NOTICE]:", vaultErr);
     }

@@ -293,30 +293,49 @@ export const Purchases: React.FC = () => {
   useEffect(() => {
     loadAllData();
 
+    let debounceTimer: any = null;
+    const debouncedLoadAllData = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadAllData(true);
+      }, 150);
+    };
+
     // Listen for live cross-tab & cross-browser synchronization
     const unsubLegacy = syncEngine.onSyncMessage(() => {
-      loadAllData();
+      debouncedLoadAllData();
     });
 
     const unsubUnified = unifiedSyncService.onEntityChange((payload) => {
-      if (!payload.storeName || payload.storeName === 'purchaseOrders' || payload.storeName === 'partyPayments' || payload.storeName === 'all') {
-        loadAllData();
+      if (!payload.storeName || payload.storeName === 'purchaseOrders' || payload.storeName === 'suppliers' || payload.storeName === 'all') {
+        debouncedLoadAllData();
       }
     });
 
-    const handleStorageChange = () => {
-      loadAllData();
+    const handleStorageChange = (e?: StorageEvent | Event) => {
+      if (e && 'key' in e && e.key) {
+        const k = e.key;
+        if (k.startsWith('mbi_active_user') || k.startsWith('mbi_session') || k.startsWith('mbi_user_access') || k.startsWith('user_preferences')) {
+          return;
+        }
+        if (!k.includes('purchase') && !k.includes('supplier') && !k.includes('party') && !k.includes('sync')) {
+          return;
+        }
+      }
+      debouncedLoadAllData();
     };
+
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('mbi-data-synced', handleStorageChange);
-    window.addEventListener('mbi-local-db-change', handleStorageChange);
+    window.addEventListener('mbi-data-synced', debouncedLoadAllData);
+    window.addEventListener('mbi-local-db-change', debouncedLoadAllData);
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubLegacy();
       unsubUnified();
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('mbi-data-synced', handleStorageChange);
-      window.removeEventListener('mbi-local-db-change', handleStorageChange);
+      window.removeEventListener('mbi-data-synced', debouncedLoadAllData);
+      window.removeEventListener('mbi-local-db-change', debouncedLoadAllData);
     };
   }, []);
 

@@ -237,27 +237,39 @@ export function getMasterVault(): DatabaseSync {
     } catch (e) {}
   }
 
-  // Self-heal API keys and default users for all tenants
+  // High-performance Master Hub indexes for sub-millisecond multi-tenant authentication
   try {
-    const tenants: any[] = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
-    for (const t of tenants) {
-      const tid = t.tenant_id || t.id;
-      if (!t.api_key) {
-        const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
+    masterDbInstance.exec(`
+      CREATE INDEX IF NOT EXISTS idx_mbi_users_ident ON mbi_users(username, email, phone, passcode);
+      CREATE INDEX IF NOT EXISTS idx_mbi_tenants_tenant_id ON mbi_tenants(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_mbi_licenses_tenant_id ON mbi_licenses(tenant_id);
+    `);
+  } catch (e) {}
+
+  // Self-heal API keys and default users for all tenants (asynchronous non-blocking)
+  setImmediate(() => {
+    try {
+      if (!masterDbInstance) return;
+      const tenants: any[] = masterDbInstance.prepare("SELECT * FROM mbi_tenants").all();
+      for (const t of tenants) {
+        const tid = t.tenant_id || t.id;
+        if (!t.api_key) {
+          const generatedKey = `mbi_live_sec_${String(tid).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+          masterDbInstance.prepare("UPDATE mbi_tenants SET api_key = ? WHERE id = ?").run(generatedKey, t.id);
+        }
+        // Ensure owner exists in mbi_users
+        const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid) as any;
+        if (!userCount || userCount.c === 0) {
+          const uid = `usr_${tid}_owner`;
+          masterDbInstance.prepare(`
+            INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
+            ON CONFLICT(id) DO NOTHING;
+          `).run(uid, tid, (t.name || 'owner').toLowerCase().replace(/\s+/g, '_'), t.owner_name || t.name || 'Store Owner', t.owner_email || '', t.owner_phone || '');
+        }
       }
-      // Ensure owner exists in mbi_users
-      const userCount = masterDbInstance.prepare("SELECT COUNT(*) as c FROM mbi_users WHERE tenant_id = ?").get(tid) as any;
-      if (!userCount || userCount.c === 0) {
-        const uid = `usr_${tid}_owner`;
-        masterDbInstance.prepare(`
-          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, role, is_primary_owner, passcode, status)
-          VALUES (?, ?, ?, ?, ?, ?, 'Owner', 1, '1234', 'Active')
-          ON CONFLICT(id) DO NOTHING;
-        `).run(uid, tid, (t.name || 'owner').toLowerCase().replace(/\s+/g, '_'), t.owner_name || t.name || 'Store Owner', t.owner_email || '', t.owner_phone || '');
-      }
-    }
-  } catch (healErr) {}
+    } catch (healErr) {}
+  });
 
   return masterDbInstance;
 }

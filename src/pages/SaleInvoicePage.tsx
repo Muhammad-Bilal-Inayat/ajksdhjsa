@@ -366,9 +366,13 @@ export const SaleInvoicePage: React.FC = () => {
         }
       }
 
-      // Dispatch global sync events for 0ms reactivity
+      // Dispatch global sync events for instant 0ms dashboard & sales widget reactivity
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-invoices-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-sales-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
+        window.dispatchEvent(new CustomEvent('dashboard-metrics-updated'));
         window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'invoices' } }));
         window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'invoices' } }));
       }

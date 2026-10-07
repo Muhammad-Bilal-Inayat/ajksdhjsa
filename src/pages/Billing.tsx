@@ -394,6 +394,18 @@ export const Billing: React.FC = () => {
     }
   };
 
+  const dispatchSaleSyncEvents = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-invoices-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-sales-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
+      window.dispatchEvent(new CustomEvent('dashboard-metrics-updated'));
+      window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'invoices' } }));
+      window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'invoices' } }));
+    }
+  };
+
   // Preset Date Handlers
   const handlePeriodChange = (preset: string) => {
     setPeriodPreset(preset);
@@ -922,6 +934,7 @@ export const Billing: React.FC = () => {
       });
 
       await loadAllData();
+      dispatchSaleSyncEvents();
       showToast(`⚡ Successfully converted ${sourceInvoice.transactionType} #${sourceInvoice.invoiceNumber} to Sale Invoice #${nextSaleNum}!`);
       
       // Auto open print preview for the new invoice
@@ -958,6 +971,7 @@ export const Billing: React.FC = () => {
 
       await dbInvoices.save(challanInvoice);
       await loadAllData();
+      dispatchSaleSyncEvents();
       showToast(`🚚 Created Delivery Challan #${nextChallanNum} from Order #${sourceInvoice.invoiceNumber}!`);
       setSelectedPrintInvoice(challanInvoice);
       setIsPrintModalOpen(true);
@@ -1038,6 +1052,7 @@ export const Billing: React.FC = () => {
       }
       await dbInvoices.delete(deleteTargetInvoice.id);
       await loadAllData();
+      dispatchSaleSyncEvents();
       showToast(`${deleteTargetInvoice.transactionType || 'Invoice'} #${deleteTargetInvoice.invoiceNumber} deleted.`);
       setDeleteTargetInvoice(null);
     } catch (err) {
@@ -1094,6 +1109,7 @@ export const Billing: React.FC = () => {
     };
     await dbInvoices.save(duplicated);
     await loadAllData();
+    dispatchSaleSyncEvents();
     showToast(`Transaction duplicated as #${nextNum}`);
     setActiveMenuId(null);
   };
@@ -1126,6 +1142,7 @@ export const Billing: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     await dbPartyPayments.save(paymentRecord);
+    dispatchSaleSyncEvents();
 
     // Reduce party balance
     if (quickPaymentInvoice.partyId) {

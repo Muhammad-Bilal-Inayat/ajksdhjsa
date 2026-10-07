@@ -778,7 +778,7 @@ export const Dashboard: React.FC = () => {
         if (isMounted) {
           loadDashboardData(isCurrent, true);
         }
-      }, 250);
+      }, 16);
     };
 
     const handleDateRangeChanged = (e: any) => {

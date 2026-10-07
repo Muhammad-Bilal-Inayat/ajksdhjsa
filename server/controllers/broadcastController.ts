@@ -3,6 +3,7 @@ import { getMasterVault } from '../db/sqliteVaultManager';
 import { getMariaDbPool } from '../db/mariaClient';
 import { broadcastTenantEvent, broadcastGlobalEvent } from '../routes/syncRoutes';
 import { broadcastFleetActivity, broadcastAdminEvent } from '../routes/adminRoutes';
+import { sendCustomTenantEmail } from '../services/emailService';
 import fs from 'fs';
 import path from 'path';
 
@@ -365,6 +366,84 @@ export async function dispatchBroadcastController(req: Request, res: Response): 
         relativeTime: 'Just now'
       });
     } catch (e) {}
+
+    // 5. Automated Plan-Wise & Tenant Email Dispatch (Strictly excluding /server internal master routes)
+    try {
+      let recipientEmails: string[] = [];
+      const masterDb = getMasterVault();
+
+      if (targetType === 'plan' && targetPlan) {
+        // Query active tenants matching target plan
+        const rows: any[] = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants 
+          WHERE LOWER(plan) = LOWER(?) AND status = 'Active' AND owner_email IS NOT NULL AND owner_email != ''
+        `).all(targetPlan);
+        recipientEmails = rows.map((r: any) => r.owner_email).filter((e: string) => e && e.includes('@'));
+
+        if (recipientEmails.length === 0) {
+          const tenants = fallback.tenants || [];
+          recipientEmails = tenants
+            .filter((t: any) => (t.plan || '').toLowerCase() === targetPlan.toLowerCase() && t.ownerEmail)
+            .map((t: any) => t.ownerEmail);
+        }
+      } else if (targetType === 'store' && targetStoreId) {
+        // Specific store
+        const tenantRow: any = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants WHERE id = ? OR tenant_id = ?
+        `).get(targetStoreId, targetStoreId);
+        if (tenantRow?.owner_email && tenantRow.owner_email.includes('@')) {
+          recipientEmails = [tenantRow.owner_email];
+        }
+        if (recipientEmails.length === 0) {
+          const tenants = fallback.tenants || [];
+          const t = tenants.find((x: any) => x.id === targetStoreId || x.tenant_id === targetStoreId);
+          if (t?.ownerEmail) recipientEmails = [t.ownerEmail];
+        }
+      } else if (targetType === 'user' && targetUserId) {
+        const userRow: any = masterDb.prepare(`
+          SELECT email FROM mbi_users WHERE id = ?
+        `).get(targetUserId);
+        if (userRow?.email && userRow.email.includes('@')) {
+          recipientEmails = [userRow.email];
+        }
+      } else {
+        // Global tenant update: send to all active stores (never internal /server admin)
+        const rows: any[] = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants 
+          WHERE status = 'Active' AND owner_email IS NOT NULL AND owner_email != ''
+        `).all();
+        const tenantEmails = rows.map((r: any) => r.owner_email).filter((e: string) => e && e.includes('@'));
+
+        const fallbackTenants = fallback.tenants || [];
+        const fallbackEmails = fallbackTenants
+          .filter((t: any) => t.ownerEmail && t.ownerEmail.includes('@'))
+          .map((t: any) => t.ownerEmail);
+
+        recipientEmails = Array.from(new Set([...tenantEmails, ...fallbackEmails]));
+      }
+
+      // Sanitize and ensure no duplicates
+      recipientEmails = Array.from(new Set(recipientEmails.filter(e => e && e.includes('@') && !e.toLowerCase().includes('master_internal'))));
+
+      if (recipientEmails.length > 0) {
+        const emailPriority = broadcastRecord.type === 'urgent' ? 'urgent' : (broadcastRecord.type === 'success' ? 'high' : 'normal');
+        const planBadge = broadcastRecord.targetPlan ? `🎯 ${broadcastRecord.targetPlan.toUpperCase()} PLAN UPDATE` : '🚀 MBI INVENTRA UPDATE';
+
+        sendCustomTenantEmail({
+          toEmail: recipientEmails,
+          subject: `📢 ${broadcastRecord.title}`,
+          message: `${broadcastRecord.subtitle ? broadcastRecord.subtitle + '\n\n' : ''}${broadcastRecord.body}`,
+          priority: emailPriority,
+          badgeText: planBadge,
+          actionButtonText: broadcastRecord.ctaLabel || 'Open MBI INVENTRA Portal',
+          actionButtonUrl: broadcastRecord.ctaUrl ? (broadcastRecord.ctaUrl.startsWith('http') ? broadcastRecord.ctaUrl : `https://mbiinventra.com${broadcastRecord.ctaUrl}`) : 'https://mbiinventra.com'
+        }).catch((err) => {
+          console.warn('[Broadcast Email Dispatch Warning]:', err?.message || err);
+        });
+      }
+    } catch (emailErr) {
+      console.warn('[Broadcast Email Dispatch Failed]:', emailErr);
+    }
 
     res.json({
       success: true,

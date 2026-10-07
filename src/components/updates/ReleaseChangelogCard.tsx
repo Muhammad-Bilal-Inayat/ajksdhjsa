@@ -37,10 +37,50 @@ interface ReleaseChangelogCardProps {
 
 export const OFFICIAL_RELEASES: ReleaseEntry[] = [
   {
+    version: 'v4.4.2-stable',
+    releaseDate: 'October 2026',
+    tag: 'Latest Production Release',
+    isLatest: true,
+    channel: 'Tier-Segregated OTA Channel',
+    summary: 'Plan-Gated Cloud Updates & Automated Email Dispatch Engine, Mobile UX Fluidity, Instant Local PWA Installer, AI Assistant Control & Hardware Security.',
+    features: [
+      {
+        text: 'Plan-Gated Cloud Updates: Software updates and features are strictly tailored to each store subscription plan (Silver, Gold, Platinum/Enterprise) with secure tenant isolation.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Automated Email Broadcast Delivery: Real-time branded email dispatch with update changelogs, feature guides, and 24/7 support links sent to verified tenant owners.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: '1-Click Multi-Device PWA App Installer: Added universal quick-install app trigger in Settings > General for Windows, macOS, Android, and iOS devices.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Store-Level AI Assistant Visibility Toggle: Tenants can now freely enable or disable the floating MBI AI Assistant circular emblem in General Settings.',
+        type: 'feature',
+        minPlan: 'all'
+      },
+      {
+        text: 'Mobile Header Fluidity & Zero-Clutter Layout: Restructured mobile search bar and removed redundant floating bottom dock for an ultra-clean mobile POS experience.',
+        type: 'performance',
+        minPlan: 'all'
+      },
+      {
+        text: 'Enterprise Fast SKUs & Demand Telemetry: Real-time SKU velocity indicators and predictive stock-out alerts exclusive to Gold & Enterprise tiers.',
+        type: 'security',
+        minPlan: 'gold'
+      }
+    ]
+  },
+  {
     version: 'v4.4.1-stable',
     releaseDate: 'October 2026',
-    tag: 'Production Stable',
-    isLatest: true,
+    tag: 'Previous Stable',
+    isLatest: false,
     channel: 'Enterprise OTA Channel',
     summary: 'Purchases Action Suite (Convert to Return, Sale, PO, Duplicate), Segregated Manual Payment Vouchers, Dynamic Sales Trend Analytics & Plan-Gated Dashboard Widgets.',
     features: [

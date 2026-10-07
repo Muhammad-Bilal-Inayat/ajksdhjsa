@@ -4148,6 +4148,67 @@ async function dispatchBroadcastController(req, res) {
       });
     } catch (e) {
     }
+    try {
+      let recipientEmails = [];
+      const masterDb = getMasterVault();
+      if (targetType === "plan" && targetPlan) {
+        const rows = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants 
+          WHERE LOWER(plan) = LOWER(?) AND status = 'Active' AND owner_email IS NOT NULL AND owner_email != ''
+        `).all(targetPlan);
+        recipientEmails = rows.map((r) => r.owner_email).filter((e) => e && e.includes("@"));
+        if (recipientEmails.length === 0) {
+          const tenants = fallback.tenants || [];
+          recipientEmails = tenants.filter((t) => (t.plan || "").toLowerCase() === targetPlan.toLowerCase() && t.ownerEmail).map((t) => t.ownerEmail);
+        }
+      } else if (targetType === "store" && targetStoreId) {
+        const tenantRow = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants WHERE id = ? OR tenant_id = ?
+        `).get(targetStoreId, targetStoreId);
+        if (tenantRow?.owner_email && tenantRow.owner_email.includes("@")) {
+          recipientEmails = [tenantRow.owner_email];
+        }
+        if (recipientEmails.length === 0) {
+          const tenants = fallback.tenants || [];
+          const t = tenants.find((x) => x.id === targetStoreId || x.tenant_id === targetStoreId);
+          if (t?.ownerEmail) recipientEmails = [t.ownerEmail];
+        }
+      } else if (targetType === "user" && targetUserId) {
+        const userRow = masterDb.prepare(`
+          SELECT email FROM mbi_users WHERE id = ?
+        `).get(targetUserId);
+        if (userRow?.email && userRow.email.includes("@")) {
+          recipientEmails = [userRow.email];
+        }
+      } else {
+        const rows = masterDb.prepare(`
+          SELECT owner_email FROM mbi_tenants 
+          WHERE status = 'Active' AND owner_email IS NOT NULL AND owner_email != ''
+        `).all();
+        const tenantEmails = rows.map((r) => r.owner_email).filter((e) => e && e.includes("@"));
+        const fallbackTenants = fallback.tenants || [];
+        const fallbackEmails = fallbackTenants.filter((t) => t.ownerEmail && t.ownerEmail.includes("@")).map((t) => t.ownerEmail);
+        recipientEmails = Array.from(/* @__PURE__ */ new Set([...tenantEmails, ...fallbackEmails]));
+      }
+      recipientEmails = Array.from(new Set(recipientEmails.filter((e) => e && e.includes("@") && !e.toLowerCase().includes("master_internal"))));
+      if (recipientEmails.length > 0) {
+        const emailPriority = broadcastRecord.type === "urgent" ? "urgent" : broadcastRecord.type === "success" ? "high" : "normal";
+        const planBadge = broadcastRecord.targetPlan ? `\u{1F3AF} ${broadcastRecord.targetPlan.toUpperCase()} PLAN UPDATE` : "\u{1F680} MBI INVENTRA UPDATE";
+        sendCustomTenantEmail({
+          toEmail: recipientEmails,
+          subject: `\u{1F4E2} ${broadcastRecord.title}`,
+          message: `${broadcastRecord.subtitle ? broadcastRecord.subtitle + "\n\n" : ""}${broadcastRecord.body}`,
+          priority: emailPriority,
+          badgeText: planBadge,
+          actionButtonText: broadcastRecord.ctaLabel || "Open MBI INVENTRA Portal",
+          actionButtonUrl: broadcastRecord.ctaUrl ? broadcastRecord.ctaUrl.startsWith("http") ? broadcastRecord.ctaUrl : `https://mbiinventra.com${broadcastRecord.ctaUrl}` : "https://mbiinventra.com"
+        }).catch((err) => {
+          console.warn("[Broadcast Email Dispatch Warning]:", err?.message || err);
+        });
+      }
+    } catch (emailErr) {
+      console.warn("[Broadcast Email Dispatch Failed]:", emailErr);
+    }
     res.json({
       success: true,
       message: "Broadcast announcement dispatched live successfully!",

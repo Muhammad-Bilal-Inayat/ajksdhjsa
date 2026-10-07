@@ -377,10 +377,33 @@ async function startServer() {
     }
   }
 
-  // Multi-Browser & Multi-Device Sync endpoints (In-Memory + Debounced Batching)
+  // Multi-Browser & Multi-Device Sync endpoints (Tenant-Isolated In-Memory + Debounced Batching)
   app.get('/api/sync', (req, res) => {
     const data = loadSyncData();
-    res.json({ success: true, data });
+    const tenantId = (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || (req.query.businessId as string) || (req as any).user?.tenantId;
+    const firmId = req.query.firmId ? String(req.query.firmId) : undefined;
+
+    if (!tenantId || tenantId === 'all') {
+      return res.json({ success: true, data });
+    }
+
+    const filteredData: Record<string, any[]> = {};
+    for (const [storeName, list] of Object.entries(data)) {
+      if (Array.isArray(list)) {
+        filteredData[storeName] = list.filter((item: any) => {
+          if (!item || item.isDeleted) return false;
+          const itemTenant = item.tenantId || item.tenant_id;
+          const matchesTenant = itemTenant === tenantId || (!itemTenant && (tenantId === 'tenant-demo-01' || tenantId === 'local-business-id'));
+          if (!matchesTenant) return false;
+          if (firmId && item.firmId && item.firmId !== firmId) return false;
+          return true;
+        });
+      } else {
+        filteredData[storeName] = list as any;
+      }
+    }
+
+    res.json({ success: true, data: filteredData });
   });
 
   app.get(['/api/sync/health', '/api/sync/status'], async (req, res) => {

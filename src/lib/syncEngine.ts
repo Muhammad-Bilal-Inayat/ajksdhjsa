@@ -5,7 +5,7 @@ import {
   dbLoanAccounts, dbCashierShifts, dbOnlineOrders, dbOnlinePromotions, 
   dbShortageItems, dbNarcoticsLogs, dbChronicRefills, dbSupplierReturns, 
   dbLoyaltyCustomers, dbNotes, dbBookers, dbBookerTransactions, 
-  initDB, invalidateStoreCache 
+  initDB, invalidateStoreCache, getCurrentBusinessContext
 } from './db';
 import { networkStateManager } from './networkStateManager';
 
@@ -150,6 +150,16 @@ class SyncEngine {
                 window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective: data.effective } }));
                 window.dispatchEvent(new Event('storage'));
               }
+            }
+            return;
+          }
+
+          if (payload && (payload.type === 'MEDICINES_ALLOCATED_BY_ADMIN' || payload.type === 'CENTRAL_MEDICINES_ASSIGNED')) {
+            this.pullLatestStateFromServer(true).catch(() => {});
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('mbi-medicines-updated', { detail: payload.payload }));
+              window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
+              window.dispatchEvent(new CustomEvent('mbi-dashboard-refresh'));
             }
             return;
           }
@@ -370,12 +380,20 @@ class SyncEngine {
     try {
       let serverData: any = null;
 
-      // 1. Fetch latest state from Server API
+      // 1. Fetch latest state from Server API strictly for current tenant
+      const ctx = getCurrentBusinessContext();
+      const DEFAULT_ALIASES = new Set(['tenant-demo-01', 'local-business-id', 'mbi-tenant-main', 'biz_default', 'default-tenant', 'tenant-default']);
+      const isUserDefault = DEFAULT_ALIASES.has(ctx.tenantId);
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch('/api/sync', {
-          headers: { 'Accept': 'application/json' },
+        const tenantQuery = ctx?.tenantId && ctx.tenantId !== 'all' ? `?tenantId=${encodeURIComponent(ctx.tenantId)}` : '';
+        const res = await fetch(`/api/sync${tenantQuery}`, {
+          headers: { 
+            'Accept': 'application/json',
+            'x-tenant-id': ctx?.tenantId || 'tenant_main'
+          },
           cache: 'no-store',
           signal: controller.signal
         });
@@ -431,6 +449,16 @@ class SyncEngine {
           if (Array.isArray(items) && items.length > 0) {
             for (const item of items) {
               if (item && item.id) {
+                // Strict Tenant Isolation Boundary check
+                if (ctx.tenantId && ctx.tenantId !== 'all' && !ctx.isMaster) {
+                  const itemTenant = item.tenantId || item.tenant_id;
+                  if (itemTenant && itemTenant !== ctx.tenantId) {
+                    if (!isUserDefault || !DEFAULT_ALIASES.has(itemTenant)) {
+                      continue; // Skip items from other tenants
+                    }
+                  }
+                }
+
                 // Ignore deleted or empty placeholder records
                 if (item.isDeleted) {
                   const existing = await db.get(storeName as any, item.id);

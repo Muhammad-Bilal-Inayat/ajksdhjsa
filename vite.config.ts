@@ -666,8 +666,33 @@ function syncApiPlugin(): Plugin {
         // 7. Full sync data: GET /api/sync
         if (url === '/api/sync' && req.method === 'GET') {
           const data = loadSyncData();
+          const parsedUrl = new URL(req.url || '', 'http://localhost');
+          const tenantId = (req.headers['x-tenant-id'] as string) || parsedUrl.searchParams.get('tenantId') || parsedUrl.searchParams.get('businessId');
+          const firmId = parsedUrl.searchParams.get('firmId');
+
+          if (!tenantId || tenantId === 'all') {
+            res.statusCode = 200;
+            return res.end(JSON.stringify({ success: true, data }));
+          }
+
+          const filteredData: Record<string, any[]> = {};
+          for (const [storeName, list] of Object.entries(data)) {
+            if (Array.isArray(list)) {
+              filteredData[storeName] = list.filter((item: any) => {
+                if (!item || item.isDeleted) return false;
+                const itemTenant = item.tenantId || item.tenant_id;
+                const matchesTenant = itemTenant === tenantId || (!itemTenant && (tenantId === 'tenant-demo-01' || tenantId === 'local-business-id'));
+                if (!matchesTenant) return false;
+                if (firmId && item.firmId && item.firmId !== firmId) return false;
+                return true;
+              });
+            } else {
+              filteredData[storeName] = list as any;
+            }
+          }
+
           res.statusCode = 200;
-          return res.end(JSON.stringify({ success: true, data }));
+          return res.end(JSON.stringify({ success: true, data: filteredData }));
         }
 
         // 8. Full sync push: POST /api/sync

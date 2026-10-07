@@ -559,7 +559,10 @@ export async function assignMedicinesToCustomer(params: {
       } as unknown as Medicine;
     });
 
-    await dbMedicines.saveBatch(clientMedicines, { skipCentralSync: true, skipSync: true });
+    const ctx = getCurrentBusinessContext();
+    if (ctx.tenantId === tenantId) {
+      await dbMedicines.saveBatch(clientMedicines, { skipCentralSync: true, skipSync: true });
+    }
 
     // Asynchronously allocate into MariaDB & broadcast to all subusers via server endpoint
     try {

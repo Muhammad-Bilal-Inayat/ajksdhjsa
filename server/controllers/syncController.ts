@@ -563,11 +563,26 @@ export async function handleSyncRecordController(req: Request, res: Response) {
 export async function handleGetSyncSnapshotController(req: Request, res: Response) {
   const tenantId = (req.headers['x-tenant-id'] as string) || (req.query.tenantId as string) || (req as any).user?.tenantId || 'tenant_default';
   
-  let syncData: any = {};
+  let rawSyncData: any = {};
   if (fs.existsSync(syncFile)) {
     try {
-      syncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
+      rawSyncData = JSON.parse(fs.readFileSync(syncFile, 'utf-8') || '{}');
     } catch (e) {}
+  }
+
+  // Pre-filter rawSyncData by tenantId to avoid cross-tenant leaks
+  let syncData: any = {};
+  for (const [storeName, list] of Object.entries(rawSyncData)) {
+    if (Array.isArray(list)) {
+      syncData[storeName] = list.filter((item: any) => {
+        if (!item || item.isDeleted) return false;
+        if (!tenantId || tenantId === 'all') return true;
+        const itemTenant = item.tenantId || item.tenant_id;
+        return itemTenant === tenantId || (!itemTenant && (tenantId === 'tenant-demo-01' || tenantId === 'local-business-id'));
+      });
+    } else {
+      syncData[storeName] = list;
+    }
   }
 
   // 1. Pull directly from Tenant SQLite Vault & Master Hub (0ms latency)

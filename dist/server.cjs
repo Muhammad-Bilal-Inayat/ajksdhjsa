@@ -2002,11 +2002,24 @@ async function handleSyncRecordController(req, res) {
 }
 async function handleGetSyncSnapshotController(req, res) {
   const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.user?.tenantId || "tenant_default";
-  let syncData = {};
+  let rawSyncData = {};
   if (import_fs2.default.existsSync(syncFile)) {
     try {
-      syncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
+      rawSyncData = JSON.parse(import_fs2.default.readFileSync(syncFile, "utf-8") || "{}");
     } catch (e) {
+    }
+  }
+  let syncData = {};
+  for (const [storeName, list] of Object.entries(rawSyncData)) {
+    if (Array.isArray(list)) {
+      syncData[storeName] = list.filter((item) => {
+        if (!item || item.isDeleted) return false;
+        if (!tenantId || tenantId === "all") return true;
+        const itemTenant = item.tenantId || item.tenant_id;
+        return itemTenant === tenantId || !itemTenant && (tenantId === "tenant-demo-01" || tenantId === "local-business-id");
+      });
+    } else {
+      syncData[storeName] = list;
     }
   }
   try {
@@ -4602,6 +4615,7 @@ async function saveHomePagePopupController(req, res) {
 
 // server/controllers/adminMedicineController.ts
 init_mariaClient();
+init_sqliteVaultManager();
 var import_fs7 = __toESM(require("fs"));
 var import_path7 = __toESM(require("path"));
 
@@ -6070,9 +6084,39 @@ async function assignMedicinesBatchController(req, res) {
       console.warn("[MARIADB ALLOCATE NOTICE]", dbErr?.message);
     }
     try {
+      const vault = getTenantVault(targetTenantId);
+      const insertStmt = vault.prepare(`
+        INSERT INTO medicines (id, name, generic_salt, category, barcode, cost_price, sale_price, stock_quantity, min_stock, unit, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          stock_quantity = excluded.stock_quantity,
+          updated_at = datetime('now')
+      `);
+      for (const item of itemsToAssign) {
+        const rawId = item.id || Math.random().toString(36).substring(2, 9);
+        const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+        insertStmt.run(
+          uniqueMedId,
+          item.name,
+          item.generic_salt || item.genericFormula || item.genericName || "",
+          item.category || "General",
+          item.barcode || "",
+          item.purchasePrice || item.purchase_rate || 0,
+          item.sellingPrice || item.mrp_selling_price || 0,
+          Number(initialStock) || 20,
+          5,
+          item.unit || "Pack"
+        );
+      }
+    } catch (sqlErr) {
+      console.warn("[SQLite Vault Assign Notice]", sqlErr?.message);
+    }
+    try {
       const fallback = getLocalData2();
       if (!fallback.mbi_medicines) fallback.mbi_medicines = [];
       if (!fallback.mbi_inventory_batches) fallback.mbi_inventory_batches = [];
+      if (!fallback.medicines) fallback.medicines = [];
       const existingMedMap = new Set(
         fallback.mbi_medicines.filter((m) => m.tenant_id === targetTenantId).map((m) => m.name)
       );
@@ -6081,26 +6125,46 @@ async function assignMedicinesBatchController(req, res) {
           existingMedMap.add(item.name);
           const rawId = item.id || Math.random().toString(36).substring(2, 9);
           const uniqueMedId = `med_${targetTenantId}_${rawId}`;
-          fallback.mbi_medicines.push({
+          const medObj = {
             id: uniqueMedId,
             tenant_id: targetTenantId,
+            tenantId: targetTenantId,
             name: item.name,
             generic_salt: item.generic_salt || item.genericFormula || item.genericName,
+            genericFormula: item.generic_salt || item.genericFormula || item.genericName,
+            genericName: item.generic_salt || item.genericFormula || item.genericName,
             company: item.company || item.brandName,
+            brandName: item.brandName || item.company,
             category: item.category,
             dosage_form: item.dosage_form || item.dosageForm,
+            dosageForm: item.dosage_form || item.dosageForm,
             min_stock_level: 5,
-            pack_size: 1
-          });
+            minStock: 5,
+            lowStockThreshold: 5,
+            quantity: Number(initialStock) || 20,
+            pack_size: 1,
+            unit: item.unit || "Pack",
+            createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+            updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          fallback.mbi_medicines.push(medObj);
+          fallback.medicines.push(medObj);
           fallback.mbi_inventory_batches.push({
             id: `batch_${targetTenantId}_${rawId}`,
             tenant_id: targetTenantId,
+            tenantId: targetTenantId,
             medicine_id: uniqueMedId,
+            medicineId: uniqueMedId,
             batch_number: "MBI-INITIAL",
+            batchNumber: "MBI-INITIAL",
             expiry_date: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
+            expiryDate: new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10),
             purchase_rate: 0,
+            purchasePrice: 0,
             mrp_selling_price: 0,
+            sellingPrice: 0,
             current_stock_quantity: Number(initialStock) || 20,
+            quantity: Number(initialStock) || 20,
             godown_location: "Main Shelf"
           });
         }
@@ -18693,7 +18757,27 @@ async function startServer() {
   }
   app.get("/api/sync", (req, res) => {
     const data = loadSyncData();
-    res.json({ success: true, data });
+    const tenantId = req.headers["x-tenant-id"] || req.query.tenantId || req.query.businessId || req.user?.tenantId;
+    const firmId = req.query.firmId ? String(req.query.firmId) : void 0;
+    if (!tenantId || tenantId === "all") {
+      return res.json({ success: true, data });
+    }
+    const filteredData = {};
+    for (const [storeName, list] of Object.entries(data)) {
+      if (Array.isArray(list)) {
+        filteredData[storeName] = list.filter((item) => {
+          if (!item || item.isDeleted) return false;
+          const itemTenant = item.tenantId || item.tenant_id;
+          const matchesTenant = itemTenant === tenantId || !itemTenant && (tenantId === "tenant-demo-01" || tenantId === "local-business-id");
+          if (!matchesTenant) return false;
+          if (firmId && item.firmId && item.firmId !== firmId) return false;
+          return true;
+        });
+      } else {
+        filteredData[storeName] = list;
+      }
+    }
+    res.json({ success: true, data: filteredData });
   });
   app.get(["/api/sync/health", "/api/sync/status"], async (req, res) => {
     const startTime = Date.now();

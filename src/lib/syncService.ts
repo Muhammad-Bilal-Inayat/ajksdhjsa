@@ -437,7 +437,12 @@ class UnifiedSyncService {
    */
   public async getRemoteStoreData(): Promise<Record<string, any[]> | null> {
     try {
-      const res = await fetch('/api/sync', { cache: 'no-store' });
+      const activeTenantId = (typeof localStorage !== 'undefined' ? (localStorage.getItem('mbi_active_business_id') || localStorage.getItem('mbi_active_tenant_cache')) : null) || 'tenant_main';
+      const parsedTenant = typeof activeTenantId === 'string' && activeTenantId.startsWith('{') ? (JSON.parse(activeTenantId)?.tenantId || 'tenant_main') : activeTenantId;
+      const res = await fetch(`/api/sync?tenantId=${encodeURIComponent(parsedTenant)}`, {
+        headers: { 'x-tenant-id': parsedTenant },
+        cache: 'no-store'
+      });
       if (res.ok) {
         const json = await res.json();
         if (json && json.data) return json.data;

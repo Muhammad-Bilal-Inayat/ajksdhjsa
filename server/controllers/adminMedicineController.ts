@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { getMariaDbPool, isMariaDbAvailable } from '../db/mariaClient';
+import { getTenantVault } from '../db/sqliteVaultManager';
 import { broadcastTenantEvent } from '../routes/syncRoutes';
 import { broadcastFleetActivity } from '../routes/adminRoutes';
 import fs from 'fs';
@@ -801,11 +802,44 @@ export async function assignMedicinesBatchController(req: Request, res: Response
       console.warn('[MARIADB ALLOCATE NOTICE]', dbErr?.message);
     }
 
-    // 2. Update Fallback Local JSON Cache
+    // 2. Persist directly into Target Tenant SQLite Vault (0ms Offline Ready)
+    try {
+      const vault = getTenantVault(targetTenantId);
+      const insertStmt = vault.prepare(`
+        INSERT INTO medicines (id, name, generic_salt, category, barcode, cost_price, sale_price, stock_quantity, min_stock, unit, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          stock_quantity = excluded.stock_quantity,
+          updated_at = datetime('now')
+      `);
+
+      for (const item of itemsToAssign) {
+        const rawId = item.id || Math.random().toString(36).substring(2, 9);
+        const uniqueMedId = `med_${targetTenantId}_${rawId}`;
+        insertStmt.run(
+          uniqueMedId,
+          item.name,
+          item.generic_salt || item.genericFormula || item.genericName || '',
+          item.category || 'General',
+          item.barcode || '',
+          item.purchasePrice || item.purchase_rate || 0,
+          item.sellingPrice || item.mrp_selling_price || 0,
+          Number(initialStock) || 20,
+          5,
+          item.unit || 'Pack'
+        );
+      }
+    } catch (sqlErr: any) {
+      console.warn('[SQLite Vault Assign Notice]', sqlErr?.message);
+    }
+
+    // 3. Update Fallback Local JSON Cache & Sync Store
     try {
       const fallback = getLocalData();
       if (!fallback.mbi_medicines) fallback.mbi_medicines = [];
       if (!fallback.mbi_inventory_batches) fallback.mbi_inventory_batches = [];
+      if (!fallback.medicines) fallback.medicines = [];
 
       const existingMedMap = new Set(
         fallback.mbi_medicines.filter((m: any) => m.tenant_id === targetTenantId).map((m: any) => m.name)
@@ -816,26 +850,46 @@ export async function assignMedicinesBatchController(req: Request, res: Response
           existingMedMap.add(item.name);
           const rawId = item.id || Math.random().toString(36).substring(2, 9);
           const uniqueMedId = `med_${targetTenantId}_${rawId}`;
-          fallback.mbi_medicines.push({
+          const medObj = {
             id: uniqueMedId,
             tenant_id: targetTenantId,
+            tenantId: targetTenantId,
             name: item.name,
             generic_salt: item.generic_salt || item.genericFormula || item.genericName,
+            genericFormula: item.generic_salt || item.genericFormula || item.genericName,
+            genericName: item.generic_salt || item.genericFormula || item.genericName,
             company: item.company || item.brandName,
+            brandName: item.brandName || item.company,
             category: item.category,
             dosage_form: item.dosage_form || item.dosageForm,
+            dosageForm: item.dosage_form || item.dosageForm,
             min_stock_level: 5,
-            pack_size: 1
-          });
+            minStock: 5,
+            lowStockThreshold: 5,
+            quantity: Number(initialStock) || 20,
+            pack_size: 1,
+            unit: item.unit || 'Pack',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          fallback.mbi_medicines.push(medObj);
+          fallback.medicines.push(medObj);
           fallback.mbi_inventory_batches.push({
             id: `batch_${targetTenantId}_${rawId}`,
             tenant_id: targetTenantId,
+            tenantId: targetTenantId,
             medicine_id: uniqueMedId,
+            medicineId: uniqueMedId,
             batch_number: 'MBI-INITIAL',
+            batchNumber: 'MBI-INITIAL',
             expiry_date: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+            expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
             purchase_rate: 0,
+            purchasePrice: 0,
             mrp_selling_price: 0,
+            sellingPrice: 0,
             current_stock_quantity: Number(initialStock) || 20,
+            quantity: Number(initialStock) || 20,
             godown_location: 'Main Shelf'
           });
         }

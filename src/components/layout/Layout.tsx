@@ -456,20 +456,13 @@ export const Layout: React.FC = () => {
             />
           )}
 
-          <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-[#f1f5f9] dark:bg-slate-950 pb-20 md:pb-6 transition-colors duration-150">
+          <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-[#f1f5f9] dark:bg-slate-950 pb-6 transition-colors duration-150">
             <div className="mx-auto max-w-full">
               <Outlet />
             </div>
           </main>
         </div>
       </div>
-
-      {/* Mobile Fixed Bottom Navigation Bar */}
-      {!isServerRoute && (
-        <MobileBottomNav 
-          onOpenMobileMenu={() => setIsMobileSubMenuOpen(true)}
-        />
-      )}
 
       <CompanyProfileModal 
         isOpen={isCompanyModalOpen}

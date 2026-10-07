@@ -183,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Main App Header (Clean Search Bar starting from sidebar edge without duplicate icons) */}
-      <header className="flex items-center justify-between h-[54px] sm:h-[58px] px-2 sm:px-3 lg:px-4 border-b border-slate-200/90 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-900 shadow-md shadow-slate-200/60 dark:shadow-none z-30 gap-2 sm:gap-3 overflow-visible relative w-full transition-all duration-150">
+      <header className="flex items-center justify-between h-[54px] sm:h-[58px] px-2 sm:px-3 lg:px-4 border-b border-slate-200/90 dark:border-slate-800 bg-[#f8fafc] dark:bg-slate-900 shadow-md shadow-slate-200/60 dark:shadow-none z-40 gap-2 sm:gap-3 overflow-visible relative w-full transition-all duration-150">
 
         {/* Search Bar Container starting cleanly next to sidebar with mobile/tablet hamburger */}
         <div className="flex items-center flex-1 min-w-0 max-w-xl xl:max-w-2xl mr-2 sm:mr-3">

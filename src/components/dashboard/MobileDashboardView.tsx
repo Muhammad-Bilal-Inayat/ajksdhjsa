@@ -165,56 +165,9 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#070b14] text-slate-900 dark:text-slate-100 pb-28 select-none transition-colors duration-200">
+    <div className="min-h-screen bg-slate-100 dark:bg-[#070b14] text-slate-900 dark:text-slate-100 pb-6 select-none transition-colors duration-200">
 
-      {/* ─────────────────────────────────────────────────────────────
-          1. TOP APP BAR (Dark Emerald Gradient Header)
-      ───────────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#0a3832] via-[#0b433c] to-[#082e29] text-white px-4 pt-3.5 pb-4 rounded-b-3xl shadow-lg border-b border-emerald-900/40 sticky top-0 z-40">
-        <div className="flex items-center justify-between">
-          
-          {/* Left: Store Branding */}
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
-                <span>MBI Inventra</span>
-              </h1>
-              <p className="text-[11px] font-medium text-emerald-200/80 -mt-0.5">Pharmacy POS & ERP</p>
-            </div>
-          </div>
-
-          {/* Right: Search & Notification Icons */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const el = document.getElementById('mobile-quick-search-input');
-                el?.focus();
-              }}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all cursor-pointer active:scale-95"
-              title="Search"
-            >
-              <Search className="w-4 h-4 text-emerald-100" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsAlertsModalOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all cursor-pointer relative active:scale-95"
-              title="Notifications & Alerts"
-            >
-              <Bell className="w-4 h-4 text-emerald-100" />
-              {(expiredCount + lowStockCount + outOfStockCount) > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-black text-[9px] rounded-full flex items-center justify-center border-2 border-[#0a3832] shadow-sm animate-pulse">
-                  {Math.min(99, expiredCount + lowStockCount + outOfStockCount)}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-3.5 pt-3.5 space-y-3.5 max-w-lg mx-auto">
+      <div className="px-3.5 pt-2 space-y-3.5 max-w-lg mx-auto">
 
         {/* ─────────────────────────────────────────────────────────────
             2. UNIVERSAL SEARCH & BARCODE SCANNER PILL

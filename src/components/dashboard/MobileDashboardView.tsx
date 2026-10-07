@@ -74,7 +74,7 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   const [quickSearch, setQuickSearch] = useState('');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
-  const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'inventory' | 'parties' | 'more'>('home');
+  const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'inventory' | 'parties' | 'settings'>('home');
 
   const maskValue = (val: number | undefined | null) => {
     if (privacyMode) return '••••••';
@@ -173,17 +173,8 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
       <div className="bg-gradient-to-r from-[#0a3832] via-[#0b433c] to-[#082e29] text-white px-4 pt-3.5 pb-4 rounded-b-3xl shadow-lg border-b border-emerald-900/40 sticky top-0 z-40">
         <div className="flex items-center justify-between">
           
-          {/* Left: Drawer Hamburger Menu */}
+          {/* Left: Store Branding */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsDrawerOpen(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-all cursor-pointer active:scale-95"
-              aria-label="Open Navigation Drawer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
             <div>
               <h1 className="text-base font-black tracking-tight text-white flex items-center gap-1.5">
                 <span>MBI Inventra</span>
@@ -770,16 +761,26 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
             <span className="text-[10px] tracking-tight">Parties</span>
           </button>
 
-          {/* Tab 4: More */}
+          {/* Tab 4: Settings */}
           <button
             type="button"
-            onClick={() => setIsDrawerOpen(true)}
-            className="flex flex-col items-center justify-center py-1 px-3 text-slate-400 hover:text-slate-600 dark:text-slate-500 font-semibold transition-all cursor-pointer"
+            onClick={() => {
+              setActiveBottomNav('settings');
+              navigate('/settings');
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-3 transition-all cursor-pointer ${
+              activeBottomNav === 'settings'
+                ? 'text-indigo-600 dark:text-indigo-400 font-black'
+                : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 font-semibold'
+            }`}
           >
-            <div className="p-1">
-              <Layers className="w-5 h-5" />
+            <div className={`p-1 rounded-xl ${activeBottomNav === 'settings' ? 'bg-indigo-50 dark:bg-indigo-950/60' : ''}`}>
+              <Settings className="w-5 h-5" />
             </div>
-            <span className="text-[10px] tracking-tight">More</span>
+            <span className="text-[10px] tracking-tight">Settings</span>
+            {activeBottomNav === 'settings' && (
+              <span className="w-3 h-0.5 bg-indigo-600 dark:bg-indigo-400 rounded-full mt-0.5" />
+            )}
           </button>
 
         </div>

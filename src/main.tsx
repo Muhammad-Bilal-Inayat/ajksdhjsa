@@ -7,11 +7,31 @@ import App from './App.tsx';
 import './index.css';
 import { registerPWA } from './lib/pwaService';
 
+// In local development, purge stale service workers and caches immediately so Vite HMR updates render instantly
+if (import.meta.env.DEV && typeof window !== 'undefined') {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister().catch(() => {});
+      }
+    }).catch(() => {});
+  }
+  if ('caches' in window) {
+    caches.keys().then((keys) => {
+      for (const k of keys) {
+        caches.delete(k).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+}
+
 // Initialize Web Application Security Shield & Anti-Tampering Engine
 initWebSecurityGuard();
 
-// Initialize Progressive Web App Service Worker and Persistent Storage
-registerPWA();
+// Initialize Progressive Web App Service Worker and Persistent Storage (Production only)
+if (!import.meta.env.DEV) {
+  registerPWA();
+}
 
 // Global listener for dynamic import notices with single seamless auto-recovery
 window.addEventListener('vite:preloadError', (event: any) => {

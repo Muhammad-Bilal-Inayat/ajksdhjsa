@@ -3,10 +3,11 @@ import {
   Info, Lock, Building2, Plus, Edit2, Trash2, CheckCircle2, 
   RotateCcw, ShieldCheck, Database, Calendar, DollarSign, FileText,
   Download, Upload, AlertCircle, Sparkles, RefreshCw, Sun, Moon, Monitor, Coins,
-  MessageSquare
+  MessageSquare, Smartphone, Laptop, Share2
 } from 'lucide-react';
 import { useSettings, Firm } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePWAInstall } from '../pwa/usePWAInstall';
 import { 
   generateFullDatabaseSnapshot, 
   downloadBackupSnapshot, 
@@ -52,6 +53,20 @@ export const GeneralTab: React.FC = () => {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  const handleInstallApp = async () => {
+    if (isInstallable) {
+      const success = await install();
+      if (success) {
+        showToast('App installed successfully! Enjoy 0ms offline experience.');
+      }
+    } else {
+      setShowInstallGuide(true);
+    }
   };
 
   const [showShiftTimer, setShowShiftTimer] = useState<boolean>(() => {
@@ -785,6 +800,125 @@ export const GeneralTab: React.FC = () => {
 
         {/* Column 3: System & Environment */}
         <div className="space-y-6">
+          {/* Universal App Install Card (All Devices Supported) */}
+          <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-blue-800/40 relative overflow-hidden space-y-4">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-blue-500/20 border border-blue-400/30 rounded-xl text-blue-300">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-white flex items-center gap-1.5">
+                    <span>Install Application</span>
+                    <span className="text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      All Devices
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-blue-200/70">Fast 0ms Offline POS on Windows, Android & iOS</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Supported Platforms Pills */}
+            <div className="grid grid-cols-3 gap-1.5 text-[10px] font-semibold text-slate-300">
+              <div className="flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-white/5 border border-white/10">
+                <Laptop className="w-3 h-3 text-cyan-400" />
+                <span>Windows</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-white/5 border border-white/10">
+                <Smartphone className="w-3 h-3 text-emerald-400" />
+                <span>Android</span>
+              </div>
+              <div className="flex items-center justify-center gap-1 py-1 px-2 rounded-lg bg-white/5 border border-white/10">
+                <Smartphone className="w-3 h-3 text-amber-400" />
+                <span>iPhone / iPad</span>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            {isInstalled ? (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  App Installed & Ready
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowInstallGuide(!showInstallGuide)}
+                  className="text-[10px] underline hover:text-white text-emerald-200"
+                >
+                  {showInstallGuide ? 'Close Guide' : 'View Guide'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleInstallApp}
+                  className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-950/50 flex items-center justify-center gap-2 transition-all active:scale-[0.99] border border-blue-400/30"
+                >
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                  <span>{isIOS ? 'Install on iPhone / iPad (iOS)' : 'Install MBI Inventra App'}</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowInstallGuide(!showInstallGuide)}
+                  className="w-full text-center text-[11px] text-blue-300/80 hover:text-white transition-colors"
+                >
+                  {showInstallGuide ? 'Hide Installation Instructions' : 'How to install on other devices?'}
+                </button>
+              </div>
+            )}
+
+            {/* Step by Step Guide */}
+            {showInstallGuide && (
+              <div className="p-3 bg-slate-950/80 border border-slate-700/60 rounded-xl space-y-2 text-[11px] text-slate-200 animate-in fade-in duration-200">
+                <div className="font-bold text-xs text-blue-300 flex items-center justify-between">
+                  <span>How to Install on Your Device:</span>
+                  <button 
+                    type="button"
+                    onClick={() => setShowInstallGuide(false)}
+                    className="text-slate-400 hover:text-white text-xs px-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                    <div className="font-bold text-cyan-300 flex items-center gap-1 text-[11px]">
+                      <Laptop className="w-3.5 h-3.5 text-cyan-400" /> Windows PC / Mac (Chrome / Edge):
+                    </div>
+                    <p className="text-slate-300 text-[10px] mt-0.5 leading-relaxed">
+                      Click the <strong>Install</strong> button above or click the <strong>Install icon (⊕ / ⤓)</strong> in your browser address bar at top right.
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                    <div className="font-bold text-emerald-300 flex items-center gap-1 text-[11px]">
+                      <Smartphone className="w-3.5 h-3.5 text-emerald-400" /> Android (Chrome / Brave / Edge):
+                    </div>
+                    <p className="text-slate-300 text-[10px] mt-0.5 leading-relaxed">
+                      Tap the 3 dots menu (⋮) at top right &gt; Tap <strong>Install App</strong> or <strong>Add to Home Screen</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-white/5 border border-white/5">
+                    <div className="font-bold text-amber-300 flex items-center gap-1 text-[11px]">
+                      <Share2 className="w-3.5 h-3.5 text-amber-400" /> iPhone / iPad (Safari):
+                    </div>
+                    <p className="text-slate-300 text-[10px] mt-0.5 leading-relaxed">
+                      Tap the <strong>Share</strong> button (box with arrow ↑) at bottom of Safari &gt; Scroll down and tap <strong>Add to Home Screen</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Quick Stats / System Health */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2">
             <h4 className="font-bold text-slate-700 text-xs flex items-center gap-1.5">

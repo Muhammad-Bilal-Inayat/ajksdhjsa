@@ -195,6 +195,15 @@
       color: #0f172a;
     }
 
+    @keyframes mbi-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes mbi-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .emergency-btn {
       margin-top: 14px;
       padding: 8px 18px;
@@ -215,25 +224,90 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Instant Zero-Delay Pre-React Splash Loader (Prevents Mobile Blank Screen) -->
+    <div id="mbi-initial-loader" style="min-height: 100vh; background: #0b0f19; color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; text-align: center; user-select: none;">
+      <div style="position: relative; width: 68px; height: 68px; margin-bottom: 22px;">
+        <div style="position: absolute; inset: 0; border-radius: 50%; border: 3.5px solid rgba(6, 182, 212, 0.15); border-top-color: #06b6d4; animation: mbi-spin 0.9s linear infinite;"></div>
+        <div style="position: absolute; inset: 7px; border-radius: 50%; border: 3px solid rgba(59, 130, 246, 0.15); border-bottom-color: #3b82f6; animation: mbi-spin 1.4s linear infinite reverse;"></div>
+        <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">
+          <img src="/mbi-favicon.png" alt="MBI" style="width: 28px; height: 28px; border-radius: 6px; object-fit: contain;" onerror="this.style.display='none'" />
+        </div>
+      </div>
+      <h1 style="font-size: 21px; font-weight: 900; letter-spacing: -0.5px; margin: 0 0 6px 0; color: #ffffff;">
+        MBI <span style="color: #06b6d4;">INVENTRA</span>
+      </h1>
+      <p id="mbi-loader-msg" style="font-size: 12px; color: #94a3b8; margin: 0; font-weight: 500;">
+        Connecting to High-Speed Cloud POS...
+      </p>
+      <div id="mbi-loader-recovery" style="display: none; margin-top: 22px; animation: mbi-fade-in 0.3s ease;">
+        <button onclick="window.__mbi_force_recover()" style="padding: 10px 20px; background: #0284c7; color: white; border: none; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
+          ⚡ Refresh &amp; Update App
+        </button>
+      </div>
+    </div>
+  </div>
 
-  <!-- Failsafe emergency helper script -->
+  <!-- Failsafe emergency helper script & auto-recovery timer -->
   <script>
-    window.__mbi_emergency_reset = function () {
-      if (confirm('Reset application local storage cache and reload? Your cloud data is safe.')) {
-        try {
-          localStorage.clear();
-          sessionStorage.clear();
-          if (window.indexedDB) {
-            indexedDB.deleteDatabase('pharma-manager-db');
-            indexedDB.deleteDatabase('MbiInventraOfflineDB');
-          }
-        } catch (e) {
-          console.warn(e);
+    (function () {
+      // If running on localhost/127.0.0.1 in local development, unregister old production service workers immediately
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '5173' || window.location.port === '3000') {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            for (var i = 0; i < regs.length; i++) {
+              regs[i].unregister();
+            }
+          });
         }
-        window.location.reload();
       }
-    };
+
+      var timer = setTimeout(function () {
+        var recoveryEl = document.getElementById('mbi-loader-recovery');
+        var msgEl = document.getElementById('mbi-loader-msg');
+        if (recoveryEl) recoveryEl.style.display = 'block';
+        if (msgEl) msgEl.innerText = 'Syncing updates... Tap button if not loaded.';
+      }, 4500);
+      window.__mbi_timeout_timer = timer;
+
+      window.__mbi_force_recover = function () {
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              for (var i = 0; i < regs.length; i++) {
+                regs[i].unregister();
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function (keys) {
+              for (var i = 0; i < keys.length; i++) {
+                caches.delete(keys[i]);
+              }
+            });
+          }
+        } catch (e) { }
+        setTimeout(function () {
+          window.location.reload();
+        }, 150);
+      };
+
+      window.__mbi_emergency_reset = function () {
+        if (confirm('Reset application local storage cache and reload? Your cloud data is safe.')) {
+          try {
+            localStorage.clear();
+            sessionStorage.clear();
+            if (window.indexedDB) {
+              indexedDB.deleteDatabase('pharma-manager-db');
+              indexedDB.deleteDatabase('MbiInventraOfflineDB');
+            }
+          } catch (e) {
+            console.warn(e);
+          }
+          window.location.reload();
+        }
+      };
+    })();
   </script>
 
   <script type="module" src="/src/main.tsx"></script>

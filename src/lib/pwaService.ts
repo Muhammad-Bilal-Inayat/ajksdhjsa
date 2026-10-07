@@ -103,14 +103,28 @@ export const initializePwaService = () => {
   window.addEventListener('focus', () => checkForAppVersionUpdate());
   window.addEventListener('online', () => checkForAppVersionUpdate());
 
-  // In local development on localhost/127.0.0.1, unregister stale service workers to prevent chunk hanging
-  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // In local development on localhost/127.0.0.1, unregister stale service workers and clear cache to prevent chunk hanging
+  const isLocalDev = Boolean(
+    import.meta.env.DEV ||
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '0.0.0.0' ||
+    window.location.port === '5173' ||
+    window.location.port === '3000'
+  );
   if (isLocalDev && 'serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       for (const registration of registrations) {
         registration.unregister().catch(() => {});
       }
     }).catch(() => {});
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const k of keys) {
+          caches.delete(k).catch(() => {});
+        }
+      });
+    }
     return () => clearInterval(interval);
   }
 

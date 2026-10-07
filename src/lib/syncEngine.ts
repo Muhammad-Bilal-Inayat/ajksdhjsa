@@ -155,7 +155,7 @@ class SyncEngine {
           }
 
           if (payload && (payload.type === 'MEDICINES_ALLOCATED_BY_ADMIN' || payload.type === 'CENTRAL_MEDICINES_ASSIGNED')) {
-            this.pullLatestStateFromServer(true).catch(() => {});
+            this.pullServerSync(true).catch(() => {});
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('mbi-medicines-updated', { detail: payload.payload }));
               window.dispatchEvent(new CustomEvent('mbi-stock-updated'));

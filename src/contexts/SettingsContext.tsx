@@ -152,6 +152,7 @@ export interface AppSettings {
     enableQrScanner: boolean;
     showPwaInstallButton?: boolean;
     showShiftButton?: boolean;
+    showAiFloatingButton?: boolean;
   };
   featureFlags: FeatureFlags;
   safetyRules: SafetyRulesConfig;
@@ -431,6 +432,7 @@ export const defaultSettings: AppSettings = {
     lastBackupDate: '01/09/2026 | 09:09 AM',
     enableQrScanner: true,
     showPwaInstallButton: false,
+    showAiFloatingButton: true,
   },
   featureFlags: {
     universalSearch: true,

@@ -1,12 +1,39 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { useSettings } from '../../contexts/SettingsContext';
 import { MbiAiChatDrawer } from './MbiAiChatDrawer';
 
 export const MbiAiAssistant: React.FC = () => {
+  const { settings } = useSettings();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const dragStartedRef = useRef(false);
   const dragStartTimeRef = useRef(0);
+
+  const [isVisible, setIsVisible] = useState(() => {
+    const stored = localStorage.getItem('mbi_show_ai_floating_icon');
+    if (stored !== null) return stored === 'true';
+    return settings.general.showAiFloatingButton ?? true;
+  });
+
+  useEffect(() => {
+    const syncVisibility = () => {
+      const stored = localStorage.getItem('mbi_show_ai_floating_icon');
+      if (stored !== null) {
+        setIsVisible(stored === 'true');
+      } else {
+        setIsVisible(settings.general.showAiFloatingButton ?? true);
+      }
+    };
+
+    window.addEventListener('mbi-ai-settings-changed', syncVisibility);
+    window.addEventListener('mbi_settings_updated', syncVisibility);
+    window.addEventListener('storage', syncVisibility);
+    return () => {
+      window.removeEventListener('mbi-ai-settings-changed', syncVisibility);
+      window.removeEventListener('mbi_settings_updated', syncVisibility);
+      window.removeEventListener('storage', syncVisibility);
+    };
+  }, [settings.general.showAiFloatingButton]);
 
   const handlePointerDown = () => {
     dragStartedRef.current = false;
@@ -17,16 +44,20 @@ export const MbiAiAssistant: React.FC = () => {
     dragStartedRef.current = true;
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = () => {
     const duration = Date.now() - dragStartTimeRef.current;
     if (!dragStartedRef.current || duration < 200) {
       setIsDrawerOpen(true);
     }
   };
 
+  if (!isVisible || settings.general.showAiFloatingButton === false) {
+    return null;
+  }
+
   return (
     <>
-      {/* Draggable Floating 'MBI AI Guide' Button (Positioned at bottom-left) */}
+      {/* Draggable Floating Round 'MBI INVENTRA' AI Emblem Button (Positioned at bottom-left) */}
       <motion.div
         drag
         dragMomentum={false}
@@ -40,23 +71,97 @@ export const MbiAiAssistant: React.FC = () => {
         whileTap={{ scale: 0.94 }}
         className="fixed bottom-6 left-6 z-50 cursor-grab active:cursor-grabbing select-none"
         style={{ touchAction: 'none' }}
+        title="MBI AI Assistant & Guide (Click to open)"
       >
-        <div className="relative group">
-          {/* Ambient Glow */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 rounded-full blur-md opacity-80 dark:opacity-100 group-hover:opacity-100 transition duration-300 animate-pulse pointer-events-none" />
+        <div className="relative group flex items-center justify-center">
+          {/* Ambient Glow Halo */}
+          <div className="absolute -inset-1 bg-gradient-to-tr from-blue-600 via-cyan-400 to-indigo-600 rounded-full blur-lg opacity-60 group-hover:opacity-90 transition duration-300 animate-pulse pointer-events-none" />
 
-          {/* Badge Container */}
-          <div className="relative flex items-center gap-2 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 dark:from-blue-600 dark:via-cyan-600 dark:to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-xl border border-white/30 dark:border-cyan-400/60 backdrop-blur-md transition-all">
-            <div className="w-5 h-5 rounded-full bg-white p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs border border-white/40">
-              <img 
-                src="/mbi-favicon.png" 
-                alt="MBI" 
-                className="w-full h-full object-contain" 
-                onError={(e) => { (e.target as HTMLImageElement).src = '/mbi-favicon.svg'; }} 
-              />
-            </div>
-            <span className="tracking-wide font-black text-white drop-shadow-xs">MBI AI</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          {/* Pure White Circular Emblem Badge */}
+          <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white dark:bg-slate-900 p-1 shadow-2xl shadow-blue-500/30 dark:shadow-blue-500/20 border-2 border-white/90 dark:border-slate-700/80 flex items-center justify-center transition-transform">
+            
+            {/* Circular Vector Emblem */}
+            <svg viewBox="0 0 100 100" className="w-full h-full select-none" fill="none">
+              <defs>
+                <linearGradient id="mbiAiLogoRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#00d2ff" />
+                  <stop offset="50%" stopColor="#0066ff" />
+                  <stop offset="100%" stopColor="#002b80" />
+                </linearGradient>
+                <linearGradient id="inventraTextGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0047cc" />
+                  <stop offset="50%" stopColor="#0066ff" />
+                  <stop offset="100%" stopColor="#00d2ff" />
+                </linearGradient>
+              </defs>
+
+              {/* Blue / Cyan Outer Circular Border Ring */}
+              <circle cx="50" cy="50" r="46.5" stroke="url(#mbiAiLogoRingGrad)" strokeWidth="3.2" fill="none" />
+
+              {/* MBI Bold Lettering */}
+              <text 
+                x="50" 
+                y="48" 
+                textAnchor="middle" 
+                fontWeight="900" 
+                fontSize="24" 
+                fontFamily="system-ui, -apple-system, sans-serif" 
+                fill="#0f172a" 
+                className="dark:fill-white"
+                letterSpacing="-0.5"
+              >
+                MBI
+              </text>
+
+              {/* INVENTRA Gradient Brand */}
+              <text 
+                x="50" 
+                y="63" 
+                textAnchor="middle" 
+                fontWeight="900" 
+                fontSize="10" 
+                fontFamily="system-ui, -apple-system, sans-serif" 
+                fill="url(#inventraTextGrad)" 
+                letterSpacing="0.8"
+              >
+                INVENTRA
+              </text>
+
+              {/* Subtitle Separator Lines & Subtext */}
+              <line x1="16" y1="67.5" x2="25" y2="67.5" stroke="#94a3b8" strokeWidth="0.8" strokeLinecap="round" />
+              <text 
+                x="50" 
+                y="70.5" 
+                textAnchor="middle" 
+                fontWeight="800" 
+                fontSize="4" 
+                fontFamily="system-ui, -apple-system, sans-serif" 
+                fill="#334155" 
+                className="dark:fill-slate-300"
+                letterSpacing="-0.1"
+              >
+                PHARMACY &amp; INVENTORY
+              </text>
+              <line x1="75" y1="67.5" x2="84" y2="67.5" stroke="#94a3b8" strokeWidth="0.8" strokeLinecap="round" />
+
+              <text 
+                x="50" 
+                y="75.5" 
+                textAnchor="middle" 
+                fontWeight="800" 
+                fontSize="3.8" 
+                fontFamily="system-ui, -apple-system, sans-serif" 
+                fill="#64748b" 
+                className="dark:fill-slate-400"
+                letterSpacing="0.3"
+              >
+                MANAGEMENT
+              </text>
+            </svg>
+
+            {/* Active Status Pulse Indicator */}
+            <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 shadow-xs" />
+            <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-emerald-400 rounded-full animate-ping opacity-75 pointer-events-none" />
           </div>
         </div>
       </motion.div>

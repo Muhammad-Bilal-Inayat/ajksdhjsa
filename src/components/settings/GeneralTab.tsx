@@ -404,6 +404,37 @@ export const GeneralTab: React.FC = () => {
               <span title="Controls cashier shift timer & reconcile button visibility in header"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
             </div>
 
+            {/* Show / Hide Floating MBI AI Assistant Icon */}
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={settings.general.showAiFloatingButton ?? true}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    updateGeneral({ showAiFloatingButton: checked });
+                    localStorage.setItem('mbi_show_ai_floating_icon', checked ? 'true' : 'false');
+                    localStorage.setItem('mbi_ai_assistant_enabled', checked ? 'true' : 'false');
+                    window.dispatchEvent(new Event('mbi-ai-settings-changed'));
+                    window.dispatchEvent(new Event('mbi_settings_updated'));
+                    window.dispatchEvent(new Event('storage'));
+                    showToast(checked ? '✨ MBI AI Floating Icon Enabled for all screens' : '🚫 MBI AI Floating Icon Hidden');
+                  }}
+                  className="w-4 h-4 mt-1 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                    <span>Show MBI AI Floating Assistant Icon</span>
+                    <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Controls the bottom-left floating round AI logo emblem visibility on all user screens
+                  </div>
+                </div>
+              </label>
+              <span title="Toggle floating MBI AI Assistant circular emblem on/off"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
+            </div>
+
             {/* Currency */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">

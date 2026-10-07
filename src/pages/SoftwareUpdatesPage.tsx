@@ -44,32 +44,15 @@ export const SoftwareUpdatesPage: React.FC = () => {
   }, []);
 
   const handleCheckForUpdates = () => {
-    setChecking(true);
-    setStatusMessage('Querying master release server and checking schema hashes...');
-    
-    setTimeout(() => {
-      setChecking(false);
-      setStatusMessage(`✨ You are running the latest production build (${APP_VERSION_STABLE}). All features and security patches are active.`);
-      emitToast('Software is 100% up to date!', 'success');
-    }, 1200);
+    window.dispatchEvent(new CustomEvent('mbi-open-manual-update', {
+      detail: { version: APP_VERSION_STABLE }
+    }));
   };
 
-  const handleCleanCacheAndReload = async () => {
-    setClearingCache(true);
-    try {
-      if ('caches' in window) {
-        const cacheKeys = await caches.keys();
-        await Promise.all(cacheKeys.map(key => caches.delete(key)));
-      }
-      sessionStorage.clear();
-      emitToast('App cache flushed! Reloading fresh bundle...', 'info');
-      setTimeout(() => {
-        window.location.reload();
-      }, 800);
-    } catch (e) {
-      console.error('Failed to clear cache:', e);
-      window.location.reload();
-    }
+  const handleCleanCacheAndReload = () => {
+    window.dispatchEvent(new CustomEvent('mbi-open-manual-update', {
+      detail: { version: APP_VERSION_STABLE }
+    }));
   };
 
   return (

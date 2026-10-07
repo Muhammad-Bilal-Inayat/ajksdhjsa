@@ -94,17 +94,9 @@ export const SystemUpdatesTab: React.FC = () => {
   }, [tenantId, tenant]);
 
   const handleCheckUpdates = () => {
-    setChecking(true);
-    setStatusMessage('Checking server release channel and verifying database schemas...');
-    setTimeout(() => {
-      setChecking(false);
-      const pending = pendingUpdates.filter(u => u.status === 'PENDING');
-      if (pending.length > 0) {
-        setStatusMessage(`🚀 Update Available! Version ${pending[0].version} (${pending[0].title}) is ready to install below.`);
-      } else {
-        setStatusMessage('Your software is running the latest available build. All core modules are completely up to date!');
-      }
-    }, 1200);
+    window.dispatchEvent(new CustomEvent('mbi-open-manual-update', {
+      detail: { version: APP_VERSION }
+    }));
   };
 
   const handleInstallPendingUpdate = (update: PendingSystemUpdate) => {

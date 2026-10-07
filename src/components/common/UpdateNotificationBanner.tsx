@@ -30,63 +30,7 @@ export const UpdateNotificationBanner: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  // 1. ROUTE SCOPE RULE:
-  // Completely HIDE on public Landing / Home page ('/'), Features, Pricing, and Checkout
-  const isPublicPage = 
-    location.pathname === '/' || 
-    location.pathname === '/home' || 
-    location.pathname === '/site' || 
-    location.pathname === '/landing' || 
-    location.pathname === '/plans' || 
-    location.pathname === '/pricing' || 
-    location.pathname === '/checkout' || 
-    location.pathname === '/blog' ||
-    location.pathname.startsWith('/blog/') ||
-    location.pathname === '/blogs' ||
-    location.pathname.startsWith('/blogs/') ||
-    location.pathname.startsWith('/auth') ||
-    location.pathname === '/login' ||
-    location.pathname === '/register' ||
-    location.pathname === '/pending-approval' ||
-    location.pathname.startsWith('/store');
-
-  if (isPublicPage) return null;
-
-  // Render ONLY when the user is inside an authenticated workspace or master server admin
-  // User App Routes: /dashboard, /pos, /sale/*, /billing, /items, /purchase, /reports, /settings, /user/*
-  // Master Admin Route: /server
-  const isAllowedWorkspaceRoute =
-    location.pathname.startsWith('/server') ||
-    location.pathname.startsWith('/master') ||
-    location.pathname.startsWith('/user') ||
-    location.pathname.startsWith('/dashboard') ||
-    location.pathname.startsWith('/pos') ||
-    location.pathname.startsWith('/sale') ||
-    location.pathname.startsWith('/billing') ||
-    location.pathname.startsWith('/items') ||
-    location.pathname.startsWith('/inventory') ||
-    location.pathname.startsWith('/purchase') ||
-    location.pathname.startsWith('/purchases') ||
-    location.pathname.startsWith('/reports') ||
-    location.pathname.startsWith('/settings') ||
-    location.pathname.startsWith('/expenses') ||
-    location.pathname.startsWith('/bank') ||
-    location.pathname.startsWith('/parties') ||
-    location.pathname.startsWith('/bookers') ||
-    location.pathname.startsWith('/shortage') ||
-    location.pathname.startsWith('/top-products') ||
-    location.pathname.startsWith('/shift') ||
-    location.pathname.startsWith('/notes') ||
-    location.pathname.startsWith('/daily-notes') ||
-    location.pathname.startsWith('/sync') ||
-    location.pathname.startsWith('/utilities') ||
-    location.pathname.startsWith('/online-store') ||
-    location.pathname.startsWith('/seo');
-
-  if (!isAllowedWorkspaceRoute) {
-    return null;
-  }
-
+  // Show update banner across all routes when an update is available (Home page, Dashboards & Workspace)
   if (!updateInfo || !updateInfo.isUpdateAvailable || isDismissed) {
     return null;
   }
@@ -98,13 +42,15 @@ export const UpdateNotificationBanner: React.FC = () => {
     setIsDismissed(true);
   };
 
-  const handleUpdate = async () => {
-    setIsUpdating(true);
+  const handleUpdate = () => {
     if (updateInfo?.version) {
       dismissUpdateForSession(updateInfo.version);
     }
-    await triggerSeamlessHotUpdate();
     setIsDismissed(true);
+    // Trigger smooth 0% to 100% manual update modal
+    window.dispatchEvent(new CustomEvent('mbi-open-manual-update', { 
+      detail: { version: updateInfo?.version || '4.4.2' } 
+    }));
   };
 
   return (

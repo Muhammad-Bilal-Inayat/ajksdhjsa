@@ -16,6 +16,7 @@ import { initializePwaService } from './lib/pwaService';
 import { TimeTamperGuardModal } from './components/common/TimeTamperGuardModal';
 import { SecretManualPatchModal } from './components/admin/SecretManualPatchModal';
 import { UpdateNotificationBanner } from './components/common/UpdateNotificationBanner';
+import { ManualUpdateModal } from './components/common/ManualUpdateModal';
 import { MbiAiWidget } from './components/common/MbiAiWidget';
 import { TenantPlanProvider } from './context/TenantPlanContext';
 import { AiGuidePage } from './pages/AiGuidePage';
@@ -648,6 +649,7 @@ export default function App() {
                   <TimeTamperGuardModal />
                   <SecretManualPatchModal />
                   <UpdateNotificationBanner />
+                  <ManualUpdateModal />
                   <MbiAiWidget />
                   <LicenseMilestoneAlert />
                   <GlobalBroadcastPopupModal />

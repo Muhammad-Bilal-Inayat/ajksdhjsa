@@ -73,6 +73,9 @@ checkAndRecoverFromPersistentStorage();
  */
 export function persistVaultSnapshot(): void {
   try {
+    if (masterDbInstance) {
+      try { masterDbInstance.exec('PRAGMA wal_checkpoint(PASSIVE);'); } catch {}
+    }
     if (fs.existsSync(MASTER_DB_PATH)) {
       if (!fs.existsSync(OUTSIDE_MASTER_DIR)) fs.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
       fs.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);

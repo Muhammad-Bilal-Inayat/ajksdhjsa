@@ -13,7 +13,69 @@ import { DatabaseSync } from 'node:sqlite';
  */
 
 const ROOT_DIR = process.cwd();
-const DATA_DIR = process.env.DATA_DIR || process.env.MBI_DATA_DIR || path.resolve(ROOT_DIR, 'server', 'data');
+
+/**
+ * Validates if a target directory path is writable by testing mkdir and write
+ */
+function isDirectoryWritable(dirPath: string): boolean {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    const testFile = path.join(dirPath, `.mbi_perm_test_${process.pid}_${Date.now()}.tmp`);
+    fs.writeFileSync(testFile, 'ok');
+    fs.unlinkSync(testFile);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Safely ensure directory exists without throwing unhandled exceptions
+ */
+function ensureDir(dirPath: string): void {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+  } catch {}
+}
+
+/**
+ * Determine the safest writable data directory for SQLite vaults
+ */
+function determineSafeDataDir(): string {
+  const envDir = process.env.DATA_DIR || process.env.MBI_DATA_DIR;
+  if (envDir && envDir.trim().length > 0) {
+    const resolvedEnv = path.resolve(envDir.trim());
+    if (isDirectoryWritable(resolvedEnv)) {
+      return resolvedEnv;
+    } else {
+      console.warn(`⚠️ [STORAGE NOTICE]: Configured DATA_DIR "${resolvedEnv}" is not writable in current environment. Automatically falling back to persistent user storage.`);
+    }
+  }
+
+  // 1. Outside git root persistent folder (Immune to git deploy/clean)
+  const outsideCandidate = path.resolve(ROOT_DIR, '..', 'mbi_server_vault_persistent');
+  if (isDirectoryWritable(outsideCandidate)) {
+    return outsideCandidate;
+  }
+
+  // 2. User home directory persistent folder
+  const homeDir = process.env.HOME || process.env.USERPROFILE || ROOT_DIR;
+  const homeCandidate = path.resolve(homeDir, 'mbi_server_vault_persistent');
+  if (isDirectoryWritable(homeCandidate)) {
+    return homeCandidate;
+  }
+
+  // 3. Local server/data fallback
+  const localCandidate = path.resolve(ROOT_DIR, 'server', 'data');
+  ensureDir(localCandidate);
+  return localCandidate;
+}
+
+const DATA_DIR = determineSafeDataDir();
 const MASTER_DIR = path.join(DATA_DIR, 'master');
 const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
@@ -23,45 +85,90 @@ const OUTSIDE_PERSISTENT_DIR = path.resolve(ROOT_DIR, '..', 'mbi_server_vault_pe
 const OUTSIDE_MASTER_DIR = path.join(OUTSIDE_PERSISTENT_DIR, 'master');
 const OUTSIDE_TENANTS_DIR = path.join(OUTSIDE_PERSISTENT_DIR, 'tenants');
 
-// Ensure all database storage directories exist
-[DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    try { fs.mkdirSync(dir, { recursive: true }); } catch {}
-  }
-});
-
-try {
-  if (!fs.existsSync(OUTSIDE_MASTER_DIR)) fs.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
-  if (!fs.existsSync(OUTSIDE_TENANTS_DIR)) fs.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
-} catch {}
+// Ensure all database storage directories exist safely
+[DATA_DIR, MASTER_DIR, TENANTS_DIR, BACKUPS_DIR].forEach(ensureDir);
+if (OUTSIDE_PERSISTENT_DIR !== DATA_DIR) {
+  [OUTSIDE_PERSISTENT_DIR, OUTSIDE_MASTER_DIR, OUTSIDE_TENANTS_DIR].forEach(ensureDir);
+}
 
 const MASTER_DB_PATH = path.join(MASTER_DIR, 'master_hub.sqlite');
 const OUTSIDE_MASTER_DB_PATH = path.join(OUTSIDE_MASTER_DIR, 'master_hub.sqlite');
 
 /**
- * Self-healing Auto-Recovery from External Persistent Storage
- * (Runs when Git redeploy wipes untracked files in working directory)
+ * Self-healing Auto-Recovery from Multi-Location Persistent Storage
+ * (Runs when Git redeploy wipes untracked files or when paths change across releases)
  */
 function checkAndRecoverFromPersistentStorage(): void {
   try {
-    const localExists = fs.existsSync(MASTER_DB_PATH) && fs.statSync(MASTER_DB_PATH).size > 0;
-    const persistentExists = fs.existsSync(OUTSIDE_MASTER_DB_PATH) && fs.statSync(OUTSIDE_MASTER_DB_PATH).size > 0;
+    ensureDir(MASTER_DIR);
+    ensureDir(TENANTS_DIR);
 
-    if (!localExists && persistentExists) {
-      console.log('🔄 [PERSISTENT VAULT AUTO-RECOVERY]: Restoring registered tenants and users from persistent storage outside git...');
-      fs.copyFileSync(OUTSIDE_MASTER_DB_PATH, MASTER_DB_PATH);
-      if (fs.existsSync(OUTSIDE_TENANTS_DIR)) {
-        const files = fs.readdirSync(OUTSIDE_TENANTS_DIR);
-        for (const file of files) {
-          if (file.endsWith('.sqlite')) {
-            fs.copyFileSync(path.join(OUTSIDE_TENANTS_DIR, file), path.join(TENANTS_DIR, file));
-          }
+    // List of candidate locations to look for existing master hub vaults
+    const candidateMasterLocations = [
+      OUTSIDE_MASTER_DB_PATH,
+      path.resolve(ROOT_DIR, 'server', 'data', 'master', 'master_hub.sqlite'),
+      path.resolve(process.env.HOME || ROOT_DIR, 'mbi_server_vault_persistent', 'master', 'master_hub.sqlite'),
+      path.resolve(ROOT_DIR, '..', 'mbi_server_vault_persistent', 'master', 'master_hub.sqlite')
+    ];
+
+    const currentMasterValid = fs.existsSync(MASTER_DB_PATH) && fs.statSync(MASTER_DB_PATH).size > 0;
+
+    if (!currentMasterValid) {
+      for (const srcMaster of candidateMasterLocations) {
+        if (srcMaster !== MASTER_DB_PATH && fs.existsSync(srcMaster)) {
+          try {
+            const stats = fs.statSync(srcMaster);
+            if (stats.size > 0) {
+              console.log(`🔄 [PERSISTENT VAULT AUTO-RECOVERY]: Restoring registered master database from ${srcMaster}...`);
+              ensureDir(path.dirname(MASTER_DB_PATH));
+              fs.copyFileSync(srcMaster, MASTER_DB_PATH);
+              console.log('✅ [PERSISTENT VAULT RESTORED]: Master database restored successfully.');
+              break;
+            }
+          } catch {}
         }
       }
-      console.log('✅ [PERSISTENT VAULT RESTORED]: 100% of tenants, users, and company data restored seamlessly.');
+    }
+
+    // Restore any existing tenant vaults across all known persistent folders
+    const candidateTenantLocations = [
+      OUTSIDE_TENANTS_DIR,
+      path.resolve(ROOT_DIR, 'server', 'data', 'tenants'),
+      path.resolve(process.env.HOME || ROOT_DIR, 'mbi_server_vault_persistent', 'tenants'),
+      path.resolve(ROOT_DIR, '..', 'mbi_server_vault_persistent', 'tenants')
+    ];
+
+    for (const srcTenantsDir of candidateTenantLocations) {
+      if (srcTenantsDir !== TENANTS_DIR && fs.existsSync(srcTenantsDir)) {
+        try {
+          const files = fs.readdirSync(srcTenantsDir);
+          for (const file of files) {
+            if (file.endsWith('.sqlite')) {
+              const srcFile = path.join(srcTenantsDir, file);
+              const destFile = path.join(TENANTS_DIR, file);
+              if (!fs.existsSync(destFile) || fs.statSync(destFile).size === 0) {
+                ensureDir(TENANTS_DIR);
+                fs.copyFileSync(srcFile, destFile);
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // Replicate active master to persistent storage outside git if not already present
+    if (fs.existsSync(MASTER_DB_PATH) && fs.statSync(MASTER_DB_PATH).size > 0) {
+      if (OUTSIDE_MASTER_DB_PATH !== MASTER_DB_PATH) {
+        ensureDir(OUTSIDE_MASTER_DIR);
+        if (!fs.existsSync(OUTSIDE_MASTER_DB_PATH) || fs.statSync(OUTSIDE_MASTER_DB_PATH).size === 0) {
+          try {
+            fs.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);
+          } catch {}
+        }
+      }
     }
   } catch (err: any) {
-    console.warn('[PERSISTENT VAULT RECOVERY NOTICE]:', err?.message);
+    console.warn('[PERSISTENT VAULT RECOVERY NOTICE]:', err?.message || err);
   }
 }
 
@@ -76,12 +183,12 @@ export function persistVaultSnapshot(): void {
     if (masterDbInstance) {
       try { masterDbInstance.exec('PRAGMA wal_checkpoint(PASSIVE);'); } catch {}
     }
-    if (fs.existsSync(MASTER_DB_PATH)) {
-      if (!fs.existsSync(OUTSIDE_MASTER_DIR)) fs.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
+    if (OUTSIDE_PERSISTENT_DIR !== DATA_DIR && fs.existsSync(MASTER_DB_PATH)) {
+      ensureDir(OUTSIDE_MASTER_DIR);
       fs.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);
     }
-    if (fs.existsSync(TENANTS_DIR)) {
-      if (!fs.existsSync(OUTSIDE_TENANTS_DIR)) fs.mkdirSync(OUTSIDE_TENANTS_DIR, { recursive: true });
+    if (OUTSIDE_PERSISTENT_DIR !== DATA_DIR && fs.existsSync(TENANTS_DIR)) {
+      ensureDir(OUTSIDE_TENANTS_DIR);
       const files = fs.readdirSync(TENANTS_DIR);
       for (const file of files) {
         if (file.endsWith('.sqlite')) {
@@ -109,6 +216,7 @@ const tenantDbCache = new Map<string, DatabaseSync>();
 export function getMasterVault(): DatabaseSync {
   if (masterDbInstance) return masterDbInstance;
 
+  ensureDir(path.dirname(MASTER_DB_PATH));
   masterDbInstance = new DatabaseSync(MASTER_DB_PATH);
   
   // Enable high-concurrency WAL mode & fast performance pragmas
@@ -374,6 +482,7 @@ export function getTenantVault(tenantId: string): DatabaseSync {
   }
 
   const tenantDbPath = path.join(TENANTS_DIR, `tenant_${cleanId}.sqlite`);
+  ensureDir(path.dirname(tenantDbPath));
   const tenantDb = new DatabaseSync(tenantDbPath);
 
   // Enable WAL mode & build isolated schema

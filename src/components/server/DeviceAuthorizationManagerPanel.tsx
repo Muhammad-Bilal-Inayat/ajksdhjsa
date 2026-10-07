@@ -518,9 +518,9 @@ export const DeviceAuthorizationManagerPanel: React.FC<DeviceAuthorizationManage
                       const userMaxLimit = getUserMaxAllowedDevices(dev.userId, dev.tenantId);
                       const userActiveCount = devices.filter(d => d.userId === dev.userId && d.status === 'Active').length;
                       const matchedTenant = tenants.find(t => (t.tenantId || t.id) === dev.tenantId);
-                      const storeDisplayName = matchedTenant?.name || dev.storeName || (dev.tenantId === 'master' ? 'Master Admin Node' : dev.tenantId);
+                      const storeDisplayName = matchedTenant?.name || (dev as any).storeName || (dev.tenantId === 'master' ? 'Master Admin Node' : dev.tenantId);
                       const matchedUser = activeUsers.find(u => u.id === dev.userId || u.name === dev.userName);
-                      const roleBadge = dev.userRole || matchedUser?.role || ((dev as any).isSubUser ? 'Cashier / Sub-User' : 'Primary Admin');
+                      const roleBadge = (dev as any).userRole || matchedUser?.role || ((dev as any).isSubUser ? 'Cashier / Sub-User' : 'Primary Admin');
 
                       return (
                         <tr key={dev.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">

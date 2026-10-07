@@ -293,8 +293,10 @@ function RoleAccessGuard({ children }: { children: React.ReactNode }) {
     tenantId: tenant?.tenantId || tenant?.id || tenantId
   });
 
-  // Primary Admin has full access unless explicitly turned OFF in Master Control Switchboard
-  const isAllowed = isMasterUser || (granularCheck.isAllowed && (activeRole === 'Primary Admin' || isRoleAllowed));
+  const isPrimaryOwnerRole = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Owner' || activeRole === 'Store Owner' || activeRole === 'Company Tenant';
+
+  // Primary Admin & Tenant Owner have full access to company modules and reports
+  const isAllowed = isMasterUser || (granularCheck.isAllowed && (isPrimaryOwnerRole || isRoleAllowed)) || (isPrimaryOwnerRole && !location.pathname.startsWith('/master'));
 
   if (!isAllowed) {
     return (

@@ -2091,7 +2091,7 @@ export const ClientFleetDashboard: React.FC<ClientFleetDashboardProps> = ({
               {currentMenuSequence.map((menuId, index) => {
                 const itemMeta = DEFAULT_MENU_ITEMS_LIST.find(m => m.id === menuId);
                 const label = itemMeta?.label || menuId.toUpperCase();
-                const desc = itemMeta?.desc || itemMeta?.description || 'Main System Module';
+                const desc = itemMeta?.desc || (itemMeta as any)?.description || 'Main System Module';
                 const isFirst = index === 0;
                 const isLast = index === currentMenuSequence.length - 1;
 

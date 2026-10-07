@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   DollarSign, TrendingUp, Users, Clock, AlertCircle, CheckCircle2,
   Share2, ArrowUpRight, Search, Plus, RefreshCw, Calendar, 
@@ -9,7 +10,9 @@ import {
   Square, ChevronRight, Eye, UserCheck, Shield, HelpCircle, AlertTriangle,
   SlidersHorizontal, Settings, Flame, Star, CheckCircle, Tag, Copy,
   ChevronDown, ChevronUp, Bot, Database, BarChart3, LayoutGrid, FileCheck,
-  Send, Server, Globe, Wifi, KeyRound, Terminal, Filter
+  Send, Server, Globe, Wifi, KeyRound, Terminal, Filter, Download,
+  Printer, PieChart, Activity, Receipt, Wallet, CircleDot, ArrowDownRight,
+  ArrowDown, ArrowUp, BarChart2, CheckCheck, MessageSquare
 } from 'lucide-react';
 import { 
   getSoftwareSalesMetrics, 
@@ -477,6 +480,21 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
   const [selectedTenantForFeatures, setSelectedTenantForFeatures] = useState<string>('all');
   const [expandedSubUsersTenantId, setExpandedSubUsersTenantId] = useState<string | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  // Overview Tab Specific States
+  const [overviewTimeframe, setOverviewTimeframe] = useState<'all' | 'today' | 'week' | 'month' | 'quarter' | 'year'>('all');
+  const [overviewViewMode, setOverviewViewMode] = useState<'consolidated' | 'ledger'>('consolidated');
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedDealForPayment, setSelectedDealForPayment] = useState<any | null>(null);
+  const [paymentForm, setPaymentForm] = useState({
+    amountPaying: 0,
+    paymentMethod: 'Bank Transfer' as string,
+    saleStatus: 'Paid' as 'Paid' | 'Partial' | 'Pending',
+    notes: ''
+  });
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [selectedDealForReceipt, setSelectedDealForReceipt] = useState<any | null>(null);
+  const receiptPrintRef = useRef<HTMLDivElement>(null);
 
   // Modals
   const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
@@ -1241,22 +1259,21 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     return feat?.defaultInPlan === 'Basic';
   };
 
-  const handleShareWhatsAppDeal = (deal: SoftwareSalesMetrics['recentDeals'][0]) => {
-    const text = `*MBI INVENTRA POS & ERP - LICENSE & DEAL CONFIRMATION* 🚀%0A` +
+  const handleShareWhatsAppDeal = (deal: any) => {
+    if (!deal) return;
+    const text = `*MBI INVENTRA CLOUD POS & ERP - MASTER LICENSE CONFIRMATION* 🧾%0A` +
       `---------------------------------------%0A` +
-      `*Client Business:* ${deal.clientName}%0A` +
-      `*Owner Name:* ${deal.ownerName}%0A` +
-      `*City:* ${deal.city}%0A` +
-      `*Software Plan:* ${deal.plan}%0A` +
-      `*License Key:* ${deal.licenseKey}%0A` +
-      `*Agreed Deal Price:* ${formatPkr(deal.salePrice)}%0A` +
-      `*Amount Paid:* ${formatPkr(deal.amountPaid)}%0A` +
-      `*Balance Due:* ${formatPkr(deal.amountDue)}%0A` +
-      `*Payment Status:* ${deal.saleStatus.toUpperCase()}%0A` +
-      `*Payment Method:* ${deal.paymentMethod}%0A` +
-      `*Date of Issue:* ${deal.saleDate}%0A` +
+      `*Client Business:* ${deal.clientName || 'N/A'}%0A` +
+      `*Software Plan:* ${deal.plan || 'Basic'}%0A` +
+      `*License Key:* ${deal.licenseKey || 'N/A'}%0A` +
+      `*Contract Value:* ${formatPkr(deal.salePrice || 0)}%0A` +
+      `*Amount Paid:* ${formatPkr(deal.amountPaid || 0)}%0A` +
+      `*Remaining Due:* ${formatPkr(deal.amountDue || 0)}%0A` +
+      `*Status:* ${deal.saleStatus || 'Active'}%0A` +
+      `*Deployment Mode:* Multi-Tenant Isolated Cloud Engine%0A` +
       `---------------------------------------%0A` +
-      `Thank you for choosing MBI Inventra POS & ERP. For 24/7 Priority Master Support: 03364585863.`;
+      `Thank you for choosing MBI INVENTRA. Your POS enterprise platform is active and verified.%0A` +
+      `*Master Support Hotline:* 03364585863 | 03281302636`;
 
     const cleanPhone = (deal.phone || '').replace(/[^0-9]/g, '');
     const phoneWithCountry = cleanPhone.startsWith('92') ? cleanPhone : 
@@ -1266,7 +1283,144 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
     window.open(url, '_blank');
   };
 
-  // Filtered Deals
+  const handleShareWhatsAppPaymentReminder = (deal: any) => {
+    const text = `*MBI INVENTRA POS & ERP - PAYMENT REMINDER NOTICE* ⚠️%0A` +
+      `---------------------------------------%0A` +
+      `*Client Business:* ${deal.clientName}%0A` +
+      `*Software Plan:* ${deal.plan}%0A` +
+      `*License Key:* ${deal.licenseKey}%0A` +
+      `*Total Agreed Price:* ${formatPkr(deal.salePrice)}%0A` +
+      `*Amount Paid:* ${formatPkr(deal.amountPaid)}%0A` +
+      `*Outstanding Balance Due:* ${formatPkr(deal.amountDue)}%0A` +
+      `*Payment Status:* ${deal.saleStatus.toUpperCase()}%0A` +
+      `---------------------------------------%0A` +
+      `Please clear the pending balance to keep your multi-tenant POS cloud backup and sync running without interruption.%0A` +
+      `*Official Bank Account:* Ask Master Administrator%0A` +
+      `*Master Support Hotline:* 03364585863 | 03281302636`;
+
+    const cleanPhone = (deal.phone || '').replace(/[^0-9]/g, '');
+    const phoneWithCountry = cleanPhone.startsWith('92') ? cleanPhone : 
+                             cleanPhone.startsWith('0') ? '92' + cleanPhone.slice(1) : cleanPhone;
+
+    const url = `https://api.whatsapp.com/send?phone=${phoneWithCountry}&text=${text}`;
+    window.open(url, '_blank');
+  };
+
+  const handleOpenPaymentModal = (deal: any) => {
+    setSelectedDealForPayment(deal);
+    setPaymentForm({
+      amountPaying: deal.amountDue > 0 ? deal.amountDue : 0,
+      paymentMethod: deal.paymentMethod || 'Bank Transfer',
+      saleStatus: 'Paid',
+      notes: 'Payment recorded via Master Central Revenue Hub'
+    });
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleSavePaymentSettle = async () => {
+    if (!selectedDealForPayment) return;
+    const additionalPaid = Number(paymentForm.amountPaying) || 0;
+    const newPaidTotal = (selectedDealForPayment.amountPaid || 0) + additionalPaid;
+    const newDue = Math.max(0, (selectedDealForPayment.salePrice || 0) - newPaidTotal);
+    const newStatus = newDue === 0 ? 'Paid' : (newPaidTotal > 0 ? 'Partial' : 'Pending');
+
+    // 1. Update Tenant in memory & local storage
+    const targetTenant = tenants.find(t => 
+      t.id === selectedDealForPayment.id || 
+      t.tenantId === selectedDealForPayment.id || 
+      t.licenseId === selectedDealForPayment.licenseKey ||
+      (t.name || '').toLowerCase() === (selectedDealForPayment.clientName || '').toLowerCase()
+    );
+
+    if (targetTenant) {
+      targetTenant.amountPaid = newPaidTotal;
+      targetTenant.amountDue = newDue;
+      targetTenant.saleStatus = newStatus as any;
+      targetTenant.paymentMethod = paymentForm.paymentMethod as any;
+      targetTenant.paidLicenseActive = true;
+      if (newStatus === 'Paid' && targetTenant.status === 'Trial') {
+        targetTenant.status = 'Active';
+        targetTenant.isTrialActive = false;
+      }
+      saveTenant(targetTenant);
+
+      fetch('/api/fleet/tenants/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: targetTenant.id || targetTenant.tenantId,
+          tenant_id: targetTenant.tenantId || targetTenant.id,
+          amount_paid: newPaidTotal,
+          sale_status: newStatus,
+          payment_method: paymentForm.paymentMethod,
+          status: targetTenant.status
+        })
+      }).catch(() => {});
+    }
+
+    // 2. Update License in memory & local storage
+    const targetLic = licenses.find(l => 
+      l.id === selectedDealForPayment.id || 
+      l.licenseKey === selectedDealForPayment.licenseKey ||
+      (l.clientName || '').toLowerCase() === (selectedDealForPayment.clientName || '').toLowerCase()
+    );
+
+    if (targetLic) {
+      targetLic.amountPaid = newPaidTotal;
+      targetLic.amountDue = newDue;
+      targetLic.saleStatus = newStatus as any;
+      targetLic.paymentMethod = paymentForm.paymentMethod as any;
+      saveClientLicense(targetLic);
+    }
+
+    logMasterAudit(
+      'Payment Settle Recorded',
+      'LICENSE',
+      `Master Admin recorded +${formatPkr(additionalPaid)} payment for ${selectedDealForPayment.clientName} (Total Paid: ${formatPkr(newPaidTotal)}, Balance: ${formatPkr(newDue)})`,
+      selectedDealForPayment.clientName
+    );
+
+    setIsPaymentModalOpen(false);
+    refreshAllData();
+    toast(`✅ Payment of ${formatPkr(additionalPaid)} recorded successfully for ${selectedDealForPayment.clientName}!`);
+  };
+
+  const handleOpenReceiptModal = (deal: any) => {
+    setSelectedDealForReceipt(deal);
+    setIsReceiptModalOpen(true);
+  };
+
+  // Export Revenue Ledger to Excel
+  const handleExportExcelSales = () => {
+    try {
+      const rows = (overviewViewMode === 'consolidated' ? consolidatedStores : filteredDeals).map((d, index) => ({
+        'Sr #': index + 1,
+        'Company Name': d.clientName,
+        'Owner / Contact Person': d.ownerName,
+        'Phone Number': d.phone,
+        'City': d.city,
+        'Software Plan Tier': d.plan,
+        'License Key': d.licenseKey,
+        'Agreed Price (PKR)': d.salePrice,
+        'Amount Paid (PKR)': d.amountPaid,
+        'Balance Due (PKR)': d.amountDue,
+        'Payment Status': d.saleStatus,
+        'Payment Method': d.paymentMethod,
+        'Issue / Sale Date': d.saleDate
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sales_Revenue_Ledger');
+      XLSX.writeFile(wb, `MBI_Inventra_Software_Sales_Ledger_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast('📥 Master Software Sales Ledger downloaded as Excel (.xlsx)!');
+    } catch (e) {
+      console.error('Failed to export Excel:', e);
+      toast('⚠️ Could not export Excel file. Please try again.');
+    }
+  };
+
+  // Filtered Deals by Timeframe & Filters
   const filteredDeals = useMemo(() => {
     return metrics.recentDeals.filter(d => {
       const q = (searchTerm || '').toLowerCase().trim();
@@ -1282,9 +1436,147 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       if (statusFilter !== 'all' && d.saleStatus !== statusFilter) return false;
       if (planFilter !== 'all' && d.plan !== planFilter) return false;
 
+      // Timeframe filter
+      if (overviewTimeframe !== 'all' && d.saleDate) {
+        const dealDate = new Date(d.saleDate);
+        const now = new Date();
+        if (overviewTimeframe === 'today') {
+          if (dealDate.toDateString() !== now.toDateString()) return false;
+        } else if (overviewTimeframe === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (dealDate < weekAgo) return false;
+        } else if (overviewTimeframe === 'month') {
+          if (dealDate.getMonth() !== now.getMonth() || dealDate.getFullYear() !== now.getFullYear()) return false;
+        } else if (overviewTimeframe === 'quarter') {
+          const qNow = Math.floor(now.getMonth() / 3);
+          const qDeal = Math.floor(dealDate.getMonth() / 3);
+          if (qDeal !== qNow || dealDate.getFullYear() !== now.getFullYear()) return false;
+        } else if (overviewTimeframe === 'year') {
+          if (dealDate.getFullYear() !== now.getFullYear()) return false;
+        }
+      }
+
       return true;
     });
-  }, [metrics.recentDeals, searchTerm, statusFilter, planFilter]);
+  }, [metrics.recentDeals, searchTerm, statusFilter, planFilter, overviewTimeframe]);
+
+  // Consolidated Deduplicated Companies Storefront View
+  const consolidatedStores = useMemo(() => {
+    const map = new Map<string, typeof filteredDeals[0]>();
+
+    filteredDeals.forEach(deal => {
+      const cleanName = (deal.clientName || '').toLowerCase().trim();
+      if (!map.has(cleanName)) {
+        map.set(cleanName, { ...deal });
+      } else {
+        const existing = map.get(cleanName)!;
+        // Merge pricing if duplicate was recorded
+        existing.salePrice = Math.max(existing.salePrice, deal.salePrice);
+        existing.amountPaid = Math.max(existing.amountPaid, deal.amountPaid);
+        existing.amountDue = Math.max(0, existing.salePrice - existing.amountPaid);
+        if (deal.saleStatus === 'Paid' || existing.saleStatus !== 'Paid') {
+          existing.saleStatus = deal.saleStatus;
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  }, [filteredDeals]);
+
+  // Dynamic Computed Metrics for the Active Filtered View
+  const computedOverviewMetrics = useMemo(() => {
+    const list = overviewViewMode === 'consolidated' ? consolidatedStores : filteredDeals;
+    let gross = 0;
+    let collected = 0;
+    let due = 0;
+    let paidCount = 0;
+    let partialCount = 0;
+    let pendingCount = 0;
+    let trialCount = 0;
+
+    const planStats: Record<string, { count: number; rev: number; color: string }> = {
+      'Basic': { count: 0, rev: 0, color: 'slate' },
+      'Business': { count: 0, rev: 0, color: 'amber' },
+      'Pharmacy Pro': { count: 0, rev: 0, color: 'teal' },
+      'Enterprise Multi-Branch': { count: 0, rev: 0, color: 'purple' },
+      'Lifetime Perpetual': { count: 0, rev: 0, color: 'emerald' },
+      'Custom Plan': { count: 0, rev: 0, color: 'sky' }
+    };
+
+    const cityStats: Record<string, { count: number; rev: number }> = {};
+    const monthlyTrendMap: Record<string, { label: string; revenue: number; collected: number; count: number }> = {};
+
+    list.forEach(deal => {
+      gross += deal.salePrice;
+      collected += deal.amountPaid;
+      due += deal.amountDue;
+
+      if (deal.saleStatus === 'Paid') paidCount++;
+      else if (deal.saleStatus === 'Partial') partialCount++;
+      else if (deal.saleStatus === 'Pending') pendingCount++;
+      else if (deal.saleStatus === 'Complimentary / Trial') trialCount++;
+
+      const pKey = deal.plan.includes('Lifetime') ? 'Lifetime Perpetual' :
+                   deal.plan.includes('Enterprise') ? 'Enterprise Multi-Branch' :
+                   deal.plan.includes('Pharmacy Pro') ? 'Pharmacy Pro' :
+                   deal.plan.includes('Business') ? 'Business' : 'Basic';
+
+      if (!planStats[pKey]) planStats[pKey] = { count: 0, rev: 0, color: 'slate' };
+      planStats[pKey].count += 1;
+      planStats[pKey].rev += deal.salePrice;
+
+      const cCity = deal.city || 'Lahore';
+      if (!cityStats[cCity]) cityStats[cCity] = { count: 0, rev: 0 };
+      cityStats[cCity].count += 1;
+      cityStats[cCity].rev += deal.salePrice;
+
+      // Monthly bucket
+      const mDate = deal.saleDate ? new Date(deal.saleDate) : new Date();
+      const monthKey = `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = mDate.toLocaleString('default', { month: 'short' }) + ' ' + String(mDate.getFullYear()).slice(-2);
+      if (!monthlyTrendMap[monthKey]) {
+        monthlyTrendMap[monthKey] = { label: monthName, revenue: 0, collected: 0, count: 0 };
+      }
+      monthlyTrendMap[monthKey].revenue += deal.salePrice;
+      monthlyTrendMap[monthKey].collected += deal.amountPaid;
+      monthlyTrendMap[monthKey].count += 1;
+    });
+
+    const sortedMonthlyTrends = Object.entries(monthlyTrendMap)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => v);
+
+    const sortedCities = Object.entries(cityStats)
+      .map(([city, data]) => ({ city, count: data.count, rev: data.rev }))
+      .sort((a, b) => b.rev - a.rev)
+      .slice(0, 5);
+
+    const collectionRate = gross > 0 ? Math.round((collected / gross) * 100) : 0;
+    const totalStores = list.length;
+    const arpu = totalStores > 0 ? Math.round(gross / totalStores) : 0;
+    const mrr = Math.round(gross / 12);
+    const arr = gross;
+    const conversionRate = totalStores > 0 ? Math.round((paidCount / totalStores) * 100) : 0;
+
+    return {
+      gross,
+      collected,
+      due,
+      paidCount,
+      partialCount,
+      pendingCount,
+      trialCount,
+      totalStores,
+      collectionRate,
+      arpu,
+      mrr,
+      arr,
+      conversionRate,
+      planStats,
+      sortedCities,
+      sortedMonthlyTrends
+    };
+  }, [overviewViewMode, consolidatedStores, filteredDeals]);
 
   // Filtered Tenants (Companies Only)
   const filteredTenants = useMemo(() => {
@@ -1888,43 +2180,402 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: EXECUTIVE SALES & REVENUE OVERVIEW */}
+      {/* TAB 3: ULTRA-ADVANCED EXECUTIVE SALES & REVENUE COMMAND CENTER */}
       {/* ========================================================================= */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="p-5 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-3xl shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Performance Leader</span>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white mt-1">Top Performing Product</h3>
-              <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-                <div className="text-base font-black text-slate-900 dark:text-white">{metrics.topPerformingProduct.planName}</div>
-                <div className="text-xs text-slate-500 mt-1">{metrics.topPerformingProduct.dealsCount} Sold &bull; {formatPkr(metrics.topPerformingProduct.revenuePkr)}</div>
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Executive Control & Filter Bar */}
+          <div className="p-4 sm:p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm space-y-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Executive Revenue Intelligence &amp; Sales Dashboard</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Real-time monetization telemetry, plan adoption curves, collection efficiency, and multi-tenant billing analytics.
+                </p>
+              </div>
+
+              {/* View Mode Toggle: Consolidated vs All Deals */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center border border-slate-200 dark:border-slate-700">
+                  <button
+                    onClick={() => setOverviewViewMode('consolidated')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      overviewViewMode === 'consolidated'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-black'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                    title="Deduplicated storefront ledger: 1 consolidated row per pharmacy"
+                  >
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>🏢 Consolidated Stores ({consolidatedStores.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setOverviewViewMode('ledger')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      overviewViewMode === 'ledger'
+                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-black'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                    title="Full chronological transaction ledger of all issued deals"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>📜 All Deal Records ({filteredDeals.length})</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleExportExcelSales}
+                  className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Export Excel (.xlsx)</span>
+                </button>
               </div>
             </div>
 
-            <div className="p-5 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-500/30 rounded-3xl shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">Fleet Volume</span>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white mt-1">Total Units Sold</h3>
-              <div className="mt-3 text-3xl font-black text-slate-900 dark:text-white font-mono">{metrics.totalUnitsSold}</div>
-              <div className="text-xs text-indigo-600 mt-1">{metrics.activePaidTenantsCount} Commercial Stores Deployed</div>
-            </div>
+            {/* Timeframe & Multi-Filters Toolbar */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Timeframe selector pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+                {[
+                  { id: 'all', label: 'All Time' },
+                  { id: 'today', label: 'Today' },
+                  { id: 'week', label: 'This Week' },
+                  { id: 'month', label: 'This Month' },
+                  { id: 'quarter', label: 'This Quarter' },
+                  { id: 'year', label: 'This Year' }
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setOverviewTimeframe(t.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition cursor-pointer ${
+                      overviewTimeframe === t.id
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm font-black'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
 
-            <div className="p-5 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/30 rounded-3xl shadow-sm">
-              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Deal Economics</span>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white mt-1">Average Transaction Value</h3>
-              <div className="mt-3 text-3xl font-black text-emerald-600 dark:text-emerald-400 font-mono">{formatPkr(metrics.averageTransactionValuePkr)}</div>
-              <div className="text-xs text-slate-500 mt-1">Total Collected: {formatPkr(metrics.totalCollectedPkr)}</div>
+              {/* Secondary Filters */}
+              <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+                <div className="relative flex-1 md:w-56">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search ledger..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                >
+                  <option value="all">All Payment Status</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Partial">Partial Dues</option>
+                  <option value="Pending">Pending Dues</option>
+                  <option value="Complimentary / Trial">Trial / Free</option>
+                </select>
+
+                <select
+                  value={planFilter}
+                  onChange={(e) => setPlanFilter(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
+                >
+                  <option value="all">All Plans</option>
+                  <option value="Basic">Basic Silver</option>
+                  <option value="Business">Business Gold</option>
+                  <option value="Pharmacy Pro">Pharmacy Pro Plus</option>
+                  <option value="Enterprise Multi-Branch">Enterprise Platinum</option>
+                  <option value="Lifetime Perpetual">Lifetime Perpetual</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Deals Feed */}
-          <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4">
+          {/* 6 Executive Performance Cards Deck */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {/* Card 1: Gross Billed Sales */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                <span>Gross Pipeline</span>
+                <DollarSign className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white font-mono pt-1">
+                {formatPkr(computedOverviewMetrics.gross)}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Total Value</span>
+                <span className="font-bold text-emerald-600">{computedOverviewMetrics.totalStores} Deals</span>
+              </div>
+            </div>
+
+            {/* Card 2: Cash Inflow Collected */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                <span>Cash Inflow</span>
+                <Wallet className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono pt-1">
+                {formatPkr(computedOverviewMetrics.collected)}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Efficiency</span>
+                <span className="font-bold text-blue-600">{computedOverviewMetrics.collectionRate}% Paid</span>
+              </div>
+            </div>
+
+            {/* Card 3: Receivables Outstanding */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <span>Pending Balance</span>
+                <AlertCircle className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono pt-1">
+                {formatPkr(computedOverviewMetrics.due)}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Receivables</span>
+                <span className="font-bold text-amber-600">{computedOverviewMetrics.pendingCount + computedOverviewMetrics.partialCount} Overdue</span>
+              </div>
+            </div>
+
+            {/* Card 4: Fleet Deployment */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                <span>Fleet Volume</span>
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-purple-600 dark:text-purple-400 font-mono pt-1">
+                {computedOverviewMetrics.totalStores} <span className="text-xs text-slate-400 font-sans font-normal">Stores</span>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Commercial</span>
+                <span className="font-bold text-purple-600">{computedOverviewMetrics.paidCount} Paid</span>
+              </div>
+            </div>
+
+            {/* Card 5: Estimated MRR & Run-rate */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                <span>Run-rate (MRR)</span>
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono pt-1">
+                {formatPkr(computedOverviewMetrics.mrr)}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Annual ARR</span>
+                <span className="font-bold text-indigo-600">{formatPkr(computedOverviewMetrics.arr)}</span>
+              </div>
+            </div>
+
+            {/* Card 6: ARPU & Conversion Index */}
+            <div className="p-4 bg-white dark:bg-slate-900 border border-sky-200 dark:border-sky-500/30 rounded-3xl shadow-sm space-y-1 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-sky-500/10 rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform" />
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                <span>Avg ARPU</span>
+                <Award className="w-4 h-4" />
+              </div>
+              <div className="text-xl font-black text-sky-600 dark:text-sky-400 font-mono pt-1">
+                {formatPkr(computedOverviewMetrics.arpu)}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between pt-1">
+                <span>Conversion</span>
+                <span className="font-bold text-sky-600">{computedOverviewMetrics.conversionRate}% Rate</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 Interactive Visual Analytical Charts & Breakdown Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Chart 1: Monthly Sales & Inflow Volume Bars (7 cols) */}
+            <div className="lg:col-span-7 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <span>Monthly Sales Velocity &amp; Cash Inflow Stream</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Gross software deal bookings vs actual liquid cash collected.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                    <div className="w-3 h-3 rounded-md bg-emerald-500" />
+                    <span>Gross Billed</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                    <div className="w-3 h-3 rounded-md bg-blue-500" />
+                    <span>Collected Cash</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual Bars Container */}
+              <div className="space-y-3 pt-2">
+                {computedOverviewMetrics.sortedMonthlyTrends.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    No timeline transactions recorded for selected period.
+                  </div>
+                ) : (
+                  computedOverviewMetrics.sortedMonthlyTrends.map((trend, idx) => {
+                    const maxVal = Math.max(1, ...computedOverviewMetrics.sortedMonthlyTrends.map(t => Math.max(t.revenue, t.collected)));
+                    const revPct = Math.round((trend.revenue / maxVal) * 100);
+                    const collPct = Math.round((trend.collected / maxVal) * 100);
+
+                    return (
+                      <div key={idx} className="space-y-1.5 p-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-850/40 border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            {trend.label}
+                          </span>
+                          <div className="flex items-center gap-3 font-mono text-[11px]">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">{formatPkr(trend.revenue)}</span>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-blue-600 dark:text-blue-400 font-bold">{formatPkr(trend.collected)}</span>
+                            <span className="text-slate-400 text-[10px]">({trend.count} deals)</span>
+                          </div>
+                        </div>
+
+                        {/* Double Progress Bar */}
+                        <div className="space-y-1 pt-1">
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden flex">
+                            <div 
+                              className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.max(5, revPct)}%` }} 
+                              title={`Gross Billed: ${formatPkr(trend.revenue)}`}
+                            />
+                          </div>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden flex">
+                            <div 
+                              className="bg-blue-500 h-full rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.max(5, collPct)}%` }} 
+                              title={`Collected Cash: ${formatPkr(trend.collected)}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Chart 2: Plan Tier Market Share & Revenue Distribution (5 cols) */}
+            <div className="lg:col-span-5 p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm space-y-4">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <PieChart className="w-4 h-4 text-purple-600" />
+                  <span>Plan Tier Market Share &amp; Adoption</span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Breakdown of client deployment volume across tiers.
+                </p>
+              </div>
+
+              {/* Plan Distribution Progress Meters */}
+              <div className="space-y-3 pt-1">
+                {Object.entries(computedOverviewMetrics.planStats).map(([pName, pData]) => {
+                  const pct = computedOverviewMetrics.gross > 0 
+                    ? Math.round((pData.rev / computedOverviewMetrics.gross) * 100)
+                    : (computedOverviewMetrics.totalStores > 0 ? Math.round((pData.count / computedOverviewMetrics.totalStores) * 100) : 0);
+
+                  const colorClass = 
+                    pName.includes('Lifetime') ? 'bg-emerald-500' :
+                    pName.includes('Enterprise') ? 'bg-purple-500' :
+                    pName.includes('Pharmacy Pro') ? 'bg-teal-500' :
+                    pName.includes('Business') ? 'bg-amber-500' : 'bg-slate-500';
+
+                  const textClass = 
+                    pName.includes('Lifetime') ? 'text-emerald-600 dark:text-emerald-400' :
+                    pName.includes('Enterprise') ? 'text-purple-600 dark:text-purple-400' :
+                    pName.includes('Pharmacy Pro') ? 'text-teal-600 dark:text-teal-400' :
+                    pName.includes('Business') ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-300';
+
+                  return (
+                    <div key={pName} className="p-3 bg-slate-50/70 dark:bg-slate-850/40 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2.5 h-2.5 rounded-full ${colorClass}`} />
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{pName}</span>
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono">
+                            {pData.count} Stores
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono font-bold ${textClass}`}>{formatPkr(pData.rev)}</span>
+                          <span className="text-[11px] font-black text-slate-500 font-mono">({pct}%)</span>
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${colorClass}`} 
+                          style={{ width: `${Math.max(3, pct)}%` }} 
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Geographic Clusters / Top Cities */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Top Regional Deployment Hubs</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {computedOverviewMetrics.sortedCities.map((c) => (
+                    <div key={c.city} className="p-2 bg-slate-100/70 dark:bg-slate-800/50 rounded-xl text-center">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{c.city}</div>
+                      <div className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">{c.count} Stores &bull; {formatPkr(c.rev)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Software Sales Ledger & Live Deals Feed (Deduplicated Stores OR All Deals) */}
+          <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-sm">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-600" />
-                  <span>Software Sales Ledger &amp; Live Deals Feed</span>
+                  <span>
+                    {overviewViewMode === 'consolidated' 
+                      ? `Consolidated Client Storefront Ledger (${consolidatedStores.length} Unique Companies)` 
+                      : `Live Deals & Transaction Feed (${filteredDeals.length} Deal Events)`}
+                  </span>
                 </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {overviewViewMode === 'consolidated'
+                    ? 'Deduplicated company view showing unified lifetime deal values and active license status.'
+                    : 'Granular transaction feed recording every license issuance, renewal, and sale event.'}
+                </p>
+              </div>
+
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Showing <strong className="text-slate-900 dark:text-white font-mono">{(overviewViewMode === 'consolidated' ? consolidatedStores : filteredDeals).length}</strong> matching records
               </div>
             </div>
 
@@ -1932,46 +2583,187 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                    <th className="py-3 px-3.5">Company / Store</th>
+                    <th className="py-3 px-3.5">Company / Client Store</th>
                     <th className="py-3 px-3.5">Plan &amp; License Key</th>
                     <th className="py-3 px-3.5 text-right">Deal Price</th>
-                    <th className="py-3 px-3.5 text-right">Paid / Due</th>
-                    <th className="py-3 px-3.5 text-center">Status</th>
-                    <th className="py-3 px-3.5 text-right">Actions</th>
+                    <th className="py-3 px-3.5 text-right">Paid / Balance Due</th>
+                    <th className="py-3 px-3.5 text-center">Payment Status</th>
+                    <th className="py-3 px-3.5 text-center">Issue Date</th>
+                    <th className="py-3 px-3.5 text-right">Master Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                  {filteredDeals.map((deal) => (
-                    <tr key={deal.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-850/60 transition-colors">
-                      <td className="py-3 px-3.5">
-                        <div className="font-black text-slate-900 dark:text-white">{deal.clientName}</div>
-                        <div className="text-[11px] text-slate-500">{deal.ownerName} &bull; {deal.phone} &bull; {deal.city}</div>
-                      </td>
-                      <td className="py-3 px-3.5">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 block">{deal.plan}</span>
-                        <span className="text-[10px] font-mono text-blue-600">{deal.licenseKey}</span>
-                      </td>
-                      <td className="py-3 px-3.5 text-right font-black font-mono text-emerald-600">{formatPkr(deal.salePrice)}</td>
-                      <td className="py-3 px-3.5 text-right font-mono">
-                        <div className="text-blue-600 font-bold">Paid: {formatPkr(deal.amountPaid)}</div>
-                        {deal.amountDue > 0 && <div className="text-amber-600 text-[10px]">Due: {formatPkr(deal.amountDue)}</div>}
-                      </td>
-                      <td className="py-3 px-3.5 text-center">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                          {deal.saleStatus}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3.5 text-right">
-                        <button
-                          onClick={() => handleShareWhatsAppDeal(deal)}
-                          className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-xl text-[11px] font-bold border border-emerald-300 dark:border-emerald-700 flex items-center gap-1 cursor-pointer ml-auto"
-                        >
-                          <Share2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>WhatsApp</span>
-                        </button>
+                  {(overviewViewMode === 'consolidated' ? consolidatedStores : filteredDeals).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
+                        No company deal records match current search or filters.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (overviewViewMode === 'consolidated' ? consolidatedStores : filteredDeals).map((deal) => {
+                      const matchedTenant = tenants.find(t => (t.name || '').toLowerCase() === (deal.clientName || '').toLowerCase() || t.tenantId === deal.id);
+                      const isPaid = deal.saleStatus === 'Paid';
+                      const isPending = deal.saleStatus === 'Pending' || deal.amountDue > 0;
+                      const hasKey = Boolean(deal.licenseKey && deal.licenseKey.trim());
+                      const isCopied = copiedKeyId === deal.licenseKey;
+
+                      return (
+                        <tr key={deal.id || deal.licenseKey} className="hover:bg-slate-50/80 dark:hover:bg-slate-850/60 transition-colors">
+                          {/* Company / Store Details */}
+                          <td className="py-3 px-3.5">
+                            <div className="font-black text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                              <span>{deal.clientName}</span>
+                              {matchedTenant?.status === 'Active' && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" title="Store Online & Active" />
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span>Owner: <strong className="text-slate-700 dark:text-slate-300">{deal.ownerName}</strong></span>
+                              <span>&bull;</span>
+                              <span className="font-mono text-emerald-600">{deal.phone}</span>
+                              <span>&bull;</span>
+                              <span>{deal.city}</span>
+                            </div>
+                          </td>
+
+                          {/* Plan & License Key */}
+                          <td className="py-3 px-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                deal.plan.includes('Enterprise') || deal.plan.includes('Lifetime')
+                                  ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
+                                  : deal.plan.includes('Business') || deal.plan.includes('Pharmacy Pro')
+                                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                              }`}>
+                                {deal.plan}
+                              </span>
+                            </div>
+                            {hasKey && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <code className="text-[10px] font-mono text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                                  {deal.licenseKey}
+                                </code>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyApiKey(deal.licenseKey, deal.licenseKey)}
+                                  className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-400 hover:text-slate-700 cursor-pointer"
+                                  title="Copy License Key"
+                                >
+                                  {isCopied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Deal Price */}
+                          <td className="py-3 px-3.5 text-right font-black font-mono text-emerald-600 dark:text-emerald-400 text-xs">
+                            {formatPkr(deal.salePrice)}
+                          </td>
+
+                          {/* Paid / Due */}
+                          <td className="py-3 px-3.5 text-right font-mono">
+                            <div className="text-blue-600 dark:text-blue-400 font-bold text-xs">
+                              Paid: {formatPkr(deal.amountPaid)}
+                            </div>
+                            {deal.amountDue > 0 ? (
+                              <div className="text-amber-600 dark:text-amber-400 text-[10px] font-bold">
+                                Due: {formatPkr(deal.amountDue)}
+                              </div>
+                            ) : (
+                              <div className="text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                                Settle 100%
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3 px-3.5 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 ${
+                              isPaid
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                                : deal.saleStatus === 'Partial'
+                                ? 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-700'
+                                : deal.saleStatus === 'Complimentary / Trial'
+                                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                            }`}>
+                              {deal.saleStatus}
+                            </span>
+                          </td>
+
+                          {/* Sale Date */}
+                          <td className="py-3 px-3.5 text-center text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                            {deal.saleDate || 'Active'}
+                          </td>
+
+                          {/* Actions Suite */}
+                          <td className="py-3 px-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {/* Settle / Record Payment Button */}
+                              {deal.amountDue > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPaymentModal(deal)}
+                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs transition active:scale-95"
+                                  title="Record or settle cash/bank payment"
+                                >
+                                  <Wallet className="w-3 h-3" />
+                                  <span>Settle</span>
+                                </button>
+                              )}
+
+                              {/* WhatsApp Deal Confirmation */}
+                              <button
+                                type="button"
+                                onClick={() => handleShareWhatsAppDeal(deal)}
+                                className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded-lg text-[10px] font-bold border border-emerald-300 dark:border-emerald-700 flex items-center gap-1 cursor-pointer transition hover:bg-emerald-100"
+                                title="Send License Receipt on WhatsApp"
+                              >
+                                <Share2 className="w-3 h-3 text-emerald-600" />
+                                <span>WhatsApp</span>
+                              </button>
+
+                              {/* WhatsApp Payment Reminder (if overdue) */}
+                              {deal.amountDue > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleShareWhatsAppPaymentReminder(deal)}
+                                  className="px-2 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-lg text-[10px] font-bold border border-amber-300 dark:border-amber-700 flex items-center gap-1 cursor-pointer transition hover:bg-amber-100"
+                                  title="Send Payment Due Reminder on WhatsApp"
+                                >
+                                  <MessageSquare className="w-3 h-3 text-amber-600" />
+                                  <span>Reminder</span>
+                                </button>
+                              )}
+
+                              {/* Master Invoice / Receipt */}
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReceiptModal(deal)}
+                                className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                title="View & Print Official Master License Invoice"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Edit Plan in Master Modal */}
+                              {matchedTenant && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenMasterPlanModal(matchedTenant)}
+                                  className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                  title="Manage Company Plan & Feature Governance"
+                                >
+                                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2404,6 +3196,200 @@ export const SoftwareSalesRevenueDashboard: React.FC<SoftwareSalesRevenueDashboa
                   <span>Apply Plan &amp; Sync Sub-Users</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 💰 MODAL: RECORD & SETTLE PAYMENT MODAL */}
+      {/* ========================================================================= */}
+      {isPaymentModalOpen && selectedDealForPayment && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-5 shadow-2xl">
+            <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Record &amp; Settle Deal Payment</h3>
+                  <p className="text-[11px] text-slate-500 truncate">{selectedDealForPayment.clientName} &bull; {selectedDealForPayment.plan}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Financial Status Summary */}
+            <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl grid grid-cols-3 gap-2 text-center text-xs font-mono">
+              <div>
+                <span className="text-[9px] text-slate-400 uppercase font-sans font-bold block">Deal Price</span>
+                <span className="font-black text-slate-900 dark:text-white">{formatPkr(selectedDealForPayment.salePrice)}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-blue-500 uppercase font-sans font-bold block">Already Paid</span>
+                <span className="font-black text-blue-600">{formatPkr(selectedDealForPayment.amountPaid)}</span>
+              </div>
+              <div>
+                <span className="text-[9px] text-amber-500 uppercase font-sans font-bold block">Balance Due</span>
+                <span className="font-black text-amber-600">{formatPkr(selectedDealForPayment.amountDue)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Payment Amount Received (PKR):
+                </label>
+                <input
+                  type="number"
+                  value={paymentForm.amountPaying}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amountPaying: Number(e.target.value) })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Payment Method / Channel:
+                </label>
+                <select
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
+                >
+                  <option value="Bank Transfer">Bank Transfer (HBL / Meezan / Alfalah)</option>
+                  <option value="Cash in Hand">Direct Cash Handover</option>
+                  <option value="EasyPaisa / JazzCash">EasyPaisa / JazzCash Digital</option>
+                  <option value="Cheque Deposit">Bank Cheque Clearance</option>
+                  <option value="Online Payment Gateway">Online Gateway / Card</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSavePaymentSettle}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black cursor-pointer shadow-md shadow-emerald-600/30 flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save &amp; Update Ledger</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 📄 MODAL: OFFICIAL MASTER LICENSE RECEIPT & INVOICE PREVIEW */}
+      {/* ========================================================================= */}
+      {isReceiptModalOpen && selectedDealForReceipt && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-emerald-600" />
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Official Software License Receipt</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined') window.print();
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Receipt</span>
+                </button>
+                <button
+                  onClick={() => setIsReceiptModalOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Voucher Body */}
+            <div ref={receiptPrintRef} className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 font-sans text-xs">
+              <div className="text-center border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="text-base font-black text-slate-900 dark:text-white tracking-wide">MBI INVENTRA POS &amp; ERP</div>
+                <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-0.5">Software Sales &amp; License Provision Receipt</div>
+                <div className="text-[10px] text-slate-400 mt-1">Official Master Authorization &bull; 24/7 Support: 0336-4585863</div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-[11px]">
+                <div>
+                  <span className="text-[9px] font-bold uppercase text-slate-400 block">Licensed To:</span>
+                  <strong className="text-slate-900 dark:text-white text-xs block">{selectedDealForReceipt.clientName}</strong>
+                  <div className="text-slate-500 mt-0.5">{selectedDealForReceipt.ownerName} &bull; {selectedDealForReceipt.city}</div>
+                  <div className="text-slate-500 font-mono">{selectedDealForReceipt.phone}</div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] font-bold uppercase text-slate-400 block">Issue Details:</span>
+                  <div className="font-mono text-slate-700 dark:text-slate-300">{selectedDealForReceipt.saleDate}</div>
+                  <div className="font-bold text-emerald-600">{selectedDealForReceipt.plan}</div>
+                  <div className="text-[10px] text-slate-400">{selectedDealForReceipt.paymentMethod}</div>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+                <span className="text-[9px] font-bold uppercase text-slate-400 block">Cryptographic License Key:</span>
+                <code className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 select-all block mt-0.5 break-all">
+                  {selectedDealForReceipt.licenseKey}
+                </code>
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-slate-200 dark:border-slate-800 font-mono text-xs">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Agreed Software Price:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatPkr(selectedDealForReceipt.salePrice)}</span>
+                </div>
+                <div className="flex justify-between text-blue-600 dark:text-blue-400 font-bold">
+                  <span>Total Amount Paid:</span>
+                  <span>{formatPkr(selectedDealForReceipt.amountPaid)}</span>
+                </div>
+                <div className="flex justify-between text-amber-600 dark:text-amber-400 font-bold pt-1 border-t border-slate-200 dark:border-slate-800">
+                  <span>Balance Outstanding Due:</span>
+                  <span>{formatPkr(selectedDealForReceipt.amountDue)}</span>
+                </div>
+              </div>
+
+              <div className="text-[9px] text-center text-slate-400 pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                This computer-generated master software receipt confirms authentic license entitlement on MBI INVENTRA.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => handleShareWhatsAppDeal(selectedDealForReceipt)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Send WhatsApp Receipt</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsReceiptModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

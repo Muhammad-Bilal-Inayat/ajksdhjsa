@@ -1315,43 +1315,11 @@ export function getPlanDefaultToggles(plan: string): {
     }
 
     menu.submenus.forEach(sub => {
-      let isSubAllowed = menus[menu.id] !== false;
-
-      // Plan-specific submenu restrictions
-      if (tier === 'BASIC') {
-        if (
-          sub.id === 'estimateQuotation' ||
-          sub.id === 'saleOrder' ||
-          sub.id === 'deliveryChallan' ||
-          sub.id === 'purchaseOrder' ||
-          sub.id === 'cheques' ||
-          sub.id === 'loanAccounts'
-        ) {
-          isSubAllowed = false;
-        }
-      }
-
+      const isSubAllowed = menus[menu.id] !== false;
       submenus[sub.id] = isSubAllowed;
 
       sub.functions.forEach(fn => {
-        let isFnAllowed = isSubAllowed;
-
-        if (tier === 'BASIC') {
-          if (
-            fn.id === 'viewProfitLoss' ||
-            fn.id === 'manageQuotations' ||
-            fn.id === 'manageSaleOrders' ||
-            fn.id === 'manageDeliveryChallan' ||
-            fn.id === 'managePurchaseOrders' ||
-            fn.id === 'manageCheques' ||
-            fn.id === 'manageLoans' ||
-            fn.id === 'viewCostsAndMargins' ||
-            fn.id === 'importExportItems'
-          ) {
-            isFnAllowed = false;
-          }
-        }
-
+        const isFnAllowed = isSubAllowed;
         functions[fn.id] = isFnAllowed;
 
         fn.actions.forEach(act => {
@@ -2579,29 +2547,12 @@ export function evaluatePermission(params: {
       return false;
     }
   }
-  if (menuId === 'onlineStore' && !hasPlanFeature('online_storefront', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'estimateQuotation' && !hasPlanFeature('quotation_estimates', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'saleOrder' && !hasPlanFeature('sale_orders', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'deliveryChallan' && !hasPlanFeature('delivery_challans', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'purchaseOrder' && !hasPlanFeature('purchase_orders', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'cheques' && !hasPlanFeature('cheque_tracking', plan, tenantId)) {
-    return false;
-  }
-  if (submenuId === 'loanAccounts' && !hasPlanFeature('loan_accounts', plan, tenantId)) {
-    return false;
-  }
-  if (functionId === 'viewProfitLoss' && !hasPlanFeature('bill_wise_profit_loss', plan, tenantId)) {
-    return false;
+  const isPrimaryOrOwner = role === 'Primary Admin' || role === 'Secondary Admin' || role === 'Admin' || role === 'Owner' || role === 'Store Owner' || role === 'Company Tenant' || role === 'Master Admin';
+
+  if (!isPrimaryOrOwner) {
+    if (menuId === 'onlineStore' && !hasPlanFeature('online_storefront', plan, tenantId)) {
+      return false;
+    }
   }
 
   // Load User Access Profile (checks exact tenant + user storage keys and fallback)

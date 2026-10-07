@@ -3619,7 +3619,7 @@ export function getSoftwareSalesMetrics(): SoftwareSalesMetrics {
                          lic.plan === 'Standard POS' ? 19990 : 0;
     
     const price = typeof lic.salePrice === 'number' ? lic.salePrice : defaultPrice;
-    const isTrial = lic.plan.includes('Trial');
+    const isTrial = (lic.plan || '').includes('Trial');
     let status = lic.saleStatus;
     if (!status) {
       status = isTrial ? 'Complimentary / Trial' : (price > 0 ? 'Paid' : 'Pending');
@@ -3627,8 +3627,9 @@ export function getSoftwareSalesMetrics(): SoftwareSalesMetrics {
 
     const paid = typeof lic.amountPaid === 'number' ? lic.amountPaid : (status === 'Paid' ? price : 0);
     const due = typeof lic.amountDue === 'number' ? lic.amountDue : Math.max(0, price - paid);
+    const key = (lic.clientName || '').toLowerCase().trim() || lic.id || lic.licenseKey;
 
-    dealsMap.set(lic.id || lic.licenseKey, {
+    dealsMap.set(key, {
       id: lic.id || lic.licenseKey,
       clientName: lic.clientName || 'Store Client',
       ownerName: lic.ownerName || 'Business Owner',
@@ -3647,38 +3648,50 @@ export function getSoftwareSalesMetrics(): SoftwareSalesMetrics {
 
   // Process tenants who may not have a direct duplicate license ID
   tenants.forEach(t => {
-    const key = t.licenseId || t.tenantId;
-    if (!dealsMap.has(key)) {
-      const isTrial = t.isTrialActive || t.plan.includes('Trial');
-      const defaultPrice = t.plan === 'Lifetime Perpetual' ? 149990 :
-                           t.plan === 'Enterprise Multi-Branch' ? 69990 :
-                           t.plan === 'Pharmacy Pro' ? 39990 :
-                           t.plan === 'Standard POS' ? 19990 : 0;
-      
-      const price = typeof t.salePrice === 'number' ? t.salePrice : (isTrial ? 0 : defaultPrice);
-      let status = t.saleStatus;
-      if (!status) {
-        status = isTrial ? 'Complimentary / Trial' : (t.paidLicenseActive ? 'Paid' : 'Pending');
+    const normName = (t.name || '').toLowerCase().trim();
+    const isTrial = t.isTrialActive || (t.plan || '').includes('Trial') || t.status === 'Trial';
+    const defaultPrice = (t.plan || '').includes('Lifetime') ? 149990 :
+                         (t.plan || '').includes('Enterprise') ? 69990 :
+                         (t.plan || '').includes('Pharmacy Pro') || (t.plan || '').includes('Business') ? 39990 :
+                         (t.plan || '').includes('Standard') || (t.plan || '').includes('Basic') ? 19990 : 0;
+    
+    const price = typeof t.salePrice === 'number' && t.salePrice > 0 ? t.salePrice : (isTrial ? 0 : defaultPrice);
+    let status = t.saleStatus;
+    if (!status) {
+      status = isTrial ? 'Complimentary / Trial' : (t.paidLicenseActive ? 'Paid' : 'Pending');
+    }
+
+    const paid = typeof t.amountPaid === 'number' ? t.amountPaid : (status === 'Paid' ? price : 0);
+    const due = typeof t.amountDue === 'number' ? t.amountDue : Math.max(0, price - paid);
+
+    const existingKey = normName && dealsMap.has(normName) ? normName :
+                        (t.licenseId && dealsMap.has(t.licenseId) ? t.licenseId :
+                        (t.tenantId && dealsMap.has(t.tenantId) ? t.tenantId : null));
+
+    const dealObj = {
+      id: t.tenantId || t.id,
+      clientName: t.name,
+      ownerName: t.ownerName || 'Business Owner',
+      phone: t.ownerPhone || t.phone || '03364585863',
+      city: t.city || 'Lahore',
+      plan: t.plan || 'Basic',
+      licenseKey: t.licenseId || `MBI-${(t.tenantId || t.id).toUpperCase()}`,
+      salePrice: price,
+      amountPaid: paid,
+      amountDue: due,
+      saleStatus: status,
+      paymentMethod: t.paymentMethod || 'Bank Transfer',
+      saleDate: t.saleDate || (t.createdAt ? t.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
+    };
+
+    if (existingKey) {
+      // Merge with priority to paid status and explicit price
+      const existing = dealsMap.get(existingKey)!;
+      if (dealObj.salePrice > 0 || dealObj.amountPaid > 0 || !existing.salePrice) {
+        dealsMap.set(existingKey, { ...existing, ...dealObj });
       }
-
-      const paid = typeof t.amountPaid === 'number' ? t.amountPaid : (status === 'Paid' ? price : 0);
-      const due = typeof t.amountDue === 'number' ? t.amountDue : Math.max(0, price - paid);
-
-      dealsMap.set(key, {
-        id: t.tenantId,
-        clientName: t.name,
-        ownerName: t.ownerName,
-        phone: t.ownerPhone || '03364585863',
-        city: t.city || 'Lahore',
-        plan: t.plan,
-        licenseKey: t.licenseId || `MBI-${t.tenantId.toUpperCase()}`,
-        salePrice: price,
-        amountPaid: paid,
-        amountDue: due,
-        saleStatus: status,
-        paymentMethod: t.paymentMethod || 'Bank Transfer',
-        saleDate: t.saleDate || (t.createdAt ? t.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10))
-      });
+    } else {
+      dealsMap.set(normName || t.tenantId || t.id, dealObj);
     }
   });
 

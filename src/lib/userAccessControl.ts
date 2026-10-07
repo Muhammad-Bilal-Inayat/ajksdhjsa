@@ -1838,24 +1838,25 @@ export function getUserAccessControlProfile(
 /**
  * Sanitize and backfill any missing items in existing profile
  */
-function sanitizeAccessProfile(
-  existing: UserAccessControlProfile,
-  role: UserRole,
-  plan: string,
+export function sanitizeAccessProfile(
+  existing: Partial<UserAccessControlProfile> | null | undefined,
+  role: UserRole = 'Cashier',
+  plan: string = 'Standard POS',
   tenantId?: string
 ): UserAccessControlProfile {
-  const fallback = createDefaultUserAccessProfile(existing.userId || 'usr', role, plan, tenantId);
+  const fallback = createDefaultUserAccessProfile(existing?.userId || 'usr', role, plan, tenantId);
+  if (!existing || typeof existing !== 'object') return fallback;
 
   return {
     ...fallback,
     ...existing,
     menuOrder: Array.isArray(existing.menuOrder) && existing.menuOrder.length > 0 ? existing.menuOrder : fallback.menuOrder,
-    submenuOrder: existing.submenuOrder || fallback.submenuOrder,
-    functionOrder: existing.functionOrder || fallback.functionOrder,
-    menuToggles: { ...fallback.menuToggles, ...(existing.menuToggles || {}) },
-    submenuToggles: { ...fallback.submenuToggles, ...(existing.submenuToggles || {}) },
-    functionToggles: { ...fallback.functionToggles, ...(existing.functionToggles || {}) },
-    actionToggles: { ...fallback.actionToggles, ...(existing.actionToggles || {}) },
+    submenuOrder: existing.submenuOrder && typeof existing.submenuOrder === 'object' ? existing.submenuOrder : fallback.submenuOrder,
+    functionOrder: existing.functionOrder && typeof existing.functionOrder === 'object' ? existing.functionOrder : fallback.functionOrder,
+    menuToggles: { ...fallback.menuToggles, ...(typeof existing.menuToggles === 'object' && existing.menuToggles ? existing.menuToggles : {}) },
+    submenuToggles: { ...fallback.submenuToggles, ...(typeof existing.submenuToggles === 'object' && existing.submenuToggles ? existing.submenuToggles : {}) },
+    functionToggles: { ...fallback.functionToggles, ...(typeof existing.functionToggles === 'object' && existing.functionToggles ? existing.functionToggles : {}) },
+    actionToggles: { ...fallback.actionToggles, ...(typeof existing.actionToggles === 'object' && existing.actionToggles ? existing.actionToggles : {}) },
     updatedAt: existing.updatedAt || new Date().toISOString()
   };
 }
@@ -1864,7 +1865,8 @@ function sanitizeAccessProfile(
  * Compute the deep-merged, fully-resolved Effective Permissions object from a profile
  * Generates a unified flattened map for instantaneous O(1) conditional UI rendering
  */
-export function computeEffectivePermissions(profile: UserAccessControlProfile): EffectivePermissions {
+export function computeEffectivePermissions(rawProfile: UserAccessControlProfile): EffectivePermissions {
+  const profile = sanitizeAccessProfile(rawProfile, rawProfile?.role || 'Cashier', rawProfile?.plan || 'Standard POS', rawProfile?.tenantId);
   const resolvedMenus: Record<string, boolean> = {};
   const resolvedSubmenus: Record<string, boolean> = {};
   const resolvedFunctions: Record<string, boolean> = {};
@@ -2199,21 +2201,21 @@ export async function syncUserAccessControlProfileFromServer(
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.success && data.profile) {
+      if (data.success && data.profile && typeof data.profile === 'object') {
+        const sanitizedProfile = sanitizeAccessProfile(data.profile, data.profile.role || 'Cashier', data.profile.plan || 'Standard POS', tid);
         const exactKey = getUserAccessProfileKey(userId, tid);
         const directUserKey = `mbi_user_access_profile_user_${userId}`;
-        const serialized = JSON.stringify(data.profile);
+        const serialized = JSON.stringify(sanitizedProfile);
         localStorage.setItem(exactKey, serialized);
         localStorage.setItem(directUserKey, serialized);
         localStorage.setItem('mbi_active_user_access_profile', serialized);
-        if (data.effective) {
-          localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(data.effective));
-        }
+        const effective = data.effective || computeEffectivePermissions(sanitizedProfile);
+        localStorage.setItem('mbi_active_effective_permissions', JSON.stringify(effective));
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: data.profile } }));
-          window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective: data.effective } }));
+          window.dispatchEvent(new CustomEvent('mbi-user-access-profile-updated', { detail: { profile: sanitizedProfile } }));
+          window.dispatchEvent(new CustomEvent('mbi-effective-permissions-updated', { detail: { effective } }));
         }
-        return data.profile;
+        return sanitizedProfile;
       }
     }
   } catch (err) {
@@ -2573,53 +2575,53 @@ export function evaluatePermission(params: {
 
   // Check specific high-priority action aliases
   if (actionId === 'SALE_EDIT' || actionId === 'act_edit_sale' || feature === 'canEditBills' || feature === 'canEditInvoices') {
-    if (profile.functionToggles['editSale'] === false) return false;
-    if (profile.actionToggles['act_edit_sale'] === false) return false;
-    if (profile.actionToggles['SALE_EDIT'] === false) return false;
-    if (profile.actionToggles['canEditBills'] === false) return false;
+    if (profile?.functionToggles?.['editSale'] === false) return false;
+    if (profile?.actionToggles?.['act_edit_sale'] === false) return false;
+    if (profile?.actionToggles?.['SALE_EDIT'] === false) return false;
+    if (profile?.actionToggles?.['canEditBills'] === false) return false;
   }
 
   if (actionId === 'SALE_DELETE' || actionId === 'act_delete_sale' || feature === 'canDeleteBills' || feature === 'canVoidSaleInvoice') {
-    if (profile.functionToggles['deleteSale'] === false) return false;
-    if (profile.actionToggles['act_delete_sale'] === false) return false;
-    if (profile.actionToggles['SALE_DELETE'] === false) return false;
-    if (profile.actionToggles['canDeleteBills'] === false) return false;
+    if (profile?.functionToggles?.['deleteSale'] === false) return false;
+    if (profile?.actionToggles?.['act_delete_sale'] === false) return false;
+    if (profile?.actionToggles?.['SALE_DELETE'] === false) return false;
+    if (profile?.actionToggles?.['canDeleteBills'] === false) return false;
   }
 
   if (actionId === 'SALE_PRINT' || actionId === 'act_print_sale' || feature === 'canReprintBills' || feature === 'canShareInvoice') {
-    if (profile.functionToggles['reprintSale'] === false) return false;
-    if (profile.actionToggles['act_print_sale'] === false) return false;
-    if (profile.actionToggles['SALE_PRINT'] === false) return false;
-    if (profile.actionToggles['canReprintBills'] === false) return false;
+    if (profile?.functionToggles?.['reprintSale'] === false) return false;
+    if (profile?.actionToggles?.['act_print_sale'] === false) return false;
+    if (profile?.actionToggles?.['SALE_PRINT'] === false) return false;
+    if (profile?.actionToggles?.['canReprintBills'] === false) return false;
   }
 
   if (actionId === 'VIEW_COST' || actionId === 'act_view_cost' || feature === 'canViewCostsAndProfit' || feature === 'canViewCost') {
-    if (profile.functionToggles['viewCostsAndMargins'] === false) return false;
-    if (profile.actionToggles['act_view_cost'] === false) return false;
-    if (profile.actionToggles['VIEW_COST'] === false) return false;
-    if (profile.actionToggles['canViewCost'] === false) return false;
+    if (profile?.functionToggles?.['viewCostsAndMargins'] === false) return false;
+    if (profile?.actionToggles?.['act_view_cost'] === false) return false;
+    if (profile?.actionToggles?.['VIEW_COST'] === false) return false;
+    if (profile?.actionToggles?.['canViewCost'] === false) return false;
   }
 
   if (actionId === 'SALE_DISC' || actionId === 'act_apply_disc' || feature === 'canApplyDiscount' || feature === 'canGiveDiscount') {
-    if (profile.functionToggles['applyDiscount'] === false) return false;
-    if (profile.actionToggles['act_apply_disc'] === false) return false;
-    if (profile.actionToggles['SALE_DISC'] === false) return false;
-    if (profile.actionToggles['canApplyDiscount'] === false) return false;
+    if (profile?.functionToggles?.['applyDiscount'] === false) return false;
+    if (profile?.actionToggles?.['act_apply_disc'] === false) return false;
+    if (profile?.actionToggles?.['SALE_DISC'] === false) return false;
+    if (profile?.actionToggles?.['canApplyDiscount'] === false) return false;
   }
 
   // Hierarchy Check: If parent Menu is OFF -> Submenu is OFF -> Function is OFF -> Action is OFF
   // CRITICAL: An explicit false toggle in the 173-Feature Switchboard ALWAYS blocks!
   if (menuId) {
-    if (profile.menuToggles[menuId] === false) return false;
+    if (profile?.menuToggles?.[menuId] === false) return false;
   }
 
   if (submenuId) {
     // Find parent menu if not provided
     if (!menuId) {
       const parentMenu = SYSTEM_MENU_TREE.find(m => m.submenus.some(s => s.id === submenuId));
-      if (parentMenu && profile.menuToggles[parentMenu.id] === false) return false;
+      if (parentMenu && profile?.menuToggles?.[parentMenu.id] === false) return false;
     }
-    if (profile.submenuToggles[submenuId] === false) return false;
+    if (profile?.submenuToggles?.[submenuId] === false) return false;
   }
 
   if (functionId) {
@@ -2638,13 +2640,13 @@ export function evaluatePermission(params: {
       if (parentSubmenu) break;
     }
 
-    if (parentMenu && profile.menuToggles[parentMenu.id] === false) return false;
-    if (parentSubmenu && profile.submenuToggles[parentSubmenu.id] === false) return false;
-    if (profile.functionToggles[functionId] === false) return false;
+    if (parentMenu && profile?.menuToggles?.[parentMenu.id] === false) return false;
+    if (parentSubmenu && profile?.submenuToggles?.[parentSubmenu.id] === false) return false;
+    if (profile?.functionToggles?.[functionId] === false) return false;
   }
 
   if (actionId) {
-    if (profile.actionToggles[actionId] === false) return false;
+    if (profile?.actionToggles?.[actionId] === false) return false;
   }
 
   // Only after verifying no explicit switchboard block, allow Primary Admin to bypass role restrictions

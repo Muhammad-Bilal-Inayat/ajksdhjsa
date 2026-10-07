@@ -2532,7 +2532,7 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
         if (tenantRow && tenantRow.features_json) {
           try {
             const parsed = typeof tenantRow.features_json === 'string' ? JSON.parse(tenantRow.features_json) : tenantRow.features_json;
-            if (parsed && typeof parsed === 'object') {
+            if (parsed && typeof parsed === 'object' && (parsed.actionToggles || parsed.menuToggles || parsed.functionToggles)) {
               res.json({
                 success: true,
                 source: 'sqlite_tenants',
@@ -2554,7 +2554,7 @@ fleetRouter.get('/permissions/:userId', async (req: TenantRequest, res: Response
       if (userRow && userRow.permissions) {
         try {
           const parsed = typeof userRow.permissions === 'string' ? JSON.parse(userRow.permissions) : userRow.permissions;
-          if (parsed && typeof parsed === 'object') {
+          if (parsed && typeof parsed === 'object' && (parsed.actionToggles || parsed.menuToggles || parsed.functionToggles)) {
             res.json({
               success: true,
               source: 'sqlite_users',

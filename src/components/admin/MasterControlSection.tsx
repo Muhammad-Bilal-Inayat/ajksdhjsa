@@ -7,6 +7,7 @@ import {
   ActionItemDefinition,
   UserAccessControlProfile,
   getUserAccessControlProfile,
+  sanitizeAccessProfile,
   saveUserAccessControlProfile,
   syncUserAccessControlProfileFromServer,
   resetUserToRoleDefaults,
@@ -144,7 +145,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
 
       syncUserAccessControlProfileFromServer(selectedUser.id, targetTenantId).then(serverProf => {
         if (serverProf) {
-          setProfile(serverProf);
+          setProfile(sanitizeAccessProfile(serverProf, selectedUser.role as any, selectedTenant?.plan || 'Basic', targetTenantId));
         }
       });
 
@@ -320,26 +321,26 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     if (targetTenantId) {
       try {
         const tenantFeatureMap: Record<string, boolean> = {
-          fefo_expiry_management: newProfile.functionToggles['fefoAllocation'] !== false,
-          fefo_expiry_alerts: newProfile.functionToggles['fefoAllocation'] !== false,
-          godowns: newProfile.submenuToggles['godowns'] !== false,
-          shortage_registry: newProfile.submenuToggles['shortageRegistry'] !== false,
-          narcotics_register: newProfile.submenuToggles['narcoticsRegister'] !== false,
-          fbr_pos_integration: newProfile.functionToggles['fbrIntegration'] !== false,
-          online_storefront: newProfile.menuToggles['onlineStore'] !== false,
-          top_products: newProfile.submenuToggles['topProducts'] !== false,
-          top_products_analytics: newProfile.submenuToggles['topProducts'] !== false,
-          journal_vouchers: newProfile.submenuToggles?.['journalVouchers'] !== false || newProfile.menuToggles['accounts'] !== false,
-          full_audit_trail: newProfile.submenuToggles['auditTrail'] !== false,
-          booker_biller_management: newProfile.submenuToggles['bookers'] !== false,
-          live_profit_margin: newProfile.functionToggles['viewCostsAndMargins'] !== false,
-          batch_management: newProfile.functionToggles['batchTracking'] !== false,
-          custom_item_fields: newProfile.functionToggles['itemCustomFields'] !== false,
-          can_edit_bills: newProfile.actionToggles['act_edit_sale'] !== false && newProfile.functionToggles['editSale'] !== false,
-          can_delete_bills: newProfile.actionToggles['act_delete_sale'] !== false && newProfile.functionToggles['deleteSale'] !== false,
-          can_reprint_bills: newProfile.actionToggles['act_print_sale'] !== false && newProfile.functionToggles['reprintSale'] !== false,
-          can_view_costs: newProfile.actionToggles['act_view_cost'] !== false && newProfile.functionToggles['viewCostsAndMargins'] !== false,
-          can_apply_discount: newProfile.actionToggles['act_apply_disc'] !== false && newProfile.functionToggles['applyDiscount'] !== false,
+          fefo_expiry_management: (newProfile?.functionToggles?.['fefoAllocation'] ?? true) !== false,
+          fefo_expiry_alerts: (newProfile?.functionToggles?.['fefoAllocation'] ?? true) !== false,
+          godowns: (newProfile?.submenuToggles?.['godowns'] ?? true) !== false,
+          shortage_registry: (newProfile?.submenuToggles?.['shortageRegistry'] ?? true) !== false,
+          narcotics_register: (newProfile?.submenuToggles?.['narcoticsRegister'] ?? true) !== false,
+          fbr_pos_integration: (newProfile?.functionToggles?.['fbrIntegration'] ?? true) !== false,
+          online_storefront: (newProfile?.menuToggles?.['onlineStore'] ?? true) !== false,
+          top_products: (newProfile?.submenuToggles?.['topProducts'] ?? true) !== false,
+          top_products_analytics: (newProfile?.submenuToggles?.['topProducts'] ?? true) !== false,
+          journal_vouchers: (newProfile?.submenuToggles?.['journalVouchers'] ?? true) !== false || (newProfile?.menuToggles?.['accounts'] ?? true) !== false,
+          full_audit_trail: (newProfile?.submenuToggles?.['auditTrail'] ?? true) !== false,
+          booker_biller_management: (newProfile?.submenuToggles?.['bookers'] ?? true) !== false,
+          live_profit_margin: (newProfile?.functionToggles?.['viewCostsAndMargins'] ?? true) !== false,
+          batch_management: (newProfile?.functionToggles?.['batchTracking'] ?? true) !== false,
+          custom_item_fields: (newProfile?.functionToggles?.['itemCustomFields'] ?? true) !== false,
+          can_edit_bills: (newProfile?.actionToggles?.['act_edit_sale'] ?? true) !== false && (newProfile?.functionToggles?.['editSale'] ?? true) !== false,
+          can_delete_bills: (newProfile?.actionToggles?.['act_delete_sale'] ?? true) !== false && (newProfile?.functionToggles?.['deleteSale'] ?? true) !== false,
+          can_reprint_bills: (newProfile?.actionToggles?.['act_print_sale'] ?? true) !== false && (newProfile?.functionToggles?.['reprintSale'] ?? true) !== false,
+          can_view_costs: (newProfile?.actionToggles?.['act_view_cost'] ?? true) !== false && (newProfile?.functionToggles?.['viewCostsAndMargins'] ?? true) !== false,
+          can_apply_discount: (newProfile?.actionToggles?.['act_apply_disc'] ?? true) !== false && (newProfile?.functionToggles?.['applyDiscount'] ?? true) !== false,
         };
         localStorage.setItem(`mbi_tenant_features_${targetTenantId}`, JSON.stringify(tenantFeatureMap));
         window.dispatchEvent(new CustomEvent('mbi-tenant-features-updated', {
@@ -564,7 +565,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
       submenuToggles: { ...profile.submenuToggles, saleInvoices: true },
       functionToggles: { ...profile.functionToggles, editSale: newVal },
       actionToggles: { 
-        ...profile.actionToggles, 
+        ...(profile?.actionToggles || {}), 
         act_edit_sale: newVal,
         act_edit_invoice: newVal,
         act_edit_bills: newVal,
@@ -1005,10 +1006,10 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
     }
 
     // Evaluate against profile toggles
-    const isMenuOn = profile.menuToggles[matchedMenu.id] !== false;
-    const isSubOn = matchedSub ? profile.submenuToggles[matchedSub.id] !== false : true;
-    const isFnOn = matchedFn ? profile.functionToggles[matchedFn.id] !== false : true;
-    const isActOn = matchedAction ? profile.actionToggles[matchedAction.id] !== false : true;
+    const isMenuOn = (profile?.menuToggles?.[matchedMenu.id] ?? true) !== false;
+    const isSubOn = matchedSub ? (profile?.submenuToggles?.[matchedSub.id] ?? true) !== false : true;
+    const isFnOn = matchedFn ? (profile?.functionToggles?.[matchedFn.id] ?? true) !== false : true;
+    const isActOn = matchedAction ? (profile?.actionToggles?.[matchedAction.id] ?? true) !== false : true;
 
     const allowed = isMenuOn && isSubOn && isFnOn && isActOn;
     let reason = '';
@@ -1712,7 +1713,7 @@ export const MasterControlSection: React.FC<MasterControlSectionProps> = ({ onNo
                                   {fn.actions.length > 0 && (
                                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap gap-2">
                                       {fn.actions.map((act) => {
-                                        const isActEnabled = profile.actionToggles[act.id] !== false && isFnEnabled;
+                                        const isActEnabled = (profile?.actionToggles?.[act.id] ?? true) !== false && isFnEnabled;
 
                                         return (
                                           <button

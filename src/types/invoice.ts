@@ -20,22 +20,22 @@ export interface InvoiceColumnConfig {
 }
 
 export const DEFAULT_INVOICE_COLUMN_CONFIG: InvoiceColumnConfig = {
-  showHsn: true,
-  showBatch: true,
-  showExpiry: true,
-  showMrp: true,
+  showHsn: false,
+  showBatch: false,
+  showExpiry: false,
+  showMrp: false,
   showQuantity: true,
-  showFreeQuantity: true,
-  showDiscount: true,
-  showUnit: true,
+  showFreeQuantity: false,
+  showDiscount: false,
+  showUnit: false,
   showUnitPrice: true,
-  showTaxGst: true,
+  showTaxGst: false,
   showAmount: true,
-  showPoNumber: true,
-  showPoDate: true,
+  showPoNumber: false,
+  showPoDate: false,
   showPaymentTerms: true,
   showBarcode: false,
-  showManufacturer: true
+  showManufacturer: false
 };
 
 export type InvoiceMode = 'Sale' | 'Purchase' | 'Estimate' | 'Sale Order' | 'Purchase Order' | 'Delivery Challan' | 'Sale Return' | 'Purchase Return';

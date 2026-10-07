@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Trash2, Plus, Search, ChevronDown, Sparkles, AlertTriangle, 
-  Check, Calendar, Hash, ArrowUpDown, Tag, Percent, DollarSign, Layers 
+  Check, Calendar, Hash, ArrowUpDown, Tag, Percent, DollarSign, Layers,
+  ChevronRight, SlidersHorizontal
 } from 'lucide-react';
 import { Medicine, InvoiceColumnConfig } from '../../types/invoice';
 import { calculateDaysUntilExpiry } from '../../lib/fefoEngine';
@@ -58,7 +59,11 @@ export const InvoiceItemsGrid: React.FC<InvoiceItemsGridProps> = ({
 }) => {
   const [activeSearchRowId, setActiveSearchRowId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
+
+  const toggleRowExpansion = (tempId: string) => {
+    setExpandedRowIds(prev => ({ ...prev, [tempId]: !prev[tempId] }));
+  };
 
   // Search filtered medicines
   const filteredCatalog = React.useMemo(() => {
@@ -129,9 +134,285 @@ export const InvoiceItemsGrid: React.FC<InvoiceItemsGridProps> = ({
     return Math.round((taxable + taxVal) * 100) / 100;
   };
 
+  const hasExtraColumns = Boolean(
+    columnConfig.showBatch ||
+    columnConfig.showExpiry ||
+    columnConfig.showDiscount ||
+    columnConfig.showUnit ||
+    columnConfig.showTaxGst ||
+    columnConfig.showMrp ||
+    columnConfig.showFreeQuantity ||
+    columnConfig.showHsn
+  );
+
   return (
-    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
-      <div className="overflow-x-auto min-h-[220px]">
+    <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
+      
+      {/* ========================================================
+          1. MOBILE VIEW (Card Layout - 100% Zero Horizontal Scroll)
+          ======================================================== */}
+      <div className="block md:hidden p-2.5 sm:p-3 space-y-2.5">
+        {items.map((row, index) => {
+          const daysToExpiry = row.expiryDate ? calculateDaysUntilExpiry(row.expiryDate) : null;
+          const isNearExpiry = daysToExpiry !== null && daysToExpiry <= 90 && daysToExpiry > 0;
+          const isExpired = daysToExpiry !== null && daysToExpiry <= 0;
+          const isExpanded = !!expandedRowIds[row.tempId];
+
+          return (
+            <div 
+              key={row.tempId || index}
+              className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 transition-all shadow-xs"
+            >
+              {/* Row Header: # Badge + Medicine Name + Delete */}
+              <div className="flex items-center gap-1.5 mb-2 relative">
+                <span className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-black flex items-center justify-center shrink-0">
+                  {index + 1}
+                </span>
+
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={row.name}
+                    placeholder={mode === 'Purchase' ? 'Type medicine / barcode...' : 'Search medicine (F2)...'}
+                    onChange={(e) => {
+                      onUpdateItem(row.tempId, { name: e.target.value });
+                      setSearchQuery(e.target.value);
+                      setActiveSearchRowId(row.tempId);
+                    }}
+                    onFocus={() => {
+                      setSearchQuery(row.name || '');
+                      setActiveSearchRowId(row.tempId);
+                    }}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  {row.medicineId && (
+                    <span className="absolute right-2 top-1.5 text-[9px] text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-100 dark:bg-emerald-950 px-1 py-0.2 rounded">
+                      Linked
+                    </span>
+                  )}
+
+                  {/* Autocomplete Dropdown */}
+                  {activeSearchRowId === row.tempId && filteredCatalog.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto p-1 text-xs">
+                      <div className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 rounded-md mb-1 flex items-center justify-between">
+                        <span>Matching ({filteredCatalog.length})</span>
+                        <span className="text-blue-600 font-semibold">Tap to select</span>
+                      </div>
+                      {filteredCatalog.map((med) => (
+                        <div
+                          key={med.id}
+                          onClick={() => handleSelectMedicine(row.tempId, med)}
+                          className="p-2 hover:bg-blue-50 dark:hover:bg-blue-950/60 rounded-lg cursor-pointer flex items-center justify-between border-b border-slate-100 dark:border-slate-800 last:border-0"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <p className="font-bold text-slate-900 dark:text-white truncate">
+                              {med.name} {med.strength && <span className="text-blue-600 font-medium">({med.strength})</span>}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate">
+                              Batch: {med.batchNumber || 'N/A'} • Exp: {med.expiryDate || 'N/A'}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-extrabold text-blue-600 dark:text-blue-400">
+                              Rs {mode === 'Purchase' ? (med.purchasePrice || med.salePrice || 0) : (med.salePrice || med.mrp || 0)}
+                            </p>
+                            <p className="text-[9px] text-slate-400">Stock: {med.quantity || 0}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteItem(row.tempId)}
+                  disabled={items.length <= 1}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-20 shrink-0 cursor-pointer"
+                  title="Delete Row"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 3 Core Fields Row: Qty | Unit Price | Amount */}
+              <div className="grid grid-cols-3 gap-2 items-center bg-white dark:bg-slate-900/80 p-2 rounded-lg border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    Qty
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={row.quantity !== undefined ? row.quantity : 1}
+                    onChange={(e) => {
+                      const qty = parseFloat(e.target.value) || 0;
+                      const total = calculateRowTotal(qty, row.pricePerUnit, row.discountPercentage, row.taxPercentage);
+                      onUpdateItem(row.tempId, { quantity: qty, total });
+                    }}
+                    className="w-full bg-blue-50/60 dark:bg-slate-800 border border-blue-200 dark:border-blue-900 rounded-md px-1.5 py-1 text-xs font-black text-center text-blue-900 dark:text-blue-200 focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5">
+                    {mode === 'Purchase' ? 'Cost' : 'Price / Unit'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.pricePerUnit !== undefined ? row.pricePerUnit : 0}
+                    onChange={(e) => {
+                      const price = parseFloat(e.target.value) || 0;
+                      const total = calculateRowTotal(row.quantity, price, row.discountPercentage, row.taxPercentage);
+                      onUpdateItem(row.tempId, { pricePerUnit: price, total });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-1 text-xs font-black text-right text-slate-900 dark:text-white font-mono focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-0.5 text-right">
+                    Total (Rs)
+                  </label>
+                  <div className="w-full bg-emerald-50/60 dark:bg-slate-800/80 border border-emerald-200 dark:border-emerald-900/60 rounded-md px-1.5 py-1 text-xs font-black text-right text-emerald-700 dark:text-emerald-300 font-mono truncate">
+                    Rs {(row.total || 0).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Optional Fields (Batch, Expiry, Disc, Tax, Unit, etc.) */}
+              {hasExtraColumns && (
+                <div className="mt-2 pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    {columnConfig.showBatch && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Batch No</label>
+                        <input
+                          type="text"
+                          value={row.batchNumber || ''}
+                          placeholder="BATCH-01"
+                          onChange={(e) => onUpdateItem(row.tempId, { batchNumber: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono font-bold uppercase"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showExpiry && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Exp Date</label>
+                        <input
+                          type="date"
+                          value={row.expiryDate ? (row.expiryDate.includes('-') ? row.expiryDate.slice(0, 10) : row.expiryDate) : ''}
+                          onChange={(e) => onUpdateItem(row.tempId, { expiryDate: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-1 text-xs font-mono"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showDiscount && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Disc %</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={row.discountPercentage !== undefined ? row.discountPercentage : 0}
+                          onChange={(e) => {
+                            const disc = parseFloat(e.target.value) || 0;
+                            const total = calculateRowTotal(row.quantity, row.pricePerUnit, disc, row.taxPercentage);
+                            onUpdateItem(row.tempId, { discountPercentage: disc, total });
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-right"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showUnit && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Unit</label>
+                        <select
+                          value={row.unit || 'Box'}
+                          onChange={(e) => onUpdateItem(row.tempId, { unit: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-1 text-xs"
+                        >
+                          {UNIT_OPTIONS.map((u) => (
+                            <option key={u} value={u}>{u}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {columnConfig.showTaxGst && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Tax %</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.taxPercentage !== undefined ? row.taxPercentage : 0}
+                          onChange={(e) => {
+                            const tax = parseFloat(e.target.value) || 0;
+                            const total = calculateRowTotal(row.quantity, row.pricePerUnit, row.discountPercentage, tax);
+                            onUpdateItem(row.tempId, { taxPercentage: tax, total });
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-right"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showMrp && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">MRP (Rs)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.mrp !== undefined ? row.mrp : ''}
+                          placeholder="0.00"
+                          onChange={(e) => onUpdateItem(row.tempId, { mrp: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-right"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showFreeQuantity && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Free Qty</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.freeQuantity !== undefined ? row.freeQuantity : 0}
+                          placeholder="0"
+                          onChange={(e) => onUpdateItem(row.tempId, { freeQuantity: parseFloat(e.target.value) || 0 })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-bold text-center text-emerald-600"
+                        />
+                      </div>
+                    )}
+
+                    {columnConfig.showHsn && (
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-0.5">HSN Code</label>
+                        <input
+                          type="text"
+                          value={row.hsnCode || ''}
+                          placeholder="3004"
+                          onChange={(e) => onUpdateItem(row.tempId, { hsnCode: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-center"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ========================================================
+          2. DESKTOP VIEW (Full Table Grid)
+          ======================================================== */}
+      <div className="hidden md:block overflow-x-auto min-h-[200px]">
         <table className="w-full text-left border-collapse text-xs">
           {/* Table Header */}
           <thead>
@@ -459,17 +740,17 @@ export const InvoiceItemsGrid: React.FC<InvoiceItemsGridProps> = ({
       </div>
 
       {/* Grid Bottom Action Bar */}
-      <div className="p-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
+      <div className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between flex-wrap gap-2">
         <button
           type="button"
           onClick={onAddRow}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer active:scale-95"
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer active:scale-95 shadow-2xs"
         >
           <Plus className="w-4 h-4" />
           <span>+ ADD ROW</span>
         </button>
 
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-bold">
           <span>Rows: <strong className="text-slate-900 dark:text-white">{items.length}</strong></span>
           <span>•</span>
           <span>Total Qty: <strong className="text-blue-600 dark:text-blue-400">{items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0)}</strong></span>

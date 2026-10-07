@@ -255,10 +255,10 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
 
     return list.map(item => {
       // Evaluate exact access
-      const isMenuOn = profile.menuToggles[item.menuId] !== false;
-      const isSubOn = profile.submenuToggles[item.submenuId] !== false;
-      const isFnOn = profile.functionToggles[item.functionId] !== false;
-      const isActOn = profile.actionToggles[item.actionCode] !== false;
+      const isMenuOn = (profile?.menuToggles?.[item.menuId] ?? true) !== false;
+      const isSubOn = (profile?.submenuToggles?.[item.submenuId] ?? true) !== false;
+      const isFnOn = (profile?.functionToggles?.[item.functionId] ?? true) !== false;
+      const isActOn = (profile?.actionToggles?.[item.actionCode] ?? true) !== false;
 
       let allowed = false;
       let reason = '';
@@ -357,7 +357,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
     }> = [];
 
     SYSTEM_MENU_TREE.forEach(menu => {
-      const isMenuOn = profile.menuToggles[menu.id] !== false;
+      const isMenuOn = (profile?.menuToggles?.[menu.id] ?? true) !== false;
       items.push({
         id: menu.id,
         code: menu.id,
@@ -371,7 +371,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
       });
 
       menu.submenus.forEach(sub => {
-        const isSubOn = profile.submenuToggles[sub.id] !== false;
+        const isSubOn = (profile?.submenuToggles?.[sub.id] ?? true) !== false;
         const subAllowed = roleBypassActive ? true : (isMenuOn && isSubOn);
         items.push({
           id: sub.id,
@@ -387,7 +387,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
         });
 
         sub.functions.forEach(fn => {
-          const isFnOn = profile.functionToggles[fn.id] !== false;
+          const isFnOn = (profile?.functionToggles?.[fn.id] ?? true) !== false;
           const fnAllowed = roleBypassActive ? true : (isMenuOn && isSubOn && isFnOn);
           items.push({
             id: fn.id,
@@ -404,7 +404,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
           });
 
           fn.actions.forEach(act => {
-            const isActOn = profile.actionToggles[act.id] !== false;
+            const isActOn = (profile?.actionToggles?.[act.id] ?? true) !== false;
             const actAllowed = roleBypassActive ? true : (isMenuOn && isSubOn && isFnOn && isActOn);
             let reason = 'Action Active';
             if (roleBypassActive) reason = 'Bypassed by Primary Admin role';
@@ -506,7 +506,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
     }
 
     if (matchedItem) {
-      const isMenuOn = profile.menuToggles[matchedItem.menuId] !== false;
+      const isMenuOn = (profile?.menuToggles?.[matchedItem.menuId] ?? true) !== false;
       steps.push({
         step: `3. Parent Menu Module [${matchedItem.menuId}]`,
         status: isMenuOn ? 'pass' : 'fail',
@@ -514,7 +514,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
       });
 
       if (matchedItem.submenuId) {
-        const isSubOn = profile.submenuToggles[matchedItem.submenuId] !== false;
+        const isSubOn = (profile?.submenuToggles?.[matchedItem.submenuId] ?? true) !== false;
         steps.push({
           step: `4. Submenu Module [${matchedItem.submenuId}]`,
           status: isSubOn ? 'pass' : 'fail',
@@ -523,7 +523,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
       }
 
       if (matchedItem.functionId) {
-        const isFnOn = profile.functionToggles[matchedItem.functionId] !== false;
+        const isFnOn = (profile?.functionToggles?.[matchedItem.functionId] ?? true) !== false;
         steps.push({
           step: `5. Function Module [${matchedItem.functionId}]`,
           status: isFnOn ? 'pass' : 'fail',
@@ -532,7 +532,7 @@ export const PermissionDiagnosticsPanel: React.FC<PermissionDiagnosticsPanelProp
       }
 
       if (matchedItem.actionId) {
-        const isActOn = profile.actionToggles[matchedItem.actionId] !== false;
+        const isActOn = (profile?.actionToggles?.[matchedItem.actionId] ?? true) !== false;
         steps.push({
           step: `6. Specific Action Toggle [${matchedItem.actionId}]`,
           status: isActOn ? 'pass' : 'fail',

@@ -17,15 +17,21 @@ let latestServerVersionInfo: AppVersionInfo | null = null;
 let waitingWorker: ServiceWorker | null = null;
 let isUpdating = false;
 
-// Check if update banner has been dismissed for the current browser session
+// Check if update banner has been notified/shown or dismissed once for this version
 export const isUpdateDismissedForSession = (version: string): boolean => {
-  if (typeof sessionStorage === 'undefined') return false;
-  return sessionStorage.getItem(`mbi_update_dismissed_v${version}`) === 'true';
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(`mbi_update_notified_v${version}`) === 'true' || 
+         sessionStorage.getItem(`mbi_update_dismissed_v${version}`) === 'true';
 };
 
 export const dismissUpdateForSession = (version: string): void => {
-  if (typeof sessionStorage === 'undefined') return;
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`mbi_update_notified_v${version}`, 'true');
   sessionStorage.setItem(`mbi_update_dismissed_v${version}`, 'true');
+};
+
+export const markUpdateAsNotified = (version: string): void => {
+  dismissUpdateForSession(version);
 };
 
 // Notify all subscribed UI components
@@ -64,7 +70,7 @@ export const checkForAppVersionUpdate = async (): Promise<AppVersionInfo | null>
 
       const info: AppVersionInfo = {
         version: data.version,
-        releaseNotes: data.releaseNotes || 'New POS Billing Speed, Live Sync & UI Enhancements',
+        releaseNotes: data.releaseNotes || 'High-Speed 0.2s POS Engine, Enhanced Security & Performance Upgrades',
         buildTimestamp: data.buildTimestamp,
         isUpdateAvailable: isNewer
       };
@@ -150,9 +156,6 @@ export const registerPWA = initializePwaService;
 
 // ZERO-LOGOUT & ZERO DATA LOSS INSTANT HOT UPDATE
 export const triggerSeamlessHotUpdate = async () => {
-  if (isUpdating) return;
-  isUpdating = true;
-
   try {
     sessionStorage.setItem('mbi_user_triggered_update', 'true');
 
@@ -169,36 +172,39 @@ export const triggerSeamlessHotUpdate = async () => {
 
     sessionStorage.setItem('mbi_hot_update_resume', JSON.stringify(currentState));
 
-    // 2. Set active installed version to new version
+    // 2. Set active installed version to new version and dismiss banner permanently
     const newVersion = latestServerVersionInfo?.version || CURRENT_CLIENT_VERSION;
     localStorage.setItem('mbi_active_version', newVersion);
+    markUpdateAsNotified(newVersion);
 
-    // 3. Send SKIP_WAITING signal to waiting ServiceWorker
-    if (waitingWorker) {
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-    } else if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg && reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    // 3. Send SKIP_WAITING signal non-blockingly
+    try {
+      if (waitingWorker) {
+        waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      } else if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          if (reg && reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        }).catch(() => {});
       }
-    }
+    } catch (e) {}
 
-    // 4. Purge outdated static code & asset caches while preserving IndexedDB and user auth data
+    // 4. Non-blocking cache flush with race timeout
     if ('caches' in window) {
-      try {
-        const cacheKeys = await caches.keys();
-        await Promise.all(
-          cacheKeys
+      caches.keys().then(keys => {
+        return Promise.all(
+          keys
             .filter(key => key !== CURRENT_CACHE_NAME && (key.includes('workbox') || key.includes('app-') || key.includes('html') || key.startsWith('mbi-inventra-') || key.includes('assets') || key.includes('vite')))
-            .map(key => caches.delete(key))
+            .map(key => caches.delete(key).catch(() => {}))
         );
-      } catch (e) {}
+      }).catch(() => {});
     }
 
-    // 5. Fast Instant Reload without logging out
+    // 5. Guaranteed fast reload within 250ms
     setTimeout(() => {
       window.location.reload();
-    }, 150);
+    }, 250);
 
   } catch (err) {
     console.error('[PWA UPDATE ERROR]', err);

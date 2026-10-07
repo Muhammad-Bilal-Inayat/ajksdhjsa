@@ -606,6 +606,11 @@ export async function getHomePagePopupController(req: Request, res: Response): P
       const masterDb = getMasterVault();
       const row: any = masterDb.prepare('SELECT * FROM mbi_homepage_popup ORDER BY updated_at DESC LIMIT 1;').get();
       if (row) {
+        let featureTags = [];
+        try {
+          featureTags = row.feature_tags ? JSON.parse(row.feature_tags) : [];
+        } catch (e) {}
+
         popupConfig = {
           id: row.id,
           enabled: Boolean(row.enabled),
@@ -619,6 +624,24 @@ export async function getHomePagePopupController(req: Request, res: Response): P
           ctaStyle: row.cta_style || 'gradient_indigo',
           secondaryCtaLabel: row.secondary_cta_label || 'Maybe Later',
           secondaryCtaUrl: row.secondary_cta_url || '',
+          secondaryCtaType: row.secondary_cta_type || 'dismiss',
+          themePreset: row.theme_preset || 'electric_indigo',
+          gradientFrom: row.gradient_from || '#4338ca',
+          gradientTo: row.gradient_to || '#7e22ce',
+          badgeColor: row.badge_color || '#fbbf24',
+          showCountdown: Boolean(row.show_countdown),
+          countdownLabel: row.countdown_label || '⚡ FLASH SALE ENDS IN:',
+          countdownTarget: row.countdown_target || '',
+          featureTags: Array.isArray(featureTags) && featureTags.length > 0 ? featureTags : [
+            '100% Free Full Access',
+            '0ms Offline POS Sync',
+            'No Card Required',
+            'Thermal & A4 Print'
+          ],
+          animationStyle: row.animation_style || 'zoom_bounce',
+          frequency: row.frequency || 'every_visit',
+          autoDismissSeconds: Number(row.auto_dismiss_seconds) || 0,
+          soundEffect: Boolean(row.sound_effect),
           type: row.type || 'special_offer',
           autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
           updatedAt: row.updated_at
@@ -649,6 +672,24 @@ export async function getHomePagePopupController(req: Request, res: Response): P
         ctaStyle: 'gradient_indigo',
         secondaryCtaLabel: 'Maybe Later',
         secondaryCtaUrl: '',
+        secondaryCtaType: 'dismiss',
+        themePreset: 'electric_indigo',
+        gradientFrom: '#4338ca',
+        gradientTo: '#7e22ce',
+        badgeColor: '#fbbf24',
+        showCountdown: false,
+        countdownLabel: '⚡ FLASH SALE ENDS IN:',
+        countdownTarget: '',
+        featureTags: [
+          '100% Free Full Access',
+          '0ms Offline POS Sync',
+          'No Card Required',
+          'Thermal & A4 Print'
+        ],
+        animationStyle: 'zoom_bounce',
+        frequency: 'every_visit',
+        autoDismissSeconds: 0,
+        soundEffect: false,
         type: 'special_offer',
         autoShowDelayMs: 1500,
         updatedAt: new Date().toISOString()
@@ -680,6 +721,22 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
       imageUrl = '', 
       ctaLabel = 'Get Started Now', 
       ctaUrl = '/register', 
+      ctaStyle = 'gradient_indigo',
+      secondaryCtaLabel = 'Maybe Later',
+      secondaryCtaUrl = '',
+      secondaryCtaType = 'dismiss',
+      themePreset = 'electric_indigo',
+      gradientFrom = '#4338ca',
+      gradientTo = '#7e22ce',
+      badgeColor = '#fbbf24',
+      showCountdown = false,
+      countdownLabel = '⚡ FLASH SALE ENDS IN:',
+      countdownTarget = '',
+      featureTags,
+      animationStyle = 'zoom_bounce',
+      frequency = 'every_visit',
+      autoDismissSeconds = 0,
+      soundEffect = false,
       type = 'special_offer',
       autoShowDelayMs = 1200
     } = req.body || {};
@@ -693,6 +750,13 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
     const cleanEnabled = enabled === true || enabled === 1 || enabled === 'true' ? 1 : 0;
     const updatedAt = new Date().toISOString();
 
+    const cleanFeatureTags = Array.isArray(featureTags) ? featureTags : [
+      '100% Free Full Access',
+      '0ms Offline POS Sync',
+      'No Card Required',
+      'Thermal & A4 Print'
+    ];
+
     const popupRecord = {
       id: popupId,
       enabled: Boolean(cleanEnabled),
@@ -703,6 +767,22 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
       imageUrl: String(imageUrl || '').trim(),
       ctaLabel: String(ctaLabel || 'Get Started Now').trim(),
       ctaUrl: String(ctaUrl || '/register').trim(),
+      ctaStyle: String(ctaStyle || 'gradient_indigo'),
+      secondaryCtaLabel: String(secondaryCtaLabel || 'Maybe Later').trim(),
+      secondaryCtaUrl: String(secondaryCtaUrl || '').trim(),
+      secondaryCtaType: String(secondaryCtaType || 'dismiss'),
+      themePreset: String(themePreset || 'electric_indigo'),
+      gradientFrom: String(gradientFrom || '#4338ca'),
+      gradientTo: String(gradientTo || '#7e22ce'),
+      badgeColor: String(badgeColor || '#fbbf24'),
+      showCountdown: Boolean(showCountdown),
+      countdownLabel: String(countdownLabel || '⚡ FLASH SALE ENDS IN:').trim(),
+      countdownTarget: String(countdownTarget || ''),
+      featureTags: cleanFeatureTags,
+      animationStyle: String(animationStyle || 'zoom_bounce'),
+      frequency: String(frequency || 'every_visit'),
+      autoDismissSeconds: Number(autoDismissSeconds) || 0,
+      soundEffect: Boolean(soundEffect),
       type: String(type || 'special_offer'),
       autoShowDelayMs: Number(autoShowDelayMs) || 1200,
       updatedAt
@@ -713,8 +793,16 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
       const masterDb = getMasterVault();
       masterDb.prepare(`
         INSERT INTO mbi_homepage_popup (
-          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, type, auto_show_delay_ms, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, cta_style,
+          secondary_cta_label, secondary_cta_url, secondary_cta_type, theme_preset, gradient_from,
+          gradient_to, badge_color, show_countdown, countdown_label, countdown_target, feature_tags,
+          animation_style, frequency, auto_dismiss_seconds, sound_effect, type, auto_show_delay_ms, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, datetime('now')
+        )
         ON CONFLICT(id) DO UPDATE SET
           enabled = excluded.enabled,
           title = excluded.title,
@@ -724,6 +812,22 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
           image_url = excluded.image_url,
           cta_label = excluded.cta_label,
           cta_url = excluded.cta_url,
+          cta_style = excluded.cta_style,
+          secondary_cta_label = excluded.secondary_cta_label,
+          secondary_cta_url = excluded.secondary_cta_url,
+          secondary_cta_type = excluded.secondary_cta_type,
+          theme_preset = excluded.theme_preset,
+          gradient_from = excluded.gradient_from,
+          gradient_to = excluded.gradient_to,
+          badge_color = excluded.badge_color,
+          show_countdown = excluded.show_countdown,
+          countdown_label = excluded.countdown_label,
+          countdown_target = excluded.countdown_target,
+          feature_tags = excluded.feature_tags,
+          animation_style = excluded.animation_style,
+          frequency = excluded.frequency,
+          auto_dismiss_seconds = excluded.auto_dismiss_seconds,
+          sound_effect = excluded.sound_effect,
           type = excluded.type,
           auto_show_delay_ms = excluded.auto_show_delay_ms,
           updated_at = datetime('now');
@@ -737,6 +841,22 @@ export async function saveHomePagePopupController(req: Request, res: Response): 
         popupRecord.imageUrl,
         popupRecord.ctaLabel,
         popupRecord.ctaUrl,
+        popupRecord.ctaStyle,
+        popupRecord.secondaryCtaLabel,
+        popupRecord.secondaryCtaUrl,
+        popupRecord.secondaryCtaType,
+        popupRecord.themePreset,
+        popupRecord.gradientFrom,
+        popupRecord.gradientTo,
+        popupRecord.badgeColor,
+        popupRecord.showCountdown ? 1 : 0,
+        popupRecord.countdownLabel,
+        popupRecord.countdownTarget,
+        JSON.stringify(popupRecord.featureTags),
+        popupRecord.animationStyle,
+        popupRecord.frequency,
+        popupRecord.autoDismissSeconds,
+        popupRecord.soundEffect ? 1 : 0,
         popupRecord.type,
         popupRecord.autoShowDelayMs
       );

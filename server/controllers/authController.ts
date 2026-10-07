@@ -930,10 +930,16 @@ export async function registerTrialController(req: TenantRequest, res: Response)
           storeName: cleanStoreName,
           ownerName: cleanOwnerName || cleanUsername,
           username: cleanUsername,
+          password: cleanPassword,
           phone: cleanPhone,
           email: cleanEmail,
           city: cleanCity,
           plan: 'Basic (10-Day Free Trial)',
+          duration: '10-Day Free Trial',
+          expiryDate: trialExpiry.slice(0, 10),
+          licenseKey: generatedKey,
+          maxDevices: 1,
+          deviceType: clientDeviceModel,
           tenantId
         });
 

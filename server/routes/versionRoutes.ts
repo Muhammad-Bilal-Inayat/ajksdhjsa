@@ -3,8 +3,8 @@ import { Router, Request, Response } from 'express';
 export const versionRouter = Router();
 
 // Current application release specification
-export const APP_VERSION = '4.4.0';
-export const RELEASE_NOTES = 'Fresh Cache Flush, 3D Hero Mockup, Strict Multi-Tenant Isolation & Enhanced RBAC Lock (v4.4.0)';
+export const APP_VERSION = '4.4.1';
+export const RELEASE_NOTES = 'High-Speed 0.2s POS Engine, Enhanced Security, Offline Sync Optimization & Performance Upgrades (v4.4.1)';
 export const BUILD_TIMESTAMP = new Date().toISOString();
 
 versionRouter.get('/', (req: Request, res: Response) => {

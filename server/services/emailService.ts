@@ -204,35 +204,90 @@ export async function sendAdminAlertNewTenant(tenantData: {
   ownerName: string;
   username: string;
   phone: string;
+  password?: string;
+  passcode?: string;
   email?: string;
   city?: string;
+  address?: string;
   plan?: string;
+  duration?: string;
+  expiryDate?: string;
+  licenseKey?: string;
+  maxDevices?: number;
+  deviceType?: string;
   tenantId?: string;
+  subUsers?: Array<{
+    name: string;
+    role: string;
+    username: string;
+    passcode: string;
+  }>;
 }) {
   const settings = getEmailSettings();
   const adminEmail = settings.adminEmail || 'mbiinventra@gmail.com';
 
+  const userPassword = tenantData.password || tenantData.passcode || '';
+  const subUsersList = tenantData.subUsers || [];
+
   const html = `
     <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
         ${getEmailBannerHeader()}
         <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 20px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">🚨 New Pharmacy Registered!</h1>
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">🚨 New Pharmacy / Client Registered!</h1>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
         </div>
         <div style="padding: 24px;">
-          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
+          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered / onboarded on your Cloud POS platform:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px;">
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b; width: 38%;">Pharmacy / Store Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Full Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.ownerName}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">Username / ID:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+            ${userPassword ? `
+            <tr style="border-bottom: 1px solid #f1f5f9; background-color: #fef2f2;">
+              <td style="padding: 8px 10px; font-weight: bold; color: #b91c1c;">Login Password / PIN:</td>
+              <td style="padding: 8px 10px; font-family: monospace; font-weight: 900; font-size: 15px; color: #dc2626; letter-spacing: 1px;">${userPassword}</td>
+            </tr>` : ''}
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.email || '—'}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.city || 'Pakistan'}</td></tr>
+            ${tenantData.address ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Store Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.address}</td></tr>` : ''}
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 8px 10px; font-weight: bold; color: #059669;">${tenantData.plan || '30-Day Free Trial'}</td></tr>
+            ${tenantData.duration || tenantData.expiryDate ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Validity Duration:</td><td style="padding: 8px 10px; font-weight: bold; color: #0891b2;">${tenantData.duration || ''} ${tenantData.expiryDate ? `(Expires: ${tenantData.expiryDate})` : ''}</td></tr>` : ''}
+            ${tenantData.licenseKey ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #64748b;">License Key:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #d97706;">${tenantData.licenseKey}</td></tr>` : ''}
+            ${tenantData.maxDevices ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Allowed Hardware:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.maxDevices} Device(s) ${tenantData.deviceType ? `(${tenantData.deviceType})` : ''}</td></tr>` : ''}
             <tr><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 8px 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || 'auto_assigned'}</td></tr>
           </table>
-          <div style="text-align: center; margin-top: 20px;">
+
+          ${subUsersList.length > 0 ? `
+            <div style="margin-top: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #334155; font-weight: 800; letter-spacing: 0.5px;">
+                👥 Configured Sub-Users &amp; Passcodes (${subUsersList.length})
+              </h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                <thead>
+                  <tr style="background-color: #e2e8f0; color: #1e293b;">
+                    <th style="padding: 6px 8px; border-radius: 6px 0 0 6px;">Staff Name</th>
+                    <th style="padding: 6px 8px;">Role</th>
+                    <th style="padding: 6px 8px;">Username</th>
+                    <th style="padding: 6px 8px; border-radius: 0 6px 6px 0;">PIN / Passcode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${subUsersList.map(u => `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                      <td style="padding: 8px; font-weight: bold; color: #1e293b;">${u.name}</td>
+                      <td style="padding: 8px; color: #2563eb; font-weight: 600;">${u.role}</td>
+                      <td style="padding: 8px; font-family: monospace; color: #475569;">${u.username}</td>
+                      <td style="padding: 8px; font-family: monospace; font-weight: 800; color: #059669; font-size: 13px;">${u.passcode}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          <div style="text-align: center; margin-top: 22px;">
             <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 11px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
           </div>
         </div>
@@ -245,7 +300,7 @@ export async function sendAdminAlertNewTenant(tenantData: {
 
   return sendEmail({
     to: adminEmail,
-    subject: `🚨 New Pharmacy Registration: ${tenantData.storeName} (${tenantData.phone})`,
+    subject: `🚨 New Registration: ${tenantData.storeName} (${tenantData.phone}) - ${tenantData.plan || 'Client'}`,
     html
   });
 }

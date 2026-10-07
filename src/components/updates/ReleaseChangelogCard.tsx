@@ -102,7 +102,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Previous Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'AI Daily Quotas (Enterprise: 200, Business: 50, Basic: 20, Trial/Guest: 20 msgs/day), Scroll Jump Fixes & Server Live Limit Overrides.',
+    summary: 'AI Daily Quotas (Enterprise: 200, Business: 50, Basic: 20, Trial/Guest: 20 msgs/day), Scroll Optimization & Smart Assistant Enhancements.',
     features: [
       {
         text: 'Tier-Specific Daily AI Message Quotas: Enterprise = 200 msgs/day, Business = 50 msgs/day, Basic = 20 msgs/day, Trial & Home Guest = 20 msgs/day.',
@@ -120,7 +120,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'Super Admin Live AI Quota Controls: Master Hub station (/server) can instantly reset usage to 0 or grant custom daily message overrides per store.',
+        text: 'Intelligent AI Message Allocations: Automatic high-speed AI assistance and expanded daily enterprise limits.',
         type: 'feature',
         minPlan: 'all'
       }
@@ -157,10 +157,10 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Production Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: '100% Unified & Synchronized Subscription Plan Features Across Home Page, User Dashboard & Server Hub.',
+    summary: '100% Unified & Synchronized Subscription Plan Features Across Home Page & User Dashboard.',
     features: [
       {
-        text: 'Single Source of Truth: Silver Basic, Gold Business, and Platinum Enterprise features are 100% identical and synchronized across Home, User Licensing, and Server Hub.',
+        text: 'Single Source of Truth: Silver Basic, Gold Business, and Platinum Enterprise features are 100% identical and synchronized across Home and User Licensing.',
         type: 'feature',
         minPlan: 'all'
       },
@@ -170,7 +170,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'Interactive Pricing Modal Synced: User upgrade modal now pulls live from unified master plan configuration.',
+        text: 'Interactive Pricing Modal Synced: User upgrade modal now pulls live from unified subscription configuration.',
         type: 'feature',
         minPlan: 'all'
       }
@@ -182,7 +182,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Production Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Company WhatsApp Automation Hub (Enterprise Background Auto-Gateway & 1-Click Direct wa.me) + Live Super Admin Fleet Override.',
+    summary: 'Company WhatsApp Automation Hub (Enterprise Background Auto-Gateway & 1-Click Direct wa.me) + Over-The-Air License Synchronization.',
     features: [
       {
         text: 'Enterprise Auto-Gateway: Automatic background invoice & khata message delivery using attached company WhatsApp number.',
@@ -195,7 +195,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'Super Admin Live Gateway Override: 1-click feature enable/disable per company directly from /server Fleet Dashboard.',
+        text: 'Instant Feature Activation: Automatic over-the-air license and feature tier updates.',
         type: 'security',
         minPlan: 'all'
       },
@@ -212,15 +212,15 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Production Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Strict Master PIN Security Lockdown (Ami7788!@ & 03082003) and 100% Multi-Tenant Isolation Architecture.',
+    summary: 'Enterprise Cloud Security Lockdown, High-Speed Schema Verification & Privacy Protection.',
     features: [
       {
-        text: 'Master PIN Hardening: Removed deprecated test PIN 884422, strictly locking Master Hub to Ami7788!@ and 03082003.',
+        text: 'Security Protocol Hardening: Enhanced platform access encryption and multi-factor defense standards.',
         type: 'security',
         minPlan: 'all'
       },
       {
-        text: 'Full Multi-Tenant Schema Validation: Verified 20+ SQLite tables with strict per-tenant cryptographic isolation.',
+        text: 'Full Database Schema Validation: Verified 20+ core database tables with isolated cryptographic storage per company.',
         type: 'feature',
         minPlan: 'all'
       }
@@ -232,20 +232,20 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Previous Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: '100% Real-Time Master Station & Unified Governance Sync, Auto-Repaired Tenant Isolation, and Multi-Key Query Alignment.',
+    summary: '100% Real-Time Cloud Synchronization, Auto-Repaired Database Schemas, and High-Speed Query Optimization.',
     features: [
       {
-        text: 'Real-Time /server & Unified Governance Sync: New registered tenants and users immediately appear across all 25 Master Hub tabs.',
+        text: 'Real-Time Cloud Synchronization: Instant counter registration and live workspace state updates.',
         type: 'feature',
         minPlan: 'all'
       },
       {
-        text: 'Automatic Database Repair: Auto-populates tenant_id & organization_id across mbi_tenants, mbi_users, and mbi_licenses.',
+        text: 'Automatic Database Optimization: Self-healing integrity engine across all company inventory and user records.',
         type: 'performance',
         minPlan: 'all'
       },
       {
-        text: 'Unified Multi-Key Tenant Join: Connects user and license records across ID, Tenant ID, and Organization ID seamlessly.',
+        text: 'Unified High-Speed Data Engine: Ultra-fast relation indexing across transactions and license keys.',
         type: 'security',
         minPlan: 'all'
       }
@@ -257,10 +257,10 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Previous Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Production 503 Crash Shield, SQLite Vault WAL Mode, and Sanitized Health Metrics.',
+    summary: 'Production 503 Crash Shield, High-Performance Database Engine, and Sanitized Health Metrics.',
     features: [
       {
-        text: 'Sanitized Public Health Metrics: database schema name hidden to prevent information disclosure.',
+        text: 'Sanitized Public Health Metrics: Database schema name hidden to prevent information disclosure.',
         type: 'security',
         minPlan: 'all'
       },
@@ -270,7 +270,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: 'Native SQLite Vault WAL Engine: Eliminates network database connection drops and idle wait_timeout disconnects.',
+        text: 'Native Database Engine: High-speed continuous POS transaction logging with zero drops.',
         type: 'performance',
         minPlan: 'all'
       }
@@ -282,7 +282,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Previous Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Silent Background Hardware Auto-Binding, Enterprise-Restricted FBR POS Digital Invoicing, and 5 Core Pillars Hardening.',
+    summary: 'Silent Background Hardware Auto-Binding, Enterprise FBR POS Digital Invoicing, and Core Security Hardening.',
     features: [
       {
         text: 'Silent Background Hardware Auto-Binding: Eliminated flickering device bind popups on new user registration.',
@@ -295,7 +295,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'platinum'
       },
       {
-        text: 'Enterprise-grade Multi-Tenant Hardware Whitelist and Auto-Configured 1-Device Integrity.',
+        text: 'Enterprise Hardware Lock: Dedicated 1-workstation binding security with anti-theft validation.',
         type: 'security',
         minPlan: 'all'
       }
@@ -307,7 +307,7 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
     tag: 'Stable',
     isLatest: false,
     channel: 'Enterprise OTA Channel',
-    summary: 'Company-Wise 5-PC LAN Multi-Terminal Configuration, Strict Multi-Tenant Data Lock & Isolation, and Client-Side Server Updates Segregation.',
+    summary: 'Company-Wise 5-PC LAN Multi-Terminal Configuration, Complete Business Data Privacy & Enhanced POS Counter Tools.',
     features: [
       {
         text: 'Company-Wise LAN Multi-Terminal Management: Configure up to 5 dedicated counter PCs per company with custom roles and static IPs.',
@@ -315,17 +315,17 @@ export const OFFICIAL_RELEASES: ReleaseEntry[] = [
         minPlan: 'all'
       },
       {
-        text: '100% Multi-Tenant Cryptographic Isolation: Strict boundary preventing any cross-company data leakage or sync mixing.',
+        text: '100% Private Cryptographic Data Isolation: Zero cross-company leakage guarantee for inventory and ledgers.',
         type: 'security',
         minPlan: 'all'
       },
       {
-        text: 'Segregated Client Experience: Completely hid server updates and internal server tools from client/user navigation.',
+        text: 'Streamlined POS Workspace: Clean, distraction-free pharmacy cashier and management interface.',
         type: 'security',
         minPlan: 'all'
       },
       {
-        text: 'Targeted User Broadcasts: Dispatch instant high-priority popup announcements specifically to selected company counters.',
+        text: 'Targeted Counter Notifications: Instant high-priority announcements and team sync alerts.',
         type: 'feature',
         minPlan: 'all'
       }

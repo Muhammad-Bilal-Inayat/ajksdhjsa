@@ -395,7 +395,20 @@ function getMasterVault() {
   const popupCols = [
     "cta_style TEXT DEFAULT 'gradient_indigo'",
     "secondary_cta_label TEXT DEFAULT 'Maybe Later'",
-    "secondary_cta_url TEXT DEFAULT ''"
+    "secondary_cta_url TEXT DEFAULT ''",
+    "theme_preset TEXT DEFAULT 'electric_indigo'",
+    "gradient_from TEXT DEFAULT '#4338ca'",
+    "gradient_to TEXT DEFAULT '#7e22ce'",
+    "badge_color TEXT DEFAULT '#fbbf24'",
+    "show_countdown INTEGER DEFAULT 0",
+    "countdown_label TEXT DEFAULT '\u26A1 FLASH SALE ENDS IN:'",
+    "countdown_target TEXT DEFAULT ''",
+    "feature_tags TEXT DEFAULT '[]'",
+    "secondary_cta_type TEXT DEFAULT 'dismiss'",
+    "animation_style TEXT DEFAULT 'zoom_bounce'",
+    "frequency TEXT DEFAULT 'every_visit'",
+    "auto_dismiss_seconds INTEGER DEFAULT 0",
+    "sound_effect INTEGER DEFAULT 0"
   ];
   for (const col of popupCols) {
     try {
@@ -2481,27 +2494,67 @@ async function sendEmail({
 async function sendAdminAlertNewTenant(tenantData) {
   const settings = getEmailSettings();
   const adminEmail = settings.adminEmail || "mbiinventra@gmail.com";
+  const userPassword = tenantData.password || tenantData.passcode || "";
+  const subUsersList = tenantData.subUsers || [];
   const html = `
     <div style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px 15px; color: #1e293b;">
-      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+      <div style="max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
         ${getEmailBannerHeader()}
         <div style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 20px; text-align: center; color: white;">
-          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">\u{1F6A8} New Pharmacy Registered!</h1>
+          <h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">\u{1F6A8} New Pharmacy / Client Registered!</h1>
           <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">MBI INVENTRA Super-Admin Notification</p>
         </div>
         <div style="padding: 24px;">
-          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered on your Cloud POS platform:</p>
+          <p style="font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 0;">A new tenant has just registered / onboarded on your Cloud POS platform:</p>
           <table style="width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 13px;">
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Pharmacy Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
-            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Name:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.ownerName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b; width: 38%;">Pharmacy / Store Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.storeName}</td></tr>
+            <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Owner Full Name:</td><td style="padding: 8px 10px; font-weight: 800; color: #1e293b;">${tenantData.ownerName}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">Username / ID:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #2563eb;">${tenantData.username}</td></tr>
+            ${userPassword ? `
+            <tr style="border-bottom: 1px solid #f1f5f9; background-color: #fef2f2;">
+              <td style="padding: 8px 10px; font-weight: bold; color: #b91c1c;">Login Password / PIN:</td>
+              <td style="padding: 8px 10px; font-family: monospace; font-weight: 900; font-size: 15px; color: #dc2626; letter-spacing: 1px;">${userPassword}</td>
+            </tr>` : ""}
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Phone Number:</td><td style="padding: 8px 10px; font-weight: bold; color: #1e293b;">${tenantData.phone}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Email Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.email || "\u2014"}</td></tr>
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">City / Location:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.city || "Pakistan"}</td></tr>
+            ${tenantData.address ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Store Address:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.address}</td></tr>` : ""}
             <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Subscription Plan:</td><td style="padding: 8px 10px; font-weight: bold; color: #059669;">${tenantData.plan || "30-Day Free Trial"}</td></tr>
+            ${tenantData.duration || tenantData.expiryDate ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Validity Duration:</td><td style="padding: 8px 10px; font-weight: bold; color: #0891b2;">${tenantData.duration || ""} ${tenantData.expiryDate ? `(Expires: ${tenantData.expiryDate})` : ""}</td></tr>` : ""}
+            ${tenantData.licenseKey ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #64748b;">License Key:</td><td style="padding: 8px 10px; font-family: monospace; font-weight: bold; color: #d97706;">${tenantData.licenseKey}</td></tr>` : ""}
+            ${tenantData.maxDevices ? `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Allowed Hardware:</td><td style="padding: 8px 10px; color: #1e293b;">${tenantData.maxDevices} Device(s) ${tenantData.deviceType ? `(${tenantData.deviceType})` : ""}</td></tr>` : ""}
             <tr><td style="padding: 8px 10px; font-weight: bold; color: #64748b;">Tenant Vault ID:</td><td style="padding: 8px 10px; font-family: monospace; font-size: 11px; color: #64748b;">${tenantData.tenantId || "auto_assigned"}</td></tr>
           </table>
-          <div style="text-align: center; margin-top: 20px;">
+
+          ${subUsersList.length > 0 ? `
+            <div style="margin-top: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;">
+              <h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #334155; font-weight: 800; letter-spacing: 0.5px;">
+                \u{1F465} Configured Sub-Users &amp; Passcodes (${subUsersList.length})
+              </h4>
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
+                <thead>
+                  <tr style="background-color: #e2e8f0; color: #1e293b;">
+                    <th style="padding: 6px 8px; border-radius: 6px 0 0 6px;">Staff Name</th>
+                    <th style="padding: 6px 8px;">Role</th>
+                    <th style="padding: 6px 8px;">Username</th>
+                    <th style="padding: 6px 8px; border-radius: 0 6px 6px 0;">PIN / Passcode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${subUsersList.map((u) => `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                      <td style="padding: 8px; font-weight: bold; color: #1e293b;">${u.name}</td>
+                      <td style="padding: 8px; color: #2563eb; font-weight: 600;">${u.role}</td>
+                      <td style="padding: 8px; font-family: monospace; color: #475569;">${u.username}</td>
+                      <td style="padding: 8px; font-family: monospace; font-weight: 800; color: #059669; font-size: 13px;">${u.passcode}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          ` : ""}
+
+          <div style="text-align: center; margin-top: 22px;">
             <a href="https://mbiinventra.com/server" style="background-color: #2563eb; color: white; padding: 11px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 13px; display: inline-block;">Open Server License HQ</a>
           </div>
         </div>
@@ -2513,7 +2566,7 @@ async function sendAdminAlertNewTenant(tenantData) {
   `;
   return sendEmail({
     to: adminEmail,
-    subject: `\u{1F6A8} New Pharmacy Registration: ${tenantData.storeName} (${tenantData.phone})`,
+    subject: `\u{1F6A8} New Registration: ${tenantData.storeName} (${tenantData.phone}) - ${tenantData.plan || "Client"}`,
     html
   });
 }
@@ -4284,6 +4337,11 @@ async function getHomePagePopupController(req, res) {
       const masterDb = getMasterVault();
       const row = masterDb.prepare("SELECT * FROM mbi_homepage_popup ORDER BY updated_at DESC LIMIT 1;").get();
       if (row) {
+        let featureTags = [];
+        try {
+          featureTags = row.feature_tags ? JSON.parse(row.feature_tags) : [];
+        } catch (e) {
+        }
         popupConfig = {
           id: row.id,
           enabled: Boolean(row.enabled),
@@ -4297,6 +4355,24 @@ async function getHomePagePopupController(req, res) {
           ctaStyle: row.cta_style || "gradient_indigo",
           secondaryCtaLabel: row.secondary_cta_label || "Maybe Later",
           secondaryCtaUrl: row.secondary_cta_url || "",
+          secondaryCtaType: row.secondary_cta_type || "dismiss",
+          themePreset: row.theme_preset || "electric_indigo",
+          gradientFrom: row.gradient_from || "#4338ca",
+          gradientTo: row.gradient_to || "#7e22ce",
+          badgeColor: row.badge_color || "#fbbf24",
+          showCountdown: Boolean(row.show_countdown),
+          countdownLabel: row.countdown_label || "\u26A1 FLASH SALE ENDS IN:",
+          countdownTarget: row.countdown_target || "",
+          featureTags: Array.isArray(featureTags) && featureTags.length > 0 ? featureTags : [
+            "100% Free Full Access",
+            "0ms Offline POS Sync",
+            "No Card Required",
+            "Thermal & A4 Print"
+          ],
+          animationStyle: row.animation_style || "zoom_bounce",
+          frequency: row.frequency || "every_visit",
+          autoDismissSeconds: Number(row.auto_dismiss_seconds) || 0,
+          soundEffect: Boolean(row.sound_effect),
           type: row.type || "special_offer",
           autoShowDelayMs: Number(row.auto_show_delay_ms) || 1200,
           updatedAt: row.updated_at
@@ -4324,6 +4400,24 @@ async function getHomePagePopupController(req, res) {
         ctaStyle: "gradient_indigo",
         secondaryCtaLabel: "Maybe Later",
         secondaryCtaUrl: "",
+        secondaryCtaType: "dismiss",
+        themePreset: "electric_indigo",
+        gradientFrom: "#4338ca",
+        gradientTo: "#7e22ce",
+        badgeColor: "#fbbf24",
+        showCountdown: false,
+        countdownLabel: "\u26A1 FLASH SALE ENDS IN:",
+        countdownTarget: "",
+        featureTags: [
+          "100% Free Full Access",
+          "0ms Offline POS Sync",
+          "No Card Required",
+          "Thermal & A4 Print"
+        ],
+        animationStyle: "zoom_bounce",
+        frequency: "every_visit",
+        autoDismissSeconds: 0,
+        soundEffect: false,
         type: "special_offer",
         autoShowDelayMs: 1500,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -4349,6 +4443,22 @@ async function saveHomePagePopupController(req, res) {
       imageUrl = "",
       ctaLabel = "Get Started Now",
       ctaUrl = "/register",
+      ctaStyle = "gradient_indigo",
+      secondaryCtaLabel = "Maybe Later",
+      secondaryCtaUrl = "",
+      secondaryCtaType = "dismiss",
+      themePreset = "electric_indigo",
+      gradientFrom = "#4338ca",
+      gradientTo = "#7e22ce",
+      badgeColor = "#fbbf24",
+      showCountdown = false,
+      countdownLabel = "\u26A1 FLASH SALE ENDS IN:",
+      countdownTarget = "",
+      featureTags,
+      animationStyle = "zoom_bounce",
+      frequency = "every_visit",
+      autoDismissSeconds = 0,
+      soundEffect = false,
       type = "special_offer",
       autoShowDelayMs = 1200
     } = req.body || {};
@@ -4359,6 +4469,12 @@ async function saveHomePagePopupController(req, res) {
     const popupId = id || `hp_pop_${Date.now()}`;
     const cleanEnabled = enabled === true || enabled === 1 || enabled === "true" ? 1 : 0;
     const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const cleanFeatureTags = Array.isArray(featureTags) ? featureTags : [
+      "100% Free Full Access",
+      "0ms Offline POS Sync",
+      "No Card Required",
+      "Thermal & A4 Print"
+    ];
     const popupRecord = {
       id: popupId,
       enabled: Boolean(cleanEnabled),
@@ -4369,6 +4485,22 @@ async function saveHomePagePopupController(req, res) {
       imageUrl: String(imageUrl || "").trim(),
       ctaLabel: String(ctaLabel || "Get Started Now").trim(),
       ctaUrl: String(ctaUrl || "/register").trim(),
+      ctaStyle: String(ctaStyle || "gradient_indigo"),
+      secondaryCtaLabel: String(secondaryCtaLabel || "Maybe Later").trim(),
+      secondaryCtaUrl: String(secondaryCtaUrl || "").trim(),
+      secondaryCtaType: String(secondaryCtaType || "dismiss"),
+      themePreset: String(themePreset || "electric_indigo"),
+      gradientFrom: String(gradientFrom || "#4338ca"),
+      gradientTo: String(gradientTo || "#7e22ce"),
+      badgeColor: String(badgeColor || "#fbbf24"),
+      showCountdown: Boolean(showCountdown),
+      countdownLabel: String(countdownLabel || "\u26A1 FLASH SALE ENDS IN:").trim(),
+      countdownTarget: String(countdownTarget || ""),
+      featureTags: cleanFeatureTags,
+      animationStyle: String(animationStyle || "zoom_bounce"),
+      frequency: String(frequency || "every_visit"),
+      autoDismissSeconds: Number(autoDismissSeconds) || 0,
+      soundEffect: Boolean(soundEffect),
       type: String(type || "special_offer"),
       autoShowDelayMs: Number(autoShowDelayMs) || 1200,
       updatedAt
@@ -4377,8 +4509,16 @@ async function saveHomePagePopupController(req, res) {
       const masterDb = getMasterVault();
       masterDb.prepare(`
         INSERT INTO mbi_homepage_popup (
-          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, type, auto_show_delay_ms, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          id, enabled, title, subtitle, body, badge_text, image_url, cta_label, cta_url, cta_style,
+          secondary_cta_label, secondary_cta_url, secondary_cta_type, theme_preset, gradient_from,
+          gradient_to, badge_color, show_countdown, countdown_label, countdown_target, feature_tags,
+          animation_style, frequency, auto_dismiss_seconds, sound_effect, type, auto_show_delay_ms, updated_at
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, datetime('now')
+        )
         ON CONFLICT(id) DO UPDATE SET
           enabled = excluded.enabled,
           title = excluded.title,
@@ -4388,6 +4528,22 @@ async function saveHomePagePopupController(req, res) {
           image_url = excluded.image_url,
           cta_label = excluded.cta_label,
           cta_url = excluded.cta_url,
+          cta_style = excluded.cta_style,
+          secondary_cta_label = excluded.secondary_cta_label,
+          secondary_cta_url = excluded.secondary_cta_url,
+          secondary_cta_type = excluded.secondary_cta_type,
+          theme_preset = excluded.theme_preset,
+          gradient_from = excluded.gradient_from,
+          gradient_to = excluded.gradient_to,
+          badge_color = excluded.badge_color,
+          show_countdown = excluded.show_countdown,
+          countdown_label = excluded.countdown_label,
+          countdown_target = excluded.countdown_target,
+          feature_tags = excluded.feature_tags,
+          animation_style = excluded.animation_style,
+          frequency = excluded.frequency,
+          auto_dismiss_seconds = excluded.auto_dismiss_seconds,
+          sound_effect = excluded.sound_effect,
           type = excluded.type,
           auto_show_delay_ms = excluded.auto_show_delay_ms,
           updated_at = datetime('now');
@@ -4401,6 +4557,22 @@ async function saveHomePagePopupController(req, res) {
         popupRecord.imageUrl,
         popupRecord.ctaLabel,
         popupRecord.ctaUrl,
+        popupRecord.ctaStyle,
+        popupRecord.secondaryCtaLabel,
+        popupRecord.secondaryCtaUrl,
+        popupRecord.secondaryCtaType,
+        popupRecord.themePreset,
+        popupRecord.gradientFrom,
+        popupRecord.gradientTo,
+        popupRecord.badgeColor,
+        popupRecord.showCountdown ? 1 : 0,
+        popupRecord.countdownLabel,
+        popupRecord.countdownTarget,
+        JSON.stringify(popupRecord.featureTags),
+        popupRecord.animationStyle,
+        popupRecord.frequency,
+        popupRecord.autoDismissSeconds,
+        popupRecord.soundEffect ? 1 : 0,
         popupRecord.type,
         popupRecord.autoShowDelayMs
       );
@@ -8902,10 +9074,16 @@ async function registerTrialController(req, res) {
           storeName: cleanStoreName,
           ownerName: cleanOwnerName || cleanUsername,
           username: cleanUsername,
+          password: cleanPassword,
           phone: cleanPhone,
           email: cleanEmail,
           city: cleanCity,
           plan: "Basic (10-Day Free Trial)",
+          duration: "10-Day Free Trial",
+          expiryDate: trialExpiry.slice(0, 10),
+          licenseKey: generatedKey,
+          maxDevices: 1,
+          deviceType: clientDeviceModel,
           tenantId
         });
         if (cleanEmail && cleanEmail.includes("@")) {
@@ -10574,11 +10752,13 @@ function setTenantQuotaOverride(targetId, customLimit, meta) {
 }
 function getTenantAiQuotaLimits(targetId, plan = "Basic") {
   const normalized = (plan || "Basic").toLowerCase();
-  let baseLimit = 20;
+  let baseLimit = 50;
   if (normalized.includes("enterprise") || normalized.includes("platinum")) {
-    baseLimit = 200;
+    baseLimit = 300;
   } else if (normalized.includes("business") || normalized.includes("gold")) {
-    baseLimit = 50;
+    baseLimit = 100;
+  } else if (normalized.includes("home") || normalized.includes("trial") || normalized.includes("guest")) {
+    baseLimit = 20;
   }
   const quotas = loadTenantQuotas();
   const override = quotas[targetId];
@@ -11462,6 +11642,269 @@ fleetRouter.get("/tenants", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err?.message || "Error fetching fleet tenants" });
+  }
+});
+fleetRouter.post("/clients/create-with-users", async (req, res) => {
+  try {
+    const {
+      storeName,
+      ownerName,
+      username,
+      password,
+      phone,
+      email,
+      city,
+      address,
+      plan,
+      durationPreset,
+      customDays,
+      expiryDate,
+      licenseKey,
+      maxDevices,
+      primaryDeviceType,
+      autoBindOnLogin,
+      subUsers
+    } = req.body;
+    const cleanStoreName = (storeName || "").trim();
+    const cleanOwnerName = (ownerName || cleanStoreName || "Store Owner").trim();
+    const cleanUsername = (username || cleanOwnerName.replace(/\s+/g, "").toLowerCase() || "admin").trim();
+    const cleanPassword = (password || "1234").trim();
+    const cleanPhone = (phone || "").trim();
+    const cleanEmail = (email || "").trim();
+    const cleanCity = (city || "Lahore").trim();
+    const cleanAddress = (address || "").trim();
+    const cleanPlan = plan || "Pharmacy Pro";
+    const cleanExpiry = expiryDate || "2099-12-31";
+    const cleanLicenseKey = licenseKey || `MBI-PRO-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const cleanMaxDevices = Number(maxDevices) || 1;
+    const cleanDeviceType = primaryDeviceType || "Laptop";
+    const cleanSubUsers = Array.isArray(subUsers) ? subUsers : [];
+    if (!cleanStoreName) {
+      res.status(400).json({ success: false, error: "Store / Pharmacy Name is required" });
+      return;
+    }
+    const tenantId = req.body.tenantId || `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const primaryUserId = req.body.primaryUserId || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const licenseId = `lic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const apiKey = `mbi_live_key_${tenantId.replace(/[^a-zA-Z0-9]/g, "").slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+    try {
+      const master = getMasterVault();
+      const vault = getTenantVault(tenantId);
+      master.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, api_key, trial_expires_at, max_devices, max_users, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          owner_phone = excluded.owner_phone,
+          owner_email = excluded.owner_email,
+          city = excluded.city,
+          address = excluded.address,
+          plan = excluded.plan,
+          trial_expires_at = excluded.trial_expires_at,
+          max_devices = excluded.max_devices,
+          updated_at = datetime('now');
+      `).run(
+        tenantId,
+        tenantId,
+        tenantId,
+        cleanStoreName,
+        cleanOwnerName,
+        cleanPhone,
+        cleanEmail,
+        cleanCity,
+        cleanAddress,
+        cleanPlan,
+        apiKey,
+        cleanExpiry === "Lifetime" ? "2099-12-31" : cleanExpiry,
+        cleanMaxDevices,
+        cleanSubUsers.length + 1
+      );
+      master.prepare(`
+        INSERT OR REPLACE INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, expires_at, max_users, max_devices, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, datetime('now'))
+      `).run(
+        licenseId,
+        tenantId,
+        cleanLicenseKey,
+        cleanStoreName,
+        cleanOwnerName,
+        cleanPhone,
+        cleanCity,
+        cleanPlan,
+        cleanExpiry === "Lifetime" ? "2099-12-31" : cleanExpiry,
+        cleanSubUsers.length + 1,
+        cleanMaxDevices
+      );
+      master.prepare(`
+        INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          tenant_id = excluded.tenant_id,
+          username = excluded.username,
+          name = excluded.name,
+          email = excluded.email,
+          phone = excluded.phone,
+          passcode = excluded.passcode,
+          pin = excluded.pin,
+          status = 'Active',
+          updated_at = datetime('now');
+      `).run(
+        primaryUserId,
+        tenantId,
+        cleanUsername,
+        cleanOwnerName,
+        cleanEmail,
+        cleanPhone,
+        cleanPassword,
+        cleanPassword
+      );
+      vault.prepare(`
+        INSERT INTO users (id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_active, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          passcode = excluded.passcode,
+          is_active = 1
+      `).run(
+        primaryUserId,
+        cleanOwnerName,
+        cleanUsername,
+        cleanPhone || cleanEmail || cleanUsername,
+        cleanEmail,
+        cleanPhone,
+        cleanPassword
+      );
+      for (const [idx, sub] of cleanSubUsers.entries()) {
+        const subId = `usr_${tenantId}_sub_${idx + 1}_${Math.random().toString(36).substring(2, 6)}`;
+        const subName = (sub.name || `Staff ${idx + 1}`).trim();
+        const subRole = sub.role || "Cashier";
+        const subUsername = (sub.username || `staff${idx + 1}`).trim();
+        const subPasscode = (sub.passcode || "1111").trim();
+        master.prepare(`
+          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, 0, 0, 'Active', 0, '{}', datetime('now'), datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            username = excluded.username,
+            name = excluded.name,
+            passcode = excluded.passcode,
+            pin = excluded.pin,
+            role = excluded.role,
+            status = 'Active';
+        `).run(
+          subId,
+          tenantId,
+          subUsername,
+          subName,
+          `${subUsername}@${tenantId}`,
+          subPasscode,
+          subPasscode,
+          subRole
+        );
+        vault.prepare(`
+          INSERT INTO users (id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_active, is_online, permissions, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?, 0, 1, 0, '{}', datetime('now'), datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            passcode = excluded.passcode,
+            role = excluded.role,
+            is_active = 1;
+        `).run(
+          subId,
+          subName,
+          subUsername,
+          `${subUsername}@${tenantId}`,
+          `${subUsername}@${tenantId}`,
+          subPasscode,
+          subRole
+        );
+      }
+    } catch (sqliteErr) {
+      console.warn("[SQLite Vault Client Setup Notice]:", sqliteErr);
+    }
+    if (await isMariaDbAvailable()) {
+      setImmediate(async () => {
+        try {
+          const pool = getMariaDbPool();
+          await pool.query(
+            `INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, api_key, trial_expiry_date, max_devices, max_users, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), plan = VALUES(plan), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [tenantId, tenantId, tenantId, cleanStoreName, cleanOwnerName, cleanPhone, cleanEmail, cleanCity, cleanAddress, cleanPlan, apiKey, cleanExpiry === "Lifetime" ? "2099-12-31" : cleanExpiry, cleanMaxDevices, cleanSubUsers.length + 1]
+          );
+          await pool.query(
+            `INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, expiry_date, max_devices, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [licenseId, tenantId, cleanLicenseKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, cleanPlan, cleanExpiry === "Lifetime" ? "2099-12-31" : cleanExpiry, cleanMaxDevices]
+          );
+          await pool.query(
+            `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), username = VALUES(username), passcode = VALUES(passcode), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [primaryUserId, tenantId, cleanOwnerName, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword]
+          );
+          for (const [idx, sub] of cleanSubUsers.entries()) {
+            const subId = `usr_${tenantId}_sub_${idx + 1}`;
+            await pool.query(
+              `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'Active', CURRENT_TIMESTAMP)
+               ON DUPLICATE KEY UPDATE name = VALUES(name), username = VALUES(username), passcode = VALUES(passcode), role = VALUES(role), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+              [subId, tenantId, sub.name || `Staff ${idx + 1}`, sub.username || `staff${idx + 1}`, `${sub.username}@${tenantId}`, sub.passcode || "1111", sub.role || "Cashier"]
+            ).catch(() => {
+            });
+          }
+        } catch (dbErr) {
+        }
+      });
+    }
+    setImmediate(async () => {
+      try {
+        await sendAdminAlertNewTenant({
+          storeName: cleanStoreName,
+          ownerName: cleanOwnerName,
+          username: cleanUsername,
+          password: cleanPassword,
+          phone: cleanPhone,
+          email: cleanEmail,
+          city: cleanCity,
+          address: cleanAddress,
+          plan: cleanPlan,
+          duration: durationPreset || "Custom Period",
+          expiryDate: cleanExpiry,
+          licenseKey: cleanLicenseKey,
+          maxDevices: cleanMaxDevices,
+          deviceType: cleanDeviceType,
+          tenantId,
+          subUsers: cleanSubUsers
+        });
+        if (cleanEmail && cleanEmail.includes("@")) {
+          await sendTenantWelcomeEmail({
+            toEmail: cleanEmail,
+            storeName: cleanStoreName,
+            ownerName: cleanOwnerName,
+            username: cleanUsername,
+            pin: cleanPassword,
+            portalUrl: req.headers.origin || "https://mbiinventra.com"
+          });
+        }
+      } catch (emErr) {
+        console.warn("[Onboarding Email Notice]:", emErr);
+      }
+    });
+    broadcastGlobalEvent({
+      type: "FLEET_UPDATE",
+      payload: { tenantId, name: cleanStoreName, action: "CLIENT_ONBOARDED", timestamp: (/* @__PURE__ */ new Date()).toISOString() }
+    });
+    res.json({
+      success: true,
+      message: `Tenant ${cleanStoreName} created successfully with license and sub-users.`,
+      tenantId,
+      apiKey,
+      licenseKey: cleanLicenseKey
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err?.message || "Error creating client" });
   }
 });
 fleetRouter.post("/tenants/save", async (req, res) => {
@@ -15363,8 +15806,8 @@ blogRouter.post("/reset", (req, res) => {
 // server/routes/versionRoutes.ts
 var import_express9 = require("express");
 var versionRouter = (0, import_express9.Router)();
-var APP_VERSION2 = "4.4.0";
-var RELEASE_NOTES = "Fresh Cache Flush, 3D Hero Mockup, Strict Multi-Tenant Isolation & Enhanced RBAC Lock (v4.4.0)";
+var APP_VERSION2 = "4.4.1";
+var RELEASE_NOTES = "High-Speed 0.2s POS Engine, Enhanced Security, Offline Sync Optimization & Performance Upgrades (v4.4.1)";
 var BUILD_TIMESTAMP = (/* @__PURE__ */ new Date()).toISOString();
 versionRouter.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");

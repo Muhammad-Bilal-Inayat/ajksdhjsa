@@ -1409,11 +1409,13 @@ export function setTenantQuotaOverride(
 
 export function getTenantAiQuotaLimits(targetId: string, plan: string = 'Basic'): { baseLimit: number; customLimit: number | null; effectiveLimit: number; isOverridden: boolean } {
   const normalized = (plan || 'Basic').toLowerCase();
-  let baseLimit = 20;
+  let baseLimit = 50; // Basic / Silver: 50 per day
   if (normalized.includes('enterprise') || normalized.includes('platinum')) {
-    baseLimit = 200;
+    baseLimit = 300; // Platinum / Enterprise: 300 per day
   } else if (normalized.includes('business') || normalized.includes('gold')) {
-    baseLimit = 50;
+    baseLimit = 100; // Business / Gold: 100 per day
+  } else if (normalized.includes('home') || normalized.includes('trial') || normalized.includes('guest')) {
+    baseLimit = 20; // Home / Guest: 20 per day
   }
 
   const quotas = loadTenantQuotas();

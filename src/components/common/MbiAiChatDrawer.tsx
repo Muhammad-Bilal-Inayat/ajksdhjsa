@@ -25,7 +25,7 @@ interface MbiAiChatDrawerProps {
   onOpenRegisterModal?: () => void;
 }
 
-const MAX_HOME_QUESTIONS = 15;
+const MAX_HOME_QUESTIONS = 20;
 
 // Sleek markdown parser for formatted chat bubbles
 const renderFormattedText = (content: string) => {
@@ -114,6 +114,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   const navigate = useNavigate();
   const { tenant, business, currentUser } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isHomePage = location.pathname === '/' || location.pathname === '/home';
   const isServerRoute = location.pathname.startsWith('/server') || location.pathname.startsWith('/master');
@@ -123,11 +124,12 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   const userFullName = currentUser?.name || (currentUser as any)?.displayName || 'Pharmacy Owner';
   const userPhoneAddress = (currentUser as any)?.phone || business?.mobile || business?.phone || '';
 
-  // 15 Free Questions session tracker for Home Page / Public Visitor
+  // Daily Questions session tracker for Home Page / Public Visitor (20 msgs/day)
   const [questionsUsed, setQuestionsUsed] = useState<number>(() => {
     if (!isHomeScope || currentUser) return 0;
     try {
-      const stored = localStorage.getItem('mbi_home_ai_questions_count');
+      const todayKey = `mbi_home_ai_q_${new Date().toISOString().slice(0, 10)}`;
+      const stored = localStorage.getItem(todayKey);
       return stored ? parseInt(stored, 10) : 0;
     } catch {
       return 0;
@@ -137,13 +139,22 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   const remainingQuestions = Math.max(0, MAX_HOME_QUESTIONS - questionsUsed);
   const isLimitReached = isHomeScope && !currentUser && remainingQuestions <= 0;
 
+  // Autofocus input whenever drawer opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 150);
+    }
+  }, [isOpen]);
+
   // Initial welcome message based on context
   const getInitialMessage = (): ChatMessage => {
     if (isServerRoute) {
       return {
         id: 'welcome-msg-server',
         sender: 'ai',
-        text: `🛡️ **MBI Master Fleet Copilot Active**\nI can assist you with multi-tenant telemetry, HWID device license resets, automated disaster recovery backups, and cloud switchboard management. How can I help?`,
+        text: `🛡️ **MBI Master Fleet Copilot Active**\nI can assist you with system telemetry, HWID device license resets, automated disaster recovery backups, and cloud switchboard management. How can I help?`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
     }
@@ -152,7 +163,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       return {
         id: 'welcome-msg-home',
         sender: 'ai',
-        text: `✨ **Assalam-o-Alaikum! Welcome to MBI Inventra AI Copilot.**\n\nI am your intelligent Pharmacy POS & ERP assistant. You can ask up to **15 free questions** about official pricing plans, 10-day free trial, generic medicine formulas, FEFO expiry calculations, POS billing shortcuts, or 100% offline desktop sync.\n\nHow can I help you today?`,
+        text: `✨ **Assalam-o-Alaikum! Welcome to MBI Inventra AI Copilot.**\n\nI am your intelligent Pharmacy POS & ERP assistant. You can ask about official pricing plans, 10-day free trial, generic medicine formulas, FEFO expiry calculations, POS billing shortcuts, or 100% offline desktop sync.\n\nHow can I help you today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
     }
@@ -160,7 +171,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     return {
       id: 'welcome-msg-user',
       sender: 'ai',
-      text: `✨ **Assalam-o-Alaikum! I am MBI AI, your Pharmacy POS & ERP Copilot.**\nI can find generic medicine alternatives, explain FEFO expiry rules, guide POS billing shortcuts (Alt+S / F2), or connect you with Master Admin Support. How can I help?`,
+      text: `✨ **Assalam-o-Alaikum! I am MBI AI, your Pharmacy POS & ERP Copilot.**\nI can find generic medicine alternatives, explain FEFO expiry rules, guide POS billing shortcuts (Alt+S / F2), or connect you with Support. How can I help?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
   };
@@ -454,14 +465,15 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
 
     if (isLimitReached) return;
 
-    // Check Home page 15-question limit
+    // Check Home page 20-question limit per day
     const isHomeContext = !isServerRoute && (isHomePage || !currentUser || location.pathname === '/' || location.pathname.startsWith('/home') || location.pathname.startsWith('/pricing') || location.pathname.startsWith('/features') || location.pathname.startsWith('/reviews') || location.pathname.startsWith('/faq') || location.pathname.startsWith('/blog') || location.pathname.startsWith('/store'));
 
     if (isHomeContext) {
       const nextCount = questionsUsed + 1;
       setQuestionsUsed(nextCount);
       try {
-        localStorage.setItem('mbi_home_ai_questions_count', nextCount.toString());
+        const todayKey = `mbi_home_ai_q_${new Date().toISOString().slice(0, 10)}`;
+        localStorage.setItem(todayKey, nextCount.toString());
       } catch {}
 
       if (nextCount >= MAX_HOME_QUESTIONS) {
@@ -481,12 +493,13 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
             id: `limit-${Date.now()}`,
             sender: 'ai',
             isLimitReached: true,
-            text: `🎉 **15 Free Visitor Questions Completed!**\n\nYou have utilized all 15 free AI queries for this preview session.\n\nReady to experience the full power of MBI Inventra? Activate your **10-Day Free Trial** to unlock **Unlimited AI Copilot**, 0.2s POS billing, automated FEFO expiry alerts, and offline cloud sync!`,
+            text: `⚠️ **Daily AI Message Limit Reached**\n\nAapka aaj ka daily AI message limit mukammal ho chuka hai. Agar aapko mazeed queries karni hain to kal dobara tashreef layein ya **10-Day Free Trial** shuru karein.`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
           setMessages(prev => [...prev, finalMsg]);
           setLoading(false);
-        }, 600);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }, 500);
         return;
       }
     }
@@ -501,6 +514,11 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
     setMessages(prev => [...prev, userMsg]);
     if (!customText) setInputText('');
     setLoading(true);
+
+    // Auto-focus immediately so user can type the next message without re-clicking
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 20);
 
     const activeContext: 'home' | 'user' | 'server' = isServerRoute 
       ? 'server' 
@@ -571,6 +589,9 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
       setMessages(prev => [...prev, errorMsg]);
     } finally {
       setLoading(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   };
 
@@ -587,12 +608,13 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
         id: `conf-${Date.now()}`,
         sender: 'ai',
         isSupportConfirmed: true,
-        text: `✅ **Support Request Queued Successfully!**\n\n- **Store:** ${pharmacyName}\n- **Contact Person:** ${supportName}\n- **WhatsApp:** ${supportPhone}\n- **Query:** ${supportIssue || 'Priority Human Support Request'}\n\nOur Master Support Team (+92 328 1302636) will contact your WhatsApp shortly.`,
+        text: `✅ **Support Request Queued Successfully!**\n\n- **Store:** ${pharmacyName}\n- **Contact Person:** ${supportName}\n- **WhatsApp:** ${supportPhone}\n- **Query:** ${supportIssue || 'Priority Human Support Request'}\n\nOur Support Team (+92 328 1302636) will contact your WhatsApp shortly.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, confirmationMsg]);
     } finally {
       setSubmittingTicket(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
@@ -621,8 +643,8 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
   const serverPromptChips = [
     { label: '📞 Master Support', prompt: 'Human Support', isAction: true },
     { label: '🛡️ Reset Bound HWID', prompt: 'How do I reset bound HWID for a client laptop to restore data from cloud backup?' },
-    { label: '💾 12:00 AM Midnight Backup', prompt: 'Explain the automated 12:00 AM midnight per-tenant encrypted backup and disaster recovery process.' },
-    { label: '🏢 Multi-Tenant SQLite Vaults', prompt: 'How does MBI INVENTRA isolate tenant databases, user permissions, and pharmacy inventory records?' },
+    { label: '💾 12:00 AM Midnight Backup', prompt: 'Explain the automated 12:00 AM midnight backup and disaster recovery process.' },
+    { label: '🏢 Data Storage Engine', prompt: 'How does MBI INVENTRA secure company databases, user permissions, and pharmacy inventory records?' },
   ];
 
   const activeChips = isServerRoute 
@@ -655,15 +677,9 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white text-sm">MBI AI Copilot</h3>
-                {isHomePage && !currentUser ? (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                    {remainingQuestions} / {MAX_HOME_QUESTIONS} Left
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    Pro Active
-                  </span>
-                )}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  Active
+                </span>
               </div>
               <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
@@ -764,7 +780,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
                         className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition cursor-pointer"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Start Free 10-Day Trial (Unlimited)</span>
+                        <span>Start Free 10-Day Trial</span>
                       </button>
                       <button
                         type="button"
@@ -772,7 +788,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
                         className="w-full py-1.5 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Headphones className="w-3.5 h-3.5 text-blue-500" />
-                        <span>WhatsApp Master Support</span>
+                        <span>WhatsApp Live Support</span>
                       </button>
                     </div>
                   )}
@@ -823,7 +839,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
                   </div>
                   <div>
                     <h4 className="text-xs font-black text-slate-900 dark:text-white">Human Support Dispatch</h4>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Direct connection to Master Admin Desk</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Direct connection to Support Desk</p>
                   </div>
                 </div>
                 <button
@@ -932,12 +948,13 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
             className="bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 rounded-2xl p-1.5 flex items-center gap-1.5 transition-all shadow-xs border border-slate-200 dark:border-slate-700"
           >
             <input
+              ref={inputRef}
               type="text"
               placeholder={
                 isLimitReached
-                  ? '15 Free questions used. Start Free Trial for unlimited AI access...'
+                  ? 'Daily message limit reached. Try again tomorrow...'
                   : isServerRoute 
-                  ? 'Ask Master Fleet Copilot...' 
+                  ? 'Ask Fleet Copilot...' 
                   : 'Ask about generics, FEFO expiry, or shortcuts...'
               }
               value={inputText}
@@ -958,11 +975,7 @@ export const MbiAiChatDrawer: React.FC<MbiAiChatDrawerProps> = ({
           <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 mt-2 px-1">
             <div className="flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-amber-500" />
-              <span>
-                {isHomePage && !currentUser 
-                  ? `${remainingQuestions} of 15 free questions remaining` 
-                  : 'MBI AI • Multi-Lingual Copilot'}
-              </span>
+              <span>MBI AI • Multi-Lingual Copilot</span>
             </div>
             <button
               type="button"

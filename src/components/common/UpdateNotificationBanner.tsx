@@ -100,7 +100,11 @@ export const UpdateNotificationBanner: React.FC = () => {
 
   const handleUpdate = async () => {
     setIsUpdating(true);
+    if (updateInfo?.version) {
+      dismissUpdateForSession(updateInfo.version);
+    }
     await triggerSeamlessHotUpdate();
+    setIsDismissed(true);
   };
 
   return (

@@ -709,10 +709,10 @@ export const BusinessContextSwitcher: React.FC<BusinessContextSwitcherProps> = (
 
               <div className="bg-blue-50 dark:bg-blue-950/40 p-3.5 rounded-xl border border-blue-100 dark:border-blue-900 text-xs text-blue-800 dark:text-blue-300">
                 <p className="font-bold flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Complete Multi-Tenant Segregation
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Complete Multi-Branch Data Privacy
                 </p>
                 <p className="text-[11px] text-blue-700 dark:text-blue-400 mt-1 leading-relaxed">
-                  All inventory, sales bills, ledger records and audit logs for this branch will be securely isolated under a unique business ID in the Cloud Database.
+                  All inventory, sales bills, ledger records and logs for this branch are securely locked and isolated for this location.
                 </p>
               </div>
 

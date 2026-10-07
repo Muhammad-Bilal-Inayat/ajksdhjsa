@@ -371,7 +371,20 @@ export function getMasterVault(): DatabaseSync {
   const popupCols = [
     "cta_style TEXT DEFAULT 'gradient_indigo'",
     "secondary_cta_label TEXT DEFAULT 'Maybe Later'",
-    "secondary_cta_url TEXT DEFAULT ''"
+    "secondary_cta_url TEXT DEFAULT ''",
+    "theme_preset TEXT DEFAULT 'electric_indigo'",
+    "gradient_from TEXT DEFAULT '#4338ca'",
+    "gradient_to TEXT DEFAULT '#7e22ce'",
+    "badge_color TEXT DEFAULT '#fbbf24'",
+    "show_countdown INTEGER DEFAULT 0",
+    "countdown_label TEXT DEFAULT '⚡ FLASH SALE ENDS IN:'",
+    "countdown_target TEXT DEFAULT ''",
+    "feature_tags TEXT DEFAULT '[]'",
+    "secondary_cta_type TEXT DEFAULT 'dismiss'",
+    "animation_style TEXT DEFAULT 'zoom_bounce'",
+    "frequency TEXT DEFAULT 'every_visit'",
+    "auto_dismiss_seconds INTEGER DEFAULT 0",
+    "sound_effect INTEGER DEFAULT 0"
   ];
   for (const col of popupCols) {
     try {

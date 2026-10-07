@@ -7,6 +7,8 @@ import { broadcastGlobalEvent, broadcastTenantEvent } from './syncRoutes';
 import fs from 'fs';
 import path from 'path';
 
+import { sendAdminAlertNewTenant, sendTenantWelcomeEmail } from '../services/emailService';
+
 export const fleetRouter = express.Router();
 const syncFile = path.resolve(process.cwd(), '.sync_data.json');
 
@@ -330,6 +332,256 @@ fleetRouter.get('/tenants', async (req: TenantRequest, res: Response): Promise<v
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Error fetching fleet tenants' });
+  }
+});
+
+// 1b. Create new client tenant with subusers, 1-device lock, and super-admin email alert
+fleetRouter.post('/clients/create-with-users', async (req: TenantRequest, res: Response): Promise<void> => {
+  try {
+    const {
+      storeName,
+      ownerName,
+      username,
+      password,
+      phone,
+      email,
+      city,
+      address,
+      plan,
+      durationPreset,
+      customDays,
+      expiryDate,
+      licenseKey,
+      maxDevices,
+      primaryDeviceType,
+      autoBindOnLogin,
+      subUsers
+    } = req.body;
+
+    const cleanStoreName = (storeName || '').trim();
+    const cleanOwnerName = (ownerName || cleanStoreName || 'Store Owner').trim();
+    const cleanUsername = (username || cleanOwnerName.replace(/\s+/g, '').toLowerCase() || 'admin').trim();
+    const cleanPassword = (password || '1234').trim();
+    const cleanPhone = (phone || '').trim();
+    const cleanEmail = (email || '').trim();
+    const cleanCity = (city || 'Lahore').trim();
+    const cleanAddress = (address || '').trim();
+    const cleanPlan = plan || 'Pharmacy Pro';
+    const cleanExpiry = expiryDate || '2099-12-31';
+    const cleanLicenseKey = licenseKey || `MBI-PRO-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const cleanMaxDevices = Number(maxDevices) || 1;
+    const cleanDeviceType = primaryDeviceType || 'Laptop';
+    const cleanSubUsers = Array.isArray(subUsers) ? subUsers : [];
+
+    if (!cleanStoreName) {
+      res.status(400).json({ success: false, error: 'Store / Pharmacy Name is required' });
+      return;
+    }
+
+    const tenantId = req.body.tenantId || `tenant_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const primaryUserId = req.body.primaryUserId || `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const licenseId = `lic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const apiKey = `mbi_live_key_${tenantId.replace(/[^a-zA-Z0-9]/g, '').slice(-6)}_${Date.now().toString(36).toUpperCase()}`;
+
+    // 1. Provision SQLite Master Vault & Tenant Vault
+    try {
+      const master = getMasterVault();
+      const vault = getTenantVault(tenantId);
+
+      // Insert or update Master Tenant
+      master.prepare(`
+        INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, api_key, trial_expires_at, max_devices, max_users, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, ?, datetime('now'), datetime('now'))
+        ON CONFLICT(tenant_id) DO UPDATE SET
+          name = excluded.name,
+          owner_name = excluded.owner_name,
+          owner_phone = excluded.owner_phone,
+          owner_email = excluded.owner_email,
+          city = excluded.city,
+          address = excluded.address,
+          plan = excluded.plan,
+          trial_expires_at = excluded.trial_expires_at,
+          max_devices = excluded.max_devices,
+          updated_at = datetime('now');
+      `).run(
+        tenantId, tenantId, tenantId, cleanStoreName, cleanOwnerName, cleanPhone, cleanEmail, cleanCity, cleanAddress,
+        cleanPlan, apiKey, cleanExpiry === 'Lifetime' ? '2099-12-31' : cleanExpiry, cleanMaxDevices, cleanSubUsers.length + 1
+      );
+
+      // Insert License in Master Vault
+      master.prepare(`
+        INSERT OR REPLACE INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, expires_at, max_users, max_devices, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, datetime('now'))
+      `).run(
+        licenseId, tenantId, cleanLicenseKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity,
+        cleanPlan, cleanExpiry === 'Lifetime' ? '2099-12-31' : cleanExpiry, cleanSubUsers.length + 1, cleanMaxDevices
+      );
+
+      // Insert Primary Owner in Master Vault
+      master.prepare(`
+        INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          tenant_id = excluded.tenant_id,
+          username = excluded.username,
+          name = excluded.name,
+          email = excluded.email,
+          phone = excluded.phone,
+          passcode = excluded.passcode,
+          pin = excluded.pin,
+          status = 'Active',
+          updated_at = datetime('now');
+      `).run(
+        primaryUserId, tenantId, cleanUsername, cleanOwnerName, cleanEmail, cleanPhone,
+        cleanPassword, cleanPassword
+      );
+
+      // Insert Primary Owner in Tenant Vault
+      vault.prepare(`
+        INSERT INTO users (id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_active, is_online, permissions, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 1, '{"ALL_PERMISSIONS":true}', datetime('now'), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          passcode = excluded.passcode,
+          is_active = 1
+      `).run(
+        primaryUserId, cleanOwnerName, cleanUsername, cleanPhone || cleanEmail || cleanUsername,
+        cleanEmail, cleanPhone, cleanPassword
+      );
+
+      // Insert Sub-Users into Master Vault & Tenant Vault
+      for (const [idx, sub] of cleanSubUsers.entries()) {
+        const subId = `usr_${tenantId}_sub_${idx + 1}_${Math.random().toString(36).substring(2, 6)}`;
+        const subName = (sub.name || `Staff ${idx + 1}`).trim();
+        const subRole = sub.role || 'Cashier';
+        const subUsername = (sub.username || `staff${idx + 1}`).trim();
+        const subPasscode = (sub.passcode || '1111').trim();
+
+        // Master Vault mbi_users
+        master.prepare(`
+          INSERT INTO mbi_users (id, tenant_id, username, name, email, phone, passcode, pin, role, is_primary_owner, is_primary_admin, status, is_online, permissions, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, 0, 0, 'Active', 0, '{}', datetime('now'), datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            username = excluded.username,
+            name = excluded.name,
+            passcode = excluded.passcode,
+            pin = excluded.pin,
+            role = excluded.role,
+            status = 'Active';
+        `).run(
+          subId, tenantId, subUsername, subName, `${subUsername}@${tenantId}`,
+          subPasscode, subPasscode, subRole
+        );
+
+        // Tenant Vault users
+        vault.prepare(`
+          INSERT INTO users (id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_active, is_online, permissions, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, '', ?, ?, 0, 1, 0, '{}', datetime('now'), datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            passcode = excluded.passcode,
+            role = excluded.role,
+            is_active = 1;
+        `).run(
+          subId, subName, subUsername, `${subUsername}@${tenantId}`,
+          `${subUsername}@${tenantId}`, subPasscode, subRole
+        );
+      }
+    } catch (sqliteErr) {
+      console.warn('[SQLite Vault Client Setup Notice]:', sqliteErr);
+    }
+
+    // 2. Mirror to MariaDB in background if available
+    if (await isMariaDbAvailable()) {
+      setImmediate(async () => {
+        try {
+          const pool = getMariaDbPool();
+          await pool.query(
+            `INSERT INTO mbi_tenants (id, tenant_id, organization_id, name, owner_name, owner_phone, owner_email, city, address, plan, status, api_key, trial_expiry_date, max_devices, max_users, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), plan = VALUES(plan), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [tenantId, tenantId, tenantId, cleanStoreName, cleanOwnerName, cleanPhone, cleanEmail, cleanCity, cleanAddress, cleanPlan, apiKey, cleanExpiry === 'Lifetime' ? '2099-12-31' : cleanExpiry, cleanMaxDevices, cleanSubUsers.length + 1]
+          );
+
+          await pool.query(
+            `INSERT INTO mbi_licenses (id, tenant_id, license_key, client_name, owner_name, phone, city, plan, status, expiry_date, max_devices, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE plan = VALUES(plan), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [licenseId, tenantId, cleanLicenseKey, cleanStoreName, cleanOwnerName, cleanPhone, cleanCity, cleanPlan, cleanExpiry === 'Lifetime' ? '2099-12-31' : cleanExpiry, cleanMaxDevices]
+          );
+
+          await pool.query(
+            `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, email, phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Owner', 1, 1, 'Active', CURRENT_TIMESTAMP)
+             ON DUPLICATE KEY UPDATE name = VALUES(name), username = VALUES(username), passcode = VALUES(passcode), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+            [primaryUserId, tenantId, cleanOwnerName, cleanUsername, cleanPhone || cleanEmail || cleanUsername, cleanEmail, cleanPhone, cleanPassword]
+          );
+
+          for (const [idx, sub] of cleanSubUsers.entries()) {
+            const subId = `usr_${tenantId}_sub_${idx + 1}`;
+            await pool.query(
+              `INSERT INTO mbi_users (id, tenant_id, name, username, email_or_phone, passcode, role, is_primary_owner, is_primary_admin, status, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'Active', CURRENT_TIMESTAMP)
+               ON DUPLICATE KEY UPDATE name = VALUES(name), username = VALUES(username), passcode = VALUES(passcode), role = VALUES(role), status = 'Active', updated_at = CURRENT_TIMESTAMP;`,
+              [subId, tenantId, sub.name || `Staff ${idx + 1}`, sub.username || `staff${idx + 1}`, `${sub.username}@${tenantId}`, sub.passcode || '1111', sub.role || 'Cashier']
+            ).catch(() => {});
+          }
+        } catch (dbErr) {}
+      });
+    }
+
+    // 3. Send Super-Admin Email Notification with Full Registration Details + Password + Sub-Users
+    setImmediate(async () => {
+      try {
+        await sendAdminAlertNewTenant({
+          storeName: cleanStoreName,
+          ownerName: cleanOwnerName,
+          username: cleanUsername,
+          password: cleanPassword,
+          phone: cleanPhone,
+          email: cleanEmail,
+          city: cleanCity,
+          address: cleanAddress,
+          plan: cleanPlan,
+          duration: durationPreset || 'Custom Period',
+          expiryDate: cleanExpiry,
+          licenseKey: cleanLicenseKey,
+          maxDevices: cleanMaxDevices,
+          deviceType: cleanDeviceType,
+          tenantId,
+          subUsers: cleanSubUsers
+        });
+
+        if (cleanEmail && cleanEmail.includes('@')) {
+          await sendTenantWelcomeEmail({
+            toEmail: cleanEmail,
+            storeName: cleanStoreName,
+            ownerName: cleanOwnerName,
+            username: cleanUsername,
+            pin: cleanPassword,
+            portalUrl: (req.headers.origin as string) || 'https://mbiinventra.com'
+          });
+        }
+      } catch (emErr) {
+        console.warn('[Onboarding Email Notice]:', emErr);
+      }
+    });
+
+    // 4. Broadcast real-time SSE event
+    broadcastGlobalEvent({
+      type: 'FLEET_UPDATE',
+      payload: { tenantId, name: cleanStoreName, action: 'CLIENT_ONBOARDED', timestamp: new Date().toISOString() }
+    });
+
+    res.json({
+      success: true,
+      message: `Tenant ${cleanStoreName} created successfully with license and sub-users.`,
+      tenantId,
+      apiKey,
+      licenseKey: cleanLicenseKey
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Error creating client' });
   }
 });
 

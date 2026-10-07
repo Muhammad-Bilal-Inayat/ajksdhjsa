@@ -11,6 +11,7 @@ import { PlanComparisonModal } from '../components/landing/PlanComparisonModal';
 import { getLicenseInfo } from '../lib/licenseManager';
 import { getSaaSPlans } from '../lib/planLimitsService';
 import { getBrandContact } from '../lib/siteCmsService';
+import { Breadcrumbs } from '../components/common/Breadcrumbs';
 
 type BillingInterval = 'monthly' | '1year' | '3years' | '5years';
 
@@ -228,9 +229,18 @@ export const Pricing: React.FC = () => {
   ];
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8 pb-16 font-sans overflow-y-auto h-full">
+    <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6 pb-16 font-sans overflow-y-auto h-full">
       
-      {/* Top Breadcrumb & Quick Action Bar */}
+      {/* Top Breadcrumb Navigation */}
+      <Breadcrumbs 
+        customItems={[
+          { label: 'Home', path: '/' },
+          { label: 'Plans & Pricing', path: '/pricing', isCurrent: true }
+        ]} 
+        className="mb-0"
+      />
+
+      {/* Top Header & Quick Action Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button

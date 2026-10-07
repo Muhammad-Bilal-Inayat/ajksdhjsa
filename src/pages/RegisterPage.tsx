@@ -12,6 +12,7 @@ import { getSystemHWIDSync } from '../lib/hardwareFingerprint';
 import { TermsConditionsModal } from '../components/modals/TermsConditionsModal';
 import { planService } from '../services/planService';
 import { licenseService } from '../services/licenseService';
+import { Breadcrumbs } from '../components/common/Breadcrumbs';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -133,18 +134,25 @@ export const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-5 bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="min-h-screen flex flex-col items-center justify-center p-3 sm:p-5 bg-slate-50 dark:bg-slate-950 transition-colors">
       <TermsConditionsModal 
         isOpen={showTermsModal} 
         onClose={() => setShowTermsModal(false)} 
       />
 
-      {/* Top Header Controls */}
-      <div className="fixed top-4 right-4 flex items-center gap-2 z-10">
+      {/* Top Header & Breadcrumb Bar */}
+      <div className="w-full max-w-3xl flex items-center justify-between gap-3 mb-3 z-10">
+        <Breadcrumbs 
+          customItems={[
+            { label: 'Home', path: '/' },
+            { label: 'Register & Setup', path: '/register', isCurrent: true }
+          ]} 
+          className="mb-0! flex-1"
+        />
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-xs"
+          className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs shrink-0"
           title="Toggle Theme"
         >
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

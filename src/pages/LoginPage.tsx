@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrentClientIp, isIpBlocked, recordLoginAttempt } from '../lib/securityAuditService';
+import { Breadcrumbs } from '../components/common/Breadcrumbs';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -198,13 +199,20 @@ export const LoginPage: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-5 bg-slate-50 dark:bg-slate-950 transition-colors">
-      {/* Top Header Controls */}
-      <div className="fixed top-4 right-4 flex items-center gap-2 z-10">
+    <div className="min-h-screen flex flex-col items-center justify-center p-3 sm:p-5 bg-slate-50 dark:bg-slate-950 transition-colors">
+      {/* Top Header & Breadcrumb Bar */}
+      <div className="w-full max-w-2xl flex items-center justify-between gap-3 mb-3 z-10">
+        <Breadcrumbs 
+          customItems={[
+            { label: 'Home', path: '/' },
+            { label: 'User Sign In', path: '/login', isCurrent: true }
+          ]} 
+          className="mb-0! flex-1"
+        />
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-xs"
+          className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs shrink-0"
           title="Toggle Theme"
         >
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

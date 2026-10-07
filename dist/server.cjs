@@ -129,6 +129,12 @@ function checkAndRecoverFromPersistentStorage() {
 }
 function persistVaultSnapshot() {
   try {
+    if (masterDbInstance) {
+      try {
+        masterDbInstance.exec("PRAGMA wal_checkpoint(PASSIVE);");
+      } catch {
+      }
+    }
     if (import_fs.default.existsSync(MASTER_DB_PATH)) {
       if (!import_fs.default.existsSync(OUTSIDE_MASTER_DIR)) import_fs.default.mkdirSync(OUTSIDE_MASTER_DIR, { recursive: true });
       import_fs.default.copyFileSync(MASTER_DB_PATH, OUTSIDE_MASTER_DB_PATH);

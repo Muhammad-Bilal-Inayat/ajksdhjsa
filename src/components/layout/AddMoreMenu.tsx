@@ -18,7 +18,7 @@ interface MenuItem {
 }
 
 const SALE_ITEMS: MenuItem[] = [
-  { title: 'Sale Invoice', shortcut: 'ALT + S', path: '/sale/invoices?action=add', altKey: 's' },
+  { title: 'Sale Invoice', shortcut: 'ALT + S', path: '/sale/invoice', altKey: 's' },
   { title: 'Payment-In', shortcut: 'ALT + I', path: '/sale/payment-in?action=add', altKey: 'i' },
   { title: 'Sale Return', subTitle: 'Cr Note', shortcut: 'ALT + R', path: '/sale/return?action=add', altKey: 'r' },
   { title: 'Sale Order', shortcut: 'ALT + F', path: '/sale/order?action=add', altKey: 'f' },
@@ -27,7 +27,7 @@ const SALE_ITEMS: MenuItem[] = [
 ];
 
 const PURCHASE_ITEMS: MenuItem[] = [
-  { title: 'Purchase Bill', shortcut: 'ALT + P', path: '/purchase?action=add', altKey: 'p' },
+  { title: 'Purchase Bill', shortcut: 'ALT + P', path: '/purchase/invoice', altKey: 'p' },
   { title: 'Payment-Out', shortcut: 'ALT + O', path: '/purchase/payment-out?action=add', altKey: 'o' },
   { title: 'Purchase Return', subTitle: 'Dr Note', shortcut: 'ALT + L', path: '/purchase/return?action=add', altKey: 'l' },
   { title: 'Purchase Order', shortcut: 'ALT + G', path: '/purchase/order?action=add', altKey: 'g' },

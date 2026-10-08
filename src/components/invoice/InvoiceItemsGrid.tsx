@@ -65,39 +65,44 @@ export const InvoiceItemsGrid: React.FC<InvoiceItemsGridProps> = ({
     setExpandedRowIds(prev => ({ ...prev, [tempId]: !prev[tempId] }));
   };
 
-  // Search filtered medicines
+  // Search filtered medicines with full family / generic / salt & brand search
   const filteredCatalog = React.useMemo(() => {
-    if (!searchQuery || searchQuery.trim().length === 0) return catalogMedicines.slice(0, 10);
-    const q = searchQuery.toLowerCase();
+    if (!searchQuery || searchQuery.trim().length === 0) return catalogMedicines.slice(0, 12);
+    const q = searchQuery.toLowerCase().trim();
     return catalogMedicines
       .filter(m => 
         m.name?.toLowerCase().includes(q) || 
         m.genericName?.toLowerCase().includes(q) ||
+        (m as any).formula?.toLowerCase().includes(q) ||
+        (m as any).salt?.toLowerCase().includes(q) ||
+        (m as any).brand?.toLowerCase().includes(q) ||
+        (m as any).category?.toLowerCase().includes(q) ||
         m.barcode?.toLowerCase().includes(q) ||
-        m.manufacturer?.toLowerCase().includes(q)
+        m.manufacturer?.toLowerCase().includes(q) ||
+        m.strength?.toLowerCase().includes(q)
       )
-      .slice(0, 15);
+      .slice(0, 25);
   }, [catalogMedicines, searchQuery]);
 
   const handleSelectMedicine = (tempId: string, med: Medicine) => {
     const isPurchase = mode === 'Purchase';
     const rate = isPurchase 
-      ? (med.purchasePrice || med.salePrice || 0) 
-      : (med.salePrice || med.mrp || med.purchasePrice || 0);
+      ? (med.purchasePrice || (med as any).buyingPrice || (med as any).costPrice || (med as any).sellingPrice || med.salePrice || 0) 
+      : ((med as any).sellingPrice || med.salePrice || med.mrp || med.purchasePrice || 0);
 
     const updates: Partial<GridRowItem> = {
       medicineId: med.id,
       name: med.name,
-      genericName: med.genericName,
+      genericName: med.genericName || (med as any).formula || '',
       strength: med.strength,
-      brand: med.manufacturer,
+      brand: (med as any).brand || med.manufacturer,
       manufacturer: med.manufacturer,
       barcode: med.barcode,
       batchNumber: med.batchNumber || '',
       expiryDate: med.expiryDate || '',
-      mrp: med.mrp || med.salePrice || 0,
+      mrp: med.mrp || (med as any).sellingPrice || med.salePrice || 0,
       pricePerUnit: rate,
-      sellingPrice: med.salePrice || 0,
+      sellingPrice: (med as any).sellingPrice || med.salePrice || 0,
       purchasePrice: med.purchasePrice || 0,
       unit: med.unit || 'Box',
       hsnCode: (med as any).hsnCode || '3004'

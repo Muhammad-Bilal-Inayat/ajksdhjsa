@@ -315,9 +315,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       e.stopPropagation();
     }
     if (itemId === 'sale') {
-      openTransaction('Sale');
+      navigate('/sale/invoice');
     } else if (itemId === 'purchase') {
-      openTransaction('Purchase');
+      navigate('/purchase/invoice');
     } else if (itemId === 'items') {
       navigate('/items?action=add');
     } else if (itemId === 'parties') {
@@ -487,7 +487,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const filteredSubs = item.subItems.filter(sub => {
           // Check submenu switchboard toggle
           const submenuIdMap: Record<string, string> = {
-            '/sale/invoices': 'saleInvoices',
+            '/sale/invoice': 'saleInvoices',
+              '/sale/invoices': 'saleInvoices',
             '/sale/payment-in': 'paymentIn',
             '/sale/return': 'saleReturn',
             '/sale/quotation': 'estimateQuotation',
@@ -497,6 +498,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             '/top-products': 'topProducts',
             '/shortage-registry': 'shortageRegistry',
             '/purchase': 'purchaseBills',
+              '/purchase/invoice': 'purchaseBills',
             '/purchase/return': 'purchaseReturn',
             '/purchase/payment-out': 'paymentOut',
             '/purchase/order': 'purchaseOrder',

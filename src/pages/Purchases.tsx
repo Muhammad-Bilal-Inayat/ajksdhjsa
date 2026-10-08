@@ -273,8 +273,7 @@ export const Purchases: React.FC = () => {
         setPrefillOrderId(undefined);
         setIsAddPaymentOutOpen(true);
       } else {
-        setEditingOrder(null);
-        setIsAddModalOpen(true);
+        navigate('/purchase/invoice');
       }
     }
 
@@ -283,8 +282,7 @@ export const Purchases: React.FC = () => {
         showToast(`🔒 Access Restricted: Your role (${activeRole}) is not permitted to create purchase bills.`);
         return;
       }
-      setEditingOrder(null);
-      setIsAddModalOpen(true);
+      navigate('/purchase/invoice');
     };
 
     window.addEventListener('mbi-open-add-purchase', handleOpenPurchase);
@@ -1268,8 +1266,7 @@ export const Purchases: React.FC = () => {
                   setPrefillOrderId(undefined);
                   setIsAddPaymentOutOpen(true);
                 } else {
-                  setEditingOrder(null);
-                  setIsAddModalOpen(true);
+                  navigate('/purchase/invoice');
                 }
               }}
               className={`inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-black shadow-md hover:shadow-lg focus:outline-none focus:ring-2 transition-all active:scale-95 cursor-pointer text-white shrink-0 ml-auto sm:ml-0 whitespace-nowrap ${

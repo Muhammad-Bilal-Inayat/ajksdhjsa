@@ -637,7 +637,7 @@ export const MbiAiRecommendationWidget: React.FC<PharmacyErpWidgetProps> = ({ me
 
           <button
             type="button"
-            onClick={() => onNavigate && onNavigate('/purchases')}
+            onClick={() => onNavigate && onNavigate('/purchase/invoice')}
             className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-xs cursor-pointer active:scale-98"
           >
             <span>View Purchase Orders</span>
@@ -746,7 +746,7 @@ export const QuickActionsGridWidget: React.FC<PharmacyErpWidgetProps> = ({ onNav
         {/* 1. New Sale */}
         <button
           type="button"
-          onClick={() => (onOpenPOS ? onOpenPOS() : onNavigate && onNavigate('/billing'))}
+          onClick={() => (onNavigate ? onNavigate('/sale/invoice') : (onOpenPOS ? onOpenPOS() : undefined))}
           className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200/60 dark:border-rose-900/50 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer font-bold text-xs"
         >
           <Receipt className="w-4 h-4 text-rose-500" />
@@ -756,7 +756,7 @@ export const QuickActionsGridWidget: React.FC<PharmacyErpWidgetProps> = ({ onNav
         {/* 2. New Purchase */}
         <button
           type="button"
-          onClick={() => onNavigate && onNavigate('/purchases')}
+          onClick={() => onNavigate && onNavigate('/purchase/invoice')}
           className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 border border-blue-200/60 dark:border-blue-900/50 flex flex-col items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer font-bold text-xs"
         >
           <ShoppingCart className="w-4 h-4 text-blue-500" />

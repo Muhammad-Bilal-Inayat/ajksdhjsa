@@ -2549,7 +2549,7 @@ export function evaluatePermission(params: {
       return false;
     }
   }
-  const isPrimaryOrOwner = role === 'Primary Admin' || role === 'Secondary Admin' || role === 'Admin' || role === 'Owner' || role === 'Store Owner' || role === 'Company Tenant' || role === 'Master Admin';
+  const isPrimaryOrOwner = role === 'Primary Admin' || role === 'Secondary Admin' || role === 'Admin' || (role as string) === 'Owner' || (role as string) === 'Store Owner' || (role as string) === 'Company Tenant' || (role as string) === 'Master Admin';
 
   if (!isPrimaryOrOwner) {
     if (menuId === 'onlineStore' && !hasPlanFeature('online_storefront', plan, tenantId)) {
@@ -2694,6 +2694,8 @@ export function checkGranularRouteAccess(
     { prefix: '/items', menuId: 'items', submenuId: 'inventoryList', functionId: 'addEditItems', label: 'Products & Inventory' },
     { prefix: '/shortage-registry', menuId: 'items', submenuId: 'shortageRegistry', functionId: 'manageShortageRegistry', label: 'Shortage Registry' },
     { prefix: '/top-products', menuId: 'items', submenuId: 'topProducts', functionId: 'viewTopProducts', label: 'Top Products Analytics' },
+    { prefix: '/sale/invoice', menuId: 'sale', submenuId: 'saleInvoices', functionId: 'createSale', label: 'Sale Invoices & POS' },
+    { prefix: '/sale/inward', menuId: 'sale', submenuId: 'saleInvoices', functionId: 'createSale', label: 'Sale Invoices & POS' },
     { prefix: '/sale/invoices', menuId: 'sale', submenuId: 'saleInvoices', functionId: 'createSale', label: 'Sale Invoices & POS' },
     { prefix: '/sale/quotation', menuId: 'sale', submenuId: 'estimateQuotation', functionId: 'manageQuotations', label: 'Estimates & Quotations' },
     { prefix: '/sale/estimate', menuId: 'sale', submenuId: 'estimateQuotation', functionId: 'manageQuotations', label: 'Estimates & Quotations' },
@@ -2703,6 +2705,9 @@ export function checkGranularRouteAccess(
     { prefix: '/sale/return', menuId: 'sale', submenuId: 'saleReturn', functionId: 'processReturn', label: 'Sale Returns' },
     { prefix: '/sale', menuId: 'sale', submenuId: 'saleInvoices', functionId: 'createSale', label: 'Sale Module' },
     { prefix: '/shift-management', menuId: 'shiftManagement', submenuId: 'shiftOperations', functionId: 'manageShifts', label: 'Cashier Shifts & POS' },
+    { prefix: '/purchase/invoice', menuId: 'purchase', submenuId: 'purchaseBills', functionId: 'createPurchase', label: 'Purchase Inward Bill' },
+    { prefix: '/purchase/inward', menuId: 'purchase', submenuId: 'purchaseBills', functionId: 'createPurchase', label: 'Purchase Inward Bill' },
+    { prefix: '/purchase/bills', menuId: 'purchase', submenuId: 'purchaseBills', functionId: 'createPurchase', label: 'Purchase Bills' },
     { prefix: '/purchase/payment-out', menuId: 'purchase', submenuId: 'paymentOut', functionId: 'makePayment', label: 'Supplier Payment Out' },
     { prefix: '/purchase/order', menuId: 'purchase', submenuId: 'purchaseOrder', functionId: 'managePurchaseOrders', label: 'Purchase Orders' },
     { prefix: '/purchase/return', menuId: 'purchase', submenuId: 'purchaseReturn', functionId: 'processPurchaseReturn', label: 'Purchase Return Debit Note' },

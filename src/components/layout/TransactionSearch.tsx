@@ -354,7 +354,7 @@ export const TransactionSearch: React.FC = () => {
         shortcut: 'Alt + S',
         badge: 'POS Sale',
         action: () => {
-          navigate('/sale/invoices?action=add');
+          navigate('/sale/invoice');
         }
       },
       {
@@ -373,7 +373,7 @@ export const TransactionSearch: React.FC = () => {
             toast.error(`🔒 Action Locked: Your role (${activeRole}) cannot create purchase bills.`);
             return;
           }
-          navigate('/purchase?action=add');
+          navigate('/purchase/invoice');
         }
       },
       {

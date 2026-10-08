@@ -19,6 +19,10 @@ import { addPurchaseStockToMedicine } from '../lib/stockRotationEngine';
 import { v4 as uuidv4 } from 'uuid';
 import { emitToast } from '../contexts/ToastContext';
 
+// In-memory shared catalog cache for 0ms instant loading
+let cachedPurchaseSuppliers: Supplier[] = [];
+let cachedPurchaseMedicines: Medicine[] = [];
+
 export const PurchaseInvoicePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,10 +30,10 @@ export const PurchaseInvoicePage: React.FC = () => {
   const { business, currentUser, activeUser, activeRole, canPerform, canAccess } = useAuth();
   const { settings } = useSettings();
 
-  // Suppliers & Catalog
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Suppliers & Catalog (Instant 0ms from in-memory cache)
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => cachedPurchaseSuppliers);
+  const [medicines, setMedicines] = useState<Medicine[]>(() => cachedPurchaseMedicines);
+  const [isLoading, setIsLoading] = useState(() => cachedPurchaseMedicines.length === 0);
 
   // Modals
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
@@ -93,21 +97,49 @@ export const PurchaseInvoicePage: React.FC = () => {
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load Data
+  // Load Data with Live Real-Time Catalog Sync
   useEffect(() => {
+    let isMounted = true;
     const loadAll = async () => {
       try {
         const [loadedSuppliers, loadedMeds] = await Promise.all([
           dbSuppliers.getAll(),
           dbMedicines.getAll()
         ]);
-        setSuppliers(loadedSuppliers || []);
-        setMedicines(loadedMeds || []);
+        if (!isMounted) return;
+        cachedPurchaseSuppliers = loadedSuppliers || [];
+        cachedPurchaseMedicines = loadedMeds || [];
+        setSuppliers(cachedPurchaseSuppliers);
+        setMedicines(cachedPurchaseMedicines);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     loadAll();
+
+    // Real-Time 0ms Event Listeners: Sync catalog when new items or suppliers are saved
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key && (e.key.includes('item') || e.key.includes('med') || e.key.includes('supp') || e.key.includes('part') || e.key.includes('sync'))) {
+        loadAll();
+      }
+    };
+
+    window.addEventListener('mbi-medicines-updated', loadAll);
+    window.addEventListener('mbi-items-updated', loadAll);
+    window.addEventListener('mbi-parties-updated', loadAll);
+    window.addEventListener('mbi-suppliers-updated', loadAll);
+    window.addEventListener('mbi-data-synced', loadAll);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('mbi-medicines-updated', loadAll);
+      window.removeEventListener('mbi-items-updated', loadAll);
+      window.removeEventListener('mbi-parties-updated', loadAll);
+      window.removeEventListener('mbi-suppliers-updated', loadAll);
+      window.removeEventListener('mbi-data-synced', loadAll);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Keyboard Shortcuts (F2: focus search, F12: shortcuts, Ctrl+P: print)
@@ -381,6 +413,8 @@ export const PurchaseInvoicePage: React.FC = () => {
         window.dispatchEvent(new CustomEvent('mbi-stock-updated'));
         window.dispatchEvent(new CustomEvent('mbi-medicines-updated'));
         window.dispatchEvent(new CustomEvent('mbi-purchases-updated'));
+        window.dispatchEvent(new CustomEvent('dashboard-metrics-updated'));
+        window.dispatchEvent(new CustomEvent('mbi-dashboard-updated'));
         window.dispatchEvent(new CustomEvent('mbi-data-synced', { detail: { storeName: 'purchaseOrders' } }));
         window.dispatchEvent(new CustomEvent('mbi-local-db-change', { detail: { store: 'purchaseOrders' } }));
       }

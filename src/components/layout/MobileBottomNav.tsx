@@ -174,7 +174,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 {/* + Sale */}
                 <button
                   type="button"
-                  onClick={() => handleAction('/billing?action=add', 'mbi-open-add-sale')}
+                  onClick={() => handleAction('/sale/invoice', 'mbi-open-add-sale')}
                   className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-rose-500 to-red-600 text-white shadow-md shadow-rose-500/25 active:scale-95 transition-transform cursor-pointer"
                 >
                   <FileText className="w-5 h-5 mb-1 stroke-[2.2]" />
@@ -184,7 +184,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 {/* POS Fast */}
                 <button
                   type="button"
-                  onClick={() => handleAction('/billing?mode=fast&action=add', 'mbi-open-fast-pos')}
+                  onClick={() => handleAction('/sale/invoice', 'mbi-open-fast-pos')}
                   className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-amber-500 to-orange-600 text-white shadow-md shadow-orange-500/25 active:scale-95 transition-transform cursor-pointer"
                 >
                   <Zap className="w-5 h-5 mb-1 stroke-[2.2]" />
@@ -194,7 +194,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 {/* + Purchase */}
                 <button
                   type="button"
-                  onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
+                  onClick={() => handleAction('/purchase/invoice', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
                   className={`flex flex-col items-center justify-center p-2.5 rounded-2xl text-white shadow-md active:scale-95 transition-transform cursor-pointer ${
                     !isPurchaseRoleAllowed
                       ? 'bg-gradient-to-b from-slate-500 to-slate-600 opacity-75'
@@ -239,7 +239,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Sale invoices */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/billing?action=add', 'mbi-open-add-sale')}
+                    onClick={() => handleAction('/sale/invoice', 'mbi-open-add-sale')}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
                     <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-100 dark:border-sky-900/40 shadow-2xs group-active:scale-90 transition-transform shrink-0">
@@ -369,7 +369,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   {/* Purchase */}
                   <button
                     type="button"
-                    onClick={() => handleAction('/purchase?action=add', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
+                    onClick={() => handleAction('/purchase/invoice', 'mbi-open-add-purchase', isPurchaseRoleAllowed, `🔒 Purchase Locked: Your role (${activeRole}) cannot create purchase bills.`)}
                     className="w-full flex flex-col items-center group cursor-pointer focus:outline-none p-1 rounded-xl transition-all active:scale-95"
                   >
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border shadow-2xs group-active:scale-90 transition-transform shrink-0 relative ${

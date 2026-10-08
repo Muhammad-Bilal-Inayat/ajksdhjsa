@@ -176,8 +176,7 @@ export const Billing: React.FC = () => {
     if (activeSubView === 'payment-in') {
       setIsAddPaymentInOpen(true);
     } else {
-      setEditingInvoice(null);
-      setIsAddSaleOpen(true);
+      navigate('/sale/invoice');
     }
   };
 

@@ -210,13 +210,7 @@ export const Header: React.FC<HeaderProps> = ({
               {canSale && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (openTransaction) {
-                      openTransaction('Sale');
-                    } else {
-                      navigate('/sale/invoices?action=add');
-                    }
-                  }}
+                  onClick={() => { navigate('/sale/invoice'); }}
                   className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:from-blue-700 active:to-indigo-800 dark:bg-none dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-xs font-black rounded-xl shadow-sm hover:shadow-md dark:border dark:border-blue-400/60 dark:shadow-sm dark:shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none shrink-0"
                   title="Create New Sale Invoice (Alt + S)"
                 >
@@ -229,13 +223,7 @@ export const Header: React.FC<HeaderProps> = ({
               {canPurchase && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (openTransaction) {
-                      openTransaction('Purchase');
-                    } else {
-                      navigate('/purchase?action=add');
-                    }
-                  }}
+                  onClick={() => { navigate('/purchase/invoice'); }}
                   className="px-3 sm:px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 active:from-emerald-700 active:to-teal-800 dark:bg-none dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white dark:text-white text-xs font-black rounded-xl shadow-sm hover:shadow-md dark:border dark:border-emerald-400/60 dark:shadow-sm dark:shadow-emerald-500/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 select-none shrink-0"
                   title="Create New Purchase Bill (Alt + B)"
                 >

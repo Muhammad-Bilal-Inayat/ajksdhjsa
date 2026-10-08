@@ -157,11 +157,7 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
   const displayRole = activeRole || userProfile?.role || 'Primary Admin';
 
   const handleTriggerPOS = () => {
-    if (onOpenPOS) {
-      onOpenPOS();
-    } else {
-      navigate('/billing');
-    }
+    navigate('/sale/invoice');
   };
 
   return (
@@ -193,7 +189,7 @@ export const MobileDashboardView: React.FC<MobileDashboardViewProps> = ({
           ) : (
             <button
               type="button"
-              onClick={() => navigate('/billing')}
+              onClick={() => navigate('/sale/invoice')}
               className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors cursor-pointer"
               title="Scan Barcode"
             >

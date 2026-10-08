@@ -20,15 +20,19 @@ import { v4 as uuidv4 } from 'uuid';
 import { emitToast } from '../contexts/ToastContext';
 import { dispatchWhatsAppInvoice } from '../lib/whatsappAutomationService';
 
+// In-memory shared catalog cache for 0ms instant loading
+let cachedSaleParties: Party[] = [];
+let cachedSaleMedicines: Medicine[] = [];
+
 export const SaleInvoicePage: React.FC = () => {
   const navigate = useNavigate();
   const { business, currentUser, activeUser } = useAuth();
   const { settings } = useSettings();
 
-  // Parties & Catalog
-  const [parties, setParties] = useState<Party[]>([]);
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Parties & Catalog (Instant 0ms from in-memory cache)
+  const [parties, setParties] = useState<Party[]>(() => cachedSaleParties);
+  const [medicines, setMedicines] = useState<Medicine[]>(() => cachedSaleMedicines);
+  const [isLoading, setIsLoading] = useState(() => cachedSaleMedicines.length === 0);
 
   // Modals
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
@@ -81,21 +85,47 @@ export const SaleInvoicePage: React.FC = () => {
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load Data
+  // Load Data with Live Real-Time Catalog Sync
   useEffect(() => {
+    let isMounted = true;
     const loadAll = async () => {
       try {
         const [loadedParties, loadedMeds] = await Promise.all([
           dbSuppliers.getAll(),
           dbMedicines.getAll()
         ]);
-        setParties(loadedParties || []);
-        setMedicines(loadedMeds || []);
+        if (!isMounted) return;
+        cachedSaleParties = loadedParties || [];
+        cachedSaleMedicines = loadedMeds || [];
+        setParties(cachedSaleParties);
+        setMedicines(cachedSaleMedicines);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
     loadAll();
+
+    // Real-Time 0ms Event Listeners: Sync catalog when new items or parties are saved
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key && (e.key.includes('item') || e.key.includes('med') || e.key.includes('part') || e.key.includes('sync'))) {
+        loadAll();
+      }
+    };
+
+    window.addEventListener('mbi-medicines-updated', loadAll);
+    window.addEventListener('mbi-items-updated', loadAll);
+    window.addEventListener('mbi-parties-updated', loadAll);
+    window.addEventListener('mbi-data-synced', loadAll);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('mbi-medicines-updated', loadAll);
+      window.removeEventListener('mbi-items-updated', loadAll);
+      window.removeEventListener('mbi-parties-updated', loadAll);
+      window.removeEventListener('mbi-data-synced', loadAll);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Keyboard Shortcuts (F2: focus search, F12: shortcuts, Ctrl+P: print)

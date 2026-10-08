@@ -34,7 +34,7 @@ import { Toaster } from 'react-hot-toast';
 
 import { PendingApproval } from './components/PendingApproval';
 
-// Resilient code-splitting wrapper with automatic cache-clearing retry and offline fallback
+// Resilient code-splitting wrapper with automatic cache-clearing retry and fallback
 function lazyWithRetry<T extends React.ComponentType<any> = React.ComponentType<any>>(
   componentImport: () => Promise<{ default?: T; [key: string]: any }>
 ): React.LazyExoticComponent<T> {
@@ -56,22 +56,36 @@ function lazyWithRetry<T extends React.ComponentType<any> = React.ComponentType<
     } catch (firstError: any) {
       console.warn('[MBI Dynamic Import Retry]', firstError?.message);
       try {
-        await new Promise(res => setTimeout(res, 250));
+        await new Promise(res => setTimeout(res, 200));
         const retryModule: any = await componentImport();
         if (retryModule && retryModule.default) return { default: retryModule.default };
+        if (retryModule && typeof retryModule === 'object') {
+          for (const k of Object.keys(retryModule)) {
+            if (typeof retryModule[k] === 'function' || (typeof retryModule[k] === 'object' && retryModule[k] !== null)) {
+              return { default: retryModule[k] };
+            }
+          }
+        }
         return { default: retryModule as unknown as T };
       } catch (retryError: any) {
         console.warn('[MBI Dynamic Import Notice]', retryError?.message);
+        try {
+          const finalModule: any = await componentImport();
+          if (finalModule) {
+            return { default: finalModule.default || finalModule };
+          }
+        } catch {}
+
         return {
           default: (() => (
             <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
-              <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 max-w-sm shadow-xl space-y-3">
-                <p className="text-xs text-slate-300 font-medium">Session refreshed. Click to reload screen.</p>
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 max-w-sm shadow-xl space-y-3">
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium">Screen updated. Click to refresh view.</p>
                 <button 
                   onClick={() => window.location.reload()}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
                 >
-                  Reload Screen
+                  Refresh View
                 </button>
               </div>
             </div>
@@ -140,6 +154,40 @@ const SoftwareUpdatesPage = lazyWithRetry(() => import('./pages/SoftwareUpdatesP
 const AiAssistantPage = lazyWithRetry(() => import('./pages/AiAssistantPage').then(m => ({ default: m.AiAssistantPage })));
 
 import { RouteSkeletonLoader } from './components/common/RouteSkeletonLoader';
+
+// Preload all critical pages in the background on idle / after first mount for 0ms transitions
+export function preloadCriticalRoutes() {
+  if (typeof window === 'undefined') return;
+  const preloadList = [
+    () => import('./pages/SaleInvoicePage'),
+    () => import('./pages/PurchaseInvoicePage'),
+    () => import('./pages/Billing'),
+    () => import('./pages/Purchases'),
+    () => import('./pages/Inventory'),
+    () => import('./pages/Suppliers'),
+    () => import('./pages/Expenses'),
+    () => import('./pages/Bank'),
+    () => import('./pages/Reports'),
+    () => import('./pages/Settings'),
+    () => import('./pages/ShortageRegistry'),
+    () => import('./pages/TopProducts'),
+    () => import('./pages/CustomerKhataPage'),
+    () => import('./pages/SupplierKhataPage'),
+    () => import('./pages/LedgersStatementsPage')
+  ];
+
+  const trigger = () => {
+    preloadList.forEach(loader => {
+      try { loader().catch(() => {}); } catch {}
+    });
+  };
+
+  if ('requestIdleCallback' in window) {
+    (window as any).requestIdleCallback(trigger, { timeout: 1200 });
+  } else {
+    setTimeout(trigger, 300);
+  }
+}
 
 // Lightweight, instant suspense skeleton loader
 function RouteLoader() {
@@ -294,7 +342,7 @@ function RoleAccessGuard({ children }: { children: React.ReactNode }) {
     tenantId: tenant?.tenantId || tenant?.id || tenantId
   });
 
-  const isPrimaryOwnerRole = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || activeRole === 'Owner' || activeRole === 'Store Owner' || activeRole === 'Company Tenant';
+  const isPrimaryOwnerRole = activeRole === 'Primary Admin' || activeRole === 'Secondary Admin' || activeRole === 'Admin' || (activeRole as string) === 'Owner' || (activeRole as string) === 'Store Owner' || (activeRole as string) === 'Company Tenant';
 
   // Primary Admin & Tenant Owner have full access to company modules and reports
   const isAllowed = isMasterUser || (granularCheck.isAllowed && (isPrimaryOwnerRole || isRoleAllowed)) || (isPrimaryOwnerRole && !location.pathname.startsWith('/master'));
@@ -630,7 +678,10 @@ export default function App() {
           }
         }
       } catch {}
-    }, 1000);
+
+      // Background Preload Critical Routes for Instant 0ms Navigation
+      preloadCriticalRoutes();
+    }, 400);
 
     return () => clearTimeout(timer);
   }, []);

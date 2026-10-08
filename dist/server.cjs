@@ -21127,6 +21127,9 @@ async function startServer() {
     app.use(vite.middlewares);
   }
   app.use((err, req, res, next) => {
+    if (err?.type === "request.aborted" || err?.message === "request aborted" || err?.code === "ECONNABORTED" || err?.code === "ECONNRESET" || err?.code === "ERR_STREAM_PREMATURE_CLOSE" || req.destroyed) {
+      return;
+    }
     console.error("[EXPRESS ROUTE ERROR CATCHER]:", err?.message || err);
     if (!res.headersSent) {
       res.status(500).json({

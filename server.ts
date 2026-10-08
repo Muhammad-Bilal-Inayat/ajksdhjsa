@@ -3162,6 +3162,18 @@ async function startServer() {
 
   // Global Express Error Interceptor (Prevents 500/503 unhandled pipeline crashes)
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Gracefully ignore normal client aborts, tab refreshes, and rapid navigation
+    if (
+      err?.type === 'request.aborted' ||
+      err?.message === 'request aborted' ||
+      err?.code === 'ECONNABORTED' ||
+      err?.code === 'ECONNRESET' ||
+      err?.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+      req.destroyed
+    ) {
+      return;
+    }
+
     console.error('[EXPRESS ROUTE ERROR CATCHER]:', err?.message || err);
     if (!res.headersSent) {
       res.status(500).json({

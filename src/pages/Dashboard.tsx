@@ -991,9 +991,9 @@ export const Dashboard: React.FC = () => {
         const shiftCash = Number((activeCashierShift as any)?.cashBalance ?? activeCashierShift?.openingCash ?? activeCashierShift?.openingBalance);
         if (!isNaN(shiftCash) && shiftCash > 0) return shiftCash;
       }
-      const cashAccount = (bankAccounts || []).find(b => b.isCash || b.accountType === 'Cash' || b.accountName?.toLowerCase().includes('cash'));
-      if (cashAccount && Number(cashAccount.balance ?? (cashAccount as any).currentBalance) > 0) {
-        return Number(cashAccount.balance ?? (cashAccount as any).currentBalance);
+      const cashAccount: any = (bankAccounts || []).find((b: any) => b.isCash || b.accountType === 'Cash' || b.accountName?.toLowerCase().includes('cash'));
+      if (cashAccount && Number(cashAccount.balance ?? cashAccount.currentBalance ?? cashAccount.openingBalance) > 0) {
+        return Number(cashAccount.balance ?? cashAccount.currentBalance ?? cashAccount.openingBalance);
       }
       return Math.max(0, (todayMetrics.todaySale || 0) - (todayMetrics.todayExpenses || 0));
     } catch {

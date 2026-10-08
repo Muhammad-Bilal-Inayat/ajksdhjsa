@@ -1392,7 +1392,7 @@ export function setTenantQuotaOverride(
   meta?: { name?: string; storeName?: string; plan?: string; targetType?: 'tenant' | 'user' }
 ) {
   const quotas = loadTenantQuotas();
-  const existing = quotas[targetId] || {};
+  const existing: any = quotas[targetId] || {};
   quotas[targetId] = {
     ...existing,
     targetId,
